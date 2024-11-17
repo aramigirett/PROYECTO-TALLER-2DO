@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+
+{% block titulo %}
+    LP3 
+{% endblock %}
+
+{% block contenido %}
+<div>
+    <!-- Mostrar la imagen en el contenido -->
+    <img src="{{ url_for('static', filename='img/miimagencita.jpg') }}" alt="Mi imagen" style="width: 100%; height:auto;">
+</div>
+{% endblock %}
+
+<style>
+    body {
+        background-image: url("{{ url_for('static', filename='img/miimagencita.jpg') }}");
+        background-position: center;
+        background-repeat: no-repeat;
+        background-size: cover;
+        height: 100vh;
+        margin: 0;
+        padding: 0;
+    }
+</style>
