@@ -7,7 +7,7 @@ class DuracionConsultaDao:
     def getDuracionConsultas(self):
 
         duracionconsultaSQL = """
-        SELECT id, descripcion
+        SELECT id_duracion, descripcion
         FROM duracion_consulta
         """
         # objeto conexion
@@ -19,7 +19,7 @@ class DuracionConsultaDao:
             duracionconsultas = cur.fetchall() # trae datos de la bd
 
             # Transformar los datos en una lista de diccionarios
-            return [{'id': duracionconsulta[0], 'descripcion': duracionconsulta[1]} for duracionconsulta in duracionconsultas]
+            return [{'id_duracion': duracionconsulta[0], 'descripcion': duracionconsulta[1]} for duracionconsulta in duracionconsultas]
 
         except Exception as e:
             app.logger.error(f"Error al obtener todos las Duraciones de Consultas: {str(e)}")
@@ -32,8 +32,8 @@ class DuracionConsultaDao:
     def getDuracionConsultaById(self, id):
 
         duracionconsultaSQL = """
-        SELECT id, descripcion
-        FROM duracion_consulta WHERE id=%s
+        SELECT id_duracion, descripcion
+        FROM duracion_consulta WHERE id_duracion=%s
         """
         # objeto conexion
         conexion = Conexion()
@@ -44,7 +44,7 @@ class DuracionConsultaDao:
             duracionconsultaEncontrada = cur.fetchone() # Obtener una sola fila
             if duracionconsultaEncontrada:
                 return {
-                        "id": duracionconsultaEncontrada[0],
+                        "id_duracion": duracionconsultaEncontrada[0],
                         "descripcion": duracionconsultaEncontrada[1]
                     }  # Retornar los datos de las duraciones de consultas
             else:
@@ -60,7 +60,7 @@ class DuracionConsultaDao:
     def guardarDuracionConsulta(self, descripcion):
 
         insertDuracionConsultaSQL = """
-        INSERT INTO duracion_consulta(descripcion) VALUES(%s) RETURNING id
+        INSERT INTO duracion_consulta(descripcion) VALUES(%s) RETURNING id_duracion
         """
 
         conexion = Conexion()
@@ -90,7 +90,7 @@ class DuracionConsultaDao:
         updateDuracionConsultaSQL = """
         UPDATE duracion_consulta
         SET descripcion=%s
-        WHERE id=%s
+        WHERE id_duracion=%s
         """
 
         conexion = Conexion()
@@ -117,7 +117,7 @@ class DuracionConsultaDao:
 
         updateDuracionConsultaSQL = """
         DELETE FROM duracion_consulta
-        WHERE id=%s
+        WHERE id_duracion=%s
         """
 
         conexion = Conexion()

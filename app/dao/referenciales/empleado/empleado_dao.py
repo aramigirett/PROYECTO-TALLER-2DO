@@ -2,65 +2,70 @@
 from flask import current_app as app
 from app.conexion.Conexion import Conexion
 
-class SexoDao:
+class EmpleadoDao:
 
-    def getSexos(self):
+    def get_empleados(self):
 
-        sexoSQL = """
-        SELECT id, descripcion
-        FROM sexos
+        emp_sql = """
+        SELECT
+            e.id_empleado
+            , CONCAT(p.nombres,' ',p.apellidos) empleado
+            , p.ci
+        FROM empleados e
+            LEFT JOIN personas p
+        ON e.id_empleado = p.id_persona
         """
         # objeto conexion
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(sexoSQL)
-            sexos = cur.fetchall() # trae datos de la bd
+            cur.execute(emp_sql)
+            empleados = cur.fetchall() # trae datos de la bd
 
             # Transformar los datos en una lista de diccionarios
-            return [{'id': sexo[0], 'descripcion': sexo[1]} for sexo in sexos]
+            return [{'id_empleado': empleado[0], 'empleado': empleado[1], 'ci': empleado[2]} for empleado in empleados]
 
         except Exception as e:
-            app.logger.error(f"Error al obtener todos los sexos: {str(e)}")
+            app.logger.error(f"Error al obtener todas las sucursales: {str(e)}")
             return []
 
         finally:
             cur.close()
             con.close()
 
-    def getSexoById(self, id):
+    def getCiudadById(self, id):
 
-        sexoSQL = """
+        ciudadSQL = """
         SELECT id, descripcion
-        FROM sexos WHERE id=%s
+        FROM ciudades WHERE id=%s
         """
         # objeto conexion
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(sexoSQL, (id,))
-            sexoEncontrada = cur.fetchone() # Obtener una sola fila
-            if sexoEncontrada:
+            cur.execute(ciudadSQL, (id,))
+            ciudadEncontrada = cur.fetchone() # Obtener una sola fila
+            if ciudadEncontrada:
                 return {
-                        "id": sexoEncontrada[0],
-                        "descripcion": sexoEncontrada[1]
-                    }  # Retornar los datos de la tabla sexo
+                        "id": ciudadEncontrada[0],
+                        "descripcion": ciudadEncontrada[1]
+                    }  # Retornar los datos de la ciudad
             else:
-                return None # Retornar None si no se encuentra la tabla sexo
+                return None # Retornar None si no se encuentra la ciudad
         except Exception as e:
-            app.logger.error(f"Error al obtener el sexo: {str(e)}")
+            app.logger.error(f"Error al obtener ciudad: {str(e)}")
             return None
 
         finally:
             cur.close()
             con.close()
 
-    def guardarSexo(self, descripcion):
+    def guardarCiudad(self, descripcion):
 
-        insertSexoSQL = """
-        INSERT INTO sexos(descripcion) VALUES(%s) RETURNING id
+        insertCiudadSQL = """
+        INSERT INTO ciudades(descripcion) VALUES(%s) RETURNING id
         """
 
         conexion = Conexion()
@@ -69,14 +74,14 @@ class SexoDao:
 
         # Ejecucion exitosa
         try:
-            cur.execute(insertSexoSQL, (descripcion,))
-            sexo_id = cur.fetchone()[0]
+            cur.execute(insertCiudadSQL, (descripcion,))
+            ciudad_id = cur.fetchone()[0]
             con.commit() # se confirma la insercion
-            return sexo_id
+            return ciudad_id
 
         # Si algo fallo entra aqui
         except Exception as e:
-            app.logger.error(f"Error al insertar el sexo: {str(e)}")
+            app.logger.error(f"Error al insertar ciudad: {str(e)}")
             con.rollback() # retroceder si hubo error
             return False
 
@@ -85,10 +90,10 @@ class SexoDao:
             cur.close()
             con.close()
 
-    def updateSexo(self, id, descripcion):
+    def updateCiudad(self, id, descripcion):
 
-        updateSexoSQL = """
-        UPDATE sexos
+        updateCiudadSQL = """
+        UPDATE ciudades
         SET descripcion=%s
         WHERE id=%s
         """
@@ -98,14 +103,14 @@ class SexoDao:
         cur = con.cursor()
 
         try:
-            cur.execute(updateSexoSQL, (descripcion, id,))
+            cur.execute(updateCiudadSQL, (descripcion, id,))
             filas_afectadas = cur.rowcount # Obtener el número de filas afectadas
             con.commit()
 
             return filas_afectadas > 0 # Retornar True si se actualizó al menos una fila
 
         except Exception as e:
-            app.logger.error(f"Error al actualizar el sexo: {str(e)}")
+            app.logger.error(f"Error al actualizar ciudad: {str(e)}")
             con.rollback()
             return False
 
@@ -113,10 +118,10 @@ class SexoDao:
             cur.close()
             con.close()
 
-    def deleteSexo(self, id):
+    def deleteCiudad(self, id):
 
-        updateSexoSQL = """
-        DELETE FROM sexos
+        updateCiudadSQL = """
+        DELETE FROM ciudades
         WHERE id=%s
         """
 
@@ -125,14 +130,14 @@ class SexoDao:
         cur = con.cursor()
 
         try:
-            cur.execute(updateSexoSQL, (id,))
+            cur.execute(updateCiudadSQL, (id,))
             rows_affected = cur.rowcount
             con.commit()
 
             return rows_affected > 0  # Retornar True si se eliminó al menos una fila
 
         except Exception as e:
-            app.logger.error(f"Error al eliminar el sexo: {str(e)}")
+            app.logger.error(f"Error al eliminar ciudad: {str(e)}")
             con.rollback()
             return False
 

@@ -7,7 +7,7 @@ class DiagnosticoDao:
     def getDiagnosticos(self):
 
         diagnosticoSQL = """
-        SELECT id, descripcion
+        SELECT id_diagnostico, descripcion
         FROM diagnosticos
         """
         # objeto conexion
@@ -19,7 +19,7 @@ class DiagnosticoDao:
             diagnosticos = cur.fetchall() # trae datos de la bd
 
             # Transformar los datos en una lista de diccionarios
-            return [{'id': diagnostico[0], 'descripcion': diagnostico[1]} for diagnostico in diagnosticos]
+            return [{'id_diagnostico': diagnostico[0], 'descripcion': diagnostico[1]} for diagnostico in diagnosticos]
 
         except Exception as e:
             app.logger.error(f"Error al obtener todas las diagnosticos: {str(e)}")
@@ -32,8 +32,8 @@ class DiagnosticoDao:
     def getDiagnosticoById(self, id):
 
         diagnosticoSQL = """
-        SELECT id, descripcion
-        FROM diagnosticos WHERE id=%s
+        SELECT id_diagnostico, descripcion
+        FROM diagnosticos WHERE id_diagnostico=%s
         """
         # objeto conexion
         conexion = Conexion()
@@ -44,7 +44,7 @@ class DiagnosticoDao:
             diagnosticoEncontrado = cur.fetchone() # Obtener una sola fila
             if diagnosticoEncontrado:
                 return {
-                        "id": diagnosticoEncontrado[0],
+                        "id_diagnostico": diagnosticoEncontrado[0],
                         "descripcion": diagnosticoEncontrado[1]
                     }  # Retornar los datos de la diagnostico
             else:
@@ -60,7 +60,7 @@ class DiagnosticoDao:
     def guardarDiagnostico(self, descripcion):
 
         insertDiagnosticoSQL = """
-        INSERT INTO diagnosticos(descripcion) VALUES(%s) RETURNING id
+        INSERT INTO diagnosticos(descripcion) VALUES(%s) RETURNING id_diagnostico
         """
 
         conexion = Conexion()
@@ -90,7 +90,7 @@ class DiagnosticoDao:
         updateDiagnosticoSQL = """
         UPDATE diagnosticos
         SET descripcion=%s
-        WHERE id=%s
+        WHERE id_diagnostico=%s
         """
 
         conexion = Conexion()
@@ -117,7 +117,7 @@ class DiagnosticoDao:
 
         updateDiagnosticoSQL = """
         DELETE FROM diagnosticos
-        WHERE id=%s
+        WHERE id_diagnostico=%s
         """
 
         conexion = Conexion()

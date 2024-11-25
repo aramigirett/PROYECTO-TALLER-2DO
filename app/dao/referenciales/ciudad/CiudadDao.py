@@ -7,7 +7,7 @@ class CiudadDao:
     def getCiudades(self):
 
         ciudadSQL = """
-        SELECT id, descripcion
+        SELECT id_ciudad, descripcion
         FROM ciudades
         """
         # objeto conexion
@@ -19,7 +19,7 @@ class CiudadDao:
             ciudades = cur.fetchall() # trae datos de la bd
 
             # Transformar los datos en una lista de diccionarios
-            return [{'id': ciudad[0], 'descripcion': ciudad[1]} for ciudad in ciudades]
+            return [{'id_ciudad': ciudad[0], 'descripcion': ciudad[1]} for ciudad in ciudades]
 
         except Exception as e:
             app.logger.error(f"Error al obtener todas las ciudades: {str(e)}")
@@ -32,8 +32,8 @@ class CiudadDao:
     def getCiudadById(self, id):
 
         ciudadSQL = """
-        SELECT id, descripcion
-        FROM ciudades WHERE id=%s
+        SELECT id_ciudad, descripcion
+        FROM ciudades WHERE id_ciudad=%s
         """
         # objeto conexion
         conexion = Conexion()
@@ -44,7 +44,7 @@ class CiudadDao:
             ciudadEncontrada = cur.fetchone() # Obtener una sola fila
             if ciudadEncontrada:
                 return {
-                        "id": ciudadEncontrada[0],
+                        "id_ciudad": ciudadEncontrada[0],
                         "descripcion": ciudadEncontrada[1]
                     }  # Retornar los datos de la ciudad
             else:
@@ -60,7 +60,7 @@ class CiudadDao:
     def guardarCiudad(self, descripcion):
 
         insertCiudadSQL = """
-        INSERT INTO ciudades(descripcion) VALUES(%s) RETURNING id
+        INSERT INTO ciudades(descripcion) VALUES(%s) RETURNING id_ciudad
         """
 
         conexion = Conexion()
@@ -90,7 +90,7 @@ class CiudadDao:
         updateCiudadSQL = """
         UPDATE ciudades
         SET descripcion=%s
-        WHERE id=%s
+        WHERE id_ciudad=%s
         """
 
         conexion = Conexion()
@@ -117,7 +117,7 @@ class CiudadDao:
 
         updateCiudadSQL = """
         DELETE FROM ciudades
-        WHERE id=%s
+        WHERE id_ciudad=%s
         """
 
         conexion = Conexion()

@@ -7,7 +7,7 @@ class EspecialidadDao:
     def getEspecialidades(self):
 
         especialidadSQL = """
-        SELECT id, descripcion
+        SELECT id_especialidad, descripcion
         FROM especialidades
         """
         # objeto conexion
@@ -19,7 +19,7 @@ class EspecialidadDao:
             especialidades = cur.fetchall() # trae datos de la bd
 
             # Transformar los datos en una lista de diccionarios
-            return [{'id': especialidad[0], 'descripcion': especialidad[1]} for especialidad in especialidades]
+            return [{'id_especialidad': especialidad[0], 'descripcion': especialidad[1]} for especialidad in especialidades]
 
         except Exception as e:
             app.logger.error(f"Error al obtener todas las especialidades: {str(e)}")
@@ -32,8 +32,8 @@ class EspecialidadDao:
     def getEspecialidadById(self, id):
 
         especialidadSQL = """
-        SELECT id, descripcion
-        FROM especialidades WHERE id=%s
+        SELECT id_especialidad, descripcion
+        FROM especialidades WHERE id_especialidad=%s
         """
         # objeto conexion
         conexion = Conexion()
@@ -44,7 +44,7 @@ class EspecialidadDao:
             especialidadEncontrada = cur.fetchone() # Obtener una sola fila
             if especialidadEncontrada:
                 return {
-                        "id": especialidadEncontrada[0],
+                        "id_especialidad": especialidadEncontrada[0],
                         "descripcion": especialidadEncontrada[1]
                     }  # Retornar los datos de la ciudad
             else:
@@ -60,7 +60,7 @@ class EspecialidadDao:
     def guardarEspecialidad(self, descripcion):
 
         insertEspecialidadSQL = """
-        INSERT INTO especialidades(descripcion) VALUES(%s) RETURNING id
+        INSERT INTO especialidades(descripcion) VALUES(%s) RETURNING id_especialidad
         """
 
         conexion = Conexion()
@@ -90,7 +90,7 @@ class EspecialidadDao:
         updateEspecialidadSQL = """
         UPDATE especialidades
         SET descripcion=%s
-        WHERE id=%s
+        WHERE id_especialidad=%s
         """
 
         conexion = Conexion()
@@ -117,7 +117,7 @@ class EspecialidadDao:
 
         updateEspecialidadSQL = """
         DELETE FROM especialidades
-        WHERE id=%s
+        WHERE id_especialidad=%s
         """
 
         conexion = Conexion()

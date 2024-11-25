@@ -1,0 +1,276 @@
+{% extends 'base.html' %}
+
+{% block titulo %}
+Formulario Pedido de Compras
+{% endblock %}
+
+{% block contenido %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h3>Formulario Pedido de Compras</h3>
+        </div>
+        <div class="card-body">
+            <div class="row">
+
+                <div class="col col-md-6">
+
+                  <!-- Combo empleados -->
+                  <div class="form-group">
+                    <label for="cbo_empleado">Empleados:</label>
+                    <select id="cbo_empleado" class="custom-select">
+                      <option selected>Empleados</option>
+                      {% for item in empleados %}
+                        <option value="{{ item['id_empleado'] }}">
+                          {{ item['empleado'] }} - CEDULA: {{ item['ci'] }}
+                        </option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                  <!--  -->
+
+                  <!-- Combo sucursales -->
+                  <div class="form-group">
+                    <label for="cbo_sucursal">Sucursales:</label>
+                    <select id="cbo_sucursal" class="custom-select">
+                      <option value="">Sucursales</option>
+                      {% for item in sucursales %}
+                        <option value="{{ item['id'] }}">
+                          {{ item['descripcion'] }}
+                        </option>
+                      {% endfor %}
+                    </select>
+                  </div>
+
+                  <!--  -->
+                  <div class="form-group">
+                    <label for="txt_fecha_de_pedido">Fecha de Pedido:</label>
+                    <input type="date" class="form-control" id="txt_fecha_de_pedido" />
+                  </div>
+                </div>
+
+                <!-- Combo deposito -->
+                <div class="col col-md-6">
+                    <div class="form-group">
+                      <label for="cbo_deposito">Depósitos:</label>
+                      <select id="cbo_deposito" class="custom-select">
+                        <option value="">Depósitos</option>
+                      </select>
+                    </div>
+                </div>
+                <!--  -->
+            </div>
+
+            <!-- Combo producto -->
+            <div class="form-group row mt-3">
+              <label for="cbo_producto" class="col-md-2 col-form-label">Producto:</label>
+              <div class="col-md-6">
+                  <select id="cbo_producto" class="custom-select">
+                    <option value="">Productos</option>
+                      {% for item in productos %}
+                        <option value="{{ item['id_producto'] }}">
+                          {{ item['nombre'] }}
+                        </option>
+                      {% endfor %}
+                  </select>
+              </div>
+              <div class="col col-md-4">
+                <button type="button" class="btn btn-primary" id="btn_agregar_producto">Agregar</button>
+              </div>
+            </div>
+            <!-- -->
+
+            <!-- Cantidad de producto -->
+            <div class="form-group row mt-3">
+              <label for="txt_cantidad" class="col-md-2 col-form-label">Cantidad:</label>
+              <div class="col-md-2">
+                <input type="number" class="form-control mb-2 mr-md-2" placeholder="Cantidad" id="txt_cantidad" min="0">
+              </div>
+            </div>
+            <!--  -->
+
+            <hr>
+            <div class="row">
+                <div class="col col-md-12">
+                    <table class="table table-hover" id="tbl_productos">
+                        <thead>
+                          <tr>
+                            <th>id</th>
+                            <th>Producto</th>
+                            <th>Precio</th>
+                            <th>Cantidad</th>
+                            <th>Acciones</th>
+                          </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="card-footer">  
+            <button type="button" class="btn btn-outline-primary" id="btn_registrar_pedido">Registrar pedido</button>
+            <button type="button" class="btn btn-outline-warning" id="btn_salir_operacion">Salir de la operación</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script>
+  // variables y constantes globales
+  let acumular_productos = [];
+
+  // Todo lo que provenga del Backend
+  const data_from_server = {
+    productos: {{ productos|tojson }}
+  }
+
+  function creaTr(item) {
+    return `
+      <tr data-id="${item.id_producto}">
+        <td>${item.id_producto}</td>
+        <td>${item.nombre}</td>
+        <td>${item.precio_unitario}</td>
+        <td>${item.cantidad}</td>
+        <td><button type="button" class="eliminar btn btn-warning btn-sm">Eliminar Item</button></td>
+      </tr>
+    `;
+  }
+
+  function obtieneDetalleProductos() {
+    const productos = [];
+    $('#tbl_productos tbody tr').each(function(k, v) {
+      productos.push({
+        id_producto: Number($(v).children().eq(0).text())
+        , cantidad: Number($(v).children().eq(3).text())
+      });
+    });
+    return productos;
+  }
+
+  // Crea los nodos en el combo deposito
+  function actualizarDepositos(depositos) {
+    let options = "<option value=''>Depósitos</option>";
+    for(const item of depositos) {
+      options += `<option value="${item.id_deposito}">${item.nombre_deposito}</option>`;
+    }
+    $('#cbo_deposito').empty().append(options);
+  }
+
+  /**
+  *
+  * Define todos los eventos del formularios
+  *
+  */
+  function addEvents() {
+    $('#cbo_sucursal').on('change', function() {
+      const id_sucursal = $(this).val();
+      if(id_sucursal) {
+        fetch(`/api/v1/sucursal-depositos/${Number(id_sucursal)}`, {
+          method: 'GET',
+          headers: {'Content-Type': 'application/json'}
+        })
+        .then(resp => {
+          if(!resp.ok) {
+            throw new Error(`HTTP error! status: ${resp.status}`);
+          }
+          return resp.json();
+        })
+        .then(data => {
+          if(data && data.data.length > 0) {
+            // Si hay depósitos, los agregamos al select
+            actualizarDepositos(data.data);
+          } else {
+            // Si no hay depósitos, mostramos una opción por defecto
+            $('#cbo_deposito').empty().append("<option value=''>No hay depósitos disponibles</option>");
+          }
+        })
+        .catch(err => {
+          console.error('Fetch error:', err);
+        })
+      }
+    });
+
+    $('#btn_agregar_producto').on('click', function() {
+      // Obtener el id_producto seleccionado
+      const id_producto = $('#cbo_producto').val() ? Number($('#cbo_producto').val()) : null;
+      const cantidad = $('#txt_cantidad').val() ? Number($('#txt_cantidad').val()) : null;
+      // Validar que no sea null
+      if(!id_producto) {
+        Swal.fire("Error", "Debe seleccionar un producto al menos", "error");
+        return; // detener la operación
+      }
+      if(!cantidad) {
+        Swal.fire("Error", "Falta la cantidad", "error");
+        return; // detener la operación
+      }
+      // recuperar los productos de data_from_server
+      const { productos } = data_from_server;
+      // encontrar el producto por id_producto
+      producto_encontrado = productos.find(producto => producto.id_producto === id_producto);
+      // verificar si hay algun producto guardado en acumular_productos
+      // para evitar duplicados
+      if(acumular_productos.includes(producto_encontrado.id_producto)) {
+        Swal.fire("Warning", `El producto ${producto_encontrado.nombre} ya existe`, "error");
+        return; // detener la operación
+      }
+      // agregar la cantidad
+      producto_encontrado.cantidad = cantidad;
+      // si no existe el producto o no está duplicado, se agrega a acumular_productos
+      acumular_productos.push(producto_encontrado.id_producto);
+      // se agrega el producto al la tabla html
+      $('#tbl_productos tbody').append(creaTr(producto_encontrado));
+
+      // se limpia
+      $('#cbo_producto').val("");
+      $('#txt_cantidad').val("");
+    });
+
+    // eliminar item en la tabla de productos
+    $('#tbl_productos tbody').on('click', '.eliminar', function(){
+      const id_producto = Number($(this).closest('tr').data('id'));
+      // eliminar item acumulado
+      acumular_productos = acumular_productos.filter(item => item !== id_producto);
+      // eliminar el tr
+      $(this).closest('tr').remove();
+    });
+
+    $('#btn_registrar_pedido').on('click', function() {
+      // Previamente validado, se debe construir el payload
+      const payload = {
+        id_empleado: Number($('#cbo_empleado').val())
+        , id_sucursal: Number($('#cbo_sucursal').val())
+        , fecha_pedido: $('#txt_fecha_de_pedido').val()
+        , id_deposito: Number($('#cbo_deposito').val())
+        , detalle_pedido: obtieneDetalleProductos()
+      }
+      console.log(payload);
+      fetch(`/api/v1/gestionar-compras/registrar-pedido-compras/pedidos`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }, body: JSON.stringify(payload)
+      })
+      .then(resp => resp.json())
+      .then(data => {
+        if(data && !data.error && data.success) {
+          Swal.fire("Bien", "Pedido Creado.", "success");
+        } else {
+          Swal.fire(data.error);
+        }
+      }).catch(err => {
+        console.error(err);
+        Swal.fire("Error", "Error al crear el pedido.", "error");
+      });
+    });
+
+    // Regresa al index de pedidos
+    $('#btn_salir_operacion').on('click', function() {
+      location.replace("{{ url_for('pdcmod.pedidos_index') }}");
+    });
+  }
+  $(function() {
+    addEvents();
+  });
+</script>
+{% endblock %}

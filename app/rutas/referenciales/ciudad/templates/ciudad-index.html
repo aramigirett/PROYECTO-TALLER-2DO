@@ -11,13 +11,13 @@ Ciudades
     <!-- tarjeta -->
     <div class="card">
       <div class="card-header">
-        <button type="button" class="btn btn-outline-primary" id="btnAgregar">Agregar</button>
+        <button type="button" class="btn btn-outline-info" id="btnAgregar">Agregar</button>
       </div>
       <div class="card-body">
         <table class="table table-striped" id="tbl">
           <thead>
             <tr>
-              <th>Descripción</th>
+              <th>Ciudades</th>
               <th>Acciones</th>
             </tr>
           </thead>
@@ -81,8 +81,8 @@ Ciudades
       columns: [
         { data: 'descripcion' },
         { data: function(row) {
-            return `<button type="button" name="btn_editar" class="btn btn-outline-primary" data-id="${row.id}">Editar</button>
-                    <button type="button" name="btn_eliminar" class="btn btn-outline-warning" data-id="${row.id}">Eliminar</button>`
+            return `<button type="button" name="btn_editar" class="btn btn-info" data-id_ciudad="${row.id_ciudad}">Editar</button>
+                    <button type="button" name="btn_eliminar" class="btn btn-warning" data-id_ciudad="${row.id_ciudad}">Eliminar</button>`
           }
         }
       ]
@@ -102,13 +102,13 @@ Ciudades
 
   const guardar = () => {
     $('#btnGuardar').on('click', function() {
-      const idCiudad = $('#txtIdCiudad').val();
+      const id_ciudad = $('#txtIdCiudad').val();
       const nuevaDescripcion = $('#txtDescripcion').val();
       const tabla = $('#tbl').DataTable();
 
-      if(idCiudad) {
+      if(id_ciudad) {
         // update
-        fetch(`/api/v1/ciudades/${idCiudad}`, {
+        fetch(`/api/v1/ciudades/${id_ciudad}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json'
@@ -165,11 +165,11 @@ Ciudades
           //Swal.fire("Saved!", "", "success");
           $('#modalTitle').text("Editar una Ciudad");
 
-          const idCiudad = $(this).data('id');
-          $('#txtIdCiudad').val(idCiudad);
+          const id_ciudad = $(this).data('id_ciudad');
+          $('#txtIdCiudad').val(id_ciudad);
 
           // Necesitamos obtener la descripción del backend
-          fetch(`/api/v1/ciudades/${idCiudad}`, {
+          fetch(`/api/v1/ciudades/${id_ciudad}`, {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json'
@@ -187,7 +187,7 @@ Ciudades
 
   const eliminar = () => {
     $('#tbl').on('click', 'button[name="btn_eliminar"]',function(){
-      const idCiudad = $(this).data('id');
+      const id_ciudad = $(this).data('id_ciudad');
       // Mostrar mensaje de confirmación usando sweetalert
       Swal.fire({
         title: "¿Deseas eliminar este registro?",
@@ -196,7 +196,7 @@ Ciudades
         cancelButtonText: `No`
       }).then((result) => {
         if (result.isConfirmed) {
-          fetch(`/api/v1/ciudades/${idCiudad}`, {
+          fetch(`/api/v1/ciudades/${id_ciudad}`, {
             method: 'DELETE',
             headers: {
               'Content-Type': 'application/json'

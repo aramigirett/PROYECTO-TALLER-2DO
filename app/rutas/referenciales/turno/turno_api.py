@@ -3,9 +3,8 @@ from app.dao.referenciales.turno.TurnoDao import TurnoDao
 
 turnoapi = Blueprint('turnoapi', __name__)
 
-# Lista de turnos validos
-TURNOS_VALIDOS= ['MAÑANA', 'TARDE', 'NOCHE']
-
+# Definir turnos permitidos
+TURNOS_PERMITIDOS = ['MAÑANA', 'TARDE', 'NOCHE', 'GUARDIA']
 
 # Trae todos los turnos
 @turnoapi.route('/turnos', methods=['GET'])
@@ -67,21 +66,19 @@ def addTurno():
     for campo in campos_requeridos:
         if campo not in data or data[campo] is None or len(data[campo].strip()) == 0:
             return jsonify({
-                            'success': False,
-                            'error': f'El campo {campo} es obligatorio y no puede estar vacío.'
-                            }), 400
-
-    try:
-        descripcion = data['descripcion'].upper()
- 
-        # Validar si el TURNO está en la lista de TURNOS válidos
-        if descripcion not in TURNOS_VALIDOS:
-            return jsonify({
                 'success': False,
-                'error': 'Turno inválido. Solo se permiten Turnos de Mañana, Tarde y Noche.'
+                'error': f'El campo {campo} es obligatorio y no puede estar vacío.'
             }), 400
 
+    descripcion = data['descripcion'].upper()
 
+    if descripcion not in TURNOS_PERMITIDOS:
+        return jsonify({
+            'success': False,
+            'error': f'El turno debe ser uno de los siguientes: {", ".join(TURNOS_PERMITIDOS)}.'
+        }), 400
+
+    try:
         turno_id = turnodao.guardarTurno(descripcion)
         if turno_id is not None:
             return jsonify({
@@ -90,7 +87,10 @@ def addTurno():
                 'error': None
             }), 201
         else:
-            return jsonify({ 'success': False, 'error': 'No se pudo guardar el turno. Consulte con el administrador.' }), 500
+            return jsonify({
+                'success': False,
+                'error': 'No se pudo guardar el turno. Consulte con el administrador.'
+            }), 500
     except Exception as e:
         app.logger.error(f"Error al agregar turno: {str(e)}")
         return jsonify({
@@ -110,20 +110,20 @@ def updateTurno(turno_id):
     for campo in campos_requeridos:
         if campo not in data or data[campo] is None or len(data[campo].strip()) == 0:
             return jsonify({
-                            'success': False,
-                            'error': f'El campo {campo} es obligatorio y no puede estar vacío.'
-                            }), 400
-    descripcion = data['descripcion']
-
-    # Validar si el TURNO está en la lista de TURNOS válidos
-    if descripcion not in TURNOS_VALIDOS:
-            return jsonify({
                 'success': False,
-                'error': 'Turno inválido. Solo se permiten Turnos de Mañana, Tarde y Noche.'
+                'error': f'El campo {campo} es obligatorio y no puede estar vacío.'
             }), 400
 
+    descripcion = data['descripcion'].upper()
+
+    if descripcion not in TURNOS_PERMITIDOS:
+        return jsonify({
+            'success': False,
+            'error': f'El turno debe ser uno de los siguientes: {", ".join(TURNOS_PERMITIDOS)}.'
+        }), 400
+
     try:
-        if turnodao.updateTurno(turno_id, descripcion.upper()):
+        if turnodao.updateTurno(turno_id, descripcion):
             return jsonify({
                 'success': True,
                 'data': {'id': turno_id, 'descripcion': descripcion},

@@ -7,7 +7,7 @@ class OcupacionDao:
     def getOcupaciones(self):
 
         ocupacionSQL = """
-        SELECT id, descripcion
+        SELECT id_ocupacion, descripcion
         FROM ocupaciones
         """
         # objeto conexion
@@ -19,7 +19,7 @@ class OcupacionDao:
             ocupaciones = cur.fetchall() # trae datos de la bd
 
             # Transformar los datos en una lista de diccionarios
-            return [{'id': ocupacion[0], 'descripcion': ocupacion[1]} for ocupacion in ocupaciones]
+            return [{'id_ocupacion': ocupacion[0], 'descripcion': ocupacion[1]} for ocupacion in ocupaciones]
 
         except Exception as e:
             app.logger.error(f"Error al obtener todas las ocupaciones: {str(e)}")
@@ -32,8 +32,8 @@ class OcupacionDao:
     def getOcupacionById(self, id):
 
         ocupacionSQL = """
-        SELECT id, descripcion
-        FROM ocupaciones WHERE id=%s
+        SELECT id_ocupacion, descripcion
+        FROM ocupaciones WHERE id_ocupacion=%s
         """
         # objeto conexion
         conexion = Conexion()
@@ -44,7 +44,7 @@ class OcupacionDao:
             ocupacionEncontrada = cur.fetchone() # Obtener una sola fila
             if ocupacionEncontrada:
                 return {
-                        "id": ocupacionEncontrada[0],
+                        "id_ocupacion": ocupacionEncontrada[0],
                         "descripcion": ocupacionEncontrada[1]
                     }  # Retornar los datos de la ocupacion
             else:
@@ -60,7 +60,7 @@ class OcupacionDao:
     def guardarOcupacion(self, descripcion):
 
         insertOcupacionSQL = """
-        INSERT INTO ocupaciones(descripcion) VALUES(%s) RETURNING id
+        INSERT INTO ocupaciones(descripcion) VALUES(%s) RETURNING id_ocupacion
         """
 
         conexion = Conexion()
@@ -90,7 +90,7 @@ class OcupacionDao:
         updateOcupacionSQL = """
         UPDATE ocupaciones
         SET descripcion=%s
-        WHERE id=%s
+        WHERE id_ocupacion=%s
         """
 
         conexion = Conexion()
@@ -117,7 +117,7 @@ class OcupacionDao:
 
         updateOcupacionSQL = """
         DELETE FROM ocupaciones
-        WHERE id=%s
+        WHERE id_ocupacion=%s
         """
 
         conexion = Conexion()

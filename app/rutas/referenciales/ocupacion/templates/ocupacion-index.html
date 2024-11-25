@@ -11,13 +11,13 @@ Ocupaciones
     <!-- tarjeta -->
     <div class="card">
       <div class="card-header">
-        <button type="button" class="btn btn-outline-primary" id="btnAgregar">Agregar</button>
+        <button type="button" class="btn btn-outline-info" id="btnAgregar">Agregar</button>
       </div>
       <div class="card-body">
         <table class="table table-striped" id="tbl">
           <thead>
             <tr>
-              <th>Descripción</th>
+              <th>Ocupaciones</th>
               <th>Acciones</th>
             </tr>
           </thead>
@@ -43,7 +43,7 @@ Ocupaciones
           <div class="modal-body">
             <div class="form-group">
               <input type="hidden" id="txtIdOcupacion">
-              <label for="txtDescripcion">Descripción:</label>
+              <label for="txtDescripcion">Ocupación:</label>
               <input type="text" class="form-control" placeholder="Ingrese alguna ocupación" id="txtDescripcion">
             </div>
           </div>
@@ -81,8 +81,8 @@ Ocupaciones
       columns: [
         { data: 'descripcion' },
         { data: function(row) {
-            return `<button type="button" name="btn_editar" class="btn btn-outline-primary" data-id="${row.id}">Editar</button>
-                    <button type="button" name="btn_eliminar" class="btn btn-outline-warning" data-id="${row.id}">Eliminar</button>`
+            return `<button type="button" name="btn_editar" class="btn btn-info" data-id_ocupacion="${row.id_ocupacion}">Editar</button>
+                    <button type="button" name="btn_eliminar" class="btn btn-warning" data-id_ocupacion="${row.id_ocupacion}">Eliminar</button>`
           }
         }
       ]
@@ -102,13 +102,13 @@ Ocupaciones
 
   const guardar = () => {
     $('#btnGuardar').on('click', function() {
-      const idOcupacion = $('#txtIdOcupacion').val();
+      const id_ocupacion = $('#txtIdOcupacion').val();
       const nuevaDescripcion = $('#txtDescripcion').val();
       const tabla = $('#tbl').DataTable();
 
-      if(idOcupacion) {
+      if(id_ocupacion) {
         // update
-        fetch(`/api/v1/ocupaciones/${idOcupacion}`, {
+        fetch(`/api/v1/ocupaciones/${id_ocupacion}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json'
@@ -165,11 +165,11 @@ Ocupaciones
           //Swal.fire("Saved!", "", "success");
           $('#modalTitle').text("Editar Ocupación");
 
-          const idOcupacion = $(this).data('id');
-          $('#txtIdOcupacion').val(idOcupacion);
+          const id_ocupacion = $(this).data('id_ocupacion');
+          $('#txtIdOcupacion').val(id_ocupacion);
 
           // Necesitamos obtener la descripción del backend
-          fetch(`/api/v1/ocupaciones/${idOcupacion}`, {
+          fetch(`/api/v1/ocupaciones/${id_ocupacion}`, {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json'
@@ -187,7 +187,7 @@ Ocupaciones
 
   const eliminar = () => {
     $('#tbl').on('click', 'button[name="btn_eliminar"]',function(){
-      const idOcupacion = $(this).data('id');
+      const id_ocupacion = $(this).data('id_ocupacion');
       // Mostrar mensaje de confirmación usando sweetalert
       Swal.fire({
         title: "¿Deseas eliminar este registro?",
@@ -196,7 +196,7 @@ Ocupaciones
         cancelButtonText: `No`
       }).then((result) => {
         if (result.isConfirmed) {
-          fetch(`/api/v1/ocupaciones/${idOcupacion}`, {
+          fetch(`/api/v1/ocupaciones/${id_ocupacion}`, {
             method: 'DELETE',
             headers: {
               'Content-Type': 'application/json'
