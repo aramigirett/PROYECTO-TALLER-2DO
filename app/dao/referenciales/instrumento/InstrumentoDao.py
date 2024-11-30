@@ -6,7 +6,7 @@ class InstrumentoDao:
 
     def getInstrumentos(self):
         instrumentoSQL = """
-        SELECT id_instrumento, descripcion
+        SELECT id, descripcion
         FROM instrumentos
         """
         # objeto conexion
@@ -18,7 +18,7 @@ class InstrumentoDao:
             instrumentos = cur.fetchall()  # trae datos de la bd
 
             # Transformar los datos en una lista de diccionarios
-            return [{'id_instrumento': instrumento[0], 'descripcion': instrumento[1]} for instrumento in instrumentos]
+            return [{'id': instrumento[0], 'descripcion': instrumento[1]} for instrumento in instrumentos]
 
         except Exception as e:
             app.logger.error(f"Error al obtener todos los instrumentos: {str(e)}")
@@ -30,8 +30,8 @@ class InstrumentoDao:
 
     def getInstrumentoById(self, id):
         instrumentoSQL = """
-        SELECT id_instrumento, descripcion
-        FROM instrumentos WHERE id_instrumento=%s
+        SELECT id, descripcion
+        FROM instrumentos WHERE id=%s
         """
         # objeto conexion
         conexion = Conexion()
@@ -42,7 +42,7 @@ class InstrumentoDao:
             instrumentoEncontrado = cur.fetchone()  # Obtener una sola fila
             if instrumentoEncontrado:
                 return {
-                    "id_instrumento": instrumentoEncontrado[0],
+                    "id": instrumentoEncontrado[0],
                     "descripcion": instrumentoEncontrado[1]
                 }  # Retornar los datos del instrumento
             else:
@@ -57,7 +57,7 @@ class InstrumentoDao:
 
     def guardarInstrumento(self, descripcion):
         insertInstrumentoSQL = """
-        INSERT INTO instrumentos(descripcion) VALUES(%s) RETURNING id_instrumento
+        INSERT INTO instrumentos(descripcion) VALUES(%s) RETURNING id
         """
 
         conexion = Conexion()
@@ -86,7 +86,7 @@ class InstrumentoDao:
         updateInstrumentoSQL = """
         UPDATE instrumentos
         SET descripcion=%s
-        WHERE id_instrumento=%s
+        WHERE id=%s
         """
 
         conexion = Conexion()
@@ -112,7 +112,7 @@ class InstrumentoDao:
     def deleteInstrumento(self, id):
         deleteInstrumentoSQL = """
         DELETE FROM instrumentos
-        WHERE id_instrumento=%s
+        WHERE id=%s
         """
 
         conexion = Conexion()

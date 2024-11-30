@@ -7,7 +7,7 @@ class DiaDao:
     def getDias(self):
 
         diaSQL = """
-        SELECT id_dia, descripcion
+        SELECT id, descripcion
         FROM dias
         """
         # objeto conexion
@@ -19,7 +19,7 @@ class DiaDao:
             dias = cur.fetchall() # trae datos de la bd
 
             # Transformar los datos en una lista de diccionarios
-            return [{'id_dia': dia[0], 'descripcion': dia[1]} for dia in dias]
+            return [{'id': dia[0], 'descripcion': dia[1]} for dia in dias]
 
         except Exception as e:
             app.logger.error(f"Error al obtener todos los dias: {str(e)}")
@@ -32,8 +32,8 @@ class DiaDao:
     def getDiaById(self, id):
 
         diaSQL = """
-        SELECT id_dia, descripcion
-        FROM dias WHERE id_dia=%s
+        SELECT id, descripcion
+        FROM dias WHERE id=%s
         """
         # objeto conexion
         conexion = Conexion()
@@ -44,7 +44,7 @@ class DiaDao:
             diaEncontrada = cur.fetchone() # Obtener una sola fila
             if diaEncontrada:
                 return {
-                        "id_dia": diaEncontrada[0],
+                        "id": diaEncontrada[0],
                         "descripcion": diaEncontrada[1]
                     }  # Retornar los datos de los dias
             else:
@@ -60,7 +60,7 @@ class DiaDao:
     def guardarDia(self, descripcion):
 
         insertDiaSQL = """
-        INSERT INTO dias(descripcion) VALUES(%s) RETURNING id_dia
+        INSERT INTO dias(descripcion) VALUES(%s) RETURNING id
         """
 
         conexion = Conexion()
@@ -90,7 +90,7 @@ class DiaDao:
         updateDiaSQL = """
         UPDATE dias
         SET descripcion=%s
-        WHERE id_dia=%s
+        WHERE id=%s
         """
 
         conexion = Conexion()
@@ -117,7 +117,7 @@ class DiaDao:
 
         updateDiaSQL = """
         DELETE FROM dias
-        WHERE id_dia=%s
+        WHERE id=%s
         """
 
         conexion = Conexion()

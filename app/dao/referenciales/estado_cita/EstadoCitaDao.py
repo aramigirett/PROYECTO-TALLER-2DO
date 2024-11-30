@@ -7,7 +7,7 @@ class EstadoCitaDao:
     def getEstadosCitas(self):
 
         estadocitaSQL = """
-        SELECT id_cita, descripcion
+        SELECT id, descripcion
         FROM estado_cita
         """
         # objeto conexion
@@ -19,7 +19,7 @@ class EstadoCitaDao:
             estadoscitas = cur.fetchall() # trae datos de la bd
 
             # Transformar los datos en una lista de diccionarios
-            return [{'id_cita': estadocita[0], 'descripcion': estadocita[1]} for estadocita in estadoscitas]
+            return [{'id': estadocita[0], 'descripcion': estadocita[1]} for estadocita in estadoscitas]
 
         except Exception as e:
             app.logger.error(f"Error al obtener todos los Estados de Cita: {str(e)}")
@@ -32,8 +32,8 @@ class EstadoCitaDao:
     def getEstadoCitaById(self, id):
 
         estadocitaSQL = """
-        SELECT id_cita, descripcion
-        FROM estado_cita WHERE id_cita=%s
+        SELECT id, descripcion
+        FROM estado_cita WHERE id=%s
         """
         # objeto conexion
         conexion = Conexion()
@@ -44,7 +44,7 @@ class EstadoCitaDao:
             estadocitaEncontrada = cur.fetchone() # Obtener una sola fila
             if estadocitaEncontrada:
                 return {
-                        "id_cita": estadocitaEncontrada[0],
+                        "id": estadocitaEncontrada[0],
                         "descripcion": estadocitaEncontrada[1]
                     }  # Retornar los datos de los estados de cita
             else:
@@ -60,7 +60,7 @@ class EstadoCitaDao:
     def guardarEstadoCita(self, descripcion):
 
         insertEstadoCitaSQL = """
-        INSERT INTO estado_cita(descripcion) VALUES(%s) RETURNING id_cita
+        INSERT INTO estado_cita(descripcion) VALUES(%s) RETURNING id
         """
 
         conexion = Conexion()
@@ -90,7 +90,7 @@ class EstadoCitaDao:
         updateEstadoCitaSQL = """
         UPDATE estado_cita
         SET descripcion=%s
-        WHERE id_cita=%s
+        WHERE id=%s
         """
 
         conexion = Conexion()
@@ -117,7 +117,7 @@ class EstadoCitaDao:
 
         updateEstadoCitaSQL = """
         DELETE FROM estado_cita
-        WHERE id_cita=%s
+        WHERE id=%s
         """
 
         conexion = Conexion()

@@ -21,7 +21,7 @@ Persona
               <th>Apellido</th> <!-- Agregado campo 'apellido' -->
               <th>Fecha de Nacimiento</th>
               <th>N° C.I.</th>
-              <th>Sexo</th>
+              <th>Correo</th>
               <th>Acciones</th>
             </tr>
           </thead>
@@ -33,13 +33,14 @@ Persona
 
     <!-- El formulario -->
     <div class="modal" id="modalFormulario">
+      <!-- La clase modal-dialog-centered centra el modal -->
       <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
 
           <!-- Modal Header -->
           <div class="modal-header">
             <h4 class="modal-title" id="modalTitle"></h4>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            <button type="button" class="close" data-dismiss="modal">&times;</button>
           </div>
 
           <!-- Modal body -->
@@ -58,17 +59,17 @@ Persona
               <label for="txtCedula">Cédula:</label>
               <input type="text" class="form-control" placeholder="Ingrese el C.I de la persona" id="txtCedula">
 
-              <label for="txtSexo">Sexo:</label>
-              <input type="text" class="form-control" placeholder="Ingresar 'F'Femenino , 'M' Masculino , 'I' Indistinto " id="txtSexo">
+              <label for="txtCorreo">Correo:</label>
+              <input type="text" class="form-control" placeholder="Ingresar correo" id="txtCorreo">
 
             </div>
           </div>
 
           <!-- Modal footer -->
           <div class="modal-footer">
-            <button type="button" class="btn btn-outline-info" id="btnGuardar">Guardar</button>
-            <button type="button" class="btn btn-outline-danger" data-dismiss="modal">Cerrar</button>
-        </div>
+            <button type="button" class="btn btn-primary" id="btnGuardar">Guardar</button>
+            <button type="button" class="btn btn-danger" data-dismiss="modal">Cerrar</button>
+          </div>
 
         </div>
       </div>
@@ -91,12 +92,11 @@ Persona
 
 <script>
   $(function() {
-    // Corrección en el ID del campo fecha de nacimiento
-    $("#txtFechaNacimiento").datepicker({
-      dateFormat: "yy-mm-dd",
-      changeMonth: true,
-      changeYear: true,
-      yearRange: "1900:2024"
+    $("#fechanacimiento").datepicker({
+      dateFormat: "yy-mm-dd",  // Formato de fecha (ejemplo: 2024-01-01)
+      changeMonth: true,       // Permite cambiar el mes
+      changeYear: true,        // Permite cambiar el año
+      yearRange: "1900:2024"   // Rango de años disponibles
     });
   });
 </script>
@@ -112,31 +112,26 @@ Persona
       },
       ajax:'/api/v1/personas',
       columns: [
-    { data: 'nombre' },
-    { data: 'apellido' },
-    { 
-        data: function(row) {
-            // Validar que la fecha no sea nula
-            if (row.fechanacimiento) {
-                const fecha = new Date(row.fechanacimiento); 
-                const dia = fecha.getUTCDate().toString().padStart(2, '0');
-                const mes = (fecha.getUTCMonth() + 1).toString().padStart(2, '0');
-                const anio = fecha.getUTCFullYear();
-                return `${dia}/${mes}/${anio}`;
-            } else {
-                return "Fecha no disponible";
-            }
+        { data: 'nombre' }, // Agregado campo 'nombre'
+        { data: 'apellido' }, // Agregado campo 'apellido'
+        { data: function(row) {
+          // Formatear la fecha en el formato deseado
+          const fecha = new Date(row.fechanacimiento + 'T00:00:00'); 
+          const dia = fecha.getDate().toString().padStart(2, '0');
+          const mes = (fecha.getMonth() + 1).toString().padStart(2, '0');  // +1 porque los meses comienzan en 0
+          const anio = fecha.getFullYear();
+          return `${dia}/${mes}/${anio}`;  // Formato DD/MM/YYYY
         }
-    },
-    { data: 'cedula' },
-    { data: 'sexo' },
-    { data: function(row) {
-        return `
-            <button type="button" name="btn_editar" class="btn btn-info" data-id_persona="${row.id_persona}">Editar</button>
-            <button type="button" name="btn_eliminar" class="btn btn-warning" data-id_persona="${row.id_persona}">Eliminar</button>`;
+      },
+      { data: 'cedula' },
+      { data: 'correo' },
+        { data: function(row) {
+            return `
+              <button type="button" name="btn_editar" class="btn btn-info" data-id="${row.id}">Editar</button>
+              <button type="button" name="btn_eliminar" class="btn btn-warning" data-id="${row.id}">Eliminar</button>`
+          }
         }
-    }
-]
+      ]
     });
   }
 
@@ -144,40 +139,41 @@ Persona
     $('#btnAgregar').on('click', function(){
       $('#modalTitle').text("Agregar Persona");
       $('#txtIdPersona').val("");
-      $('#txtNombre').val("");
-      $('#txtApellido').val("");
+      $('#txtNombre').val(""); // Limpiar campo nombre
+      $('#txtApellido').val(""); // Limpiar campo apellido
       $('#txtFechaNacimiento').val("");
       $('#txtCedula').val("");
-      $('#txtSexo').val("");
+      $('#txtCorreo').val("");
       $('#modalFormulario').modal();
     });
   }
 
   const guardar = () => {
     $('#btnGuardar').on('click', function() {
-      const id_persona = $('#txtIdPersona').val();
-      const nuevoNombre = $('#txtNombre').val();
-      const nuevoApellido = $('#txtApellido').val();
+      const idPersona = $('#txtIdPersona').val();
+      const nuevoNombre = $('#txtNombre').val(); // Obtener nombre
+      const nuevoApellido = $('#txtApellido').val(); // Obtener apellido
       const nuevoFechaNacimiento = $('#txtFechaNacimiento').val();
       const nuevaCedula = $('#txtCedula').val();
-      const nuevoSexo = $('#txtSexo').val();
+      const nuevoCorreo = $('#txtCorreo').val();
       const tabla = $('#tbl').DataTable();
       
-      if(id_persona) {
+
+      if(idPersona) {
         // update
-        fetch(`/api/v1/personas/${id_persona}`, {
+        fetch(`/api/v1/personas/${idPersona}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json'
-          }, body: JSON.stringify({ nombre: nuevoNombre, apellido: nuevoApellido, fechanacimiento: nuevoFechaNacimiento, cedula: nuevaCedula, sexo: nuevoSexo })
+          }, body: JSON.stringify({ nombre: nuevoNombre, apellido: nuevoApellido, fechanacimiento: nuevoFechaNacimiento, cedula: nuevaCedula, correo: nuevoCorreo }) // Incluir nombre y apellido
         })
         .then(resp => resp.json())
         .then(data => {
           if(data && !data.error && data.success) {
-            tabla.ajax.reload(null, false);
+            tabla.ajax.reload();
             Swal.fire("Actualizado", "La persona ha sido actualizada correctamente.", "success");
           } else {
-            Swal.fire({ title: data.error, icon: 'error' });
+            Swal.fire(data.error);
           }
         }).catch(err => {
           console.error(err);
@@ -189,21 +185,26 @@ Persona
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
-          }, body: JSON.stringify({ nombre: nuevoNombre, apellido: nuevoApellido, fechanacimiento: nuevoFechaNacimiento, cedula: nuevaCedula, sexo: nuevoSexo })
+          }, body: JSON.stringify({ nombre: nuevoNombre, apellido: nuevoApellido, fechanacimiento: nuevoFechaNacimiento, cedula: nuevaCedula, correo: nuevoCorreo }) // Incluir nombre y apellido
         })
         .then(resp => resp.json())
         .then(data => {
           if(data && !data.error && data.success) {
-            tabla.ajax.reload(null, false);
+            tabla.ajax.reload();
             Swal.fire("Agregado", "La persona ha sido agregada correctamente.", "success");
           } else {
-            Swal.fire({ title: data.error, icon: 'error' });
+            Swal.fire(data.error);
           }
         }).catch(err => {
           console.error(err);
           Swal.fire("Error", "Ocurrió un error al guardar persona.", "error");
         });
       }
+      $('#txtNombre').val(""); // Limpiar campo nombre
+      $('#txtApellido').val(""); // Limpiar campo apellido
+      $('#txtFechaNacimiento').val("");
+      $('#txtCedula').val("");
+      $('#txtCorreo').val("");
       $('#modalFormulario').modal("hide");
     });
   }
@@ -219,10 +220,10 @@ Persona
         if (result.isConfirmed) {
           $('#modalTitle').text("Editar Persona");
 
-          const id_persona = $(this).data('id_persona'); // Corrección en data attribute
-          $('#txtIdPersona').val(id_persona);
+          const idPersona = $(this).data('id');
+          $('#txtIdPersona').val(idPersona);
 
-          fetch(`/api/v1/personas/${id_persona}`, {
+          fetch(`/api/v1/personas/${idPersona}`, {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json'
@@ -230,16 +231,11 @@ Persona
           })
           .then(resp => resp.json())
           .then(data => {
-            $('#txtNombre').val(data.data.nombre);
-            $('#txtApellido').val(data.data.apellido);
-            
-            // Convertimos la fecha al formato YYYY-MM-DD
-            const fechaNacimiento = new Date(data.data.fechanacimiento);
-            const fechaFormateada = fechaNacimiento.toISOString().split('T')[0];
-            $('#txtFechaNacimiento').val(fechaFormateada); // Cargar la fecha en el formato correcto
-
+            $('#txtNombre').val(data.data.nombre); // Obtener nombre
+            $('#txtApellido').val(data.data.apellido); // Obtener apellido
+            $('#txtFechaNacimiento').val(data.data.fechanacimiento);
             $('#txtCedula').val(data.data.cedula);
-            $('#txtSexo').val(data.data.sexo);
+            $('#txtCorreo').val(data.data.correo);
             $('#modalFormulario').modal();
           });
         }
@@ -249,15 +245,15 @@ Persona
 
   const eliminar = () => {
     $('#tbl').on('click', 'button[name="btn_eliminar"]',function(){
-      const id_persona = $(this).data('id_persona');
+      const idPersona = $(this).data('id');
       Swal.fire({
-        title: "¿Estás seguro de eliminar este registro?",
+        title: "¿Deseas eliminar este registro?",
         showCancelButton: true,
         confirmButtonText: "Si",
         cancelButtonText: `No`
       }).then((result) => {
         if (result.isConfirmed) {
-          fetch(`/api/v1/personas/${id_persona}`, {
+          fetch(`/api/v1/personas/${idPersona}`, {
             method: 'DELETE',
             headers: {
               'Content-Type': 'application/json'
@@ -265,22 +261,28 @@ Persona
           })
           .then(resp => resp.json())
           .then(data => {
-            if (data && data.success) {
-              $('#tbl').DataTable().ajax.reload(null, false);
-              Swal.fire("Eliminado", "Registro eliminado correctamente", "success");
+            if(data && !data.error && data.success) {
+              const fila = $(this).closest('tr');
+              const tabla = $('#tbl').DataTable();
+              tabla.row(fila).remove().draw();
+              Swal.fire("Eliminado", "", "success");
             } else {
-              Swal.fire({ title: data.error, icon: 'error' });
+              Swal.fire(data.error);
             }
           }).catch(err => {
-            console.error(err);
-            Swal.fire("Error", "Ocurrió un error al eliminar persona", "error");
+            Swal.fire("Error", "Ocurrió un error al eliminar persona.", "error");
           });
         }
       });
     });
   }
 
-  $(document).ready(function() {
+// Validación del campo de cédula para que solo acepte números
+$('#txtCedula').on('input', function() {
+  this.value = this.value.replace(/[^0-9]/g, '');  // Solo permite números
+});
+
+ $(document).ready(function() {
     initDatatable();
     agregar();
     guardar();

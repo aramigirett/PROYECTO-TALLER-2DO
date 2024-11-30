@@ -11,13 +11,13 @@ Nacionalidades
     <!-- tarjeta -->
     <div class="card">
       <div class="card-header">
-        <button type="button" class="btn btn-outline-info" id="btnAgregar">Agregar</button>
+        <button type="button" class="btn btn-outline-primary" id="btnAgregar">Agregar</button>
       </div>
       <div class="card-body">
         <table class="table table-striped" id="tbl">
           <thead>
             <tr>
-              <th>Nacionalidades</th>
+              <th>Descripción</th>
               <th>Acciones</th>
             </tr>
           </thead>
@@ -81,8 +81,8 @@ Nacionalidades
       columns: [
         { data: 'descripcion' },
         { data: function(row) {
-            return `<button type="button" name="btn_editar" class="btn btn-info" data-id_nacionalidad="${row.id_nacionalidad}">Editar</button>
-                    <button type="button" name="btn_eliminar" class="btn btn-warning" data-id_nacionalidad="${row.id_nacionalidad}">Eliminar</button>`
+            return `<button type="button" name="btn_editar" class="btn btn-outline-primary" data-id="${row.id}">Editar</button>
+                    <button type="button" name="btn_eliminar" class="btn btn-outline-warning" data-id="${row.id}">Eliminar</button>`
           }
         }
       ]
@@ -102,13 +102,13 @@ Nacionalidades
 
   const guardar = () => {
     $('#btnGuardar').on('click', function() {
-      const id_nacionalidad = $('#txtIdNacionalidad').val();
+      const idNacionalidad = $('#txtIdNacionalidad').val();
       const nuevaDescripcion = $('#txtDescripcion').val();
       const tabla = $('#tbl').DataTable();
 
-      if(id_nacionalidad) {
+      if(idNacionalidad) {
         // update
-        fetch(`/api/v1/nacionalidades/${id_nacionalidad}`, {
+        fetch(`/api/v1/nacionalidades/${idNacionalidad}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json'
@@ -165,11 +165,11 @@ Nacionalidades
           //Swal.fire("Saved!", "", "success");
           $('#modalTitle').text("Editar nacionalidad");
 
-          const id_nacionalidad = $(this).data('id_nacionalidad');
-          $('#txtIdNacionalidad').val(id_nacionalidad);
+          const idNacionalidad = $(this).data('id');
+          $('#txtIdNacionalidad').val(idNacionalidad);
 
           // Necesitamos obtener la descripción del backend
-          fetch(`/api/v1/nacionalidades/${id_nacionalidad}`, {
+          fetch(`/api/v1/nacionalidades/${idNacionalidad}`, {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json'
@@ -187,7 +187,7 @@ Nacionalidades
 
   const eliminar = () => {
     $('#tbl').on('click', 'button[name="btn_eliminar"]',function(){
-      const id_nacionalidad = $(this).data('id_nacionalidad');
+      const idNacionalidad = $(this).data('id');
       // Mostrar mensaje de confirmación usando sweetalert
       Swal.fire({
         title: "¿Deseas eliminar este registro?",
@@ -196,7 +196,7 @@ Nacionalidades
         cancelButtonText: `No`
       }).then((result) => {
         if (result.isConfirmed) {
-          fetch(`/api/v1/nacionalidades/${id_nacionalidad}`, {
+          fetch(`/api/v1/nacionalidades/${idNacionalidad}`, {
             method: 'DELETE',
             headers: {
               'Content-Type': 'application/json'

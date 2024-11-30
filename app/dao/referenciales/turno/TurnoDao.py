@@ -7,7 +7,7 @@ class TurnoDao:
     def getTurnos(self):
 
         turnoSQL = """
-        SELECT id_turno, descripcion
+        SELECT id, descripcion
         FROM turnos
         """
         # objeto conexion
@@ -19,7 +19,7 @@ class TurnoDao:
             turnos = cur.fetchall() # trae datos de la bd
 
             # Transformar los datos en una lista de diccionarios
-            return [{'id_turno': turno[0], 'descripcion': turno[1]} for turno in turnos]
+            return [{'id': turno[0], 'descripcion': turno[1]} for turno in turnos]
 
         except Exception as e:
             app.logger.error(f"Error al obtener todos los turnos: {str(e)}")
@@ -32,8 +32,8 @@ class TurnoDao:
     def getTurnoById(self, id):
 
         turnoSQL = """
-        SELECT id_turno, descripcion
-        FROM turnos WHERE id_turno=%s
+        SELECT id, descripcion
+        FROM turnos WHERE id=%s
         """
         # objeto conexion
         conexion = Conexion()
@@ -44,7 +44,7 @@ class TurnoDao:
             turnoEncontrado = cur.fetchone() # Obtener una sola fila
             if turnoEncontrado:
                 return {
-                        "id_turno": turnoEncontrado[0],
+                        "id": turnoEncontrado[0],
                         "descripcion": turnoEncontrado[1]
                     }  # Retornar los datos de la turno
             else:
@@ -60,7 +60,7 @@ class TurnoDao:
     def guardarTurno(self, descripcion):
 
         insertTurnoSQL = """
-        INSERT INTO turnos(descripcion) VALUES(%s) RETURNING id_turno
+        INSERT INTO turnos(descripcion) VALUES(%s) RETURNING id
         """
 
         conexion = Conexion()
@@ -90,7 +90,7 @@ class TurnoDao:
         updateTurnoSQL = """
         UPDATE turnos
         SET descripcion=%s
-        WHERE id_turno=%s
+        WHERE id=%s
         """
 
         conexion = Conexion()
@@ -117,7 +117,7 @@ class TurnoDao:
 
         updateTurnoSQL = """
         DELETE FROM turnos
-        WHERE id_turno=%s
+        WHERE id=%s
         """
 
         conexion = Conexion()

@@ -7,7 +7,7 @@ class PaisDao:
     def getPaises(self):
 
         paisSQL = """
-        SELECT id_pais, descripcion
+        SELECT id, descripcion
         FROM paises
         """
         # objeto conexion
@@ -19,7 +19,7 @@ class PaisDao:
             paises = cur.fetchall() # trae datos de la bd
 
             # Transformar los datos en una lista de diccionarios
-            return [{'id_pais': pais[0], 'descripcion': pais[1]} for pais in paises]
+            return [{'id': pais[0], 'descripcion': pais[1]} for pais in paises]
 
         except Exception as e:
             app.logger.error(f"Error al obtener todas las paises: {str(e)}")
@@ -32,8 +32,8 @@ class PaisDao:
     def getPaisById(self, id):
 
         paisSQL = """
-        SELECT id_pais, descripcion
-        FROM paises WHERE id_pais=%s
+        SELECT id, descripcion
+        FROM paises WHERE id=%s
         """
         # objeto conexion
         conexion = Conexion()
@@ -44,7 +44,7 @@ class PaisDao:
             paisEncontrada = cur.fetchone() # Obtener una sola fila
             if paisEncontrada:
                 return {
-                        "id_pais": paisEncontrada[0],
+                        "id": paisEncontrada[0],
                         "descripcion": paisEncontrada[1]
                     }  # Retornar los datos de pais
             else:
@@ -60,7 +60,7 @@ class PaisDao:
     def guardarPais(self, descripcion):
 
         insertPaisSQL = """
-        INSERT INTO paises(descripcion) VALUES(%s) RETURNING id_pais
+        INSERT INTO paises(descripcion) VALUES(%s) RETURNING id
         """
 
         conexion = Conexion()
@@ -90,7 +90,7 @@ class PaisDao:
         updatePaisSQL = """
         UPDATE paises
         SET descripcion=%s
-        WHERE id_pais=%s
+        WHERE id=%s
         """
 
         conexion = Conexion()
@@ -117,7 +117,7 @@ class PaisDao:
 
         updatePaisSQL = """
         DELETE FROM paises
-        WHERE id_pais=%s
+        WHERE id=%s
         """
 
         conexion = Conexion()

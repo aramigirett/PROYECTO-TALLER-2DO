@@ -17,7 +17,7 @@ Dias
         <table class="table table-striped" id="tbl">
           <thead>
             <tr>
-              <th>Dias</th>
+              <th>Descripción</th>
               <th>Acciones</th>
             </tr>
           </thead>
@@ -81,8 +81,8 @@ Dias
       columns: [
         { data: 'descripcion' },
         { data: function(row) {
-            return `<button type="button" name="btn_editar" class="btn btn-info" data-id="${row.id_dia}">Editar</button>
-                    <button type="button" name="btn_eliminar" class="btn btn-warning" data-id="${row.id_dia}">Eliminar</button>`
+            return `<button type="button" name="btn_editar" class="btn btn-outline-primary" data-id="${row.id}">Editar</button>
+                    <button type="button" name="btn_eliminar" class="btn btn-outline-warning" data-id="${row.id}">Eliminar</button>`
           }
         }
       ]

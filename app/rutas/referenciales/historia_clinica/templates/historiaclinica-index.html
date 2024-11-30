@@ -1,12 +1,12 @@
 {% extends 'base.html' %}
 
 {% block titulo %}
-Instrumentos
+Historia Clínica
 {% endblock %}
 
 {% block contenido %}
 <div class="container mt-4">
-    <h3>Listar Instrumentos</h3>
+    <h3>Listar Historia Clínica</h3>
 
     <!-- tarjeta -->
     <div class="card">
@@ -17,19 +17,21 @@ Instrumentos
         <table class="table table-striped" id="tbl">
           <thead>
             <tr>
-              <th>Descripción</th>
+              <th>Motivo de Consulta</th>
+              <th>Antecedentes Médicos</th>
+              <th>Antecedentes Psicológicos</th>
+              <th>Historia Familiar</th>
               <th>Acciones</th>
             </tr>
           </thead>
           <tbody></tbody>
-      </table>
+        </table>
       </div>
     </div>
     <!-- /tarjeta -->
 
     <!-- El formulario -->
     <div class="modal" id="modalFormulario">
-      <!-- La clase modal-dialog-centered centra el modal -->
       <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
 
@@ -42,9 +44,21 @@ Instrumentos
           <!-- Modal body -->
           <div class="modal-body">
             <div class="form-group">
-              <input type="hidden" id="txtIdInstrumento">
-              <label for="txtDescripcion">Descripción:</label>
-              <input type="text" class="form-control" placeholder="Ingrese algún instrumento" id="txtDescripcion">
+              <input type="hidden" id="txtIdHistoriaClinica">
+              <label for="txtMotivoConsulta">Motivo de Consulta:</label>
+              <input type="text" class="form-control" placeholder="Ingrese el motivo de consulta" id="txtMotivoConsulta">
+            </div>
+            <div class="form-group">
+              <label for="txtAntecedentesMedicos">Antecedentes Médicos:</label>
+              <textarea class="form-control" placeholder="Ingrese los antecedentes médicos" id="txtAntecedentesMedicos"></textarea>
+            </div>
+            <div class="form-group">
+              <label for="txtAntecedentesPsicologicos">Antecedentes Psicológicos:</label>
+              <textarea class="form-control" placeholder="Ingrese los antecedentes psicológicos" id="txtAntecedentesPsicologicos"></textarea>
+            </div>
+            <div class="form-group">
+              <label for="txtHistoriaFamiliar">Historia Familiar:</label>
+              <textarea class="form-control" placeholder="Ingrese la historia familiar" id="txtHistoriaFamiliar"></textarea>
             </div>
           </div>
 
@@ -76,12 +90,15 @@ Instrumentos
       language: {
         url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}",
       },
-      ajax: '/api/v1/instrumentos',
+      ajax: '/api/v1/historiaclinica',
       columns: [
-        { data: 'descripcion' },
+        { data: 'motivo_consulta' },
+        { data: 'antecedentes_medicos' },
+        { data: 'antecedentes_psicologicos' },
+        { data: 'historia_familiar' },
         { data: function(row) {
             return `<button type="button" name="btn_editar" class="btn btn-outline-primary" data-id="${row.id}">Editar</button>
-                    <button type="button" name="btn_eliminar" class="btn btn-outline-warning" data-id="${row.id}">Eliminar</button>`
+                    <button type="button" name="btn_eliminar" class="btn btn-outline-warning" data-id="${row.id}">Eliminar</button>`;
           }
         }
       ]
@@ -90,70 +107,81 @@ Instrumentos
 
   const agregar = () => {
     $('#btnAgregar').on('click', function(){
-      // Setear un título a modal
-      $('#modalTitle').text("Agregar un Instrumento");
-      // inicia ventana modal
-      $('#txtIdInstrumento').val("");
-      $('#txtDescripcion').val("");
+      $('#modalTitle').text("Agregar Historia Clínica");
+      $('#txtIdHistoriaClinica').val("");
+      $('#txtMotivoConsulta').val("");
+      $('#txtAntecedentesMedicos').val("");
+      $('#txtAntecedentesPsicologicos').val("");
+      $('#txtHistoriaFamiliar').val("");
       $('#modalFormulario').modal();
     });
   }
 
   const guardar = () => {
     $('#btnGuardar').on('click', function() {
-      const idInstrumento = $('#txtIdInstrumento').val();
-      const nuevaDescripcion = $('#txtDescripcion').val();
+      const idHistoriaClinica = $('#txtIdHistoriaClinica').val();
+      const motivoConsulta = $('#txtMotivoConsulta').val();
+      const antecedentesMedicos = $('#txtAntecedentesMedicos').val();
+      const antecedentesPsicologicos = $('#txtAntecedentesPsicologicos').val();
+      const historiaFamiliar = $('#txtHistoriaFamiliar').val();
       const tabla = $('#tbl').DataTable();
 
-      if(idInstrumento) {
+      const data = {
+        motivo_consulta: motivoConsulta,
+        antecedentes_medicos: antecedentesMedicos,
+        antecedentes_psicologicos: antecedentesPsicologicos,
+        historia_familiar: historiaFamiliar
+      };
+
+      if (idHistoriaClinica) {
         // update
-        fetch(`/api/v1/instrumentos/${idInstrumento}`, {
+        fetch(`/api/v1/historiasclinicas/${idHistoriaClinica}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json'
-          }, body: JSON.stringify({ descripcion: nuevaDescripcion })
+          }, 
+          body: JSON.stringify(data)
         })
         .then(resp => resp.json())
         .then(data => {
-          if(data && !data.error && data.success) {
+          if (data && !data.error && data.success) {
             tabla.ajax.reload();
-            Swal.fire("Actualizado", "El instrumento ha sido actualizado correctamente.", "success");
+            Swal.fire("Actualizado", "La historia clínica ha sido actualizada correctamente.", "success");
           } else {
             Swal.fire(data.error);
           }
         }).catch(err => {
           console.error(err);
-          Swal.fire("Error", "Ocurrió un error al actualizar el instrumento.", "error");
+          Swal.fire("Error", "Ocurrió un error al actualizar la historia clínica.", "error");
         });
       } else {
         // insert
-        fetch(`/api/v1/instrumentos`, {
+        fetch(`/api/v1/historiasclinicas`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
-          }, body: JSON.stringify({ descripcion: nuevaDescripcion })
+          }, 
+          body: JSON.stringify(data)
         })
         .then(resp => resp.json())
         .then(data => {
-          if(data && !data.error && data.success) {
+          if (data && !data.error && data.success) {
             tabla.ajax.reload();
-            Swal.fire("Agregado", "El instrumento ha sido agregado correctamente.", "success");
+            Swal.fire("Agregado", "La historia clínica ha sido agregada correctamente.", "success");
           } else {
             Swal.fire(data.error);
           }
         }).catch(err => {
           console.error(err);
-          Swal.fire("Error", "Ocurrió un error al guardar el instrumento.", "error");
+          Swal.fire("Error", "Ocurrió un error al guardar la historia clínica.", "error");
         });
       }
-      $('#txtDescripcion').val("");
       $('#modalFormulario').modal("hide");
     });
   }
 
   const editar = () => {
     $('#tbl').on('click', 'button[name="btn_editar"]', function(){
-      // Mostrar mensaje de confirmación usando sweetalert
       Swal.fire({
         title: "¿Deseas editar este registro?",
         showCancelButton: true,
@@ -161,13 +189,12 @@ Instrumentos
         cancelButtonText: `No`
       }).then((result) => {
         if (result.isConfirmed) {
-          $('#modalTitle').text("Editar un Instrumento");
+          $('#modalTitle').text("Editar Historia Clínica");
 
-          const idInstrumento = $(this).data('id');
-          $('#txtIdInstrumento').val(idInstrumento);
+          const idHistoriaClinica = $(this).data('id');
+          $('#txtIdHistoriaClinica').val(idHistoriaClinica);
 
-          // Obtener la descripción del backend
-          fetch(`/api/v1/instrumentos/${idInstrumento}`, {
+          fetch(`/api/v1/historiasclinicas/${idHistoriaClinica}`, {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json'
@@ -175,7 +202,10 @@ Instrumentos
           })
           .then(resp => resp.json())
           .then(data => {
-            $('#txtDescripcion').val(data.data.descripcion);
+            $('#txtMotivoConsulta').val(data.motivo_consulta);
+            $('#txtAntecedentesMedicos').val(data.antecedentes_medicos);
+            $('#txtAntecedentesPsicologicos').val(data.antecedentes_psicologicos);
+            $('#txtHistoriaFamiliar').val(data.historia_familiar);
             $('#modalFormulario').modal();
           });
         }
@@ -185,8 +215,7 @@ Instrumentos
 
   const eliminar = () => {
     $('#tbl').on('click', 'button[name="btn_eliminar"]', function(){
-      const idInstrumento = $(this).data('id');
-      // Mostrar mensaje de confirmación usando sweetalert
+      const idHistoriaClinica = $(this).data('id');
       Swal.fire({
         title: "¿Deseas eliminar este registro?",
         showCancelButton: true,
@@ -194,7 +223,7 @@ Instrumentos
         cancelButtonText: `No`
       }).then((result) => {
         if (result.isConfirmed) {
-          fetch(`/api/v1/instrumentos/${idInstrumento}`, {
+          fetch(`/api/v1/historiasclinicas/${idHistoriaClinica}`, {
             method: 'DELETE',
             headers: {
               'Content-Type': 'application/json'
@@ -202,8 +231,7 @@ Instrumentos
           })
           .then(resp => resp.json())
           .then(data => {
-            if(data && !data.error && data.success) {
-              // Para borrar la fila del datatable(cliente)
+            if (data && !data.error && data.success) {
               const fila = $(this).closest('tr');
               const tabla = $('#tbl').DataTable();
               tabla.row(fila).remove().draw();
@@ -212,23 +240,19 @@ Instrumentos
               Swal.fire(data.error);
             }
           }).catch(err => {
-            Swal.fire("Error", "Ocurrió un error al eliminar el instrumento.", "error");
+            Swal.fire("Error", "Ocurrió un error al eliminar la historia clínica.", "error");
           });
         }
       });
     });
   }
 
-  const addEvents = () => {
+  $(document).ready(function(){
+    initDatatable();
     agregar();
     guardar();
     editar();
     eliminar();
-  }
-
-  $(function() {
-    initDatatable();
-    addEvents();
   });
 </script>
 {% endblock %}

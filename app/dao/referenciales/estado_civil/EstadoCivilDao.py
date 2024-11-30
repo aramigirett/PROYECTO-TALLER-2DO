@@ -7,7 +7,7 @@ class EstadoCivilDao:
     def getEstadosCiviles(self):
 
         estadocivilSQL = """
-        SELECT id_civil, descripcion
+        SELECT id, descripcion
         FROM estado_civil
         """
         # objeto conexion
@@ -19,7 +19,7 @@ class EstadoCivilDao:
             estadosciviles = cur.fetchall() # trae datos de la bd
 
             # Transformar los datos en una lista de diccionarios
-            return [{'id_civil': estadocivil[0], 'descripcion': estadocivil[1]} for estadocivil in estadosciviles]
+            return [{'id': estadocivil[0], 'descripcion': estadocivil[1]} for estadocivil in estadosciviles]
 
         except Exception as e:
             app.logger.error(f"Error al obtener todos los Estados Civiles: {str(e)}")
@@ -32,8 +32,8 @@ class EstadoCivilDao:
     def getEstadoCivilById(self, id):
 
         estadocivilSQL = """
-        SELECT id_civil, descripcion
-        FROM estado_civil WHERE id_civil=%s
+        SELECT id, descripcion
+        FROM estado_civil WHERE id=%s
         """
         # objeto conexion
         conexion = Conexion()
@@ -44,7 +44,7 @@ class EstadoCivilDao:
             estadocivilEncontrada = cur.fetchone() # Obtener una sola fila
             if estadocivilEncontrada:
                 return {
-                        "id_civil": estadocivilEncontrada[0],
+                        "id": estadocivilEncontrada[0],
                         "descripcion": estadocivilEncontrada[1]
                     }  # Retornar los datos de los estados civiles
             else:
@@ -60,7 +60,7 @@ class EstadoCivilDao:
     def guardarEstadoCivil(self, descripcion):
 
         insertEstadoCivilSQL = """
-        INSERT INTO estado_civil(descripcion) VALUES(%s) RETURNING id_civil
+        INSERT INTO estado_civil(descripcion) VALUES(%s) RETURNING id
         """
 
         conexion = Conexion()
@@ -90,7 +90,7 @@ class EstadoCivilDao:
         updateEstadoCivilSQL = """
         UPDATE estado_civil
         SET descripcion=%s
-        WHERE id_civil=%s
+        WHERE id=%s
         """
 
         conexion = Conexion()
@@ -117,7 +117,7 @@ class EstadoCivilDao:
 
         updateEstadoCivilSQL = """
         DELETE FROM estado_civil
-        WHERE id_civil=%s
+        WHERE id=%s
         """
 
         conexion = Conexion()
