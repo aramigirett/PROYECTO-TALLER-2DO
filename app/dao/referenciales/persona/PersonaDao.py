@@ -1,15 +1,14 @@
-
 # Data access object - DAO
 from flask import current_app as app
-from app.conexion.Conexion import Conexion
-
-
+from app.conexion.Conexion import Conexion  
 class PersonaDao:
 
     def getPersonas(self):
         personaSQL = """
-        SELECT id, nombre, apellido, fechanacimiento, cedula, correo
-        FROM personas
+        SELECT 
+         p.id_persona, p.nombre, p.apellido, p.fechanacimiento, p.cedula, p.sexo, p.telefono, c.descripcion, p.descripcion, n.descripcion
+            FROM personas p, ciudades c, paises, nacionalidades n
+            where p.id_ciudad=c.id_ciudad and p.id_pais=p.id_pais and p.id_nacionalidad=n.id_nacionalidad
         """
         # objeto conexion
         conexion = Conexion()
@@ -20,7 +19,7 @@ class PersonaDao:
             personas = cur.fetchall()  # trae datos de la bd
 
             # Transformar los datos en una lista de diccionarios
-            return [{'id': persona[0], 'nombre': persona[1], 'apellido': persona[2], 'fechanacimiento': persona[3], 'cedula': persona[4], 'correo': persona[5]} for persona in personas]
+            return [{'id': persona[0], 'nombre': persona[1], 'apellido': persona[2], 'fechanacimiento': persona[3], 'cedula': persona[4], 'sexo': persona[5], 'telefono': persona[6], 'ciudad': persona[7], 'pais': persona[8], 'nacionalidad': persona[9]} for persona in personas]
 
         except Exception as e:
             app.logger.error(f"Error al obtener todas las personas: {str(e)}")
@@ -30,17 +29,19 @@ class PersonaDao:
             cur.close()
             con.close()
 
-    def getPersonaById(self, id):
+    def getPersonasById(self, id_persona):
         personaSQL = """
-        SELECT id, nombre, apellido, fechanacimiento, cedula, correo
-        FROM personas WHERE id=%s
+         SELECT 
+            p.id_persona, p.nombre, p.apellido, p.fechanacimiento, p.cedula, p.sexo, p.telefono, c.descripcion, p.descripcion, n.descripcion
+            FROM personas p, ciudades c, paises, nacionalidades n
+            where p.id_ciudad=c.id_ciudad and p.id_pais=p.id_pais and p.id_nacionalidad=n.id_nacionalidad and p.id_persona=%s
         """
         # objeto conexion
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(personaSQL, (id,))
+            cur.execute(personaSQL, (id_persona,))
             personaEncontrada = cur.fetchone()  # Obtener una sola fila
             if personaEncontrada:
                 return {
@@ -49,7 +50,14 @@ class PersonaDao:
                     "apellido": personaEncontrada[2],
                     "fechanacimiento": personaEncontrada[3],
                     "cedula": personaEncontrada[4],
-                    "correo": personaEncontrada[5]
+                    "sexo": personaEncontrada[5],
+                    "telefono": personaEncontrada[6],
+                    "ciudad": personaEncontrada[7],
+                    "pais": personaEncontrada[8],
+                    "nacionalidad": personaEncontrada[9],
+                    "id_ciudad": personaEncontrada[10],
+                    "id_pais": personaEncontrada[11],
+                    "id_nacionalidad": personaEncontrada[12]
                 }  # Retornar los datos de persona
             else:
                 return None  # Retornar None si no se encuentra la persona
@@ -61,9 +69,9 @@ class PersonaDao:
             cur.close()
             con.close()
 
-    def guardarPersona(self, nombre, apellido, fechanacimiento, cedula, correo):
+    def guardarPersona(self, nombre, apellido, fechanacimiento, cedula, sexo, telefono, id_ciudad, id_pais, id_nacionalidad):
         insertPersonaSQL = """
-        INSERT INTO personas(nombre, apellido, fechanacimiento, cedula, correo) VALUES(%s, %s, %s, %s, %s) RETURNING id
+        INSERT INTO personas(nombre, apellido, fechanacimiento, cedula, sexo, telefono, id_ciudad, id_pais, id_nacionalidad) VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id_persona
         """
 
         conexion = Conexion()
@@ -72,7 +80,7 @@ class PersonaDao:
 
         # Ejecucion exitosa
         try:
-            cur.execute(insertPersonaSQL, (nombre, apellido, fechanacimiento, cedula, correo))
+            cur.execute(insertPersonaSQL, (nombre, apellido, fechanacimiento, cedula, sexo, telefono, id_ciudad, id_pais, id_nacionalidad))
             persona_id = cur.fetchone()[0]
             con.commit()  # se confirma la insercion
             return persona_id
@@ -88,11 +96,11 @@ class PersonaDao:
             cur.close()
             con.close()
 
-    def updatePersona(self, id, nombre, apellido, fechanacimiento, cedula, correo):
+    def updatePersona(self, id_persona, nombre, apellido, fechanacimiento, cedula, sexo, telefono, id_ciudad, id_pais, id_nacionalidad):
         updatePersonaSQL = """
         UPDATE personas
-        SET nombre=%s, apellido=%s, fechanacimiento=%s, cedula=%s, correo=%s
-        WHERE id=%s
+        SET nombre=%s, apellido=%s, fechanacimiento=%s, cedula=%s, sexo=%s, telefono=%s, id_ciudad=%s, id_pais=%s, id_nacionalidad=%s
+        WHERE id_persona=%s
         """
 
         conexion = Conexion()
@@ -100,7 +108,7 @@ class PersonaDao:
         cur = con.cursor()
 
         try:
-            cur.execute(updatePersonaSQL, (nombre, apellido, fechanacimiento, cedula, correo, id))
+            cur.execute(updatePersonaSQL, (nombre, apellido, fechanacimiento, cedula, sexo, telefono, id_ciudad, id_pais, id_nacionalidad,id_persona))
             filas_afectadas = cur.rowcount  # Obtener el número de filas afectadas
             con.commit()
 
@@ -115,10 +123,10 @@ class PersonaDao:
             cur.close()
             con.close()
 
-    def deletePersona(self, id):
+    def deletePersona(self, id_persona):
         deletePersonaSQL = """
         DELETE FROM personas
-        WHERE id=%s
+        WHERE id_persona=%s
         """
 
         conexion = Conexion()
@@ -126,7 +134,7 @@ class PersonaDao:
         cur = con.cursor()
 
         try:
-            cur.execute(deletePersonaSQL, (id,))
+            cur.execute(deletePersonaSQL, (id_persona,))
             rows_affected = cur.rowcount
             con.commit()
 

@@ -1,7 +1,6 @@
 from flask import Blueprint, request, jsonify, current_app as app
 from app.dao.referenciales.persona.PersonaDao import PersonaDao
 
-
 persapi = Blueprint('persapi', __name__)
 
 # Trae todas las personas
@@ -58,7 +57,7 @@ def addPersona():
     personadao = PersonaDao()
 
     # Validar que el JSON no esté vacío y tenga las propiedades necesarias
-    campos_requeridos = ['nombre', 'apellido', 'fechanacimiento', 'cedula', 'correo']
+    campos_requeridos = ['nombre', 'apellido', 'fechanacimiento', 'cedula', 'sexo', 'telefono', 'id_ciudad', 'id_pais', 'id_nacionalidad']
 
     # Verificar si faltan campos o son vacíos
     for campo in campos_requeridos:
@@ -69,16 +68,21 @@ def addPersona():
                             }), 400
 
     try:
-        nombre = data['nombre'].upper()
-        apellido = data['apellido'].upper()
-        fechanacimiento = data['fechanacimiento']
-        cedula = data['cedula']
-        correo = data['correo']
-        persona_id = personadao.guardarPersona(nombre, apellido, fechanacimiento, cedula, correo)
+        nombre = data['nombre'].strip().upper()  # Quita espacios y convierte a mayúsculas
+        apellido = data['apellido'].strip().upper()
+        fechanacimiento = data['fechanacimiento']  # Suponiendo que ya está en formato correcto
+        cedula = data['cedula'].strip()  # Elimina espacios en blanco
+        sexo = data['sexo']  # Verifica si ya es booleano o un string limpio
+        telefono = data['telefono'].strip()  # Elimina espacios si es una cadena
+        id_ciudad = int(data['id_ciudad'])  # Convierte a entero si aplica
+        id_pais = int(data['id_pais'])  # Convierte a entero si aplica
+        id_nacionalidad = int(data['id_nacionalidad'])  # Sin coma para evitar una tupla
+
+        persona_id = personadao.guardarPersona(nombre, apellido, fechanacimiento, cedula, sexo, telefono, id_ciudad, id_pais, id_nacionalidad)
         if persona_id is not None:
             return jsonify({
                 'success': True,
-                'data': {'id': persona_id, 'nombre': nombre, 'apellido': apellido, 'fechanacimiento': fechanacimiento, 'cedula': cedula, 'correo': correo,},
+                'data': {'id': persona_id, 'nombre': nombre, 'apellido': apellido, 'fechanacimiento': fechanacimiento, 'cedula': cedula, 'sexo': sexo, 'telefono': telefono, 'id_ciudad': id_ciudad, 'id_pais': id_pais, 'id_nacionalidad': id_nacionalidad},
                 'error': None
             }), 201
         else:
@@ -96,7 +100,7 @@ def updatePersona(persona_id):
     personadao = PersonaDao()
 
     # Validar que el JSON no esté vacío y tenga las propiedades necesarias
-    campos_requeridos = ['nombre', 'apellido', 'fechanacimiento', 'cedula', 'correo']
+    campos_requeridos = ['nombre', 'apellido', 'fechanacimiento', 'cedula', 'sexo', 'telefono', 'id_ciudad', 'id_pais', 'id_nacionalidad']
 
     # Verificar si faltan campos o son vacíos
     for campo in campos_requeridos:
@@ -107,15 +111,20 @@ def updatePersona(persona_id):
                             }), 400
         
     try:
-        nombre = data['nombre'].upper()
-        apellido = data['apellido'].upper()
-        fechanacimiento = data['fechanacimiento']
-        cedula = data['cedula']
-        correo = data['correo']
-        if personadao.updatePersona(persona_id, nombre.upper(), apellido.upper(), fechanacimiento, cedula, correo):
+        nombre = data['nombre'].strip().upper()  # Quita espacios y convierte a mayúsculas
+        apellido = data['apellido'].strip().upper()
+        fechanacimiento = data['fechanacimiento']  # Suponiendo que ya está en formato correcto
+        cedula = data['cedula'].strip()  # Elimina espacios en blanco
+        sexo = data['sexo']  # Verifica si ya es booleano o un string limpio
+        telefono = data['telefono'].strip()  # Elimina espacios si es una cadena
+        id_ciudad = int(data['id_ciudad'])  # Convierte a entero si aplica
+        id_pais = int(data['id_pais'])  # Convierte a entero si aplica
+        id_nacionalidad = int(data['id_nacionalidad'])  # Sin coma para evitar una tupla
+
+        if personadao.updatePersona(persona_id, nombre.upper(), apellido.upper(), fechanacimiento, cedula, sexo, telefono, id_ciudad, id_pais, id_nacionalidad):
             return jsonify({
                 'success': True,
-                'data': {'id': persona_id, 'nombre': nombre, 'apellido': apellido, 'fechanacimiento': fechanacimiento, 'cedula': cedula, 'correo': correo,},
+                'data': {'id': persona_id, 'nombre': nombre, 'apellido': apellido, 'fechanacimiento': fechanacimiento, 'cedula': cedula, 'sexo': sexo, 'telefono': telefono, 'id_ciudad': id_ciudad, 'id_pais': id_pais, 'id_nacionalidad': id_nacionalidad},
                 'error': None
             }), 200
         else:

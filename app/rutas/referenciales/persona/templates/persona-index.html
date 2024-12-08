@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
     
 {% block titulo %}
-Persona
+Personas
 {% endblock %}
 
 {% block contenido %}
@@ -21,7 +21,11 @@ Persona
               <th>Apellido</th> <!-- Agregado campo 'apellido' -->
               <th>Fecha de Nacimiento</th>
               <th>N° C.I.</th>
-              <th>Correo</th>
+              <th>Genero</th>
+              <th>Telefono</th>
+              <th>Ciudad</th>
+              <th>Pais</th>
+              <th>Nacionalidad</th>
               <th>Acciones</th>
             </tr>
           </thead>
@@ -48,20 +52,23 @@ Persona
             <div class="form-group">
               <input type="hidden" id="txtIdPersona">
               <label for="txtNombre">Nombre:</label>
-              <input type="text" class="form-control" placeholder="Ingrese el nombre de la persona" id="txtNombre">
-
+              <input type="text" class="form-control" placeholder="Ingrese el nombre " id="txtNombre">
               <label for="txtApellido">Apellido:</label>
               <input type="text" class="form-control" placeholder="Ingrese el apellido" id="txtApellido">
-
               <label for="txtFechaNacimiento">Fecha de nacimiento:</label>
               <input type="date" class="form-control" placeholder="Ingresar fecha de nacimiento" id="txtFechaNacimiento">
-
               <label for="txtCedula">Cédula:</label>
               <input type="text" class="form-control" placeholder="Ingrese el C.I de la persona" id="txtCedula">
-
-              <label for="txtCorreo">Correo:</label>
-              <input type="text" class="form-control" placeholder="Ingresar correo" id="txtCorreo">
-
+              <label for="txtGenero">Genero:</label>
+              <input type="text" class="form-control" placeholder="Ingresar Genero" id="txtGenero">
+              <label for="txtTelefono">Teléfono:</label>
+              <input type="text" class="form-control" placeholder="Ingrese el teléfono" id="txtTelefono">
+              <label for="txtCiudad">Ciudad:</label>
+              <input type="text" class="form-control" placeholder="Seleccione la ciudad" id="txtCiudad" readonly>
+              <label for="txtPais">Pais:</label>
+              <input type="text" class="form-control" placeholder="Seleccione el pais" id="txtPais" readonly>
+              <label for="txtNacionalidad">Nacionalidad:</label>
+              <input type="text" class="form-control" placeholder="Seleccione la nacionalidad" id="txtNacionalidad" readonly>
             </div>
           </div>
 
@@ -71,6 +78,78 @@ Persona
             <button type="button" class="btn btn-danger" data-dismiss="modal">Cerrar</button>
           </div>
 
+        </div>
+      </div>
+    </div>
+
+    <div class="modal" id="modalBuscarCiudad">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h4 class="modal-title" id="modalCiudadTitle">Seleccionar ciudad</h4>
+            <button type="button" class="close" data-dismiss="modal">&times;</button>
+          </div>
+          <div class="card-body">
+            <div class="table-responsive">
+              <table class="table table-striped" id="tblCiudad">
+                <thead>
+                  <tr>
+                    <th>Ciudad</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal" id="modalBuscarPais">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h4 class="modal-title" id="modalPaisTitle">Seleccionar pais</h4>
+            <button type="button" class="close" data-dismiss="modal">&times;</button>
+          </div>
+          <div class="card-body">
+            <div class="table-responsive">
+              <table class="table table-striped" id="tblPais">
+                <thead>
+                  <tr>
+                    <th>Pais</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal" id="modalBuscarNacionalidad">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h4 class="modal-title" id="modalNacionalidadTitle">Seleccionar nacionalidad</h4>
+            <button type="button" class="close" data-dismiss="modal">&times;</button>
+          </div>
+          <div class="card-body">
+            <div class="table-responsive">
+              <table class="table table-striped" id="tblNacionalidad">
+                <thead>
+                  <tr>
+                    <th>Nacionalidad</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -124,7 +203,11 @@ Persona
         }
       },
       { data: 'cedula' },
-      { data: 'correo' },
+      { data: 'sexo' },
+      { data: 'telefono' },
+      { data: 'ciudad' },
+      { data: 'pais' },
+      { data: 'nacionalidad' },
         { data: function(row) {
             return `
               <button type="button" name="btn_editar" class="btn btn-info" data-id="${row.id}">Editar</button>
@@ -135,6 +218,29 @@ Persona
     });
   }
 
+  const initDatatablec = () => {
+    $('#tblCiudad').DataTable({
+      language: {
+        url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}",
+      },
+      ajax:'/api/v1/ciudades',
+      columns: [
+        { data: 'descripcion' },
+        { data: function(row) {
+            return `<button type="button" name="btn_seleccionar_ciudad" class="fa fa-check" data-id="${row.id_ciudad}" data-ciudad="${row.descripcion}">Seleccionar</button>;`
+          }
+        }
+      ]
+    });
+    $('#tblCiudad').on('click', 'button[name="btn_seleccionar_ciudad"]', function () {
+      const idCiudad = $(this).data('id');
+      const ciudad = $(this).data('ciudad');
+      $('txtCiudad').val(ciudad);
+      $('id_ciudad').val(idCiudad);
+      $('#modalBuscarCiudad').modal('hide');
+    });
+  }
+  
   const agregar = () => {
     $('#btnAgregar').on('click', function(){
       $('#modalTitle').text("Agregar Persona");
