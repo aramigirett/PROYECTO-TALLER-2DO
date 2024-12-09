@@ -217,7 +217,7 @@ Personas
       ]
     });
   }
-
+  
   const initDatatablec = () => {
     $('#tblCiudad').DataTable({
       language: {
@@ -241,6 +241,43 @@ Personas
     });
   }
   
+  const buscarCiudad = () => {
+    $('#txtCiudad').on('click', function () {
+      $('#modalCiudadTitle').text("Seleccionar Ciudad");
+      $('#modalBuscarCiudad').modal();
+    });
+  }
+
+  const initDatatablep = () => {
+    $('#tblPais').DataTable({
+      language: {
+        url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}",
+      },
+      ajax:'/api/v1/paises',
+      columns: [
+        { data: 'descripcion' },
+        { data: function(row) {
+            return `<button type="button" name="btn_seleccionar_pais" class="fa fa-check" data-id="${row.id_pais}" data-pais="${row.descripcion}">Seleccionar</button>;`
+          }
+        }
+      ]
+    });
+    $('#tblPais').on('click', 'button[name="btn_seleccionar_pais"]', function () {
+      const idPais = $(this).data('id');
+      const pais = $(this).data('pais');
+      $('txtPais').val(pais);
+      $('id_pais').val(idPais);
+      $('#modalBuscarPais').modal('hide');
+    });
+  }
+
+  const buscarPais = () => {
+    $('#txtPais').on('click', function () {
+      $('#modalPaisTitle').text("Seleccionar Pais");
+      $('#modalBuscarPais').modal();
+    });
+  }
+
   const agregar = () => {
     $('#btnAgregar').on('click', function(){
       $('#modalTitle').text("Agregar Persona");
