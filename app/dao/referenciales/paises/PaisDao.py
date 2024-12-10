@@ -7,7 +7,7 @@ class PaisDao:
     def getPaises(self):
 
         paisSQL = """
-        SELECT id, descripcion
+        SELECT id_paid, descripcion
         FROM paises
         """
         # objeto conexion
@@ -19,7 +19,7 @@ class PaisDao:
             paises = cur.fetchall() # trae datos de la bd
 
             # Transformar los datos en una lista de diccionarios
-            return [{'id': pais[0], 'descripcion': pais[1]} for pais in paises]
+            return [{'id_pais': pais[0], 'descripcion': pais[1]} for pais in paises]
 
         except Exception as e:
             app.logger.error(f"Error al obtener todas las paises: {str(e)}")
@@ -29,22 +29,22 @@ class PaisDao:
             cur.close()
             con.close()
 
-    def getPaisById(self, id):
+    def getPaisById(self, id_pais):
 
         paisSQL = """
-        SELECT id, descripcion
-        FROM paises WHERE id=%s
+        SELECT id_pais, descripcion
+        FROM paises WHERE id_pais=%s
         """
         # objeto conexion
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(paisSQL, (id,))
+            cur.execute(paisSQL, (id_pais,))
             paisEncontrada = cur.fetchone() # Obtener una sola fila
             if paisEncontrada:
                 return {
-                        "id": paisEncontrada[0],
+                        "id_pais": paisEncontrada[0],
                         "descripcion": paisEncontrada[1]
                     }  # Retornar los datos de pais
             else:
@@ -60,7 +60,7 @@ class PaisDao:
     def guardarPais(self, descripcion):
 
         insertPaisSQL = """
-        INSERT INTO paises(descripcion) VALUES(%s) RETURNING id
+        INSERT INTO paises(descripcion) VALUES(%s) RETURNING id_pais
         """
 
         conexion = Conexion()
@@ -85,12 +85,12 @@ class PaisDao:
             cur.close()
             con.close()
 
-    def updatePais(self, id, descripcion):
+    def updatePais(self, id_pais, descripcion):
 
         updatePaisSQL = """
         UPDATE paises
         SET descripcion=%s
-        WHERE id=%s
+        WHERE id_pais=%s
         """
 
         conexion = Conexion()
@@ -98,7 +98,7 @@ class PaisDao:
         cur = con.cursor()
 
         try:
-            cur.execute(updatePaisSQL, (descripcion, id,))
+            cur.execute(updatePaisSQL, (descripcion, id_pais,))
             filas_afectadas = cur.rowcount # Obtener el número de filas afectadas
             con.commit()
 
@@ -113,11 +113,11 @@ class PaisDao:
             cur.close()
             con.close()
 
-    def deletePais(self, id):
+    def deletePais(self, id_pais):
 
         updatePaisSQL = """
         DELETE FROM paises
-        WHERE id=%s
+        WHERE id_pais=%s
         """
 
         conexion = Conexion()
@@ -125,7 +125,7 @@ class PaisDao:
         cur = con.cursor()
 
         try:
-            cur.execute(updatePaisSQL, (id,))
+            cur.execute(updatePaisSQL, (id_pais,))
             rows_affected = cur.rowcount
             con.commit()
 

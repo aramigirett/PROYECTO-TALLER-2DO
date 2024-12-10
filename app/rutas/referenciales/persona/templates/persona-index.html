@@ -278,6 +278,36 @@ Personas
     });
   }
 
+  const initDatatablen = () => {
+    $('#tblNacionalidad').DataTable({
+      language: {
+        url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}",
+      },
+      ajax:'/api/v1/nacionalidad',
+      columns: [
+        { data: 'descripcion' },
+        { data: function(row) {
+            return `<button type="button" name="btn_seleccionar_nacionalidad" class="fa fa-check" data-id="${row.id_nacionalidad}" data-pais="${row.descripcion}">Seleccionar</button>;`
+          }
+        }
+      ]
+    });
+    $('#tblNacionalidad').on('click', 'button[name="btn_seleccionar_nacionalidad"]', function () {
+      const idNacionalidad = $(this).data('id');
+      const nacionalidad = $(this).data('nacionalidad');
+      $('txtNacionalidad').val(nacionalidad);
+      $('id_nacionalidad').val(idNacionalidad);
+      $('#modalBuscarNacionalidad').modal('hide');
+    });
+  }
+
+  const buscarNacionalidad = () => {
+    $('#txtNacionalidad').on('click', function () {
+      $('#modalNacionalidadTitle').text("Seleccionar Nacionalidad");
+      $('#modalBuscarNacionalidad').modal();
+    });
+  }
+
   const agregar = () => {
     $('#btnAgregar').on('click', function(){
       $('#modalTitle').text("Agregar Persona");
@@ -420,17 +450,23 @@ Personas
     });
   }
 
-// Validación del campo de cédula para que solo acepte números
-$('#txtCedula').on('input', function() {
-  this.value = this.value.replace(/[^0-9]/g, '');  // Solo permite números
-});
-
- $(document).ready(function() {
-    initDatatable();
+  const addEvents = () => {
     agregar();
     guardar();
     editar();
     eliminar();
+    buscarCiudad();
+    buscarPais();
+    buscarNacionalidad();
+  }
+
+  $( function() {
+    initDatatable();
+    initDatatablec();
+    initDatatablep();
+    initDatatablen();
+    addEvents();
   });
+  
 </script>
 {% endblock %}

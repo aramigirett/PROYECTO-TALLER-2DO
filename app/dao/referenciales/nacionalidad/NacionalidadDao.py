@@ -7,7 +7,7 @@ class NacionalidadDao:
     def getNacionalidades(self):
 
         nacionalidadSQL = """
-        SELECT id, descripcion
+        SELECT id_nacionalidad, descripcion
         FROM nacionalidades
         """
         # objeto conexion
@@ -19,7 +19,7 @@ class NacionalidadDao:
             nacionalidades = cur.fetchall() # trae datos de la bd
 
             # Transformar los datos en una lista de diccionarios
-            return [{'id': nacionalidad[0], 'descripcion': nacionalidad[1]} for nacionalidad in nacionalidades]
+            return [{'id_nacionalidad': nacionalidad[0], 'descripcion': nacionalidad[1]} for nacionalidad in nacionalidades]
 
         except Exception as e:
             app.logger.error(f"Error al obtener todas las nacionalidades: {str(e)}")
@@ -29,22 +29,22 @@ class NacionalidadDao:
             cur.close()
             con.close()
 
-    def getNacionalidadById(self, id):
+    def getNacionalidadById(self, id_nacionalidad):
 
         nacionalidadSQL = """
-        SELECT id, descripcion
-        FROM nacionalidades WHERE id=%s
+        SELECT id_nacionalidad, descripcion
+        FROM nacionalidades WHERE id_nacionalidad=%s
         """
         # objeto conexion
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(nacionalidadSQL, (id,))
+            cur.execute(nacionalidadSQL, (id_nacionalidad,))
             nacionalidadEncontrada = cur.fetchone() # Obtener una sola fila
             if nacionalidadEncontrada:
                 return {
-                        "id": nacionalidadEncontrada[0],
+                        "id_nacionalidad": nacionalidadEncontrada[0],
                         "descripcion": nacionalidadEncontrada[1]
                     }  # Retornar los datos de nacionalidad
             else:
@@ -60,7 +60,7 @@ class NacionalidadDao:
     def guardarNacionalidad(self, descripcion):
 
         insertNacionalidadSQL = """
-        INSERT INTO nacionalidades(descripcion) VALUES(%s) RETURNING id
+        INSERT INTO nacionalidades(descripcion) VALUES(%s) RETURNING id_nacionalidad
         """
 
         conexion = Conexion()
@@ -85,12 +85,12 @@ class NacionalidadDao:
             cur.close()
             con.close()
 
-    def updateNacionalidad(self, id, descripcion):
+    def updateNacionalidad(self, id_nacionalidad, descripcion):
 
         updateNacionalidadSQL = """
         UPDATE nacionalidades
         SET descripcion=%s
-        WHERE id=%s
+        WHERE id_nacionalidad=%s
         """
 
         conexion = Conexion()
@@ -98,7 +98,7 @@ class NacionalidadDao:
         cur = con.cursor()
 
         try:
-            cur.execute(updateNacionalidadSQL, (descripcion, id,))
+            cur.execute(updateNacionalidadSQL, (descripcion, id_nacionalidad,))
             filas_afectadas = cur.rowcount # Obtener el número de filas afectadas
             con.commit()
 
@@ -113,11 +113,11 @@ class NacionalidadDao:
             cur.close()
             con.close()
 
-    def deleteNacionalidad(self, id):
+    def deleteNacionalidad(self, id_nacionalidad):
 
         updateNacionalidadSQL = """
         DELETE FROM nacionalidades
-        WHERE id=%s
+        WHERE id_nacionalidad=%s
         """
 
         conexion = Conexion()
@@ -125,7 +125,7 @@ class NacionalidadDao:
         cur = con.cursor()
 
         try:
-            cur.execute(updateNacionalidadSQL, (id,))
+            cur.execute(updateNacionalidadSQL, (id_nacionalidad,))
             rows_affected = cur.rowcount
             con.commit()
 
