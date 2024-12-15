@@ -6,9 +6,11 @@ class PersonaDao:
     def getPersonas(self):
         personaSQL = """
         SELECT 
-         p.id_persona, p.nombre, p.apellido, p.fechanacimiento, p.cedula, p.sexo, p.telefono, c.descripcion, p.descripcion, n.descripcion
-            FROM personas p, ciudades c, paises, nacionalidades n
-            where p.id_ciudad=c.id_ciudad and p.id_pais=p.id_pais and p.id_nacionalidad=n.id_nacionalidad
+         p.id_persona, p.nombre, p.apellido, p.fechanacimiento, p.cedula, p.sexo, p.telefono, c.descripcion AS ciudad, paises.descripcion AS pais, n.descripcion AS nacionalidad
+        FROM personas p
+        JOIN ciudades c ON p.id_ciudad = c.id_ciudad
+        JOIN paises ON p.id_pais = paises.id_pais
+        JOIN nacionalidades n ON p.id_nacionalidad = n.id_nacionalidad
         """
         # objeto conexion
         conexion = Conexion()
@@ -19,7 +21,21 @@ class PersonaDao:
             personas = cur.fetchall()  # trae datos de la bd
 
             # Transformar los datos en una lista de diccionarios
-            return [{'id': persona[0], 'nombre': persona[1], 'apellido': persona[2], 'fechanacimiento': persona[3], 'cedula': persona[4], 'sexo': persona[5], 'telefono': persona[6], 'ciudad': persona[7], 'pais': persona[8], 'nacionalidad': persona[9]} for persona in personas]
+            return [
+                {
+                    'id': persona[0],
+                    'nombre': persona[1],
+                    'apellido': persona[2],
+                    'fechanacimiento': persona[3],
+                    'cedula': persona[4],
+                    'sexo': persona[5],
+                    'telefono': persona[6],
+                    'ciudad': persona[7],
+                    'pais': persona[8],
+                    'nacionalidad': persona[9]
+                }
+                for persona in personas
+            ]
 
         except Exception as e:
             app.logger.error(f"Error al obtener todas las personas: {str(e)}")
@@ -31,10 +47,13 @@ class PersonaDao:
 
     def getPersonasById(self, id_persona):
         personaSQL = """
-         SELECT 
-            p.id_persona, p.nombre, p.apellido, p.fechanacimiento, p.cedula, p.sexo, p.telefono, c.descripcion, p.descripcion, n.descripcion
-            FROM personas p, ciudades c, paises, nacionalidades n
-            where p.id_ciudad=c.id_ciudad and p.id_pais=p.id_pais and p.id_nacionalidad=n.id_nacionalidad and p.id_persona=%s
+        SELECT 
+            p.id_persona, p.nombre, p.apellido, p.fechanacimiento, p.cedula, p.sexo, p.telefono, c.descripcion AS ciudad, paises.descripcion AS pais, n.descripcion AS nacionalidad
+        FROM personas p
+        JOIN ciudades c ON p.id_ciudad = c.id_ciudad
+        JOIN paises ON p.id_pais = paises.id_pais
+        JOIN nacionalidades n ON p.id_nacionalidad = n.id_nacionalidad
+        WHERE p.id_persona = %s
         """
         # objeto conexion
         conexion = Conexion()
@@ -54,10 +73,7 @@ class PersonaDao:
                     "telefono": personaEncontrada[6],
                     "ciudad": personaEncontrada[7],
                     "pais": personaEncontrada[8],
-                    "nacionalidad": personaEncontrada[9],
-                    "id_ciudad": personaEncontrada[10],
-                    "id_pais": personaEncontrada[11],
-                    "id_nacionalidad": personaEncontrada[12]
+                    "nacionalidad": personaEncontrada[9]
                 }  # Retornar los datos de persona
             else:
                 return None  # Retornar None si no se encuentra la persona
@@ -108,7 +124,7 @@ class PersonaDao:
         cur = con.cursor()
 
         try:
-            cur.execute(updatePersonaSQL, (nombre, apellido, fechanacimiento, cedula, sexo, telefono, id_ciudad, id_pais, id_nacionalidad,id_persona))
+            cur.execute(updatePersonaSQL, (nombre, apellido, fechanacimiento, cedula, sexo, telefono, id_ciudad, id_pais, id_nacionalidad, id_persona))
             filas_afectadas = cur.rowcount  # Obtener el número de filas afectadas
             con.commit()
 

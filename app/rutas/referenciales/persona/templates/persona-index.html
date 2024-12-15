@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-    
+
 {% block titulo %}
 Personas
 {% endblock %}
@@ -18,7 +18,7 @@ Personas
           <thead>
             <tr>
               <th>Nombre</th>
-              <th>Apellido</th> <!-- Agregado campo 'apellido' -->
+              <th>Apellido</th>
               <th>Fecha de Nacimiento</th>
               <th>N° C.I.</th>
               <th>Genero</th>
@@ -37,7 +37,6 @@ Personas
 
     <!-- El formulario -->
     <div class="modal" id="modalFormulario">
-      <!-- La clase modal-dialog-centered centra el modal -->
       <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
 
@@ -50,23 +49,26 @@ Personas
           <!-- Modal body -->
           <div class="modal-body">
             <div class="form-group">
-              <input type="hidden" id="txtIdPersona">
+              <input type="hidden" id="txtId_Persona">
               <label for="txtNombre">Nombre:</label>
-              <input type="text" class="form-control" placeholder="Ingrese el nombre " id="txtNombre">
+              <input type="text" class="form-control" placeholder="Ingrese el nombre" id="txtNombre">
               <label for="txtApellido">Apellido:</label>
               <input type="text" class="form-control" placeholder="Ingrese el apellido" id="txtApellido">
               <label for="txtFechaNacimiento">Fecha de nacimiento:</label>
               <input type="date" class="form-control" placeholder="Ingresar fecha de nacimiento" id="txtFechaNacimiento">
               <label for="txtCedula">Cédula:</label>
               <input type="text" class="form-control" placeholder="Ingrese el C.I de la persona" id="txtCedula">
-              <label for="txtGenero">Genero:</label>
-              <input type="text" class="form-control" placeholder="Ingresar Genero" id="txtGenero">
+              <label for="txtSexo">Genero:</label>
+              <input type="text" class="form-control" placeholder="Ingresar Genero" id="txtSexo">
               <label for="txtTelefono">Teléfono:</label>
               <input type="text" class="form-control" placeholder="Ingrese el teléfono" id="txtTelefono">
+              <input type="hidden" id="id_ciudad">
               <label for="txtCiudad">Ciudad:</label>
               <input type="text" class="form-control" placeholder="Seleccione la ciudad" id="txtCiudad" readonly>
+              <input type="hidden" id="id_pais">
               <label for="txtPais">Pais:</label>
               <input type="text" class="form-control" placeholder="Seleccione el pais" id="txtPais" readonly>
+              <input type="hidden" id="id_nacionalidad">
               <label for="txtNacionalidad">Nacionalidad:</label>
               <input type="text" class="form-control" placeholder="Seleccione la nacionalidad" id="txtNacionalidad" readonly>
             </div>
@@ -82,6 +84,7 @@ Personas
       </div>
     </div>
 
+    <!-- Modal para buscar ciudad -->
     <div class="modal" id="modalBuscarCiudad">
       <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content">
@@ -106,6 +109,7 @@ Personas
       </div>
     </div>
 
+    <!-- Modal para buscar pais -->
     <div class="modal" id="modalBuscarPais">
       <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content">
@@ -130,6 +134,7 @@ Personas
       </div>
     </div>
 
+    <!-- Modal para buscar nacionalidad -->
     <div class="modal" id="modalBuscarNacionalidad">
       <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content">
@@ -172,18 +177,13 @@ Personas
 <script>
   $(function() {
     $("#fechanacimiento").datepicker({
-      dateFormat: "yy-mm-dd",  // Formato de fecha (ejemplo: 2024-01-01)
-      changeMonth: true,       // Permite cambiar el mes
-      changeYear: true,        // Permite cambiar el año
-      yearRange: "1900:2024"   // Rango de años disponibles
+      dateFormat: "yy-mm-dd", 
+      changeMonth: true, 
+      changeYear: true, 
+      yearRange: "1900:2024"  
     });
   });
-</script>
 
-{% endblock %}
-
-{% block js %}
-<script>
   const initDatatable = () => {
     $('#tbl').DataTable({
       language: {
@@ -191,33 +191,31 @@ Personas
       },
       ajax:'/api/v1/personas',
       columns: [
-        { data: 'nombre' }, // Agregado campo 'nombre'
-        { data: 'apellido' }, // Agregado campo 'apellido'
+        { data: 'nombre' },
+        { data: 'apellido' },
         { data: function(row) {
-          // Formatear la fecha en el formato deseado
           const fecha = new Date(row.fechanacimiento + 'T00:00:00'); 
           const dia = fecha.getDate().toString().padStart(2, '0');
-          const mes = (fecha.getMonth() + 1).toString().padStart(2, '0');  // +1 porque los meses comienzan en 0
+          const mes = (fecha.getMonth() + 1).toString().padStart(2, '0');
           const anio = fecha.getFullYear();
-          return `${dia}/${mes}/${anio}`;  // Formato DD/MM/YYYY
-        }
-      },
-      { data: 'cedula' },
-      { data: 'sexo' },
-      { data: 'telefono' },
-      { data: 'ciudad' },
-      { data: 'pais' },
-      { data: 'nacionalidad' },
+          return `${dia}/${mes}/${anio}`; 
+        }},
+        { data: 'cedula' },
+        { data: 'sexo' },
+        { data: 'telefono' },
+        { data: 'ciudad' },
+        { data: 'pais' },
+        { data: 'nacionalidad' },
         { data: function(row) {
             return `
-              <button type="button" name="btn_editar" class="btn btn-info" data-id="${row.id}">Editar</button>
-              <button type="button" name="btn_eliminar" class="btn btn-warning" data-id="${row.id}">Eliminar</button>`
+              <button type="button" name="btn_editar" class="btn btn-info" data-id="${row.id_persona}">Editar</button>
+              <button type="button" name="btn_eliminar" class="btn btn-warning" data-id="${row.id_persona}">Eliminar</button>`
           }
         }
       ]
     });
   }
-  
+
   const initDatatablec = () => {
     $('#tblCiudad').DataTable({
       language: {
@@ -235,12 +233,12 @@ Personas
     $('#tblCiudad').on('click', 'button[name="btn_seleccionar_ciudad"]', function () {
       const idCiudad = $(this).data('id');
       const ciudad = $(this).data('ciudad');
-      $('txtCiudad').val(ciudad);
-      $('id_ciudad').val(idCiudad);
+      $('#txtCiudad').val(ciudad);
+      $('#id_ciudad').val(idCiudad);
       $('#modalBuscarCiudad').modal('hide');
     });
   }
-  
+
   const buscarCiudad = () => {
     $('#txtCiudad').on('click', function () {
       $('#modalCiudadTitle').text("Seleccionar Ciudad");
@@ -265,8 +263,8 @@ Personas
     $('#tblPais').on('click', 'button[name="btn_seleccionar_pais"]', function () {
       const idPais = $(this).data('id');
       const pais = $(this).data('pais');
-      $('txtPais').val(pais);
-      $('id_pais').val(idPais);
+      $('#txtPais').val(pais);
+      $('#id_pais').val(idPais);
       $('#modalBuscarPais').modal('hide');
     });
   }
@@ -283,11 +281,11 @@ Personas
       language: {
         url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}",
       },
-      ajax:'/api/v1/nacionalidad',
+      ajax:'/api/v1/nacionalidades',
       columns: [
         { data: 'descripcion' },
         { data: function(row) {
-            return `<button type="button" name="btn_seleccionar_nacionalidad" class="fa fa-check" data-id="${row.id_nacionalidad}" data-pais="${row.descripcion}">Seleccionar</button>;`
+            return `<button type="button" name="btn_seleccionar_nacionalidad" class="fa fa-check" data-id="${row.id_nacionalidad}" data-nacionalidad="${row.descripcion}">Seleccionar</button>;`
           }
         }
       ]
@@ -295,8 +293,8 @@ Personas
     $('#tblNacionalidad').on('click', 'button[name="btn_seleccionar_nacionalidad"]', function () {
       const idNacionalidad = $(this).data('id');
       const nacionalidad = $(this).data('nacionalidad');
-      $('txtNacionalidad').val(nacionalidad);
-      $('id_nacionalidad').val(idNacionalidad);
+      $('#txtNacionalidad').val(nacionalidad);
+      $('#id_nacionalidad').val(idNacionalidad);
       $('#modalBuscarNacionalidad').modal('hide');
     });
   }
@@ -312,11 +310,15 @@ Personas
     $('#btnAgregar').on('click', function(){
       $('#modalTitle').text("Agregar Persona");
       $('#txtIdPersona').val("");
-      $('#txtNombre').val(""); // Limpiar campo nombre
-      $('#txtApellido').val(""); // Limpiar campo apellido
+      $('#txtNombre').val("");
+      $('#txtApellido').val("");
       $('#txtFechaNacimiento').val("");
       $('#txtCedula').val("");
-      $('#txtCorreo').val("");
+      $('#txtSexo').val("");
+      $('#txtTelefono').val("");
+      $('#txtCiudad').val("");
+      $('#txtPais').val("");
+      $('#txtNacionalidad').val("");
       $('#modalFormulario').modal();
     });
   }
@@ -324,13 +326,16 @@ Personas
   const guardar = () => {
     $('#btnGuardar').on('click', function() {
       const idPersona = $('#txtIdPersona').val();
-      const nuevoNombre = $('#txtNombre').val(); // Obtener nombre
-      const nuevoApellido = $('#txtApellido').val(); // Obtener apellido
+      const nuevoNombre = $('#txtNombre').val();
+      const nuevoApellido = $('#txtApellido').val();
       const nuevoFechaNacimiento = $('#txtFechaNacimiento').val();
       const nuevaCedula = $('#txtCedula').val();
-      const nuevoCorreo = $('#txtCorreo').val();
+      const nuevoSexo = $('#txtSexo').val();
+      const nuevoTelefono = $('#txtTelefono').val();
+      const id_ciudad = $('#id_ciudad').val();
+      const id_pais = $('#id_pais').val();
+      const id_nacionalidad = $('#id_nacionalidad').val();
       const tabla = $('#tbl').DataTable();
-      
 
       if(idPersona) {
         // update
@@ -338,7 +343,8 @@ Personas
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json'
-          }, body: JSON.stringify({ nombre: nuevoNombre, apellido: nuevoApellido, fechanacimiento: nuevoFechaNacimiento, cedula: nuevaCedula, correo: nuevoCorreo }) // Incluir nombre y apellido
+          }, 
+          body: JSON.stringify({ nombre: nuevoNombre, apellido: nuevoApellido, fechanacimiento: nuevoFechaNacimiento, cedula: nuevaCedula, sexo: nuevoSexo, telefono: nuevoTelefono, id_ciudad: id, id_pais: id_pais, id_nacionalidad: id_nacionalidad })
         })
         .then(resp => resp.json())
         .then(data => {
@@ -358,7 +364,8 @@ Personas
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
-          }, body: JSON.stringify({ nombre: nuevoNombre, apellido: nuevoApellido, fechanacimiento: nuevoFechaNacimiento, cedula: nuevaCedula, correo: nuevoCorreo }) // Incluir nombre y apellido
+          }, 
+          body: JSON.stringify({ nombre: nuevoNombre, apellido: nuevoApellido, fechanacimiento: nuevoFechaNacimiento, cedula: nuevaCedula, sexo: nuevoSexo, telefono: nuevoTelefono, id_ciudad: id_ciudad, id_pais: id_pais, id_nacionalidad: id_nacionalidad })
         })
         .then(resp => resp.json())
         .then(data => {
@@ -373,11 +380,15 @@ Personas
           Swal.fire("Error", "Ocurrió un error al guardar persona.", "error");
         });
       }
-      $('#txtNombre').val(""); // Limpiar campo nombre
-      $('#txtApellido').val(""); // Limpiar campo apellido
+      $('#txtNombre').val("");
+      $('#txtApellido').val("");
       $('#txtFechaNacimiento').val("");
       $('#txtCedula').val("");
-      $('#txtCorreo').val("");
+      $('#txtSexo').val("");
+      $('#txtTelefono').val("");
+      $('#id_ciudad').val("");
+      $('#id_pais').val("");
+      $('#id_nacionalidad').val("");
       $('#modalFormulario').modal("hide");
     });
   }
@@ -392,7 +403,6 @@ Personas
       }).then((result) => {
         if (result.isConfirmed) {
           $('#modalTitle').text("Editar Persona");
-
           const idPersona = $(this).data('id');
           $('#txtIdPersona').val(idPersona);
 
@@ -404,11 +414,18 @@ Personas
           })
           .then(resp => resp.json())
           .then(data => {
-            $('#txtNombre').val(data.data.nombre); // Obtener nombre
-            $('#txtApellido').val(data.data.apellido); // Obtener apellido
+            $('#txtNombre').val(data.data.nombre); 
+            $('#txtApellido').val(data.data.apellido);
             $('#txtFechaNacimiento').val(data.data.fechanacimiento);
             $('#txtCedula').val(data.data.cedula);
-            $('#txtCorreo').val(data.data.correo);
+            $('#txtSexo').val(data.data.sexo);
+            $('#txtTelefono').val(data.data.telefono);
+            $('#txtiudad').val(data.data.ciudad);
+            $('#id_ciudad').val(data.data.ciudad);
+            $('#txtPais').val(data.data.pais);
+            $('#id_pais').val(data.data.pais);
+            $('#txtNacionalidad').val(data.data.nacionalidad);
+            $('#id_nacionalidad').val(data.data.nacionalidad);
             $('#modalFormulario').modal();
           });
         }
@@ -416,57 +433,18 @@ Personas
     });
   }
 
-  const eliminar = () => {
-    $('#tbl').on('click', 'button[name="btn_eliminar"]',function(){
-      const idPersona = $(this).data('id');
-      Swal.fire({
-        title: "¿Deseas eliminar este registro?",
-        showCancelButton: true,
-        confirmButtonText: "Si",
-        cancelButtonText: `No`
-      }).then((result) => {
-        if (result.isConfirmed) {
-          fetch(`/api/v1/personas/${idPersona}`, {
-            method: 'DELETE',
-            headers: {
-              'Content-Type': 'application/json'
-            }
-          })
-          .then(resp => resp.json())
-          .then(data => {
-            if(data && !data.error && data.success) {
-              const fila = $(this).closest('tr');
-              const tabla = $('#tbl').DataTable();
-              tabla.row(fila).remove().draw();
-              Swal.fire("Eliminado", "", "success");
-            } else {
-              Swal.fire(data.error);
-            }
-          }).catch(err => {
-            Swal.fire("Error", "Ocurrió un error al eliminar persona.", "error");
-          });
-        }
-      });
-    });
-  }
-
-  const addEvents = () => {
-    agregar();
-    guardar();
-    editar();
-    eliminar();
-    buscarCiudad();
-    buscarPais();
-    buscarNacionalidad();
-  }
-
-  $( function() {
+  $(document).ready(function(){
     initDatatable();
     initDatatablec();
     initDatatablep();
     initDatatablen();
-    addEvents();
+    buscarCiudad();
+    buscarPais();
+    buscarNacionalidad();
+    agregar();
+    guardar();
+    editar();
   });
-  
 </script>
+
 {% endblock %}

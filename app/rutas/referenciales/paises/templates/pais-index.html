@@ -42,7 +42,7 @@ Paises
           <!-- Modal body -->
           <div class="modal-body">
             <div class="form-group">
-              <input type="hidden" id="txtIdPais">
+              <input type="hidden" id="txtId_Pais">
               <label for="txtDescripcion">Descripción:</label>
               <input type="text" class="form-control" placeholder="Ingrese algun pais" id="txtDescripcion">
             </div>
@@ -81,8 +81,8 @@ Paises
       columns: [
         { data: 'descripcion' },
         { data: function(row) {
-            return `<button type="button" name="btn_editar" class="btn btn-outline-primary" data-id="${row.id}">Editar</button>
-                    <button type="button" name="btn_eliminar" class="btn btn-outline-warning" data-id="${row.id}">Eliminar</button>`
+            return `<button type="button" name="btn_editar" class="btn btn-outline-primary" data-id="${row.id_pais}">Editar</button>
+                    <button type="button" name="btn_eliminar" class="btn btn-outline-warning" data-id="${row.id_pais}">Eliminar</button>`
           }
         }
       ]
@@ -94,7 +94,7 @@ Paises
       // Setear un título a modal
       $('#modalTitle').text("Agregar un Pais");
       // inicia ventana modal
-      $('#txtIdPais').val("");
+      $('#txtId_Pais').val("");
       $('#txtDescripcion').val("");
       $('#modalFormulario').modal();
     });
@@ -102,7 +102,7 @@ Paises
 
   const guardar = () => {
     $('#btnGuardar').on('click', function() {
-      const idPais = $('#txtIdPais').val();
+      const idPais = $('#txtId_Pais').val();
       const nuevaDescripcion = $('#txtDescripcion').val();
       const tabla = $('#tbl').DataTable();
 
@@ -166,7 +166,7 @@ Paises
           $('#modalTitle').text("Editar un Pais");
 
           const idPais = $(this).data('id');
-          $('#txtIdPais').val(idPais);
+          $('#txtId_Pais').val(idPais);
 
           // Necesitamos obtener la descripción del backend
           fetch(`/api/v1/paises/${idPais}`, {

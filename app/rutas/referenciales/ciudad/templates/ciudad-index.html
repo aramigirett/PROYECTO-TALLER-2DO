@@ -42,7 +42,7 @@ Ciudades
           <!-- Modal body -->
           <div class="modal-body">
             <div class="form-group">
-              <input type="hidden" id="txtIdCiudad">
+              <input type="hidden" id="txtId_Ciudad">
               <label for="txtDescripcion">Descripción:</label>
               <input type="text" class="form-control" placeholder="Ingrese alguna ciudad" id="txtDescripcion">
             </div>
@@ -81,8 +81,8 @@ Ciudades
       columns: [
         { data: 'descripcion' },
         { data: function(row) {
-            return `<button type="button" name="btn_editar" class="btn btn-outline-primary" data-id="${row.id}">Editar</button>
-                    <button type="button" name="btn_eliminar" class="btn btn-outline-warning" data-id="${row.id}">Eliminar</button>`
+            return `<button type="button" name="btn_editar" class="btn btn-outline-primary" data-id="${row.id_ciudad}">Editar</button>
+                    <button type="button" name="btn_eliminar" class="btn btn-outline-warning" data-id="${row.id_ciudad}">Eliminar</button>`
           }
         }
       ]
@@ -94,7 +94,7 @@ Ciudades
       // Setear un título a modal
       $('#modalTitle').text("Agregar una Ciudad");
       // inicia ventana modal
-      $('#txtIdCiudad').val("");
+      $('#txtId_Ciudad').val("");
       $('#txtDescripcion').val("");
       $('#modalFormulario').modal();
     });
@@ -102,7 +102,7 @@ Ciudades
 
   const guardar = () => {
     $('#btnGuardar').on('click', function() {
-      const idCiudad = $('#txtIdCiudad').val();
+      const idCiudad = $('#txtId_Ciudad').val();
       const nuevaDescripcion = $('#txtDescripcion').val();
       const tabla = $('#tbl').DataTable();
 
@@ -166,7 +166,7 @@ Ciudades
           $('#modalTitle').text("Editar una Ciudad");
 
           const idCiudad = $(this).data('id');
-          $('#txtIdCiudad').val(idCiudad);
+          $('#txtId_Ciudad').val(idCiudad);
 
           // Necesitamos obtener la descripción del backend
           fetch(`/api/v1/ciudades/${idCiudad}`, {

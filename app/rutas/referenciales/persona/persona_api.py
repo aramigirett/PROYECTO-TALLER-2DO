@@ -56,37 +56,53 @@ def addPersona():
     data = request.get_json()
     personadao = PersonaDao()
 
-    # Validar que el JSON no esté vacío y tenga las propiedades necesarias
     campos_requeridos = ['nombre', 'apellido', 'fechanacimiento', 'cedula', 'sexo', 'telefono', 'id_ciudad', 'id_pais', 'id_nacionalidad']
 
-    # Verificar si faltan campos o son vacíos
     for campo in campos_requeridos:
-        if campo not in data or data[campo] is None or len(data[campo].strip()) == 0:
+        if campo not in data or not data[campo]:
             return jsonify({
-                            'success': False,
-                            'error': f'El campo {campo} es obligatorio y no puede estar vacío.'
-                            }), 400
+                'success': False,
+                'error': f'El campo {campo} es obligatorio y no puede estar vacío.'
+            }), 400
 
     try:
-        nombre = data['nombre'].strip().upper()  # Quita espacios y convierte a mayúsculas
+        nombre = data['nombre'].strip().upper()
         apellido = data['apellido'].strip().upper()
-        fechanacimiento = data['fechanacimiento']  # Suponiendo que ya está en formato correcto
-        cedula = data['cedula'].strip()  # Elimina espacios en blanco
-        sexo = data['sexo']  # Verifica si ya es booleano o un string limpio
-        telefono = data['telefono'].strip()  # Elimina espacios si es una cadena
-        id_ciudad = int(data['id_ciudad'])  # Convierte a entero si aplica
-        id_pais = int(data['id_pais'])  # Convierte a entero si aplica
-        id_nacionalidad = int(data['id_nacionalidad'])  # Sin coma para evitar una tupla
+        fechanacimiento = data['fechanacimiento']
+        cedula = data['cedula'].strip()
+        sexo = data['sexo']
+        telefono = data['telefono'].strip()
+        id_ciudad = int(data['id_ciudad'])
+        id_pais = int(data['id_pais'])
+        id_nacionalidad = int(data['id_nacionalidad'])
 
         persona_id = personadao.guardarPersona(nombre, apellido, fechanacimiento, cedula, sexo, telefono, id_ciudad, id_pais, id_nacionalidad)
         if persona_id is not None:
             return jsonify({
                 'success': True,
-                'data': {'id': persona_id, 'nombre': nombre, 'apellido': apellido, 'fechanacimiento': fechanacimiento, 'cedula': cedula, 'sexo': sexo, 'telefono': telefono, 'id_ciudad': id_ciudad, 'id_pais': id_pais, 'id_nacionalidad': id_nacionalidad},
+                'data': {
+                    'id': persona_id,
+                    'nombre': nombre,
+                    'apellido': apellido,
+                    'fechanacimiento': fechanacimiento,
+                    'cedula': cedula,
+                    'sexo': sexo,
+                    'telefono': telefono,
+                    'id_ciudad': id_ciudad,
+                    'id_pais': id_pais,
+                    'id_nacionalidad': id_nacionalidad
+                },
                 'error': None
             }), 201
         else:
-            return jsonify({ 'success': False, 'error': 'No se pudo guardar persona. Consulte con el administrador.' }), 500
+            return jsonify({ 'success': False, 'error': 'No se pudo guardar la persona.' }), 500
+
+    except ValueError:
+        return jsonify({
+            'success': False,
+            'error': 'Verifique que los campos numéricos sean válidos.'
+        }), 400
+
     except Exception as e:
         app.logger.error(f"Error al agregar persona: {str(e)}")
         return jsonify({
@@ -99,32 +115,41 @@ def updatePersona(persona_id):
     data = request.get_json()
     personadao = PersonaDao()
 
-    # Validar que el JSON no esté vacío y tenga las propiedades necesarias
     campos_requeridos = ['nombre', 'apellido', 'fechanacimiento', 'cedula', 'sexo', 'telefono', 'id_ciudad', 'id_pais', 'id_nacionalidad']
 
-    # Verificar si faltan campos o son vacíos
     for campo in campos_requeridos:
-        if campo not in data or data[campo] is None or len(data[campo].strip()) == 0:
+        if campo not in data or not data[campo]:
             return jsonify({
-                            'success': False,
-                            'error': f'El campo {campo} es obligatorio y no puede estar vacío.'
-                            }), 400
-        
-    try:
-        nombre = data['nombre'].strip().upper()  # Quita espacios y convierte a mayúsculas
-        apellido = data['apellido'].strip().upper()
-        fechanacimiento = data['fechanacimiento']  # Suponiendo que ya está en formato correcto
-        cedula = data['cedula'].strip()  # Elimina espacios en blanco
-        sexo = data['sexo']  # Verifica si ya es booleano o un string limpio
-        telefono = data['telefono'].strip()  # Elimina espacios si es una cadena
-        id_ciudad = int(data['id_ciudad'])  # Convierte a entero si aplica
-        id_pais = int(data['id_pais'])  # Convierte a entero si aplica
-        id_nacionalidad = int(data['id_nacionalidad'])  # Sin coma para evitar una tupla
+                'success': False,
+                'error': f'El campo {campo} es obligatorio y no puede estar vacío.'
+            }), 400
 
-        if personadao.updatePersona(persona_id, nombre.upper(), apellido.upper(), fechanacimiento, cedula, sexo, telefono, id_ciudad, id_pais, id_nacionalidad):
+    try:
+        nombre = data['nombre'].strip().upper()
+        apellido = data['apellido'].strip().upper()
+        fechanacimiento = data['fechanacimiento']
+        cedula = data['cedula'].strip()
+        sexo = data['sexo']
+        telefono = data['telefono'].strip()
+        id_ciudad = int(data['id_ciudad'])
+        id_pais = int(data['id_pais'])
+        id_nacionalidad = int(data['id_nacionalidad'])
+
+        if personadao.updatePersona(persona_id, nombre, apellido, fechanacimiento, cedula, sexo, telefono, id_ciudad, id_pais, id_nacionalidad):
             return jsonify({
                 'success': True,
-                'data': {'id': persona_id, 'nombre': nombre, 'apellido': apellido, 'fechanacimiento': fechanacimiento, 'cedula': cedula, 'sexo': sexo, 'telefono': telefono, 'id_ciudad': id_ciudad, 'id_pais': id_pais, 'id_nacionalidad': id_nacionalidad},
+                'data': {
+                    'id': persona_id,
+                    'nombre': nombre,
+                    'apellido': apellido,
+                    'fechanacimiento': fechanacimiento,
+                    'cedula': cedula,
+                    'sexo': sexo,
+                    'telefono': telefono,
+                    'id_ciudad': id_ciudad,
+                    'id_pais': id_pais,
+                    'id_nacionalidad': id_nacionalidad
+                },
                 'error': None
             }), 200
         else:
@@ -132,6 +157,13 @@ def updatePersona(persona_id):
                 'success': False,
                 'error': 'No se encontró la persona con el ID proporcionado o no se pudo actualizar.'
             }), 404
+
+    except ValueError:
+        return jsonify({
+            'success': False,
+            'error': 'Verifique que los campos numéricos sean válidos.'
+        }), 400
+
     except Exception as e:
         app.logger.error(f"Error al actualizar persona: {str(e)}")
         return jsonify({
@@ -144,7 +176,6 @@ def deletePersona(persona_id):
     personadao = PersonaDao()
 
     try:
-        # Usar el retorno de eliminarPersona para determinar el éxito
         if personadao.deletePersona(persona_id):
             return jsonify({
                 'success': True,

@@ -7,7 +7,7 @@ class PaisDao:
     def getPaises(self):
 
         paisSQL = """
-        SELECT id_paid, descripcion
+        SELECT id_pais, descripcion
         FROM paises
         """
         # objeto conexion

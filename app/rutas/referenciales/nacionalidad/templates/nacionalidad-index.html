@@ -42,7 +42,7 @@ Nacionalidades
           <!-- Modal body -->
           <div class="modal-body">
             <div class="form-group">
-              <input type="hidden" id="txtIdNacionalidad">
+              <input type="hidden" id="txtId_Nacionalidad">
               <label for="txtDescripcion">Descripción:</label>
               <input type="text" class="form-control" placeholder="Ingrese la nacionalidad" id="txtDescripcion">
             </div>
@@ -81,8 +81,8 @@ Nacionalidades
       columns: [
         { data: 'descripcion' },
         { data: function(row) {
-            return `<button type="button" name="btn_editar" class="btn btn-outline-primary" data-id="${row.id}">Editar</button>
-                    <button type="button" name="btn_eliminar" class="btn btn-outline-warning" data-id="${row.id}">Eliminar</button>`
+            return `<button type="button" name="btn_editar" class="btn btn-outline-primary" data-id="${row.id_nacionalidad}">Editar</button>
+                    <button type="button" name="btn_eliminar" class="btn btn-outline-warning" data-id="${row.id_nacionalidad}">Eliminar</button>`
           }
         }
       ]
@@ -94,7 +94,7 @@ Nacionalidades
       // Setear un título a modal
       $('#modalTitle').text("Agregar la nacionalidad");
       // inicia ventana modal
-      $('#txtIdNacionalidad').val("");
+      $('#txtId_Nacionalidad').val("");
       $('#txtDescripcion').val("");
       $('#modalFormulario').modal();
     });
@@ -102,7 +102,7 @@ Nacionalidades
 
   const guardar = () => {
     $('#btnGuardar').on('click', function() {
-      const idNacionalidad = $('#txtIdNacionalidad').val();
+      const idNacionalidad = $('#txtId_Nacionalidad').val();
       const nuevaDescripcion = $('#txtDescripcion').val();
       const tabla = $('#tbl').DataTable();
 
@@ -166,7 +166,7 @@ Nacionalidades
           $('#modalTitle').text("Editar nacionalidad");
 
           const idNacionalidad = $(this).data('id');
-          $('#txtIdNacionalidad').val(idNacionalidad);
+          $('#txtId_Nacionalidad').val(idNacionalidad);
 
           // Necesitamos obtener la descripción del backend
           fetch(`/api/v1/nacionalidades/${idNacionalidad}`, {
