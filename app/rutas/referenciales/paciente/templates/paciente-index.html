@@ -1,0 +1,297 @@
+{% extends 'base.html' %}
+
+{% block titulo %}
+Gestión Pacientes
+{% endblock %}
+
+{% block contenido %}
+<div class="container mt-4">
+    <h3>Gestión Pacientes</h3>
+
+    <!-- Tarjeta -->
+<div class="card">
+    <div class="card-header">
+        <button type="button" class="btn btn-outline-info" id="btnAgregar">Agregar</button>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive"> <!-- Haciendo la tabla más ancha en pantallas grandes -->
+            <table class="table table-striped" id="tbl">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Apellido</th>
+                        <th>Fecha de Nacimiento</th>
+                        <th>Cédula</th>
+                        <th>Género</th>
+                        <th>Teléfono</th>
+                        <th>Dirección</th>
+                        <th>Correo</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+<!-- /Tarjeta -->
+
+    <!-- Formulario Modal -->
+    <div class="modal" id="modalFormulario">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+
+                <!-- Modal Header -->
+                <div class="modal-header">
+                    <h4 class="modal-title" id="modalTitle"></h4>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+
+                <!-- Modal Body -->
+                <div class="modal-body">
+                    <div class="form-group">
+                        <input type="hidden" id="txtIdPaciente">
+                        <label for="txtNombre">Nombre:</label>
+                        <input type="text" class="form-control" placeholder="Ingrese el nombre del paciente" id="txtNombre">
+
+                        <label for="txtApellido">Apellido:</label>
+                        <input type="text" class="form-control" placeholder="Ingrese el apellido" id="txtApellido">
+
+                        <label for="txtFechanacimiento">Fecha de nacimiento:</label>
+                        <input type="date" class="form-control" placeholder="Ingresar fecha de nacimiento" id="txtFechanacimiento">
+
+                        <label for="txtCedula">Cédula:</label>
+                        <input type="text" class="form-control" placeholder="Ingrese el C.I del paciente" id="txtCedula">
+
+                        <label for="txtSexo">Sexo:</label>
+                        <select class="form-control" id="txtSexo">
+                            <option value="F">Femenino</option>
+                            <option value="M">Masculino</option>
+                        </select>
+
+                        <label for="txtTelefono">Teléfono:</label>
+                        <input type="text" class="form-control" placeholder="Ingresar teléfono" id="txtTelefono">
+
+                        <label for="txtDireccion">Dirección:</label>
+                        <input type="text" class="form-control" placeholder="Ingrese la dirección" id="txtDireccion">
+
+                        <label for="txtCorreo">Correo:</label>
+                        <input type="email" class="form-control" placeholder="Ingrese el correo electrónico" id="txtCorreo">
+                    </div>
+                </div>
+
+                <!-- Modal Footer -->
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" id="btnGuardar">Guardar</button>
+                    <button type="button" class="btn btn-danger" data-dismiss="modal">Cerrar</button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Alerta -->
+    <div class="row mt-4 d-none" id="rowAlerta">
+        <div class="col-md-12">
+            <div class="alert alert-success">
+                <strong>Registro Exitoso!</strong>
+                <div class="row" id="mostrarAlerta"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Librerías de jQuery y jQuery UI -->
+<link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
+
+<script>
+    $(function() {
+        $("#txtFechanacimiento").datepicker({
+            dateFormat: "yy-mm-dd",
+            changeMonth: true,
+            changeYear: true,
+            yearRange: "1900:2024"
+        });
+    });
+</script>
+
+{% endblock %}
+
+{% block js %}
+<script>
+    const initDatatable = () => {
+        $('#tbl').DataTable({
+            language: {
+                url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}",
+            },
+            ajax: '/api/v1/pacientes',
+            columns: [
+                { data: 'nombre' },
+                { data: 'apellido' },
+                { data: function(row) {
+                    const fecha = new Date(row.fechanacimiento + 'T00:00:00');
+                    const dia = fecha.getDate().toString().padStart(2, '0');
+                    const mes = (fecha.getMonth() + 1).toString().padStart(2, '0');
+                    const anio = fecha.getFullYear();
+                    return `${dia}/${mes}/${anio}`;
+                }},
+                { data: 'cedula' },
+                { data: 'sexo' },
+                { data: 'telefono' },
+                { data: 'direccion' },
+                { data: 'correo' },
+                { data: function(row) {
+                    return `
+                        <button type="button" name="btn_editar" class="btn btn-info" data-id="${row.id}">Editar</button>
+                        <button type="button" name="btn_eliminar" class="btn btn-warning" data-id="${row.id}">Eliminar</button>`;
+                }}
+            ]
+        });
+    }
+
+    const agregar = () => {
+        $('#btnAgregar').on('click', function() {
+            $('#modalTitle').text("Agregar Paciente");
+            $('#txtIdPaciente').val("");
+            $('#txtNombre').val("");
+            $('#txtApellido').val("");
+            $('#txtFechanacimiento').val("");
+            $('#txtCedula').val("");
+            $('#txtSexo').val("F");  // Establecer valor por defecto
+            $('#txtTelefono').val("");
+            $('#txtDireccion').val("");
+            $('#txtCorreo').val("");
+            $('#modalFormulario').modal();
+        });
+    }
+
+    const guardar = () => {
+        $('#btnGuardar').on('click', function() {
+            const idPaciente = $('#txtIdPaciente').val();
+            const nuevoNombre = $('#txtNombre').val();
+            const nuevoApellido = $('#txtApellido').val();
+            const nuevoFechanacimiento = $('#txtFechanacimiento').val();
+            const nuevaCedula = $('#txtCedula').val();
+            const nuevoSexo = $('#txtSexo').val();
+            const nuevoTelefono = $('#txtTelefono').val();
+            const nuevaDireccion = $('#txtDireccion').val();
+            const nuevoCorreo = $('#txtCorreo').val();
+            const tabla = $('#tbl').DataTable();
+
+            if (idPaciente) {
+                // update
+                fetch(`/api/v1/pacientes/${idPaciente}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nombre: nuevoNombre, apellido: nuevoApellido, fechanacimiento: nuevoFechanacimiento, cedula: nuevaCedula, sexo: nuevoSexo, telefono: nuevoTelefono, direccion: nuevaDireccion, correo: nuevoCorreo })
+                })
+                .then(resp => resp.json())
+                .then(data => {
+                    if (data && !data.error && data.success) {
+                        tabla.ajax.reload();
+                        Swal.fire("Actualizado", "El paciente ha sido actualizado correctamente.", "success");
+                    } else {
+                        Swal.fire(data.error);
+                    }
+                }).catch(err => {
+                    console.error(err);
+                    Swal.fire("Error", "Ocurrió un error al actualizar el paciente.", "error");
+                });
+            } else {
+                // Insertar
+                fetch(`/api/v1/pacientes`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nombre: nuevoNombre, apellido: nuevoApellido, fechanacimiento: nuevoFechanacimiento, cedula: nuevaCedula, sexo: nuevoSexo, telefono: nuevoTelefono, direccion: nuevaDireccion, correo: nuevoCorreo })
+                })
+                .then(resp => resp.json())
+                .then(data => {
+                    if (data && !data.error && data.success) {
+                        tabla.ajax.reload();
+                        Swal.fire("Agregado", "El paciente ha sido agregado correctamente.", "success");
+                    } else {
+                        Swal.fire(data.error);
+                    }
+                }).catch(err => {
+                    console.error(err);
+                    Swal.fire("Error", "Ocurrió un error al guardar paciente.", "error");
+                });
+            }
+            $('#modalFormulario').modal('hide');
+        });
+    }
+
+    const editar = () => {
+        $('#tbl').on('click', 'button[name="btn_editar"]', function() {
+            Swal.fire({
+                title: "¿Deseas editar este registro?",
+                showCancelButton: true,
+                confirmButtonText: "Si",
+                cancelButtonText: "No"
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    $('#modalTitle').text("Editar Paciente");
+
+                    const idPaciente = $(this).data('id');
+                    $('#txtIdPaciente').val(idPaciente);
+
+                    fetch(`/api/v1/pacientes/${idPaciente}`, {
+                        method: 'GET',
+                        headers: { 'Content-Type': 'application/json' }
+                    })
+                    .then(resp => resp.json())
+                    .then(data => {
+                        $('#txtNombre').val(data.data.nombre);
+                        $('#txtApellido').val(data.data.apellido);
+                        $('#txtCedula').val(data.data.cedula);
+                        $('#txtFechanacimiento').val(data.data.fechanacimiento);
+                        $('#txtSexo').val(data.data.sexo);  // Seleccionar el valor del sexo
+                        $('#txtTelefono').val(data.data.telefono);
+                        $('#txtDireccion').val(data.data.direccion);  // Dirección
+                        $('#txtCorreo').val(data.data.correo);  // Correo
+                        $('#modalFormulario').modal();
+                    });
+                }
+            });
+        });
+    }
+
+    const eliminar = () => {
+        $('#tbl').on('click', 'button[name="btn_eliminar"]', function() {
+            const idPaciente = $(this).data('id');
+            Swal.fire({
+                title: "¿Deseas eliminar este registro?",
+                showCancelButton: true,
+                confirmButtonText: "Si",
+                cancelButtonText: "No"
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    fetch(`/api/v1/pacientes/${idPaciente}`, {
+                        method: 'DELETE',
+                        headers: { 'Content-Type': 'application/json' }
+                    })
+                    .then(resp => resp.json())
+                    .then(data => {
+                        if (data.success) {
+                            $('#tbl').DataTable().ajax.reload();
+                            Swal.fire("Eliminado", "El paciente ha sido eliminado correctamente.", "success");
+                        } else {
+                            Swal.fire("Error", "Hubo un problema al eliminar el paciente.", "error");
+                        }
+                    });
+                }
+            });
+        });
+    }
+
+    $(document).ready(function() {
+        initDatatable();
+        agregar();
+        guardar();
+        editar();
+        eliminar();
+    });
+</script>
+{% endblock %}

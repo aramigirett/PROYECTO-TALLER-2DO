@@ -3,13 +3,12 @@ from app.dao.referenciales.paciente.PacienteDao import PacienteDao
 
 pacienteapi = Blueprint('pacienteapi', __name__)
 
-# Obtener todos los pacientes
+# Trae todos los pacientes
 @pacienteapi.route('/pacientes', methods=['GET'])
 def getPacientes():
     pacientedao = PacienteDao()
 
     try:
-        # Obtiene los pacientes con la nueva consulta que incluye dirección, correo y ficha
         pacientes = pacientedao.getPacientes()
 
         return jsonify({
@@ -25,13 +24,12 @@ def getPacientes():
             'error': 'Ocurrió un error interno. Consulte con el administrador.'
         }), 500
 
-# Obtener un paciente por ID
+# Trae un paciente por ID
 @pacienteapi.route('/pacientes/<int:paciente_id>', methods=['GET'])
 def getPaciente(paciente_id):
     pacientedao = PacienteDao()
 
     try:
-        # Obtener paciente por ID con la nueva consulta
         paciente = pacientedao.getPacienteById(paciente_id)
 
         if paciente:
@@ -47,44 +45,56 @@ def getPaciente(paciente_id):
             }), 404
 
     except Exception as e:
-        app.logger.error(f"Error al obtener el paciente: {str(e)}")
+        app.logger.error(f"Error al obtener paciente: {str(e)}")
         return jsonify({
             'success': False,
             'error': 'Ocurrió un error interno. Consulte con el administrador.'
         }), 500
 
-# Agregar un nuevo paciente
+# Agrega un nuevo paciente
 @pacienteapi.route('/pacientes', methods=['POST'])
 def addPaciente():
     data = request.get_json()
     pacientedao = PacienteDao()
 
-    # Validar que el JSON tenga las propiedades necesarias
-    campos_requeridos = ['id_persona','direccion','correo','id_ficha']
+    campos_requeridos = ['nombre', 'apellido', 'fechanacimiento', 'cedula', 'sexo', 'telefono', 'direccion', 'correo']
 
-    # Verificar si faltan campos o son vacíos
     for campo in campos_requeridos:
-        if campo not in data or data[campo] is None:
+        if campo not in data or not data[campo]:
             return jsonify({
                 'success': False,
                 'error': f'El campo {campo} es obligatorio y no puede estar vacío.'
             }), 400
 
     try:
-        id_persona = data['id_persona']
+        nombre = data['nombre'].upper()
+        apellido = data['apellido'].upper()
+        fechanacimiento = data['fechanacimiento']
+        cedula = data['cedula'].strip()
+        sexo = data['sexo'].upper()
+        telefono = data['telefono'].strip()
         direccion = data['direccion']
         correo = data['correo']
-        id_ficha = data['id_ficha']
 
-        paciente_id = pacientedao.guardarPaciente(id_persona, direccion, correo, id_ficha)
+        paciente_id = pacientedao.guardarPaciente(nombre, apellido, fechanacimiento, cedula, sexo, telefono, direccion, correo)
         if paciente_id is not None:
             return jsonify({
                 'success': True,
-                'data': {'id_paciente': paciente_id, 'id_persona': id_persona, 'direccion': direccion, 'correo': correo, 'id_ficha': id_ficha},
+                'data': {
+                    'id': paciente_id,
+                    'nombre': nombre,
+                    'apellido': apellido,
+                    'fechanacimiento': fechanacimiento,
+                    'cedula': cedula,
+                    'sexo': sexo,
+                    'telefono': telefono,
+                    'direccion': direccion,
+                    'correo': correo
+                },
                 'error': None
             }), 201
         else:
-            return jsonify({'success': False, 'error': 'No se pudo guardar el paciente. Consulte con el administrador.'}), 500
+            return jsonify({'success': False, 'error': 'No se pudo guardar el paciente.'}), 500
 
     except Exception as e:
         app.logger.error(f"Error al agregar paciente: {str(e)}")
@@ -93,39 +103,44 @@ def addPaciente():
             'error': 'Ocurrió un error interno. Consulte con el administrador.'
         }), 500
 
-# Actualizar un paciente existente
+# Actualiza un paciente existente
 @pacienteapi.route('/pacientes/<int:paciente_id>', methods=['PUT'])
 def updatePaciente(paciente_id):
     data = request.get_json()
     pacientedao = PacienteDao()
 
-    # Validar que el JSON tenga las propiedades necesarias
-    campos_requeridos = ['id_persona', 'direccion', 'correo', 'id_ficha']
+    campos_requeridos = ['nombre', 'apellido', 'fechanacimiento', 'cedula', 'sexo', 'telefono', 'direccion', 'correo']
 
-    # Verificar si faltan campos o son vacíos
     for campo in campos_requeridos:
-        if campo not in data or data[campo] is None:
+        if campo not in data or not data[campo]:
             return jsonify({
                 'success': False,
                 'error': f'El campo {campo} es obligatorio y no puede estar vacío.'
             }), 400
 
     try:
-        id_persona = data['id_persona']
+        nombre = data['nombre'].upper()
+        apellido = data['apellido'].upper()
+        fechanacimiento = data['fechanacimiento']
+        cedula = data['cedula'].strip()
+        sexo = data['sexo'].upper()
+        telefono = data['telefono'].strip()
         direccion = data['direccion']
         correo = data['correo']
-        id_ficha = data['id_ficha']
 
-        # Llamar al método que actualiza el paciente en la base de datos
-        if pacientedao.updatePaciente(paciente_id, id_persona, direccion, correo, id_ficha):
+        if pacientedao.updatePaciente(paciente_id, nombre, apellido, fechanacimiento, cedula, sexo, telefono, direccion, correo):
             return jsonify({
                 'success': True,
                 'data': {
-                    'id_paciente': paciente_id,
-                    'id_persona': id_persona,
+                    'id': paciente_id,
+                    'nombre': nombre,
+                    'apellido': apellido,
+                    'fechanacimiento': fechanacimiento,
+                    'cedula': cedula,
+                    'sexo': sexo,
+                    'telefono': telefono,
                     'direccion': direccion,
-                    'correo': correo,
-                    'id_ficha': id_ficha
+                    'correo': correo
                 },
                 'error': None
             }), 200
@@ -142,7 +157,7 @@ def updatePaciente(paciente_id):
             'error': 'Ocurrió un error interno. Consulte con el administrador.'
         }), 500
 
-# Eliminar un paciente por ID
+# Elimina un paciente
 @pacienteapi.route('/pacientes/<int:paciente_id>', methods=['DELETE'])
 def deletePaciente(paciente_id):
     pacientedao = PacienteDao()

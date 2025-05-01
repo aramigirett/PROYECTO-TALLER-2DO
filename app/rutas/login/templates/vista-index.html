@@ -9,6 +9,51 @@
     <!-- Mostrar la imagen en el contenido -->
     <img src="{{ url_for('static', filename='img/miimagencita.jpg') }}" alt="Mi imagen" style="width: 100%; height:auto;">
 </div>
+
+<!-- Botón para abrir el modal -->
+<button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#agendaMedicoModal">
+    Configurar Agenda Médica
+  </button>
+  
+  <!-- Modal -->
+  <div class="modal fade" id="agendaMedicoModal" tabindex="-1" aria-labelledby="agendaMedicoModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="agendaMedicoModalLabel">Configurar Agenda Médica</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <form id="agendaMedicoForm">
+          <div class="modal-body">
+            <div class="mb-3">
+              <label for="medico" class="form-label">Médico</label>
+              <select class="form-select" id="medico" name="medico" required>
+                <!-- Opciones cargadas dinámicamente -->
+              </select>
+            </div>
+            <div class="mb-3">
+              <label for="dias" class="form-label">Días de Disponibilidad</label>
+              <select class="form-select" id="dias" name="dias[]" multiple required>
+                <!-- Opciones cargadas dinámicamente -->
+              </select>
+            </div>
+            <div class="mb-3">
+              <label for="hora_inicio" class="form-label">Hora Inicio</label>
+              <input type="time" class="form-control" id="hora_inicio" name="hora_inicio" required>
+            </div>
+            <div class="mb-3">
+              <label for="hora_fin" class="form-label">Hora Fin</label>
+              <input type="time" class="form-control" id="hora_fin" name="hora_fin" required>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-primary">Guardar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
 {% endblock %}
 
 <style>
