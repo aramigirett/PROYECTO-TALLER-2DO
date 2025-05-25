@@ -7,7 +7,7 @@ class DiaDao:
     def getDias(self):
 
         diaSQL = """
-        SELECT id, descripcion
+        SELECT id_dia, descripcion
         FROM dias
         """
         # objeto conexion
@@ -19,7 +19,7 @@ class DiaDao:
             dias = cur.fetchall() # trae datos de la bd
 
             # Transformar los datos en una lista de diccionarios
-            return [{'id': dia[0], 'descripcion': dia[1]} for dia in dias]
+            return [{'id_dia': dia[0], 'descripcion': dia[1]} for dia in dias]
 
         except Exception as e:
             app.logger.error(f"Error al obtener todos los dias: {str(e)}")
@@ -29,22 +29,22 @@ class DiaDao:
             cur.close()
             con.close()
 
-    def getDiaById(self, id):
+    def getDiaById(self, id_dia):
 
         diaSQL = """
-        SELECT id, descripcion
-        FROM dias WHERE id=%s
+        SELECT id_dia, descripcion
+        FROM dias WHERE id_dia=%s
         """
         # objeto conexion
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(diaSQL, (id,))
+            cur.execute(diaSQL, (id_dia,))
             diaEncontrada = cur.fetchone() # Obtener una sola fila
             if diaEncontrada:
                 return {
-                        "id": diaEncontrada[0],
+                        "id_dia": diaEncontrada[0],
                         "descripcion": diaEncontrada[1]
                     }  # Retornar los datos de los dias
             else:
@@ -60,7 +60,7 @@ class DiaDao:
     def guardarDia(self, descripcion):
 
         insertDiaSQL = """
-        INSERT INTO dias(descripcion) VALUES(%s) RETURNING id
+        INSERT INTO dias(descripcion) VALUES(%s) RETURNING id_dia
         """
 
         conexion = Conexion()
@@ -85,12 +85,12 @@ class DiaDao:
             cur.close()
             con.close()
 
-    def updateDia(self, id, descripcion):
+    def updateDia(self, id_dia, descripcion):
 
         updateDiaSQL = """
         UPDATE dias
         SET descripcion=%s
-        WHERE id=%s
+        WHERE id_dia=%s
         """
 
         conexion = Conexion()
@@ -98,7 +98,7 @@ class DiaDao:
         cur = con.cursor()
 
         try:
-            cur.execute(updateDiaSQL, (descripcion, id,))
+            cur.execute(updateDiaSQL, (descripcion, id_dia,))
             filas_afectadas = cur.rowcount # Obtener el número de filas afectadas
             con.commit()
 
@@ -113,11 +113,11 @@ class DiaDao:
             cur.close()
             con.close()
 
-    def deleteDia(self, id):
+    def deleteDia(self, id_dia):
 
         updateDiaSQL = """
         DELETE FROM dias
-        WHERE id=%s
+        WHERE id_dia=%s
         """
 
         conexion = Conexion()
@@ -125,7 +125,7 @@ class DiaDao:
         cur = con.cursor()
 
         try:
-            cur.execute(updateDiaSQL, (id,))
+            cur.execute(updateDiaSQL, (id_dia,))
             rows_affected = cur.rowcount
             con.commit()
 

@@ -6,7 +6,7 @@ Dias
 
 {% block contenido %}
 <div class="container mt-4">
-    <h3>Listar Dia de la Cita</h3>
+    <h3>Listar Dias laborales</h3>
 
     <!-- tarjeta -->
     <div class="card">
@@ -42,9 +42,9 @@ Dias
           <!-- Modal body -->
           <div class="modal-body">
             <div class="form-group">
-              <input type="hidden" id="txtIdDia">
+              <input type="hidden" id="id_dia">
               <label for="txtDescripcion">Descripción:</label>
-              <input type="text" class="form-control" placeholder="Ingrese el dia de la cita" id="txtDescripcion">
+              <input type="text" class="form-control" placeholder="Ingrese el dia" id="txtDescripcion">
             </div>
           </div>
 
@@ -81,8 +81,8 @@ Dias
       columns: [
         { data: 'descripcion' },
         { data: function(row) {
-            return `<button type="button" name="btn_editar" class="btn btn-outline-primary" data-id="${row.id}">Editar</button>
-                    <button type="button" name="btn_eliminar" class="btn btn-outline-warning" data-id="${row.id}">Eliminar</button>`
+            return `<button type="button" name="btn_editar" class="btn btn-outline-primary" data-id="${row.id_dia}">Editar</button>
+                    <button type="button" name="btn_eliminar" class="btn btn-outline-warning" data-id="${row.id_dia}">Eliminar</button>`
           }
         }
       ]
@@ -102,13 +102,13 @@ Dias
 
   const guardar = () => {
     $('#btnGuardar').on('click', function() {
-      const idDia = $('#txtIdDia').val();
+      const id_dia = $('#id_dia').val();
       const nuevaDescripcion = $('#txtDescripcion').val();
       const tabla = $('#tbl').DataTable();
 
-      if(idDia) {
+      if(id_dia) {
         // update
-        fetch(`/api/v1/dias/${idDia}`, {
+        fetch(`/api/v1/dias/${id_dia}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json'
@@ -165,11 +165,11 @@ Dias
           //Swal.fire("Saved!", "", "success");
           $('#modalTitle').text("Editar Dia");
 
-          const idDia = $(this).data('id');
-          $('#txtIdDia').val(idDia);
+          const id_dia = $(this).data('id');
+          $('#id_dia').val(id_dia);
 
           // Necesitamos obtener la descripción del backend
-          fetch(`/api/v1/dias/${idDia}`, {
+          fetch(`/api/v1/dias/${id_dia}`, {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json'
@@ -187,7 +187,7 @@ Dias
 
   const eliminar = () => {
     $('#tbl').on('click', 'button[name="btn_eliminar"]',function(){
-      const idDia = $(this).data('id');
+      const id_dia = $(this).data('id');
       // Mostrar mensaje de confirmación usando sweetalert
       Swal.fire({
         title: "¿Deseas eliminar este registro?",
@@ -196,7 +196,7 @@ Dias
         cancelButtonText: `No`
       }).then((result) => {
         if (result.isConfirmed) {
-          fetch(`/api/v1/dias/${idDia}`, {
+          fetch(`/api/v1/dias/${id_dia}`, {
             method: 'DELETE',
             headers: {
               'Content-Type': 'application/json'

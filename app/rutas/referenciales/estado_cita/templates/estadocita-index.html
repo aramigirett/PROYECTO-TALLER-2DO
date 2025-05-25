@@ -11,13 +11,13 @@ Estado de la Cita
     <!-- tarjeta -->
     <div class="card">
       <div class="card-header">
-        <button type="button" class="btn btn-outline-primary" id="btnAgregar">Agregar</button>
+        <button type="button" class="btn btn-outline-info" id="btnAgregar">Agregar</button>
       </div>
       <div class="card-body">
         <table class="table table-striped" id="tbl">
           <thead>
             <tr>
-              <th>Descripción</th>
+              <th>Estado</th>
               <th>Acciones</th>
             </tr>
           </thead>
@@ -43,7 +43,7 @@ Estado de la Cita
           <div class="modal-body">
             <div class="form-group">
               <input type="hidden" id="txtIdEstadoCita">
-              <label for="txtDescripcion">Descripción:</label>
+              <label for="txtDescripcion">Estado de la Cita:</label>
               <input type="text" class="form-control" placeholder="Ingrese el estado de la cita" id="txtDescripcion">
             </div>
           </div>
@@ -81,8 +81,8 @@ Estado de la Cita
       columns: [
         { data: 'descripcion' },
         { data: function(row) {
-            return `<button type="button" name="btn_editar" class="btn btn-outline-primary" data-id="${row.id}">Editar</button>
-                    <button type="button" name="btn_eliminar" class="btn btn-outline-warning" data-id="${row.id}">Eliminar</button>`
+            return `<button type="button" name="btn_editar" class="btn btn-info" data-id="${row.id_estado}">Editar</button>
+                    <button type="button" name="btn_eliminar" class="btn btn-warning" data-id="${row.id_estado}">Eliminar</button>`
           }
         }
       ]
@@ -112,6 +112,7 @@ Estado de la Cita
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json'
+            , 'X-CSRFToken': CSRFToken
           }, body: JSON.stringify({ descripcion: nuevaDescripcion})
         })
         .then(resp => resp.json())

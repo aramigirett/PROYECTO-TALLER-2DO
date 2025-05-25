@@ -6,7 +6,6 @@ turnoapi = Blueprint('turnoapi', __name__)
 # Lista de turnos validos
 TURNOS_VALIDOS= ['MAÑANA', 'TARDE', 'NOCHE']
 
-
 # Trae todos los turnos
 @turnoapi.route('/turnos', methods=['GET'])
 def getTurnos():
@@ -28,12 +27,12 @@ def getTurnos():
             'error': 'Ocurrió un error interno. Consulte con el administrador.'
         }), 500
 
-@turnoapi.route('/turnos/<int:turno_id>', methods=['GET'])
-def getTurno(turno_id):
+@turnoapi.route('/turnos/<int:id_turno>', methods=['GET'])
+def getTurno(id_turno):
     turnodao = TurnoDao()
 
     try:
-        turno = turnodao.getTurnoById(turno_id)
+        turno = turnodao.getTurnoById(id_turno)
 
         if turno:
             return jsonify({
@@ -82,11 +81,11 @@ def addTurno():
             }), 400
 
 
-        turno_id = turnodao.guardarTurno(descripcion)
-        if turno_id is not None:
+        id_turno = turnodao.guardarTurno(descripcion)
+        if id_turno is not None:
             return jsonify({
                 'success': True,
-                'data': {'id': turno_id, 'descripcion': descripcion},
+                'data': {'id_turno': id_turno, 'descripcion': descripcion},
                 'error': None
             }), 201
         else:
@@ -98,8 +97,8 @@ def addTurno():
             'error': 'Ocurrió un error interno. Consulte con el administrador.'
         }), 500
 
-@turnoapi.route('/turnos/<int:turno_id>', methods=['PUT'])
-def updateTurno(turno_id):
+@turnoapi.route('/turnos/<int:id_turno>', methods=['PUT'])
+def updateTurno(id_turno):
     data = request.get_json()
     turnodao = TurnoDao()
 
@@ -113,7 +112,7 @@ def updateTurno(turno_id):
                             'success': False,
                             'error': f'El campo {campo} es obligatorio y no puede estar vacío.'
                             }), 400
-    descripcion = data['descripcion']
+    descripcion = data['descripcion'].upper()
 
     # Validar si el TURNO está en la lista de TURNOS válidos
     if descripcion not in TURNOS_VALIDOS:
@@ -123,10 +122,10 @@ def updateTurno(turno_id):
             }), 400
 
     try:
-        if turnodao.updateTurno(turno_id, descripcion.upper()):
+        if turnodao.updateTurno(id_turno, descripcion.upper()):
             return jsonify({
                 'success': True,
-                'data': {'id': turno_id, 'descripcion': descripcion},
+                'data': {'id_turno': id_turno, 'descripcion': descripcion},
                 'error': None
             }), 200
         else:
@@ -141,16 +140,16 @@ def updateTurno(turno_id):
             'error': 'Ocurrió un error interno. Consulte con el administrador.'
         }), 500
 
-@turnoapi.route('/turnos/<int:turno_id>', methods=['DELETE'])
-def deleteTurno(turno_id):
+@turnoapi.route('/turnos/<int:id_turno>', methods=['DELETE'])
+def deleteTurno(id_turno):
     turnodao = TurnoDao()
 
     try:
         # Usar el retorno de eliminarTurno para determinar el éxito
-        if turnodao.deleteTurno(turno_id):
+        if turnodao.deleteTurno(id_turno):
             return jsonify({
                 'success': True,
-                'mensaje': f'Turno con ID {turno_id} eliminado correctamente.',
+                'mensaje': f'Turno con ID {id_turno} eliminado correctamente.',
                 'error': None
             }), 200
         else:

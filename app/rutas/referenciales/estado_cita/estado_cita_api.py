@@ -3,6 +3,10 @@ from app.dao.referenciales.estado_cita.EstadoCitaDao import EstadoCitaDao
 
 estacitapi = Blueprint('estacitapi', __name__)
 
+# Lista de estados de la cita validos
+ESTADOCITA_VALIDOS= ['RESERVADO', 'CONFIRMADO', 'REALIZADO', 'CANCELADO']
+
+
 # Trae todos los Estados de la Cita
 @estacitapi.route('/estadocita', methods=['GET'])
 def getEstadosCita():
@@ -24,12 +28,12 @@ def getEstadosCita():
             'error': 'Ocurrió un error interno. Consulte con el administrador.'
         }), 500
 
-@estacitapi.route('/estadoscitas/<int:estadocita_id>', methods=['GET'])
-def getEstadoCita(estadocita_id):
+@estacitapi.route('/estadoscitas/<int:estado_id>', methods=['GET'])
+def getEstadoCita(estado_id):
     estacitdao = EstadoCitaDao()
 
     try:
-        estadocita = estacitdao.getEstadoCitaById(estadocita_id)
+        estadocita = estacitdao.getEstadoCitaById(estado_id)
 
         if estadocita:
             return jsonify({
@@ -69,11 +73,19 @@ def addEstadoCita():
 
     try:
         descripcion = data['descripcion'].upper()
-        estadocita_id = estacitdao.guardarEstadoCita(descripcion)
-        if estadocita_id is not None:
+        
+        # Validar si el ESTADO está en la lista de TURNOS válidos
+        if descripcion not in ESTADOCITA_VALIDOS:
+            return jsonify({
+                'success': False,
+                'error': 'Estado de la cita inválido. Solo se permiten Estado de "Confirmado", "Reservado", "Cancelado", "Realizado".'
+            }), 400
+        
+        estado_id = estacitdao.guardarEstadoCita(descripcion)
+        if estado_id is not None:
             return jsonify({
                 'success': True,
-                'data': {'id': estadocita_id, 'descripcion': descripcion},
+                'data': {'estado_id':estado_id, 'descripcion': descripcion},
                 'error': None
             }), 201
         else:
@@ -85,8 +97,8 @@ def addEstadoCita():
             'error': 'Ocurrió un error interno. Consulte con el administrador.'
         }), 500
 
-@estacitapi.route('/estadoscitas/<int:estadocita_id>', methods=['PUT'])
-def updateEstadoCita(estadocita_id):
+@estacitapi.route('/estadoscitas/<int:estado_id>', methods=['PUT'])
+def updateEstadoCita(estado_id):
     data = request.get_json()
     estacitdao = EstadoCitaDao()
 
@@ -101,11 +113,18 @@ def updateEstadoCita(estadocita_id):
                             'error': f'El campo {campo} es obligatorio y no puede estar vacío.'
                             }), 400
     descripcion = data['descripcion']
+    
+    # Validar si el ESTADO está en la lista de TURNOS válidos
+    if descripcion not in ESTADOCITA_VALIDOS:
+            return jsonify({
+                'success': False,
+                'error': 'Estado de la cita inválido. Solo se permiten Estado de "Confirmado", "Reservado", "Cancelado", "Realizado".'
+            }), 400
     try:
-        if estacitdao.updateEstadoCita(estadocita_id, descripcion.upper()):
+        if estacitdao.updateEstadoCita(estado_id, descripcion.upper()):
             return jsonify({
                 'success': True,
-                'data': {'id': estadocita_id, 'descripcion': descripcion},
+                'data': {'estado_id': estado_id, 'descripcion': descripcion},
                 'error': None
             }), 200
         else:
@@ -120,16 +139,16 @@ def updateEstadoCita(estadocita_id):
             'error': 'Ocurrió un error interno. Consulte con el administrador.'
         }), 500
 
-@estacitapi.route('/estadoscitas/<int:estadocita_id>', methods=['DELETE'])
-def deleteEstadoCita(estadocita_id):
+@estacitapi.route('/estadoscitas/<int:estado_id>', methods=['DELETE'])
+def deleteEstadoCita(estado_id):
     estacitdao = EstadoCitaDao()
 
     try:
         # Usar el retorno de eliminarEstadoCita para determinar el éxito
-        if estacitdao.deleteEstadoCita(estadocita_id):
+        if estacitdao.deleteEstadoCita(estado_id):
             return jsonify({
                 'success': True,
-                'mensaje': f'EstadoCita con ID {estadocita_id} eliminada correctamente.',
+                'mensaje': f'EstadoCita con ID {estado_id} eliminada correctamente.',
                 'error': None
             }), 200
         else:

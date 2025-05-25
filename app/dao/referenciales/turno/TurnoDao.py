@@ -7,7 +7,7 @@ class TurnoDao:
     def getTurnos(self):
 
         turnoSQL = """
-        SELECT id, descripcion
+        SELECT id_turno, descripcion
         FROM turnos
         """
         # objeto conexion
@@ -19,7 +19,7 @@ class TurnoDao:
             turnos = cur.fetchall() # trae datos de la bd
 
             # Transformar los datos en una lista de diccionarios
-            return [{'id': turno[0], 'descripcion': turno[1]} for turno in turnos]
+            return [{'id_turno': turno[0], 'descripcion': turno[1]} for turno in turnos]
 
         except Exception as e:
             app.logger.error(f"Error al obtener todos los turnos: {str(e)}")
@@ -29,22 +29,22 @@ class TurnoDao:
             cur.close()
             con.close()
 
-    def getTurnoById(self, id):
+    def getTurnoById(self, id_turno):
 
         turnoSQL = """
-        SELECT id, descripcion
-        FROM turnos WHERE id=%s
+        SELECT id_turno, descripcion
+        FROM turnos WHERE id_turno=%s
         """
         # objeto conexion
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(turnoSQL, (id,))
+            cur.execute(turnoSQL, (id_turno,))
             turnoEncontrado = cur.fetchone() # Obtener una sola fila
             if turnoEncontrado:
                 return {
-                        "id": turnoEncontrado[0],
+                        "id_turno": turnoEncontrado[0],
                         "descripcion": turnoEncontrado[1]
                     }  # Retornar los datos de la turno
             else:
@@ -60,7 +60,7 @@ class TurnoDao:
     def guardarTurno(self, descripcion):
 
         insertTurnoSQL = """
-        INSERT INTO turnos(descripcion) VALUES(%s) RETURNING id
+        INSERT INTO turnos(descripcion) VALUES(%s) RETURNING id_turno
         """
 
         conexion = Conexion()
@@ -85,12 +85,12 @@ class TurnoDao:
             cur.close()
             con.close()
 
-    def updateTurno(self, id, descripcion):
+    def updateTurno(self, id_turno, descripcion):
 
         updateTurnoSQL = """
         UPDATE turnos
         SET descripcion=%s
-        WHERE id=%s
+        WHERE id_turno=%s
         """
 
         conexion = Conexion()
@@ -98,7 +98,7 @@ class TurnoDao:
         cur = con.cursor()
 
         try:
-            cur.execute(updateTurnoSQL, (descripcion, id,))
+            cur.execute(updateTurnoSQL, (descripcion, id_turno,))
             filas_afectadas = cur.rowcount # Obtener el número de filas afectadas
             con.commit()
 
@@ -113,11 +113,11 @@ class TurnoDao:
             cur.close()
             con.close()
 
-    def deleteTurno(self, id):
+    def deleteTurno(self, id_turno):
 
         updateTurnoSQL = """
         DELETE FROM turnos
-        WHERE id=%s
+        WHERE id_turno=%s
         """
 
         conexion = Conexion()
@@ -125,7 +125,7 @@ class TurnoDao:
         cur = con.cursor()
 
         try:
-            cur.execute(updateTurnoSQL, (id,))
+            cur.execute(updateTurnoSQL, (id_turno,))
             rows_affected = cur.rowcount
             con.commit()
 

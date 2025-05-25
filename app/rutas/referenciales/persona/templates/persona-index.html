@@ -1,17 +1,17 @@
 {% extends 'base.html' %}
 
 {% block titulo %}
-Médicos
+Pacientes
 {% endblock %}
 
 {% block contenido %}
 <div class="container mt-4">
-    <h3>Listar Médicos</h3>
+    <h3>Listar Pacientes</h3>
 
     <!-- tarjeta -->
     <div class="card">
       <div class="card-header">
-        <button type="button" class="btn btn-success" id="btnAgregar">Agregar</button>
+        <button type="button" class="btn btn-primary" id="btnAgregar">Agregar</button>
       </div>
       <div class="card-body">
         <table class="table table-striped" id="tbl">
@@ -19,7 +19,9 @@ Médicos
             <tr>
               <th>Nombre:</th>
               <th>Apellido:</th>
-              <th>N° de Registro::</th>
+              <th>Cedula:</th>
+              <th>Télefono:</th>
+              <th>Fecha de nacimiento:</th>
               <th>Acciones</th>
             </tr>
           </thead>
@@ -42,13 +44,12 @@ Médicos
           <!-- Modal body -->
           <div class="modal-body">
             <div class="form-group">
-              <input type="hidden" id="txtIdMedico">
+              <input type="hidden" id="txtIdPersona">
               <input type="hidden" id="id_paciente">
-              <label for="txtPaciente">Médico:</label>
-              <input type="text" class="form-control" placeholder="clik para asignar un médico" id="txtPaciente"> 
-              <label for="txtMatricula">N° de Registro::</label>
-              <input type="text" class="form-control" placeholder="Ingrese la Matrícula" id="txtMatricula">
-
+              <label for="txtPaciente">Paciente:</label>
+              <input type="text" class="form-control" placeholder="clik para asignar un paciente" id="txtPaciente">
+              <label for="txtFecha_nacimiento">Fecha de nacimiento:</label>
+              <input type="date" class="form-control" placeholder="Ingrese la fecha de nacimiento" id="txtFecha_nacimiento">
             </div>
           </div>
 
@@ -65,7 +66,7 @@ Médicos
       <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content">
           <div class="modal-header">
-            <h4 class="modal-title" id="modalPacienteTitle">Seleccionar Médico</h4>
+            <h4 class="modal-title" id="modalPacienteTitle">Seleccionar Paciente</h4>
             <button type="button" class="close" data-dismiss="modal">&times;</button>
           </div>
           <div class="modal-body">
@@ -75,6 +76,8 @@ Médicos
                   <tr>
                     <th>Nombre</th>
                     <th>Apellido</th>
+                    <th>Cedula</th>
+                    <th>Teléfono</th>
                     <th>Acciones</th>
                   </tr>
                 </thead>
@@ -85,7 +88,7 @@ Médicos
         </div>
       </div>
     </div>
-    
+  
     <div class="row mt-4 d-none" id="rowAlerta">
       <div class="col col-md-12">
         <div class="alert alert-success">
@@ -104,14 +107,16 @@ Médicos
       language: {
         url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}",
       },
-      ajax:'/api/v1/medicos',
+      ajax:'/api/v1/personas',
       columns: [
         { data: 'nombre' },
         { data: 'apellido' },
-        { data: 'matricula' },
+        { data: 'cedula' },
+        { data: 'telefono' },
+        { data: 'fecha_nacimiento' },
         { data: function(row) {
-            return `<button type="button" name="btn_editar" class="btn btn-success" data-id="${row.id_medico}">Editar</button>
-                    <button type="button" name="btn_eliminar" class="btn btn-danger" data-id="${row.id_medico}">Eliminar</button>`;
+            return `<button type="button" name="btn_editar" class="btn btn-success" data-id="${row.id_persona}">Editar</button>
+                    <button type="button" name="btn_eliminar" class="btn btn-danger" data-id="${row.id_persona}">Eliminar</button>`;
           }
         }
       ]
@@ -127,17 +132,21 @@ Médicos
       columns: [
         { data: 'nombre' },
         { data: 'apellido' },
+        { data: 'cedula' },
+        { data: 'telefono' },
         { data: function(row) {
-            return `<button type="button" name="btn_seleccionar_paciente" class="btn btn-success" data-id="${row.id}" data-nombre="${row.nombre}" data-apellido="${row.apellido}"><i class="fa fa-check"></i>Selecionar</button>`;
+            return `<button type="button" name="btn_seleccionar_paciente"  class="btn btn-success" data-id="${row.id}" data-nombre="${row.nombre}" data-apellido="${row.apellido}" data-cedula="${row.cedula}" data-telefono="${row.telefono}"><i class="fa fa-check"></i>Selecionar</button>`;
           }
         }
       ]
     });
     $('#tblPaciente').on('click', 'button[name="btn_seleccionar_paciente"]', function () {
       const idPaciente = $(this).data('id');
-      const paciente = $(this).data('nombre');
+      const paciente= $(this).data('nombre');
       const apellido = $(this).data('apellido');
-      $('#txtPaciente').val(paciente+" "+apellido);
+      const cedula = $(this).data('cedula');
+      const telefono = $(this).data('telefono');
+      $('#txtPaciente').val(paciente+" "+apellido+" "+cedula+" "+telefono);
       $('#id_paciente').val(idPaciente);
       $('#modalBuscarPaciente').modal('hide');
     });
@@ -145,69 +154,71 @@ Médicos
 
   const buscarPaciente = () => {
     $('#txtPaciente').on('click', function () {
-      $('#modalPacienteTitle').text("Seleccionar médico");
+      $('#modalPacienteTitle').text("Seleccionar paciente");
       $('#modalBuscarPaciente').modal();
     });
   }
 
   const agregar = () => {
     $('#btnAgregar').on('click', function(){
-      $('#modalTitle').text("Agregar Médico");
-      $('#txtIdMedico').val("");
+      $('#modalTitle').text("Agregar Paciente");
+      $('#txtIdPersona').val("");
       $('#id_paciente').val("");
       $('#txtPaciente').val("");
-      $('#txtMatricula').val("");
+      $('#txtFecha_nacimiento').val("");
       $('#modalFormulario').modal();
     });
   }
 
   const guardar = () => {
     $('#btnGuardar').on('click', function() {
-      const idMedico = $('#txtIdMedico').val();
+      const idPersona = $('#txtIdPersona').val();
       const id_paciente = $('#id_paciente').val();
-      const nuevoMatricula = $('#txtMatricula').val();
+      const nuevaFecha_nacimiento = $('#txtFecha_nacimiento').val();
       const tabla = $('#tbl').DataTable();
+      //debugger;
 
-      if(idMedico) {
+      if(idPersona) {
         // update
-        fetch(`/api/v1/medicos/${idMedico}`, {
+        fetch(`/api/v1/personas/${idPersona}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json'
-          }, body: JSON.stringify({ id_paciente: id_paciente, matricula: nuevoMatricula})
+          }, body: JSON.stringify({ id_paciente: id_paciente, fecha_nacimiento: nuevaFecha_nacimiento})
         })
         .then(resp => resp.json())
         .then(data => {
           if(data && !data.error && data.success) {
             tabla.ajax.reload();
-            Swal.fire("Actualizado", "El médico ha sido actualizado correctamente.", "success");
+            Swal.fire("Actualizado", "El paciente ha sido actualizado correctamente.", "success");
           } else {
             Swal.fire(data.error);
           }
         }).catch(err => {
           console.error(err);
-          Swal.fire("Error", "Ocurrió un error al actualizar el médico.", "error");
+          Swal.fire("Error", "Ocurrió un error al actualizar el paciente.", "error");
         });
       } else {
         // insert
-        fetch(`/api/v1/medicos`, {
+        fetch(`/api/v1/personas`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
-          }, body: JSON.stringify({ id_paciente: id_paciente, matricula: nuevoMatricula})
+          }, body: JSON.stringify({ id_paciente: id_paciente, fecha_nacimiento: nuevaFecha_nacimiento})
         })
         .then(resp => resp.json())
         .then(data => {
           if(data && !data.error && data.success) {
             tabla.ajax.reload();
-            Swal.fire("Agregado", "El médico ha sido agregado correctamente.", "success");
+            Swal.fire("Agregado", "El paciente ha sido agregado correctamente.", "success");
           } else {
             Swal.fire(data.error);
           }
         }).catch(err => {
           console.error(err);
-          Swal.fire("Error", "Ocurrió un error al guardar el médico.", "error");
+          Swal.fire("Error", "Ocurrió un error al guardar el paciente.", "error");
         });
+        
       }
       $('#modalFormulario').modal("hide");
     });
@@ -222,13 +233,13 @@ Médicos
         cancelButtonText: `No`
       }).then((result) => {
         if (result.isConfirmed) {
-          $('#modalTitle').text("Editar Médico");
+          $('#modalTitle').text("Editar Paciente");
 
-          const idMedico = $(this).data('id');
-          $('#txtIdMedico').val(idMedico);
+          const idPersona = $(this).data('id');
+          $('#txtIdPersona').val(idPersona);
 
-          // Obtener los datos del medico del backend
-          fetch(`/api/v1/medicos/${idMedico}`, {
+          // Obtener los datos del paciente del backend
+          fetch(`/api/v1/personas/${idPersona}`, {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json'
@@ -236,10 +247,10 @@ Médicos
           })
           .then(resp => resp.json())
           .then(data => {
-            $('#txtIdMedico').val(data.data.id_medico);
-            $('#txtPaciente').val(data.data.nombre+" "+data.data.apellido);
+            $('#txtIdPersona').val(data.data.id_persona);
+            $('#txtPaciente').val(data.data.nombre+" "+data.data.apellido+" "+data.data.cedula+" "+data.data.telefono);
             $('#id_paciente').val(data.data.id_paciente);
-            $('#txtMatricula').val(data.data.matricula);
+            $('#txtFecha_nacimiento').val(data.data.fecha_nacimiento);
             $('#modalFormulario').modal();
           });
         }
@@ -249,7 +260,7 @@ Médicos
 
   const eliminar = () => {
     $('#tbl').on('click', 'button[name="btn_eliminar"]',function(){
-      const idMedico = $(this).data('id');
+      const idPersona = $(this).data('id');
       Swal.fire({
         title: "¿Deseas eliminar este registro?",
         showCancelButton: true,
@@ -257,7 +268,7 @@ Médicos
         cancelButtonText: `No`
       }).then((result) => {
         if (result.isConfirmed) {
-          fetch(`/api/v1/medicos/${idMedico}`, {
+          fetch(`/api/v1/personas/${idPersona}`, {
             method: 'DELETE',
             headers: {
               'Content-Type': 'application/json'
@@ -269,12 +280,12 @@ Médicos
               const fila =$(this).closest('tr');
               const tabla = $('#tbl').DataTable();
               tabla.row(fila).remove().draw();
-              Swal.fire("Eliminado", "El médico ha sido eliminado correctamente.", "success");
+              Swal.fire("Eliminado", "El paciente ha sido eliminado correctamente.", "success");
             } else {
               Swal.fire(data.error);
             }
           }).catch(err => {
-            Swal.fire("Error", "Ocurrió un error al eliminar el médico.", "error");
+            Swal.fire("Error", "Ocurrió un error al eliminar el paciente.", "error");
           });
         }
       });

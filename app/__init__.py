@@ -16,7 +16,9 @@ from app.rutas.referenciales.turno.turno_routes import turmod  #turno
 from app.rutas.referenciales.historia_clinica.historiaclinica_routes import hiscmod
 from app.rutas.referenciales.medico.medico_routes import medicomod
 from app.rutas.referenciales.paciente.paciente_routes import pacientemod
-from app.rutas.referenciales.agenda_medica.agenda_routes import agendamod
+from app.rutas.referenciales.agenda_medica.agenda_medica_routes import agendamedmod
+from app.rutas.referenciales.persona.persona_routes import persona_mod
+
 
 # registrar referenciales
 modulo0 = '/referenciales'
@@ -32,7 +34,9 @@ app.register_blueprint(turmod, url_prefix=f'{modulo0}/turno') #turno
 app.register_blueprint(hiscmod, url_prefix=f'{modulo0}/historiaclinica') #historia clinica
 app.register_blueprint(pacientemod, url_prefix=f'{modulo0}/paciente')
 app.register_blueprint(medicomod, url_prefix=f'{modulo0}/medico')
-app.register_blueprint(agendamod, url_prefix=f'{modulo0}/agenda')
+app.register_blueprint(agendamedmod, url_prefix=f'{modulo0}/agenda_medica')
+app.register_blueprint(persona_mod, url_prefix=f'{modulo0}/persona')
+
 
 #ciudad
 from app.rutas.referenciales.ciudad.ciudad_api import ciuapi
@@ -54,8 +58,11 @@ from app.rutas.referenciales.historia_clinica.historiaclinica_api import histocl
 from app.rutas.referenciales.paciente.paciente_api import pacienteapi
 #medico
 from app.rutas.referenciales.medico.medico_api import medicoapi
-#agenda
-from app.rutas.referenciales.agenda_medica.agenda_api import agendaapi
+
+from app.rutas.referenciales.agenda_medica.agenda_medica_api import agenda_medica_api
+
+from app.rutas.referenciales.persona.persona_api import personaapi
+
 
 # APIS v1
 #Ciudad
@@ -88,10 +95,10 @@ app.register_blueprint(pacienteapi, url_prefix=version1)
 #medico
 version1 = '/api/v1'
 app.register_blueprint(medicoapi, url_prefix=version1)
-#cita
 version1 = '/api/v1'
-app.register_blueprint(agendaapi, url_prefix=version1)
+app.register_blueprint(agenda_medica_api, url_prefix=version1)
 
+app.register_blueprint(personaapi, url_prefix=version1)
 
 
 

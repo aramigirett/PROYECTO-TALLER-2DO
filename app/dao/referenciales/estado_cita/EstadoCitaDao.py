@@ -7,7 +7,7 @@ class EstadoCitaDao:
     def getEstadosCitas(self):
 
         estadocitaSQL = """
-        SELECT id, descripcion
+        SELECT id_estado, descripcion
         FROM estado_cita
         """
         # objeto conexion
@@ -19,7 +19,7 @@ class EstadoCitaDao:
             estadoscitas = cur.fetchall() # trae datos de la bd
 
             # Transformar los datos en una lista de diccionarios
-            return [{'id': estadocita[0], 'descripcion': estadocita[1]} for estadocita in estadoscitas]
+            return [{'id_estado': estadocita[0], 'descripcion': estadocita[1]} for estadocita in estadoscitas]
 
         except Exception as e:
             app.logger.error(f"Error al obtener todos los Estados de Cita: {str(e)}")
@@ -29,22 +29,22 @@ class EstadoCitaDao:
             cur.close()
             con.close()
 
-    def getEstadoCitaById(self, id):
+    def getEstadoCitaById(self, id_estado):
 
         estadocitaSQL = """
-        SELECT id, descripcion
-        FROM estado_cita WHERE id=%s
+        SELECT id_estado, descripcion
+        FROM estado_cita WHERE id_estado=%s
         """
         # objeto conexion
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(estadocitaSQL, (id,))
+            cur.execute(estadocitaSQL, (id_estado,))
             estadocitaEncontrada = cur.fetchone() # Obtener una sola fila
             if estadocitaEncontrada:
                 return {
-                        "id": estadocitaEncontrada[0],
+                        "id_estado": estadocitaEncontrada[0],
                         "descripcion": estadocitaEncontrada[1]
                     }  # Retornar los datos de los estados de cita
             else:
@@ -60,7 +60,7 @@ class EstadoCitaDao:
     def guardarEstadoCita(self, descripcion):
 
         insertEstadoCitaSQL = """
-        INSERT INTO estado_cita(descripcion) VALUES(%s) RETURNING id
+        INSERT INTO estado_cita(descripcion) VALUES(%s) RETURNING id_estado
         """
 
         conexion = Conexion()
@@ -85,12 +85,12 @@ class EstadoCitaDao:
             cur.close()
             con.close()
 
-    def updateEstadoCita(self, id, descripcion):
+    def updateEstadoCita(self, id_estado, descripcion):
 
         updateEstadoCitaSQL = """
         UPDATE estado_cita
         SET descripcion=%s
-        WHERE id=%s
+        WHERE id_estado=%s
         """
 
         conexion = Conexion()
@@ -98,7 +98,7 @@ class EstadoCitaDao:
         cur = con.cursor()
 
         try:
-            cur.execute(updateEstadoCitaSQL, (descripcion, id,))
+            cur.execute(updateEstadoCitaSQL, (descripcion, id_estado,))
             filas_afectadas = cur.rowcount # Obtener el número de filas afectadas
             con.commit()
 
@@ -113,11 +113,11 @@ class EstadoCitaDao:
             cur.close()
             con.close()
 
-    def deleteEstadoCita(self, id):
+    def deleteEstadoCita(self, id_estado):
 
         updateEstadoCitaSQL = """
         DELETE FROM estado_cita
-        WHERE id=%s
+        WHERE id_estado=%s
         """
 
         conexion = Conexion()
@@ -125,7 +125,7 @@ class EstadoCitaDao:
         cur = con.cursor()
 
         try:
-            cur.execute(updateEstadoCitaSQL, (id,))
+            cur.execute(updateEstadoCitaSQL, (id_estado,))
             rows_affected = cur.rowcount
             con.commit()
 

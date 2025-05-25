@@ -5,9 +5,8 @@ from app.conexion.Conexion import Conexion
 class EspecialidadDao:
 
     def getEspecialidades(self):
-
         especialidadSQL = """
-        SELECT id, descripcion
+        SELECT id_especialidad, nombre_especialidad
         FROM especialidades
         """
         # objeto conexion
@@ -19,7 +18,7 @@ class EspecialidadDao:
             especialidades = cur.fetchall() # trae datos de la bd
 
             # Transformar los datos en una lista de diccionarios
-            return [{'id': especialidad[0], 'descripcion': especialidad[1]} for especialidad in especialidades]
+            return [{'id_especialidad': especialidad[0], 'nombre_especialidad': especialidad[1]} for especialidad in especialidades]
 
         except Exception as e:
             app.logger.error(f"Error al obtener todas las especialidades: {str(e)}")
@@ -29,23 +28,22 @@ class EspecialidadDao:
             cur.close()
             con.close()
 
-    def getEspecialidadById(self, id):
-
+    def getEspecialidadById(self, id_especialidad):
         especialidadSQL = """
-        SELECT id, descripcion
-        FROM especialidades WHERE id=%s
+        SELECT id_especialidad, nombre_especialidad
+        FROM especialidades WHERE id_especialidad=%s
         """
         # objeto conexion
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(especialidadSQL, (id,))
+            cur.execute(especialidadSQL, (id_especialidad,))
             especialidadEncontrada = cur.fetchone() # Obtener una sola fila
             if especialidadEncontrada:
                 return {
-                        "id": especialidadEncontrada[0],
-                        "descripcion": especialidadEncontrada[1]
+                        "id_especialidad": especialidadEncontrada[0],
+                        "nombre_especialidad": especialidadEncontrada[1]
                     }  # Retornar los datos de la ciudad
             else:
                 return None # Retornar None si no se encuentra la especialidad
@@ -57,10 +55,9 @@ class EspecialidadDao:
             cur.close()
             con.close()
 
-    def guardarEspecialidad(self, descripcion):
-
+    def guardarEspecialidad(self, nombre_especialidad):
         insertEspecialidadSQL = """
-        INSERT INTO especialidades(descripcion) VALUES(%s) RETURNING id
+        INSERT INTO especialidades(nombre_especialidad) VALUES(%s) RETURNING id_especialidad
         """
 
         conexion = Conexion()
@@ -69,10 +66,10 @@ class EspecialidadDao:
 
         # Ejecucion exitosa
         try:
-            cur.execute(insertEspecialidadSQL, (descripcion,))
-            ciudad_id = cur.fetchone()[0]
+            cur.execute(insertEspecialidadSQL, (nombre_especialidad,))
+            especialidad_id = cur.fetchone()[0]
             con.commit() # se confirma la insercion
-            return ciudad_id
+            return especialidad_id
 
         # Si algo fallo entra aqui
         except Exception as e:
@@ -85,12 +82,11 @@ class EspecialidadDao:
             cur.close()
             con.close()
 
-    def updateEspecialidad(self, id, descripcion):
-
+    def updateEspecialidad(self, id_especialidad, nombre_especialidad):
         updateEspecialidadSQL = """
         UPDATE especialidades
-        SET descripcion=%s
-        WHERE id=%s
+        SET nombre_especialidad=%s
+        WHERE id_especialidad=%s
         """
 
         conexion = Conexion()
@@ -98,7 +94,7 @@ class EspecialidadDao:
         cur = con.cursor()
 
         try:
-            cur.execute(updateEspecialidadSQL, (descripcion, id,))
+            cur.execute(updateEspecialidadSQL, (nombre_especialidad, id_especialidad,))
             filas_afectadas = cur.rowcount # Obtener el número de filas afectadas
             con.commit()
 
@@ -113,11 +109,10 @@ class EspecialidadDao:
             cur.close()
             con.close()
 
-    def deleteEspecialidad(self, id):
-
-        updateEspecialidadSQL = """
+    def deleteEspecialidad(self, id_especialidad):
+        deleteEspecialidadSQL = """
         DELETE FROM especialidades
-        WHERE id=%s
+        WHERE id_especialidad=%s
         """
 
         conexion = Conexion()
@@ -125,7 +120,7 @@ class EspecialidadDao:
         cur = con.cursor()
 
         try:
-            cur.execute(updateEspecialidadSQL, (id,))
+            cur.execute(deleteEspecialidadSQL, (id_especialidad,))
             rows_affected = cur.rowcount
             con.commit()
 

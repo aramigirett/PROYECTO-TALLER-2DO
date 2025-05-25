@@ -17,7 +17,7 @@ Turnos
         <table class="table table-striped" id="tbl">
           <thead>
             <tr>
-              <th>Descripción</th>
+              <th>Turnos</th>
               <th>Acciones</th>
             </tr>
           </thead>
@@ -42,7 +42,7 @@ Turnos
           <div class="modal-body">
             <div class="form-group">
               <input type="hidden" id="txtIdTurno">
-              <label for="txtDescripcion">Descripción:</label>
+              <label for="txtDescripcion">Turno correspondiente:</label>
               <input type="text" class="form-control" placeholder="Ingrese el turno" id="txtDescripcion">
             </div>
           </div>
@@ -80,8 +80,8 @@ Turnos
       columns: [
         { data: 'descripcion' },
         { data: function(row) {
-            return `<button type="button" name="btn_editar" class="btn btn-outline-primary" data-id="${row.id}">Editar</button>
-                    <button type="button" name="btn_eliminar" class="btn btn-outline-warning" data-id="${row.id}">Eliminar</button>`
+            return `<button type="button" name="btn_editar" class="btn btn-outline-primary" data-id="${row.id_turno}">Editar</button>
+                    <button type="button" name="btn_eliminar" class="btn btn-outline-warning" data-id="${row.id_turno}">Eliminar</button>`
           }
         }
       ]
@@ -90,7 +90,7 @@ Turnos
 
   const agregar = () => {
     $('#btnAgregar').on('click', function(){
-      $('#modalTitle').text("Agregar un Turno");
+      $('#modalTitle').text("Agregar Turno");
       $('#txtIdTurno').val("");
       $('#txtDescripcion').val("");
       $('#modalFormulario').modal();
@@ -109,7 +109,7 @@ Turnos
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json'
-          }, body: JSON.stringify({ descripcion: nuevaDescripcion})
+          }, body: JSON.stringify({ descripcion: nuevaDescripcion, idTurno: idTurno})
         })
         .then(resp => resp.json())
         .then(data => {
@@ -129,7 +129,7 @@ Turnos
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
-          }, body: JSON.stringify({ descripcion: nuevaDescripcion})
+          }, body: JSON.stringify({ descripcion: nuevaDescripcion, idTurno: idTurno})
         })
         .then(resp => resp.json())
         .then(data => {
