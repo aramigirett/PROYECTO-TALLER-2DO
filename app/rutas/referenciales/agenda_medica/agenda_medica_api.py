@@ -1,7 +1,18 @@
 from flask import Blueprint, request, jsonify, current_app as app
 from app.dao.referenciales.agenda_medica.Agenda_medicaDao import Agenda_medicaDao
+from datetime import datetime, time
 
 agenda_medica_api = Blueprint('agenda_medica_api', __name__)
+
+# Función para convertir campos de tipo fecha y hora
+def procesar_agenda(agenda):
+    if 'fecha' in agenda and isinstance(agenda['fecha'], datetime):
+        agenda['fecha'] = agenda['fecha'].strftime('%d/%m/%Y')
+    if 'hora_inicio' in agenda and isinstance(agenda['hora_inicio'], time):
+        agenda['hora_inicio'] = agenda['hora_inicio'].strftime('%H:%M:%S')
+    if 'hora_final' in agenda and isinstance(agenda['hora_final'], time):
+        agenda['hora_final'] = agenda['hora_final'].strftime('%H:%M:%S')
+    return agenda
 
 # Trae todas las agendas médicas
 @agenda_medica_api.route('/agenda_medicas', methods=['GET'])
@@ -9,6 +20,10 @@ def getAgenda_medicas():
     agendamedicadao = Agenda_medicaDao()
     try:
         agenda_medicas = agendamedicadao.getAgenda_medicas()
+
+        # Procesar cada registro para formatear fecha y hora
+        agenda_medicas = [procesar_agenda(agenda) for agenda in agenda_medicas]
+
         return jsonify({'success': True, 'data': agenda_medicas, 'error': None}), 200
     except Exception as e:
         app.logger.error(f"Error al obtener todas las agendas médicas: {str(e)}")
@@ -20,7 +35,11 @@ def getAgenda_medica(agenda_medica_id):
     agendamedicadao = Agenda_medicaDao()
     try:
         agenda_medica = agendamedicadao.getAgenda_medicaById(agenda_medica_id)
+
+        # Procesar registro para formatear fecha y hora
         if agenda_medica:
+            agenda_medica = procesar_agenda(agenda_medica)
+
             return jsonify({'success': True, 'data': agenda_medica, 'error': None}), 200
         else:
             return jsonify({'success': False, 'error': 'No se encontró la agenda médica con el ID proporcionado.'}), 404
