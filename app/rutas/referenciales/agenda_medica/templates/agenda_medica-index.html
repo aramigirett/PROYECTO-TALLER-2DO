@@ -11,7 +11,7 @@ Agenda Medica
     <!-- Tarjeta -->
     <div class="card">
         <div class="card-header">
-            <button type="button" class="btn btn-outline-info" id="btnAgregar">Agregar</button>
+            <button type="button" class="btn btn-outline-primary" id="btnAgregar">Agregar</button>
         </div>
         <div class="card-body">
             <div class="table-responsive"> 
@@ -267,8 +267,8 @@ Agenda Medica
                 {
                     data: function(row) {
                         return `
-                            <button type="button" name="btn_editar" class="btn btn-info" data-id="${row.id_agenda_medica}">Editar</button>
-                            <button type="button" name="btn_eliminar" class="btn btn-warning" data-id="${row.id_agenda_medica}">Eliminar</button>`;
+                            <button type="button" name="btn_editar" class="btn btn-outline-primary" data-id="${row.id_agenda_medica}">Editar</button>
+                            <button type="button" name="btn_eliminar" class="btn btn-outline-warning" data-id="${row.id_agenda_medica}">Eliminar</button>`;
                     }
                 }
             ]

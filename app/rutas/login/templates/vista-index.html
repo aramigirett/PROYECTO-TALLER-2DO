@@ -7,12 +7,8 @@
 {% block contenido %}
 <div>
     <!-- Mostrar la imagen en el contenido -->
-    <img src="{{ url_for('static', filename='img/miimagencita.jpg') }}" alt="Mi imagen" style="width: 100%; height:auto;">
+    <img src="{{ url_for('static', filename='img/fondovista.jpg') }}" alt="Mi imagen" style="width: 100%; height:auto;">
 </div>
-
-<!-- Botón para abrir el modal -->
-<button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#agendaMedicoModal">
-  </button>
   
   <!-- Modal -->
   <div class="modal fade" id="agendaMedicoModal" tabindex="-1" aria-labelledby="agendaMedicoModalLabel" aria-hidden="true">
@@ -57,7 +53,7 @@
 
 <style>
     body {
-        background-image: url("{{ url_for('static', filename='img/miimagencita.jpg') }}");
+        background-image: url("{{ url_for('static', filename='img/fondovista.jpg') }}");
         background-position: center;
         background-repeat: no-repeat;
         background-size: cover;

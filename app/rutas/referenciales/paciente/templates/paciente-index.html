@@ -11,7 +11,7 @@ Personas
    <!-- tarjeta -->
 <div class="card">
   <div class="card-header">
-    <button type="button" class="btn btn-success" id="btnAgregar">Agregar</button>
+    <button type="button" class="btn btn-outline-primary" id="btnAgregar">Agregar</button>
   </div>
   <div class="card-body">
   <div class="table-responsive">
@@ -185,8 +185,8 @@ columns: [
   { data: 'ciudad' },
   {
     data: function(row) {
-      return `<button type="button" name="btn_editar" class="btn btn-success" data-id="${row.id}">Editar</button>
-              <button type="button" name="btn_eliminar" class="btn btn-danger" data-id="${row.id}">Eliminar</button>`;
+      return `<button type="button" name="btn_editar" class="btn btn-outline-primary" data-id="${row.id}">Editar</button>
+              <button type="button" name="btn_eliminar" class="btn btn-outline-warning" data-id="${row.id}">Eliminar</button>`;
     }
   }
 ]

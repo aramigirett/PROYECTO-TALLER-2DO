@@ -7,142 +7,138 @@
     <link rel="stylesheet" href="./assets/css/bootstrap.min.css">
     <style>
         body {
-            font-family: Arial, sans-serif; 
-            background: linear-gradient(135deg, #1c79c4, #338783, #2082d3, #38918d);
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            background: url("{{ url_for('static', filename='img/paraellogin.jpg') }}") no-repeat center center fixed;
+            background-size: cover;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
-            margin: 0;
         }
 
         .login-container {
-            background-color: white;
-            border-radius: 15px;
-            box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.1);
+            background: rgba(255, 255, 255, 0.25);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
             padding: 40px;
-            width: 400px;
-            max-width: 100%;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
+            width: 360px;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+            color: #333;
+            text-align: center;
         }
 
         .login-container h2 {
-            text-align: center;
-            margin-bottom: 30px;
-            color: #4A5568;
-            font-size: 24px;
-            font-weight: bold;
+            font-weight: 700;
+            font-size: 26px;
+            margin-bottom: 25px;
+            color: #2d3748;
         }
 
-        .login-container label {
-            font-weight: bold;
-            color: #4A5568;
-            margin-top: 10px;
+        .form-group {
+            margin-bottom: 20px;
+            text-align: left;
         }
 
-        .login-container input[type="text"],
-        .login-container input[type="password"] {
-            width: 100%;
-            padding: 10px;
-            margin: 10px 0;
-            border: 1px solid #CBD5E0;
-            border-radius: 8px;
-            font-size: 16px;
+        label {
+            font-weight: 600;
+            display: block;
+            margin-bottom: 5px;
+            color: #2d3748;
         }
 
-        .login-container input[type="submit"] {
+        input[type="text"],
+        input[type="password"] {
             width: 100%;
             padding: 12px;
-            background-color: #6B46C1;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            font-size: 16px;
+            outline: none;
+            background-color: rgba(255, 255, 255, 0.8);
+        }
+
+        input[type="submit"] {
+            width: 100%;
+            padding: 12px;
+            background: #FFA500; /* Naranja */
             color: white;
             border: none;
-            border-radius: 8px;
-            cursor: pointer;
+            border-radius: 10px;
             font-size: 18px;
             font-weight: bold;
-            margin-top: 20px;
+            cursor: pointer;
+            transition: background 0.3s ease;
         }
 
-        .login-container input[type="submit"]:hover {
-            background-color: #553C9A;
+        input[type="submit"]:hover {
+            background: #e69500; /* Tono más oscuro al pasar el mouse */
         }
 
-        .login-container .message {
-            text-align: center;
-            margin-top: 15px;
-            color: #4A5568;
-        }
-
-        .login-container .message a {
-            color: #6B46C1;
-            text-decoration: none;
-        }
-
-        .login-container .message a:hover {
-            text-decoration: underline;
-        }
-
-        .forgot-password {
-            text-align: right;
-            margin-top: 10px;
-        }
-
-        .forgot-password a {
-            color: #6B46C1;
+        .forgot-password,
+        .register {
+            margin-top: 12px;
             font-size: 14px;
+        }
+
+        .forgot-password a,
+        .register a {
+            color: #6B46C1;
             text-decoration: none;
         }
 
-        .forgot-password a:hover {
+        .forgot-password a:hover,
+        .register a:hover {
             text-decoration: underline;
+        }
+
+        @media (max-width: 400px) {
+            .login-container {
+                width: 90%;
+            }
         }
     </style>
 </head>
 <body>
     <div class="login-container">
-        <h2>Iniciar Sesión !!</h2>
-
+        <h2>Iniciar Sesión</h2>
         <form action="{{ url_for('login.login') }}" method="POST" onsubmit="return validarCredenciales();">
-            <label for="username">Usuario:</label>
-            <input type="text" id="username" name="username" placeholder="Enter username" required>
-
-            <label for="password">Contraseña:</label>
-            <input type="password" id="password" name="password" placeholder="Enter password" required>
-
-            <div class="forgot-password">
-                <a href="#">¿Olvidaste tu contraseña?</a>
+            <div class="form-group">
+                <label for="username">Usuario</label>
+                <input type="text" id="username" name="username" placeholder="Ingrese su usuario" required>
             </div>
-
+            <div class="form-group">
+                <label for="password">Contraseña</label>
+                <input type="password" id="password" name="password" placeholder="Ingrese su contraseña" required>
+            </div>
             <input type="submit" value="Acceder">
+            <div class="forgot-password">
+                <a href="#"></a>
+            </div>
+            <div class="register">
+                 <a href="#"></a>
+            </div>
         </form>
-
-        <div class="message">
-            ¿No tienes una cuenta? <a href="#">Regístrate</a>
-        </div>
     </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
 
     <script>
         function validarCredenciales() {
-            // Definir usuario y contraseña correctos
             const usuarioCorrecto = "ARAMI GIRETT";
             const contrasenaCorrecta = "1";
 
-            // Obtener valores ingresados
             const username = document.getElementById("username").value;
             const password = document.getElementById("password").value;
 
-            // Validar credenciales
             if (username === usuarioCorrecto && password === contrasenaCorrecta) { 
                 window.location.href = "{{ url_for('vista.vistaIndex') }}";
             } else {
                 alert("Usuario o contraseña incorrectos.");
             }
 
-            return false; // Evita el envío del formulario
+            return false; // Prevenir envío del formulario
         }
     </script>
 </body>
