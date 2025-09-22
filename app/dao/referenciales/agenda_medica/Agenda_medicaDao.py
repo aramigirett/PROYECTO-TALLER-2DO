@@ -1,5 +1,6 @@
 from flask import current_app as app
 from app.conexion.Conexion import Conexion
+from datetime import date, datetime
 
 class Agenda_medicaDao:
     def getAgenda_medicas(self):
@@ -29,18 +30,18 @@ class Agenda_medicaDao:
             agenda_medicas = cur.fetchall()
             return [
                 {
-                    'id_agenda_medica': agenda_medica[0],
-                    'nombre': agenda_medica[1],
-                    'apellido': agenda_medica[2],
-                    'especialidad': agenda_medica[3],
-                    'fecha': agenda_medica[4],
-                    'turno': agenda_medica[5],
-                    'dia': agenda_medica[6],
-                    'hora_inicio': agenda_medica[7],
-                    'hora_final': agenda_medica[8],
-                    'estado': agenda_medica[9]
+                    'id_agenda_medica': ag[0],
+                    'nombre': ag[1],
+                    'apellido': ag[2],
+                    'especialidad': ag[3],
+                    'fecha': ag[4].strftime('%Y-%m-%d') if isinstance(ag[4], (date, datetime)) else str(ag[4]),
+                    'turno': ag[5],
+                    'dia': ag[6],
+                    'hora_inicio': str(ag[7]),
+                    'hora_final': str(ag[8]),
+                    'estado': 'activo' if ag[9] in (True, 'activo', 1) else 'inactivo'
                 }
-                for agenda_medica in agenda_medicas
+                for ag in agenda_medicas
             ]
         except Exception as e:
             app.logger.error(f"Error al obtener todas las agendas médicas: {str(e)}")
@@ -85,12 +86,12 @@ class Agenda_medicaDao:
                     'nombre': row[1],
                     'apellido': row[2],
                     'nombre_especialidad': row[3],
-                    'fecha': row[4],
+                    'fecha': row[4].strftime('%Y-%m-%d') if isinstance(row[4], (date, datetime)) else str(row[4]),
                     'turno': row[5],
                     'dia': row[6],
-                    'hora_inicio': row[7],
-                    'hora_final': row[8],
-                    'estado': row[9],
+                    'hora_inicio': str(row[7]),
+                    'hora_final': str(row[8]),
+                    'estado': 'activo' if row[9] in (True, 'activo', 1) else 'inactivo',
                     'id_medico': row[10],
                     'id_especialidad': row[11],
                     'id_dia': row[12],
@@ -166,4 +167,53 @@ class Agenda_medicaDao:
         finally:
             cur.close()
             con.close()
-  
+
+    def getAgendasByFechaAndMedico(self, fecha, id_medico):
+        query = """
+        SELECT hora_inicio, hora_final
+        FROM agenda_medicas
+        WHERE fecha = %s AND id_medico = %s
+        """
+        conexion = Conexion()
+        con = conexion.getConexion()
+        cur = con.cursor()
+        try:
+            cur.execute(query, (fecha, id_medico))
+            agendas = cur.fetchall()
+            return [
+                {'hora_inicio': str(agenda[0]), 'hora_final': str(agenda[1])}
+                for agenda in agendas
+            ]
+        except Exception as e:
+            app.logger.error(f"Error al obtener horarios de la agenda médica: {str(e)}")
+            return []
+        finally:
+            cur.close()
+            con.close()
+            
+    def getAgendasByFecha(self, fecha):
+        query = """
+        SELECT id_medico, hora_inicio, hora_final
+        FROM agenda_medicas
+        WHERE fecha = %s
+        """
+        conexion = Conexion()
+        con = conexion.getConexion()
+        cur = con.cursor()
+        try:
+            cur.execute(query, (fecha,))
+            agendas = cur.fetchall()
+            return [
+                {
+                    'id_medico': agenda[0],
+                    'hora_inicio': str(agenda[1]),
+                    'hora_final': str(agenda[2])
+                }
+                for agenda in agendas
+            ]
+        except Exception as e:
+            app.logger.error(f"Error al obtener agendas por fecha: {str(e)}")
+            return []
+        finally:
+            cur.close()
+            con.close()

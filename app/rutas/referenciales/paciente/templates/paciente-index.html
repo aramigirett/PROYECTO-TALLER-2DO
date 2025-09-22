@@ -159,41 +159,42 @@ Personas
 {% block js %}
 <script>
   const initDatatable = () => {
-    $('#tbl').DataTable({
-      language: {
-        url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}",
+  $('#tbl').DataTable({
+    language: {
+      url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}",
+    },
+    ajax: '/api/v1/pacientes',
+    columns: [
+      { data: 'nombre' },
+      { data: 'apellido' },
+      { data: 'cedula' },
+      {
+        data: function(row) {
+          const fecha = new Date(row.fecha_nacimiento);
+          return fecha.toLocaleDateString('es-ES', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+          });
+        }
       },
-      ajax:'/api/v1/pacientes',
-columns: [
-  { data: 'nombre' },
-  { data: 'apellido' },
-  { data: 'cedula' },
-  {
-    data: function(row) {
-      const fecha = new Date(row.fecha_nacimiento);
-      return fecha.toLocaleDateString('es-ES', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
-      });
-    }
-  },
-  { data: 'genero' },
-  { data: 'telefono' },
-  { data: 'correo' },
-  { data: 'direccion' },
-  { data: 'ciudad' },
-  {
-    data: function(row) {
-      return `<button type="button" name="btn_editar" class="btn btn-outline-primary" data-id="${row.id}">Editar</button>
-              <button type="button" name="btn_eliminar" class="btn btn-outline-warning" data-id="${row.id}">Eliminar</button>`;
-    }
-  }
-]
+      { data: 'genero' },
+      { data: 'telefono' },
+      { data: 'correo' },
+      { data: 'direccion' },
+      { data: 'ciudad' },
+      {
+        data: function(row) {
+          return `
+            <button type="button" name="btn_editar" class="btn btn-outline-primary" data-id="${row.id}">Editar</button>
+            <button type="button" name="btn_eliminar" class="btn btn-outline-warning" data-id="${row.id}">Eliminar</button>
+          `;
+        }
+      }
+    ]
+  });
+}
 
-
-    });
-  }
 
   const initDatatablec= () => {
     $('#tblCiudad').DataTable({
