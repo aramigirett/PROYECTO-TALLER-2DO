@@ -16,7 +16,8 @@ from app.rutas.referenciales.medico.medico_routes import medicomod
 from app.rutas.referenciales.paciente.paciente_routes import pacientemod
 from app.rutas.referenciales.agenda_medica.agenda_medica_routes import agendamedmod
 from app.rutas.referenciales.persona.persona_routes import persona_mod
-
+from app.rutas.referenciales.consultorio.consultorio_routes import consulmod
+from app.rutas.referenciales.avisosRecordatorios.AvisosRecordatorios_routes import avisomod
 
 # registrar referenciales
 modulo0 = '/referenciales'
@@ -32,6 +33,9 @@ app.register_blueprint(pacientemod, url_prefix=f'{modulo0}/paciente')
 app.register_blueprint(medicomod, url_prefix=f'{modulo0}/medico')
 app.register_blueprint(agendamedmod, url_prefix=f'{modulo0}/agenda_medica')
 app.register_blueprint(persona_mod, url_prefix=f'{modulo0}/persona')
+app.register_blueprint(consulmod, url_prefix=f'{modulo0}/consultorio')
+app.register_blueprint(avisomod, url_prefix=f'{modulo0}/avisos')
+
 
 
 #ciudad
@@ -55,6 +59,9 @@ from app.rutas.referenciales.agenda_medica.agenda_medica_api import agenda_medic
 
 from app.rutas.referenciales.persona.persona_api import personaapi
 
+from app.rutas.referenciales.consultorio.consultorio_api import consultorioapi
+
+from app.rutas.referenciales.avisosRecordatorios.AvisosRecordatorios_api import avisoapi
 
 # APIS v1
 #Ciudad
@@ -85,6 +92,13 @@ version1 = '/api/v1'
 app.register_blueprint(agenda_medica_api, url_prefix=version1)
 
 app.register_blueprint(personaapi, url_prefix=version1)
+
+version1 = '/api/v1'
+app.register_blueprint(consultorioapi, url_prefix=version1)
+
+version1 = '/api/v1'
+app.register_blueprint(avisoapi, url_prefix=version1)
+
 
 
 

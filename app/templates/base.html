@@ -65,6 +65,7 @@
     <div id="collapseReferenciales" class="collapse" aria-labelledby="headingReferenciales" data-parent="#accordionSidebar">
         <div class="bg-white py-2 collapse-inner rounded">
             <a class="collapse-item" href="{{ url_for('ciudad.ciudadIndex') }}">Ciudad</a>
+            <a class="collapse-item" href="{{ url_for('consultorio.consultorioIndex') }}">Consultorio</a>
             <a class="collapse-item" href="{{ url_for('pais.paisIndex') }}">Pais</a>
             <a class="collapse-item" href="{{ url_for('paciente.pacienteIndex') }}">Personas</a>
             <a class="collapse-item" href="{{ url_for('medico.medicoIndex') }}">Medicos</a>
@@ -86,6 +87,8 @@
     <div id="collapseAgendamiento" class="collapse" aria-labelledby="headingAgendamiento" data-parent="#accordionSidebar">
         <div class="bg-white py-2 collapse-inner rounded">
             <a class="collapse-item" href="{{ url_for('agenda_medica.agenda_medicaIndex') }}">Agenda Medica</a> 
+            <a class="collapse-item" href="{{ url_for('avisosrecordatorios.avisosrecordatorios_index') }}">Registrar Avisos</a>
+
         </div>
     </div>
 </li>

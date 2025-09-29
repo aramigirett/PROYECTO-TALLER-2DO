@@ -1,0 +1,227 @@
+{% extends 'base.html' %}
+
+{% block titulo %}
+Consultorios
+{% endblock %}
+
+{% block contenido %}
+<div class="container mt-4">
+  <h3>Listar Consultorios</h3>
+
+  <!-- tarjeta -->
+  <div class="card">
+    <div class="card-header">
+      <button type="button" class="btn btn-outline-primary" id="btnAgregar">Agregar</button>
+    </div>
+    <div class="card-body">
+      <table class="table table-striped w-100" id="tbl">
+        <thead>
+          <tr>
+            <th>Código</th>
+            <th>Nombre Consultorio</th>
+            <th>Dirección</th>
+            <th>Teléfono</th>
+            <th>Correo</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+  <!-- /tarjeta -->
+
+  <!-- Modal Formulario -->
+  <div class="modal" id="modalFormulario">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+
+        <div class="modal-header">
+          <h4 class="modal-title" id="modalTitle"></h4>
+          <button type="button" class="close" data-dismiss="modal">&times;</button>
+        </div>
+
+        <div class="modal-body">
+          <input type="hidden" id="txtCodigo">
+
+          <div class="form-group">
+            <label for="txtNombre">Nombre Consultorio:</label>
+            <input type="text" class="form-control" id="txtNombre" maxlength="100" placeholder="Ingrese nombre del consultorio">
+          </div>
+
+          <div class="form-group">
+            <label for="txtDireccion">Dirección:</label>
+            <input type="text" class="form-control" id="txtDireccion" maxlength="150" placeholder="Ingrese dirección">
+          </div>
+
+          <div class="form-group">
+            <label for="txtTelefono">Teléfono:</label>
+            <input type="text" class="form-control" id="txtTelefono" maxlength="15" placeholder="Ingrese teléfono">
+          </div>
+
+          <div class="form-group">
+            <label for="txtCorreo">Correo:</label>
+            <input type="email" class="form-control" id="txtCorreo" maxlength="100" placeholder="Ingrese correo">
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary" id="btnGuardar">Guardar</button>
+          <button type="button" class="btn btn-danger" data-dismiss="modal">Cerrar</button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script>
+  const initDatatable = () => {
+    $('#tbl').DataTable({
+      language: {
+        url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}",
+      },
+      ajax: '/api/v1/consultorios',
+      columns: [
+        { data: 'codigo' },
+        { data: 'nombre_consultorio' },
+        { data: 'direccion' },
+        { data: 'telefono' },
+        { data: 'correo' },
+        {
+          data: function (row) {
+            return `
+              <button type="button" name="btn_editar" class="btn btn-outline-primary" data-codigo="${row.codigo}">
+                Editar
+              </button>
+              <button type="button" name="btn_eliminar" class="btn btn-outline-danger" data-codigo="${row.codigo}">
+                Eliminar
+              </button>`;
+          }
+        }
+      ]
+    });
+  };
+
+  const agregar = () => {
+    $('#btnAgregar').on('click', function () {
+      $('#modalTitle').text("Agregar Consultorio");
+      $('#txtCodigo').val("");
+      $('#txtNombre').val("");
+      $('#txtDireccion').val("");
+      $('#txtTelefono').val("");
+      $('#txtCorreo').val("");
+      $('#modalFormulario').modal();
+    });
+  };
+
+  const guardar = () => {
+    $('#btnGuardar').on('click', function () {
+      const codigo = $('#txtCodigo').val();
+      const datos = {
+        nombre_consultorio: $('#txtNombre').val(),
+        direccion: $('#txtDireccion').val(),
+        telefono: $('#txtTelefono').val(),
+        correo: $('#txtCorreo').val()
+      };
+      const tabla = $('#tbl').DataTable();
+
+      const url = codigo ? `/api/v1/consultorios/${codigo}` : '/api/v1/consultorios';
+      const method = codigo ? 'PUT' : 'POST';
+
+      fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(datos)
+      })
+      .then(resp => resp.json())
+      .then(data => {
+        if (data && data.success) {
+          tabla.ajax.reload();
+          Swal.fire("Éxito", codigo ? "Consultorio actualizado" : "Consultorio agregado", "success");
+        } else {
+          Swal.fire("Error", data.error || "No se pudo guardar", "error");
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        Swal.fire("Error", "Ocurrió un error al guardar.", "error");
+      });
+
+      $('#modalFormulario').modal("hide");
+    });
+  };
+
+  const editar = () => {
+    $('#tbl').on('click', 'button[name="btn_editar"]', function () {
+      const codigo = $(this).data('codigo');
+      fetch(`/api/v1/consultorios/${codigo}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      })
+      .then(resp => resp.json())
+      .then(data => {
+        if (data.success) {
+          const c = data.data;
+          $('#modalTitle').text("Editar Consultorio");
+          $('#txtCodigo').val(c.codigo);
+          $('#txtNombre').val(c.nombre_consultorio);
+          $('#txtDireccion').val(c.direccion);
+          $('#txtTelefono').val(c.telefono);
+          $('#txtCorreo').val(c.correo);
+          $('#modalFormulario').modal();
+        } else {
+          Swal.fire("Error", data.error, "error");
+        }
+      });
+    });
+  };
+
+  const eliminar = () => {
+    $('#tbl').on('click', 'button[name="btn_eliminar"]', function () {
+      const codigo = $(this).data('codigo');
+      Swal.fire({
+        title: "¿Deseas eliminar este registro?",
+        showCancelButton: true,
+        confirmButtonText: "Sí",
+        cancelButtonText: "No"
+      }).then((result) => {
+        if (result.isConfirmed) {
+          fetch(`/api/v1/consultorios/${codigo}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' }
+          })
+          .then(resp => resp.json())
+          .then(data => {
+            if (data && data.success) {
+              $('#tbl').DataTable().ajax.reload();
+              Swal.fire("Eliminado", "El consultorio ha sido eliminado", "success");
+            } else {
+              Swal.fire("Error", data.error, "error");
+            }
+          });
+        }
+      });
+    });
+  };
+
+  // Validación extra de inputs
+  $('#txtTelefono').on('input', function() {
+    this.value = this.value.replace(/[^0-9]/g, '');
+  });
+
+  $('#txtNombre, #txtDireccion, #txtCorreo').on('input', function() {
+    this.value = this.value.toUpperCase();
+  });
+
+  $(function () {
+    initDatatable();
+    agregar();
+    guardar();
+    editar();
+    eliminar();
+  });
+</script>
+{% endblock %}

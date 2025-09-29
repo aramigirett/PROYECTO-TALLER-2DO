@@ -1,0 +1,278 @@
+{% extends 'base.html' %}
+
+{% block titulo %}
+Avisos Recordatorios
+{% endblock %}
+
+{% block contenido %}
+<div class="container mt-4">
+  <h3>Listar Avisos Recordatorios</h3>
+
+  <!-- Card principal -->
+  <div class="card">
+    <div class="card-header">
+      <button type="button" class="btn btn-outline-info" id="btnAgregar">Agregar</button>
+    </div>
+    <div class="card-body">
+      <div style="overflow-x: auto; white-space: nowrap;">
+        <table id="tblAvisos" class="table table-striped">
+          <thead class="table-info">
+            <tr>
+              <th>Paciente</th>
+              <th>Médico</th> <!-- 👈 CAMBIO -->
+              <th>Consultorio</th>
+              <th>Fecha Cita</th>
+              <th>Hora Cita</th>
+              <th>Hora Recordatorio</th>
+              <th>Forma Envío</th>
+              <th>Teléfono</th>
+              <th>Mensaje</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Aviso -->
+  <div class="modal fade" id="modalAviso" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable" role="document">
+      <div class="modal-content">
+
+        <div class="modal-header">
+          <h5 id="modalTitle" class="modal-title">Agregar Aviso</h5>
+          <button type="button" class="close" data-dismiss="modal">&times;</button>
+        </div>
+
+        <div class="modal-body">
+          <form id="formAvisoModal">
+            <input type="hidden" id="id_aviso_modal">
+
+            <!-- Paciente -->
+            <div class="mb-3">
+              <label for="txtpaciente">Paciente</label>
+              <div class="input-group">
+                <input type="text" id="txtpaciente" class="form-control" placeholder="Click para seleccionar paciente" readonly>
+                <button type="button" class="btn btn-outline-secondary" onclick="$('#modalBuscarPaciente').modal('show')">Buscar</button>
+              </div>
+              <input type="hidden" id="id_paciente">
+            </div>
+
+            <!-- Médico -->
+            <div class="mb-3">
+              <label for="txtMedico">Médico</label>
+              <div class="input-group">
+                <input type="text" id="txtMedico" class="form-control" placeholder="Click para seleccionar médico" readonly>
+                <button type="button" class="btn btn-outline-secondary" onclick="$('#modalBuscarMedico').modal('show')">Buscar</button>
+              </div>
+              <input type="hidden" id="id_medico">
+            </div>
+
+            <!-- Consultorio -->
+            <div class="mb-3">
+              <label for="txtConsultorio">Consultorio</label>
+              <div class="input-group">
+                <input type="text" id="txtConsultorio" class="form-control" placeholder="Click para seleccionar consultorio" readonly>
+                <button type="button" class="btn btn-outline-secondary" onclick="$('#modalBuscarConsultorio').modal('show')">Buscar</button>
+              </div>
+              <input type="hidden" id="id_consultorio">
+            </div>
+
+            <!-- Fecha y Hora -->
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label for="fecha_cita_modal">Fecha Cita</label>
+                <input type="date" id="fecha_cita_modal" class="form-control">
+              </div>
+              <div class="col-md-6 mb-3">
+                <label for="hora_cita_modal">Hora Cita</label>
+                <input type="time" id="hora_cita_modal" class="form-control text-center">
+              </div>
+            </div>
+
+            <!-- Hora recordatorio -->
+            <div class="mb-3">
+              <label for="hora_recordatorio_modal">Hora Recordatorio</label>
+              <input type="time" id="hora_recordatorio_modal" class="form-control text-center">
+            </div>
+
+            <!-- Forma de Envío -->
+            <div class="mb-3">
+              <label for="forma_envio_modal">Forma de Envío</label>
+              <select id="forma_envio_modal" class="form-control">
+                <option value="" disabled selected>Seleccione la forma de envío</option>
+                <option value="Gmail">Gmail</option>
+                <option value="SMS">SMS</option>
+                <option value="WhatsApp">WhatsApp</option>
+              </select>
+            </div>
+
+            <!-- Teléfono -->
+            <div class="mb-3">
+              <label for="telefono_modal">Teléfono (para WhatsApp o SMS)</label>
+              <input type="text" id="telefono_modal" class="form-control" placeholder="+595981234567">
+            </div>
+
+            <!-- Mensaje -->
+            <div class="mb-3">
+              <label for="mensaje_modal">Mensaje</label>
+              <textarea id="mensaje_modal" class="form-control" rows="3"></textarea>
+            </div>
+
+            <div class="modal-footer">
+              <button type="submit" class="btn btn-primary">Guardar</button>
+              <button type="button" class="btn btn-danger" data-dismiss="modal">Cerrar</button>
+            </div>
+          </form>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================= -->
+  <!-- Modal Buscar Paciente -->
+  <!-- ========================= -->
+  <div class="modal fade" id="modalBuscarPaciente" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h4 class="modal-title">Seleccionar Paciente</h4>
+          <button type="button" class="close" data-dismiss="modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <table id="tblPaciente" class="table table-bordered w-100">
+            <thead>
+              <tr><th>Nombre</th><th>Apellido</th><th>Acción</th></tr>
+            </thead>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================= -->
+  <!-- Modal Buscar Medico -->
+  <!-- ========================= -->
+  <div class="modal fade" id="modalBuscarMedico" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h4 class="modal-title">Seleccionar Médico</h4>
+          <button type="button" class="close" data-dismiss="modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <table id="tblMedico" class="table table-bordered w-100">
+            <thead>
+              <tr><th>Nombre</th><th>Apellido</th><th>Acción</th></tr>
+            </thead>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================= -->
+  <!-- Modal Buscar Consultorio -->
+  <!-- ========================= -->
+  <div class="modal fade" id="modalBuscarConsultorio" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h4 class="modal-title">Seleccionar Consultorio</h4>
+          <button type="button" class="close" data-dismiss="modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <table id="tblConsultorio" class="table table-bordered w-100">
+            <thead>
+              <tr><th>Consultorio</th><th>Acción</th></tr>
+            </thead>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script>
+function formatDateForInput(fecha) {
+  if (!fecha) return '';
+  const d = new Date(fecha);
+  if (isNaN(d)) return '';
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+// --- Tabla principal Avisos ---
+const initDatatableAvisos = () => {
+  $('#tblAvisos').DataTable({
+    language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
+    ajax: { url: '/api/v1/avisos', dataSrc: 'data' },
+    destroy: true,
+    columns: [
+      { data: 'paciente' },
+      { data: 'medico' }, // 👈 CAMBIO
+      { data: 'nombre_consultorio' },
+      { data: 'fecha_cita', render: d => formatDateForInput(d) },
+      { data: 'hora_cita' },
+      { data: 'hora_recordatorio' },
+      { data: 'forma_envio' },
+      { data: 'telefono' },
+      { data: 'mensaje' },
+      { data: 'estado_envio', render: d => `<span class="badge ${d === 'Pendiente' ? 'bg-warning' : 'bg-success'}">${d}</span>` },
+      {
+        data: row => `
+          <button type="button" name="btn_editar" class="btn btn-info btn-sm" data-id_aviso="${row.id_aviso}">
+            <i class="fas fa-edit"></i>
+          </button>
+          <button type="button" name="btn_eliminar" class="btn btn-danger btn-sm" data-id_aviso="${row.id_aviso}">
+            <i class="fas fa-trash-alt"></i>
+          </button>`
+      }
+    ]
+  });
+};
+
+// --- Guardar Aviso ---
+$('#formAvisoModal').on('submit', async function(e) {
+  e.preventDefault();
+  const idAviso = $('#id_aviso_modal').val();
+  const data = {
+    id_paciente: $('#id_paciente').val(),
+    id_medico: $('#id_medico').val(),
+    id_consultorio: $('#id_consultorio').val(),
+    fecha_cita: $('#fecha_cita_modal').val(),
+    hora_cita: $('#hora_cita_modal').val(),
+    hora_recordatorio: $('#hora_recordatorio_modal').val(),
+    forma_envio: $('#forma_envio_modal').val(),
+    telefono: $('#telefono_modal').val(),
+    mensaje: $('#mensaje_modal').val(),
+    estado_envio: 'Pendiente'
+  };
+
+  const url = idAviso ? `/api/v1/avisos/${idAviso}` : '/api/v1/avisos';
+  const method = idAviso ? 'PUT' : 'POST';
+
+  const resp = await fetch(url, {
+    method, headers: { 'Content-Type':'application/json' },
+    body: JSON.stringify(data)
+  });
+  const result = await resp.json();
+  if(result.success){
+    $('#tblAvisos').DataTable().ajax.reload();
+    $('#modalAviso').modal('hide');
+    Swal.fire("Éxito", result.mensaje || "Aviso guardado", "success");
+  } else {
+    Swal.fire("Error", result.error || "No se pudo guardar", "error");
+  }
+});
+
+// --- Inicialización ---
+$(function() {
+  initDatatableAvisos();
+});
+</script>
+{% endblock %}
