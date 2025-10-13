@@ -1,0 +1,1270 @@
+{% extends 'base.html' %}
+
+{% block titulo %}
+Gestión de Citas
+{% endblock %}
+
+{% block contenido %}
+<div class="container-fluid mt-4">
+  
+  <!-- ========================================
+       ENCABEZADO DE LA PÁGINA
+       ======================================== -->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="text-success">
+      <i class="fas fa-calendar-check"></i> Gestión de Citas Médicas
+    </h2>
+    <button type="button" class="btn btn-success btn-lg shadow-sm" id="btnAgregar">
+      <i class="fas fa-plus-circle"></i> Nueva Cita
+    </button>
+  </div>
+
+  <!-- ========================================
+       TABLA PRINCIPAL: LISTA DE CITAS (CABECERAS)
+       ======================================== -->
+  <div class="card shadow-sm">
+    <div class="card-header bg-success text-white">
+      <h5 class="mb-0"><i class="fas fa-list"></i> Citas Registradas</h5>
+    </div>
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-hover table-striped" id="tblCitasCabecera">
+          <thead class="table-light">
+            <tr>
+              <th><i class="fas fa-user"></i> Paciente</th>
+              <th><i class="fas fa-user-md"></i> Médico</th>
+              <th><i class="fas fa-stethoscope"></i> Especialidad</th>
+              <th><i class="fas fa-calendar-day"></i> Fecha Agenda</th>
+              <th><i class="fas fa-clock"></i> Registrada</th>
+              <th><i class="fas fa-toggle-on"></i> Estado</th>
+              <th><i class="fas fa-cogs"></i> Acciones</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================
+       MODAL: CREAR/EDITAR CITA CABECERA
+       ======================================== -->
+  <div class="modal fade" id="modalCitaCabecera" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+      <div class="modal-content">
+        
+        <!-- Header del modal -->
+        <div class="modal-header bg-success text-white">
+          <h5 class="modal-title" id="modalCitaCabeceraTitle">
+            <i class="fas fa-calendar-plus"></i> Nueva Cita
+          </h5>
+          <button type="button" class="close text-white" data-dismiss="modal">
+            <span>&times;</span>
+          </button>
+        </div>
+
+        <!-- Cuerpo del modal -->
+        <div class="modal-body">
+          <!-- Input hidden para ID (usado en edición) -->
+          <input type="hidden" id="id_cita_cabecera">
+          <!-- Funcionario automático (usuario logueado) -->
+          <input type="hidden" id="id_funcionario" value="1">
+
+          <div class="row">
+            
+            <!-- Paciente (con modal de búsqueda) -->
+            <div class="col-md-6 mb-3">
+              <label class="font-weight-bold">
+                <i class="fas fa-user text-primary"></i> Paciente *
+              </label>
+              <input type="hidden" id="id_paciente">
+              <div class="input-group">
+                <input type="text" class="form-control" id="txtPaciente" 
+                       placeholder="Click para seleccionar paciente" readonly>
+                <div class="input-group-append">
+                  <button class="btn btn-outline-primary" type="button" id="btnBuscarPaciente">
+                    <i class="fas fa-search"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Agenda (con modal de búsqueda) -->
+            <div class="col-md-6 mb-3">
+              <label class="font-weight-bold">
+                <i class="fas fa-calendar-alt text-info"></i> Agenda Médica *
+              </label>
+              <input type="hidden" id="id_agenda_cabecera">
+              <div class="input-group">
+                <input type="text" class="form-control" id="txtAgenda" 
+                       placeholder="Click para seleccionar agenda" readonly>
+                <div class="input-group-append">
+                  <button class="btn btn-outline-info" type="button" id="btnBuscarAgenda">
+                    <i class="fas fa-search"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Observaciones -->
+            <div class="col-12 mb-3">
+              <label class="font-weight-bold">
+                <i class="fas fa-comment-alt text-secondary"></i> Observaciones
+              </label>
+              <textarea class="form-control" id="observaciones" rows="2" 
+                        placeholder="Ingrese observaciones opcionales..."></textarea>
+            </div>
+          </div>
+
+          <div class="alert alert-info">
+            <i class="fas fa-info-circle"></i> 
+            <strong>Nota:</strong> Después de guardar, podrá agregar los horarios específicos de la cita haciendo clic en "Ver Detalles".
+          </div>
+        </div>
+
+        <!-- Footer del modal -->
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">
+            <i class="fas fa-times"></i> Cancelar
+          </button>
+          <button type="button" class="btn btn-success" id="btnGuardarCitaCabecera">
+            <i class="fas fa-save"></i> Guardar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================
+       MODAL: VER DETALLES DE UNA CITA
+       ======================================== -->
+  <div class="modal fade" id="modalDetallesCita" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable" role="document">
+      <div class="modal-content">
+        
+        <!-- Header -->
+        <div class="modal-header bg-info text-white">
+          <h5 class="modal-title">
+            <i class="fas fa-calendar-check"></i> Detalles de la Cita
+          </h5>
+          <button type="button" class="close text-white" data-dismiss="modal">
+            <span>&times;</span>
+          </button>
+        </div>
+
+        <!-- Cuerpo -->
+        <div class="modal-body">
+          
+          <!-- Información de la Cabecera (solo lectura) -->
+          <div class="card mb-3 border-info">
+            <div class="card-header bg-light">
+              <h6 class="mb-0"><i class="fas fa-info-circle"></i> Información General</h6>
+            </div>
+            <div class="card-body">
+              <div class="row">
+                <div class="col-md-3">
+                  <strong>Paciente:</strong> <span id="infoPaciente">-</span>
+                </div>
+                <div class="col-md-3">
+                  <strong>Médico:</strong> <span id="infoMedico">-</span>
+                </div>
+                <div class="col-md-3">
+                  <strong>Especialidad:</strong> <span id="infoEspecialidad">-</span>
+                </div>
+                <div class="col-md-3">
+                  <strong>Fecha Agenda:</strong> <span id="infoFechaAgenda">-</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Botón para agregar horario de cita -->
+          <div class="text-right mb-3">
+            <button type="button" class="btn btn-success" id="btnAgregarDetalleCita">
+              <i class="fas fa-clock"></i> Agendar Horario
+            </button>
+          </div>
+
+          <!-- Tabla de Detalles de Citas -->
+          <div class="table-responsive">
+            <table class="table table-hover table-bordered" id="tblDetallesCita">
+              <thead class="table-success">
+                <tr>
+                  <th>Fecha Cita</th>
+                  <th>Hora Cita</th>
+                  <th>Horario Agenda</th>
+                  <th>Motivo</th>
+                  <th>Estado</th>
+                  <th>Cambio Estado</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">
+            <i class="fas fa-times"></i> Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================
+       MODAL: CREAR/EDITAR DETALLE DE CITA
+       ======================================== -->
+  <div class="modal fade" id="modalDetalleCita" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+      <div class="modal-content">
+        
+        <!-- Header -->
+        <div class="modal-header bg-warning text-white">
+          <h5 class="modal-title" id="modalDetalleCitaTitle">
+            <i class="fas fa-clock"></i> Agendar Horario
+          </h5>
+          <button type="button" class="close text-white" data-dismiss="modal">
+            <span>&times;</span>
+          </button>
+        </div>
+
+        <!-- Cuerpo -->
+        <div class="modal-body">
+          <input type="hidden" id="id_cita_detalle">
+          <input type="hidden" id="id_cita_cabecera_actual">
+
+          <div class="row">
+            
+            <!-- Horario de Agenda (seleccionar de agenda_detalle) -->
+            <div class="col-md-6 mb-3">
+              <label class="font-weight-bold">
+                <i class="fas fa-calendar-alt text-primary"></i> Horario Disponible *
+              </label>
+              <input type="hidden" id="id_agenda_detalle">
+              <div class="input-group">
+                <input type="text" class="form-control" id="txtHorarioAgenda" 
+                       placeholder="Click para seleccionar horario" readonly>
+                <div class="input-group-append">
+                  <button class="btn btn-outline-primary" type="button" id="btnBuscarHorario">
+                    <i class="fas fa-search"></i>
+                  </button>
+                </div>
+              </div>
+              <small class="text-muted">
+                <i class="fas fa-info-circle"></i> Solo se muestran horarios con cupos disponibles
+              </small>
+            </div>
+
+            <!-- Fecha de la Cita -->
+            <div class="col-md-6 mb-3">
+              <label class="font-weight-bold">
+                <i class="fas fa-calendar-day text-success"></i> Fecha de la Cita *
+              </label>
+              <input type="date" class="form-control" id="fecha_cita">
+            </div>
+
+            <!-- Hora de la Cita -->
+            <div class="col-md-6 mb-3">
+              <label class="font-weight-bold">
+                <i class="fas fa-clock text-info"></i> Hora de la Cita *
+              </label>
+              <input type="time" class="form-control" id="hora_cita">
+            </div>
+
+            <!-- Estado de la Cita -->
+            <div class="col-md-6 mb-3">
+              <label class="font-weight-bold">
+                <i class="fas fa-flag text-warning"></i> Estado *
+              </label>
+              <input type="hidden" id="id_estado_cita">
+              <div class="input-group">
+                <input type="text" class="form-control" id="txtEstadoCita" 
+                       placeholder="Click para seleccionar estado" readonly>
+                <div class="input-group-append">
+                  <button class="btn btn-outline-warning" type="button" id="btnBuscarEstado">
+                    <i class="fas fa-search"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Motivo de Consulta -->
+            <div class="col-12 mb-3">
+              <label class="font-weight-bold">
+                <i class="fas fa-comment-medical text-danger"></i> Motivo de Consulta *
+              </label>
+              <textarea class="form-control" id="motivo_consulta" rows="3" 
+                        placeholder="Describa el motivo de la consulta..."></textarea>
+            </div>
+          </div>
+
+          <!-- Alertas informativas -->
+          <div class="alert alert-warning">
+            <i class="fas fa-exclamation-triangle"></i> 
+            <strong>Importante:</strong> 
+            <ul class="mb-0">
+              <li>La fecha y hora deben estar dentro del horario seleccionado</li>
+              <li>Estados como "Confirmado" o "Reservado" ocupan cupo</li>
+              <li>Estados como "Cancelado" liberan el cupo automáticamente</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">
+            <i class="fas fa-times"></i> Cancelar
+          </button>
+          <button type="button" class="btn btn-success" id="btnGuardarDetalleCita">
+            <i class="fas fa-save"></i> Guardar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================
+       MODAL: BUSCAR PACIENTE
+       ======================================== -->
+  <div class="modal fade" id="modalBuscarPaciente" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title">
+            <i class="fas fa-user"></i> Seleccionar Paciente
+          </h5>
+          <button type="button" class="close text-white" data-dismiss="modal">
+            <span>&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="table-responsive">
+            <table class="table table-hover" id="tblPacientes">
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>Apellido</th>
+                  <th>Documento</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================
+       MODAL: BUSCAR AGENDA
+       ======================================== -->
+  <div class="modal fade" id="modalBuscarAgenda" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <div class="modal-header bg-info text-white">
+          <h5 class="modal-title">
+            <i class="fas fa-calendar-alt"></i> Seleccionar Agenda Médica
+          </h5>
+          <button type="button" class="close text-white" data-dismiss="modal">
+            <span>&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="alert alert-info">
+            <i class="fas fa-info-circle"></i> Solo se muestran agendas activas
+          </div>
+          <div class="table-responsive">
+            <table class="table table-hover" id="tblAgendas">
+              <thead>
+                <tr>
+                  <th>Médico</th>
+                  <th>Especialidad</th>
+                  <th>Fecha</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================
+       MODAL: BUSCAR HORARIO (AGENDA_DETALLE)
+       ======================================== -->
+  <div class="modal fade" id="modalBuscarHorario" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title">
+            <i class="fas fa-clock"></i> Seleccionar Horario Disponible
+          </h5>
+          <button type="button" class="close text-white" data-dismiss="modal">
+            <span>&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="alert alert-success">
+            <i class="fas fa-check-circle"></i> Solo se muestran horarios con cupos disponibles
+          </div>
+          <div id="listaHorariosDisponibles">
+            <!-- Se carga dinámicamente con JavaScript -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================
+       MODAL: BUSCAR ESTADO DE CITA
+       ======================================== -->
+  <div class="modal fade" id="modalBuscarEstado" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <div class="modal-header bg-warning text-white">
+          <h5 class="modal-title">
+            <i class="fas fa-flag"></i> Seleccionar Estado
+          </h5>
+          <button type="button" class="close text-white" data-dismiss="modal">
+            <span>&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="table-responsive">
+            <table class="table table-hover" id="tblEstadosCita">
+              <thead>
+                <tr>
+                  <th>Estado</th>
+                  <th>Ocupa Cupo</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ========================================
+     ESTILOS PERSONALIZADOS
+     ======================================== -->
+<style>
+  /* Mejoras visuales generales */
+  .card {
+    border-radius: 10px;
+    border: none;
+  }
+
+  .modal-content {
+    border-radius: 15px;
+  }
+
+  .table-hover tbody tr:hover {
+    background-color: #f8f9fa;
+    cursor: pointer;
+  }
+
+  /* Badges personalizados para estados */
+  .badge-custom-activo {
+    background-color: #28a745;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 5px;
+  }
+
+  .badge-custom-inactivo {
+    background-color: #dc3545;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 5px;
+  }
+
+  /* Estilos para items de horarios */
+  .horario-item {
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 10px;
+    transition: all 0.3s;
+    cursor: pointer;
+  }
+
+  .horario-item:hover {
+    border-color: #28a745;
+    background-color: #f8f9fa;
+    transform: translateX(5px);
+  }
+
+  .horario-item.selected {
+    border-color: #28a745;
+    background-color: #d4edda;
+  }
+
+  /* Botones pequeños personalizados */
+  .btn-sm-custom {
+    padding: 5px 10px;
+    font-size: 0.875rem;
+  }
+
+  /* Alertas mejoradas */
+  .alert {
+    border-left: 4px solid;
+  }
+
+  .alert-info {
+    border-left-color: #17a2b8;
+  }
+
+  .alert-warning {
+    border-left-color: #ffc107;
+  }
+
+  .alert-success {
+    border-left-color: #28a745;
+  }
+</style>
+
+{% endblock %}
+
+{% block js %}
+<script>
+// ========================================
+// VARIABLES GLOBALES
+// ========================================
+let citaCabeceraActual = null; // Guarda la cabecera seleccionada para ver detalles
+let agendaCabeceraSeleccionada = null; // Guarda info de la agenda seleccionada
+
+// ========================================
+// HELPERS: Formateo de fechas
+// ========================================
+function formatearFecha(fecha) {
+  if (!fecha) return '';
+  const [anio, mes, dia] = fecha.split('-');
+  return `${dia}/${mes}/${anio}`;
+}
+
+function formatearFechaHora(fechaHora) {
+  if (!fechaHora) return '-';
+  const fecha = new Date(fechaHora);
+  return fecha.toLocaleString('es-PY');
+}
+
+// ========================================
+// DATATABLE: CITAS CABECERA
+// ========================================
+const initDatatableCitasCabecera = () => {
+  $('#tblCitasCabecera').DataTable({
+    language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
+    ajax: '/api/v1/citas-cabecera',
+    columns: [
+      { data: 'paciente_nombre' },
+      { data: 'medico_nombre' },
+      { data: 'especialidad' },
+      { 
+        data: 'fecha_agenda',
+        render: (data) => formatearFecha(data)
+      },
+      { 
+        data: 'fecha_registro',
+        render: (data) => formatearFechaHora(data)
+      },
+      { 
+        data: 'estado',
+        render: (data) => {
+          return data === 'Activo' 
+            ? '<span class="badge-custom-activo"><i class="fas fa-check-circle"></i> Activo</span>'
+            : '<span class="badge-custom-inactivo"><i class="fas fa-times-circle"></i> Inactivo</span>';
+        }
+      },
+      {
+        data: (row) => `
+          <button class="btn btn-info btn-sm-custom" name="btn_ver_detalles_cita" 
+                  data-id="${row.id_cita_cabecera}" title="Ver Detalles">
+            <i class="fas fa-eye"></i>
+          </button>
+          <button class="btn btn-warning btn-sm-custom" name="btn_editar_cita" 
+                  data-id="${row.id_cita_cabecera}" title="Editar">
+            <i class="fas fa-edit"></i>
+          </button>
+          <button class="btn btn-danger btn-sm-custom" name="btn_eliminar_cita" 
+                  data-id="${row.id_cita_cabecera}" title="Eliminar">
+            <i class="fas fa-trash-alt"></i>
+          </button>
+        `
+      }
+    ]
+  });
+};
+
+// ========================================
+// DATATABLE: PACIENTES
+// ========================================
+const initDatatablePacientes = () => {
+  $('#tblPacientes').DataTable({
+    language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
+    ajax: '/api/v1/pacientes',
+    columns: [
+      { data: 'nombre' },
+      { data: 'apellido' },
+      { data: 'cedula_entidad' },
+      {
+        data: (row) => `
+          <button class="btn btn-primary btn-sm" name="btn_seleccionar_paciente" 
+                  data-id="${row.id_paciente}" 
+                  data-nombre="${row.nombre} ${row.apellido}">
+            <i class="fas fa-check"></i> Seleccionar
+          </button>
+        `
+      }
+    ]
+  });
+
+  // Evento: Seleccionar paciente
+  $('#tblPacientes').on('click', 'button[name="btn_seleccionar_paciente"]', function() {
+    const id = $(this).data('id');
+    const nombre = $(this).data('nombre');
+    $('#id_paciente').val(id);
+    $('#txtPaciente').val(nombre);
+    $('#modalBuscarPaciente').modal('hide');
+  });
+};
+
+// ========================================
+// DATATABLE: AGENDAS (solo activas)
+// ========================================
+const initDatatableAgendas = () => {
+  $('#tblAgendas').DataTable({
+    language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
+    ajax: {
+      url: '/api/v1/agenda/cabeceras',
+      dataSrc: function(json) {
+        // Filtrar solo agendas activas
+        return json.data.filter(agenda => agenda.estado === 'Activo');
+      }
+    },
+    columns: [
+      { data: 'medico_nombre' },
+      { data: 'especialidad' },
+      { 
+        data: 'fecha_agenda',
+        render: (data) => formatearFecha(data)
+      },
+      {
+        data: (row) => `
+          <button class="btn btn-info btn-sm" name="btn_seleccionar_agenda" 
+                  data-id="${row.id_agenda_cabecera}" 
+                  data-medico="${row.id_medico}"
+                  data-medico-nombre="${row.medico_nombre}"
+                  data-especialidad="${row.especialidad}"
+                  data-fecha="${row.fecha_agenda}">
+            <i class="fas fa-check"></i> Seleccionar
+          </button>
+        `
+      }
+    ]
+  });
+
+  // Evento: Seleccionar agenda
+  $('#tblAgendas').on('click', 'button[name="btn_seleccionar_agenda"]', function() {
+    const id = $(this).data('id');
+    const medico = $(this).data('medico-nombre');
+    const especialidad = $(this).data('especialidad');
+    const fecha = formatearFecha($(this).data('fecha'));
+    
+    // Guardar info completa de la agenda
+    agendaCabeceraSeleccionada = {
+      id_agenda_cabecera: id,
+      id_medico: $(this).data('medico'),
+      medico_nombre: medico,
+      especialidad: especialidad,
+      fecha_agenda: $(this).data('fecha')
+    };
+    
+    $('#id_agenda_cabecera').val(id);
+    $('#txtAgenda').val(`${medico} - ${especialidad} (${fecha})`);
+    $('#modalBuscarAgenda').modal('hide');
+  });
+};
+
+// ========================================
+// DATATABLE: ESTADOS DE CITA
+// ========================================
+const initDatatableEstadosCita = () => {
+  $('#tblEstadosCita').DataTable({
+    language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
+    ajax: '/api/v1/estados-cita',
+    columns: [
+      { data: 'descripcion' },
+      {
+        data: 'ocupa_cupo',
+        render: (data) => {
+          return data 
+            ? '<span class="badge badge-warning"><i class="fas fa-minus-circle"></i> Sí</span>'
+            : '<span class="badge badge-success"><i class="fas fa-check-circle"></i> No</span>';
+        }
+      },
+      {
+        data: (row) => `
+          <button class="btn btn-warning btn-sm" name="btn_seleccionar_estado" 
+                  data-id="${row.id_estado_cita}" 
+                  data-descripcion="${row.descripcion}">
+            <i class="fas fa-check"></i> Seleccionar
+          </button>
+        `
+      }
+    ]
+  });
+
+  // Evento: Seleccionar estado
+  $('#tblEstadosCita').on('click', 'button[name="btn_seleccionar_estado"]', function() {
+    const id = $(this).data('id');
+    const descripcion = $(this).data('descripcion');
+    $('#id_estado_cita').val(id);
+    $('#txtEstadoCita').val(descripcion);
+    $('#modalBuscarEstado').modal('hide');
+  });
+};
+
+// ========================================
+// FUNCIÓN: Agregar nueva cita cabecera
+// ========================================
+const agregarCita = () => {
+  $('#btnAgregar').on('click', () => {
+    limpiarFormularioCabecera();
+    $('#modalCitaCabeceraTitle').html('<i class="fas fa-calendar-plus"></i> Nueva Cita');
+    $('#modalCitaCabecera').modal('show');
+  });
+};
+
+// ========================================
+// FUNCIÓN: Limpiar formulario cabecera
+// ========================================
+function limpiarFormularioCabecera() {
+  $('#id_cita_cabecera').val('');
+  $('#id_paciente').val('');
+  $('#txtPaciente').val('');
+  $('#id_agenda_cabecera').val('');
+  $('#txtAgenda').val('');
+  $('#observaciones').val('');
+  agendaCabeceraSeleccionada = null;
+}
+
+// ========================================
+// FUNCIÓN: Guardar cita cabecera
+// ========================================
+const guardarCitaCabecera = () => {
+  $('#btnGuardarCitaCabecera').on('click', () => {
+    const id = $('#id_cita_cabecera').val();
+    const payload = {
+      id_paciente: $('#id_paciente').val(),
+      id_agenda_cabecera: $('#id_agenda_cabecera').val(),
+      observaciones: $('#observaciones').val()
+    };
+
+    // Validar campos obligatorios
+    if (!payload.id_paciente || !payload.id_agenda_cabecera) {
+      Swal.fire('Error', 'Complete todos los campos obligatorios', 'error');
+      return;
+    }
+
+    const method = id ? 'PUT' : 'POST';
+    const url = id ? `/api/v1/citas-cabecera/${id}` : '/api/v1/citas-cabecera';
+
+    fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    .then(resp => resp.json())
+    .then(data => {
+      if (data.success) {
+        $('#tblCitasCabecera').DataTable().ajax.reload();
+        $('#modalCitaCabecera').modal('hide');
+        Swal.fire('Éxito', id ? 'Cita actualizada' : 'Cita creada', 'success');
+      } else {
+        Swal.fire('Error', data.error, 'error');
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      Swal.fire('Error', 'Ocurrió un error al guardar', 'error');
+    });
+  });
+};
+
+// ========================================
+// FUNCIÓN: Editar cita cabecera
+// ========================================
+const editarCita = () => {
+  $('#tblCitasCabecera').on('click', 'button[name="btn_editar_cita"]', function() {
+    const id = $(this).data('id');
+    
+    fetch(`/api/v1/citas-cabecera/${id}`)
+    .then(resp => resp.json())
+    .then(data => {
+      if (data.success) {
+        const cita = data.data;
+        $('#modalCitaCabeceraTitle').html('<i class="fas fa-edit"></i> Editar Cita');
+        $('#id_cita_cabecera').val(cita.id_cita_cabecera);
+        $('#id_paciente').val(cita.id_paciente);
+        $('#txtPaciente').val(cita.paciente_nombre);
+        $('#id_agenda_cabecera').val(cita.id_agenda_cabecera);
+        
+        // Mostrar info de la agenda
+        const fechaFormateada = formatearFecha(cita.fecha_agenda);
+        $('#txtAgenda').val(`${cita.medico_nombre} - ${cita.especialidad} (${fechaFormateada})`);
+        
+        $('#observaciones').val(cita.observaciones || '');
+        $('#modalCitaCabecera').modal('show');
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      Swal.fire('Error', 'No se pudo cargar la cita', 'error');
+    });
+  });
+};
+
+// ========================================
+// FUNCIÓN: Eliminar cita cabecera
+// ========================================
+const eliminarCita = () => {
+  $('#tblCitasCabecera').on('click', 'button[name="btn_eliminar_cita"]', function() {
+    const id = $(this).data('id');
+    
+    Swal.fire({
+      title: '¿Eliminar esta cita?',
+      text: 'También se eliminarán todos los horarios agendados y se devolverán los cupos',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#dc3545'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        fetch(`/api/v1/citas-cabecera/${id}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' }
+        })
+        .then(resp => resp.json())
+        .then(data => {
+          if (data.success) {
+            $('#tblCitasCabecera').DataTable().ajax.reload();
+            Swal.fire('Eliminado', 'Cita eliminada correctamente', 'success');
+          } else {
+            Swal.fire('Error', data.error, 'error');
+          }
+        })
+        .catch(err => {
+          console.error(err);
+          Swal.fire('Error', 'Ocurrió un error al eliminar', 'error');
+        });
+      }
+    });
+  });
+};
+
+// ========================================
+// FUNCIÓN: Ver detalles de una cita
+// ========================================
+const verDetallesCita = () => {
+  $('#tblCitasCabecera').on('click', 'button[name="btn_ver_detalles_cita"]', function() {
+    const id = $(this).data('id');
+    
+    // Obtener info de la cabecera
+    fetch(`/api/v1/citas-cabecera/${id}`)
+    .then(resp => resp.json())
+    .then(data => {
+      if (data.success) {
+        citaCabeceraActual = data.data;
+        
+        // Mostrar info de cabecera
+        $('#infoPaciente').text(citaCabeceraActual.paciente_nombre);
+        $('#infoMedico').text(citaCabeceraActual.medico_nombre);
+        $('#infoEspecialidad').text(citaCabeceraActual.especialidad);
+        $('#infoFechaAgenda').text(formatearFecha(citaCabeceraActual.fecha_agenda));
+        
+        // Cargar detalles de la cita
+        cargarDetallesCita(id);
+        
+        // Mostrar modal
+        $('#modalDetallesCita').modal('show');
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      Swal.fire('Error', 'No se pudo cargar la información', 'error');
+    });
+  });
+};
+
+// ========================================
+// FUNCIÓN: Cargar detalles de citas
+// ========================================
+const cargarDetallesCita = (id_cita_cabecera) => {
+  fetch(`/api/v1/citas-detalle/cabecera/${id_cita_cabecera}`)
+  .then(resp => resp.json())
+  .then(data => {
+    if (data.success) {
+      const tbody = $('#tblDetallesCita tbody');
+      tbody.empty();
+      
+      if (data.data.length === 0) {
+        tbody.append(`
+          <tr>
+            <td colspan="7" class="text-center text-muted">
+              <i class="fas fa-info-circle"></i> No hay horarios agendados. 
+              Click en "Agendar Horario" para añadir uno.
+            </td>
+          </tr>
+        `);
+      } else {
+        data.data.forEach(d => {
+          // Badge de estado
+          const estadoBadge = 
+            d.estado_descripcion === 'Confirmado' ? '<span class="badge badge-success">Confirmado</span>' :
+            d.estado_descripcion === 'Cancelado' ? '<span class="badge badge-danger">Cancelado</span>' :
+            d.estado_descripcion === 'Reservado' ? '<span class="badge badge-info">Reservado</span>' :
+            d.estado_descripcion === 'Realizado' ? '<span class="badge badge-primary">Realizado</span>' :
+            '<span class="badge badge-secondary">' + d.estado_descripcion + '</span>';
+          
+          tbody.append(`
+            <tr>
+              <td>${formatearFecha(d.fecha_cita)}</td>
+              <td><strong>${d.hora_cita.slice(0, 5)}</strong></td>
+              <td>${d.hora_inicio.slice(0, 5)} - ${d.hora_fin.slice(0, 5)} <span class="badge badge-info ml-2">${d.cupos_disponibles} cupos</span></td>
+              <td>${d.motivo_consulta}</td>
+              <td>${estadoBadge}</td>
+              <td>${formatearFechaHora(d.fecha_cambio_estado)}</td>
+              <td>
+                <button class="btn btn-warning btn-sm" name="btn_editar_detalle_cita" 
+                        data-id="${d.id_cita_detalle}" title="Editar">
+                  <i class="fas fa-edit"></i>
+                </button>
+                <button class="btn btn-danger btn-sm" name="btn_eliminar_detalle_cita" 
+                        data-id="${d.id_cita_detalle}" title="Eliminar">
+                  <i class="fas fa-trash-alt"></i>
+                </button>
+              </td>
+            </tr>
+          `);
+        });
+      }
+    }
+  })
+  .catch(err => {
+    console.error(err);
+    Swal.fire('Error', 'No se pudieron cargar los detalles', 'error');
+  });
+};
+
+// ========================================
+// FUNCIÓN: Agregar detalle de cita
+// ========================================
+const agregarDetalleCita = () => {
+  $('#btnAgregarDetalleCita').on('click', () => {
+    if (!citaCabeceraActual) {
+      Swal.fire('Error', 'No hay cita seleccionada', 'error');
+      return;
+    }
+
+    limpiarFormularioDetalle();
+    $('#id_cita_cabecera_actual').val(citaCabeceraActual.id_cita_cabecera);
+    $('#modalDetalleCitaTitle').html('<i class="fas fa-clock"></i> Agendar Horario');
+    $('#modalDetalleCita').modal('show');
+  });
+};
+
+// ========================================
+// FUNCIÓN: Limpiar formulario detalle
+// ========================================
+function limpiarFormularioDetalle() {
+  $('#id_cita_detalle').val('');
+  $('#id_agenda_detalle').val('');
+  $('#txtHorarioAgenda').val('');
+  $('#fecha_cita').val('');
+  $('#hora_cita').val('');
+  $('#id_estado_cita').val('');
+  $('#txtEstadoCita').val('');
+  $('#motivo_consulta').val('');
+}
+
+// ========================================
+// FUNCIÓN: Buscar horarios disponibles
+// ========================================
+const buscarHorarios = () => {
+  $('#btnBuscarHorario').on('click', () => {
+    if (!citaCabeceraActual) {
+      Swal.fire('Error', 'No hay cita seleccionada', 'error');
+      return;
+    }
+
+    // ⚠️ IMPORTANTE: Siempre recargar desde el servidor para obtener cupos actualizados
+    fetch(`/api/v1/agenda/cabeceras/${citaCabeceraActual.id_agenda_cabecera}/detalles`)
+    .then(resp => resp.json())
+    .then(data => {
+      if (data.success) {
+        // Filtrar solo horarios con cupos disponibles
+        const horariosDisponibles = data.data.filter(h => h.cupos_disponibles > 0);
+        
+        if (horariosDisponibles.length > 0) {
+          mostrarHorariosDisponibles(horariosDisponibles);
+          $('#modalBuscarHorario').modal('show');
+        } else {
+          Swal.fire('Aviso', 'No hay horarios disponibles con cupos', 'info');
+        }
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      Swal.fire('Error', 'No se pudieron cargar los horarios', 'error');
+    });
+  });
+
+  // También permitir click en el input
+  $('#txtHorarioAgenda').on('click', () => {
+    $('#btnBuscarHorario').click();
+  });
+};
+
+// ========================================
+// FUNCIÓN: Mostrar lista de horarios
+// ========================================
+const mostrarHorariosDisponibles = (horarios) => {
+  const container = $('#listaHorariosDisponibles');
+  container.empty();
+  
+  horarios.forEach(h => {
+    const badgeEstado = 
+      h.estado_detalle === 'Disponible' 
+        ? '<span class="badge badge-success">Disponible</span>'
+        : h.estado_detalle === 'Agotado'
+        ? '<span class="badge badge-danger">Agotado</span>'
+        : '<span class="badge badge-warning">Limitado</span>';
+    
+    container.append(`
+      <div class="horario-item" data-id="${h.id_agenda_detalle}">
+        <div class="row align-items-center">
+          <div class="col-md-4">
+            <strong><i class="fas fa-clock text-primary"></i> ${h.hora_inicio.slice(0,5)} - ${h.hora_fin.slice(0,5)}</strong>
+          </div>
+          <div class="col-md-3">
+            <span class="badge badge-info">${h.des_turno}</span>
+          </div>
+          <div class="col-md-3">
+            ${badgeEstado}
+            <span class="badge badge-secondary ml-1">${h.cupos_disponibles}/${h.cupos_maximos} cupos</span>
+          </div>
+          <div class="col-md-2 text-right">
+            <button class="btn btn-primary btn-sm" name="btn_seleccionar_horario" 
+                    data-id="${h.id_agenda_detalle}"
+                    data-horario="${h.hora_inicio.slice(0,5)} - ${h.hora_fin.slice(0,5)}"
+                    ${h.cupos_disponibles <= 0 ? 'disabled' : ''}>
+              <i class="fas fa-check"></i> Seleccionar
+            </button>
+          </div>
+        </div>
+      </div>
+    `);
+  });
+
+  // Evento: Seleccionar horario
+  container.on('click', 'button[name="btn_seleccionar_horario"]', function() {
+    const id = $(this).data('id');
+    const horario = $(this).data('horario');
+    $('#id_agenda_detalle').val(id);
+    $('#txtHorarioAgenda').val(horario);
+    $('#modalBuscarHorario').modal('hide');
+  });
+
+  // Efecto visual al hacer clic en el item
+  container.on('click', '.horario-item', function() {
+    $('.horario-item').removeClass('selected');
+    $(this).addClass('selected');
+  });
+};
+
+// ========================================
+// FUNCIÓN: Guardar detalle de cita
+// ========================================
+const guardarDetalleCita = () => {
+  $('#btnGuardarDetalleCita').on('click', () => {
+    const id = $('#id_cita_detalle').val();
+    const payload = {
+      id_cita_cabecera: $('#id_cita_cabecera_actual').val(),
+      id_agenda_detalle: $('#id_agenda_detalle').val(),
+      fecha_cita: $('#fecha_cita').val(),
+      hora_cita: $('#hora_cita').val(),
+      motivo_consulta: $('#motivo_consulta').val(),
+      id_estado_cita: $('#id_estado_cita').val()
+    };
+
+    // Validar campos obligatorios
+    if (!payload.id_agenda_detalle || !payload.fecha_cita || !payload.hora_cita || 
+        !payload.motivo_consulta || !payload.id_estado_cita) {
+      Swal.fire('Error', 'Complete todos los campos obligatorios', 'error');
+      return;
+    }
+
+    const method = id ? 'PUT' : 'POST';
+    const url = id ? `/api/v1/citas-detalle/${id}` : '/api/v1/citas-detalle';
+
+    fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    .then(resp => resp.json())
+    .then(data => {
+      if (data.success) {
+        $('#modalDetalleCita').modal('hide');
+        cargarDetallesCita(citaCabeceraActual.id_cita_cabecera);
+        Swal.fire('Éxito', id ? 'Horario actualizado' : 'Horario agendado', 'success');
+      } else {
+        if (data.error.includes('cupos')) {
+          Swal.fire('Sin cupos', data.error, 'warning');
+        } else {
+          Swal.fire('Error', data.error, 'error');
+        }
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      Swal.fire('Error', 'Ocurrió un error al guardar', 'error');
+    });
+  });
+};
+
+// ========================================
+// FUNCIÓN: Editar detalle de cita
+// ========================================
+const editarDetalleCita = () => {
+  $('#tblDetallesCita').on('click', 'button[name="btn_editar_detalle_cita"]', function() {
+    const id = $(this).data('id');
+    
+    fetch(`/api/v1/citas-detalle/${id}`)
+    .then(resp => resp.json())
+    .then(data => {
+      if (data.success) {
+        const detalle = data.data;
+        $('#modalDetalleCitaTitle').html('<i class="fas fa-edit"></i> Editar Horario');
+        $('#id_cita_detalle').val(detalle.id_cita_detalle);
+        $('#id_cita_cabecera_actual').val(detalle.id_cita_cabecera);
+        $('#id_agenda_detalle').val(detalle.id_agenda_detalle);
+        $('#txtHorarioAgenda').val(`Horario seleccionado (ID: ${detalle.id_agenda_detalle})`);
+        $('#fecha_cita').val(detalle.fecha_cita);
+        $('#hora_cita').val(detalle.hora_cita.slice(0, 5));
+        $('#id_estado_cita').val(detalle.id_estado_cita);
+        $('#txtEstadoCita').val(detalle.estado_descripcion);
+        $('#motivo_consulta').val(detalle.motivo_consulta);
+        $('#modalDetalleCita').modal('show');
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      Swal.fire('Error', 'No se pudo cargar el detalle', 'error');
+    });
+  });
+};
+
+// ========================================
+// FUNCIÓN: Eliminar detalle de cita
+// ========================================
+const eliminarDetalleCita = () => {
+  $('#tblDetallesCita').on('click', 'button[name="btn_eliminar_detalle_cita"]', function() {
+    const id = $(this).data('id');
+    
+    Swal.fire({
+      title: '¿Eliminar este horario?',
+      text: 'Se devolverá el cupo automáticamente si estaba ocupado',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#dc3545'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        fetch(`/api/v1/citas-detalle/${id}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' }
+        })
+        .then(resp => resp.json())
+        .then(data => {
+          if (data.success) {
+            cargarDetallesCita(citaCabeceraActual.id_cita_cabecera);
+            Swal.fire('Eliminado', 'Horario eliminado correctamente', 'success');
+          } else {
+            Swal.fire('Error', data.error, 'error');
+          }
+        })
+        .catch(err => {
+          console.error(err);
+          Swal.fire('Error', 'Ocurrió un error al eliminar', 'error');
+        });
+      }
+    });
+  });
+};
+
+// ========================================
+// EVENTOS: Abrir modales de búsqueda
+// ========================================
+const abrirModalesBusqueda = () => {
+  // Paciente
+  $('#btnBuscarPaciente, #txtPaciente').on('click', () => {
+    $('#modalBuscarPaciente').modal('show');
+  });
+
+  // Agenda
+  $('#btnBuscarAgenda, #txtAgenda').on('click', () => {
+    $('#modalBuscarAgenda').modal('show');
+  });
+
+  // Estado
+  $('#btnBuscarEstado, #txtEstadoCita').on('click', () => {
+    $('#modalBuscarEstado').modal('show');
+  });
+};
+
+// ========================================
+// INICIALIZACIÓN AL CARGAR LA PÁGINA
+// ========================================
+$(function() {
+  // Inicializar DataTables
+  initDatatableCitasCabecera();
+  initDatatablePacientes();
+  initDatatableAgendas();
+  initDatatableEstadosCita();
+
+  // Registrar eventos de cabecera
+  agregarCita();
+  guardarCitaCabecera();
+  editarCita();
+  eliminarCita();
+  verDetallesCita();
+
+  // Registrar eventos de detalle
+  agregarDetalleCita();
+  guardarDetalleCita();
+  editarDetalleCita();
+  eliminarDetalleCita();
+  buscarHorarios();
+
+  // Abrir modales
+  abrirModalesBusqueda();
+
+  console.log('✅ Sistema de Gestión de Citas inicializado correctamente');
+});
+
+</script>
+{% endblock %}

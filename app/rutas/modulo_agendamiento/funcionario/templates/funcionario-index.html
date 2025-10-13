@@ -1,0 +1,455 @@
+{% extends 'base.html' %}
+
+{% block titulo %}
+Funcionario
+{% endblock %}
+
+{% block contenido %}
+<div class="container mt-10">
+  <h3>Listar Funcionarios</h3>
+
+  <!-- Tarjeta -->
+  <div class="card">
+    <div class="card-header">
+      <button type="button" class="btn btn-outline-primary" id="btnAgregar">Agregar</button>
+    </div>
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-striped" id="tbl">
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Apellido</th>
+              <th>Cédula</th>
+              <th>Fecha Nacimiento</th>
+              <th>Teléfono</th>
+              <th>Correo</th>
+              <th>Cargo</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <!-- /Tarjeta -->
+
+  <!-- Modal formulario -->
+  <div class="modal" id="modalFormulario">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content">
+        <!-- Modal Header -->
+        <div class="modal-header">
+          <h4 class="modal-title" id="modalTitle"></h4>
+          <button type="button" class="close" data-dismiss="modal">&times;</button>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+          <input type="hidden" id="txtIdFuncionario">
+          <input type="hidden" id="id_cargo">
+
+          <div class="container-fluid">
+            <div class="row">
+              <div class="col-md-6 col-lg-4">
+                <div class="form-group">
+                  <label for="nombre">Nombre:</label>
+                  <input type="text" class="form-control" placeholder="Ingrese el nombre" id="nombre">
+                </div>
+              </div>
+              <div class="col-md-6 col-lg-4">
+                <div class="form-group">
+                  <label for="apellido">Apellido:</label>
+                  <input type="text" class="form-control" placeholder="Ingrese el apellido" id="apellido">
+                </div>
+              </div>
+              <div class="col-md-6 col-lg-4">
+                <div class="form-group">
+                  <label for="cedula">Cédula:</label>
+                  <input type="text" class="form-control" placeholder="Ingrese la cédula" id="cedula">
+                </div>
+              </div>
+              <div class="col-md-6 col-lg-4">
+                <div class="form-group">
+                  <label for="fecha_nacimiento">Fecha Nacimiento:</label>
+                  <input type="date" class="form-control" id="fecha_nacimiento">
+                </div>
+              </div>
+              <div class="col-md-6 col-lg-4">
+                <div class="form-group">
+                  <label for="telefono">Teléfono:</label>
+                  <input type="text" class="form-control" placeholder="Ingrese el teléfono" id="telefono">
+                </div>
+              </div>
+              <div class="col-md-6 col-lg-4">
+                <div class="form-group">
+                  <label for="direccion">Dirección:</label>
+                  <input type="text" class="form-control" placeholder="Ingrese la dirección" id="direccion">
+                </div>
+              </div>
+              <div class="col-md-6 col-lg-4">
+                <div class="form-group">
+                  <label for="correo">Correo:</label>
+                  <input type="email" class="form-control" placeholder="correo@ejemplo.com" id="correo">
+                </div>
+              </div>
+              <div class="col-md-6 col-lg-4">
+                <div class="form-group">
+                  <label for="txtCargo">Cargo:</label>
+                  <input type="text" class="form-control" placeholder="Seleccione el cargo" id="txtCargo" readonly>
+                </div>
+              </div>
+              <div class="col-md-6 col-lg-4">
+                <div class="form-group">
+                  <label for="fecha_registro">Fecha Registro:</label>
+                  <input type="text" class="form-control" id="fecha_registro" readonly>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary" id="btnGuardar">Guardar</button>
+          <button type="button" class="btn btn-danger" data-dismiss="modal">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Buscar Cargo -->
+  <div class="modal fade" id="modalBuscarCargo" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h4 class="modal-title">Seleccionar Cargo</h4>
+          <button type="button" class="close" data-dismiss="modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="table-responsive">
+            <table class="table table-striped table-bordered w-100" id="tblCargo">
+              <thead>
+                <tr>
+                  <th>Cargo</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Alert -->
+  <div class="row mt-4 d-none" id="rowAlerta">
+    <div class="col col-md-12">
+      <div class="alert alert-success">
+        <strong>Registro Exitoso!</strong>
+        <div class="row" id="mostrarAlerta"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block js %}
+<script>
+
+// 🔹 Inicializar tabla de funcionarios
+const initDatatable = () => {
+  $('#tbl').DataTable({
+    language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
+    ajax: {
+      url: '/api/v1/funcionarios',
+      dataSrc: 'data'
+    },
+    columns: [
+      { data: 'nombre' },
+      { data: 'apellido' },
+      { data: 'cedula' },
+      { data: 'fecha_nacimiento' },
+      { data: 'telefono' },
+      { data: 'correo' },
+      { data: 'cargo' },
+      { 
+        data: null,
+        render: function (data, type, row) {
+          return `
+            <button type="button" class="btn btn-info btn-sm btn-editar" data-id="${row.id_funcionario}">
+              <i class="fas fa-edit"></i>
+            </button>
+            <button type="button" class="btn btn-danger btn-sm btn-eliminar" data-id="${row.id_funcionario}">
+              <i class="fas fa-trash-alt"></i>
+            </button>`;
+        }
+      }
+    ]
+  });
+};
+
+// 🔹 Inicializar tabla de cargos
+const initDatatableCargo = () => {
+  $('#tblCargo').DataTable({
+    language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
+    ajax: {
+      url: '/api/v1/cargos',
+      dataSrc: 'data'
+    },
+    columns: [
+      { data: 'descripcion' },
+      {
+        data: function (row) {
+          return `<button type="button" name="btn_seleccionar_cargo" class="btn btn-primary"
+                  data-id="${row.id_cargo}" data-cargo="${row.descripcion}">Seleccionar</button>`;
+        }
+      }
+    ]
+  });
+
+  $('#tblCargo').on('click', 'button[name="btn_seleccionar_cargo"]', function () {
+    const idCargo = $(this).data('id');
+    const cargo = $(this).data('cargo');
+    $('#txtCargo').val(cargo);
+    $('#id_cargo').val(idCargo);
+    $('#modalBuscarCargo').modal('hide');
+  });
+};
+
+const buscarCargo = () => {
+  $('#txtCargo').on('click', function () {
+    $('#modalBuscarCargo').modal('show');
+  });
+};
+
+/* ======================
+   CRUD Functions
+   ====================== */
+const agregar = () => {
+  $('#btnAgregar').on('click', function() {
+    $('#modalTitle').text("Agregar Funcionario");
+    $('#txtIdFuncionario').val("");
+    $('#nombre').val("");
+    $('#apellido').val("");
+    $('#cedula').val("");
+    $('#fecha_nacimiento').val("");
+    $('#telefono').val("");
+    $('#direccion').val("");
+    $('#correo').val("");
+    $('#id_cargo').val("");
+    $('#txtCargo').val("");
+    
+    // Fecha y hora actual en formato YYYY-MM-DD HH:MM:SS
+    const now = new Date();
+    const fechaRegistro = now.getFullYear() + '-' + 
+                          String(now.getMonth() + 1).padStart(2, '0') + '-' + 
+                          String(now.getDate()).padStart(2, '0') + ' ' +
+                          String(now.getHours()).padStart(2, '0') + ':' + 
+                          String(now.getMinutes()).padStart(2, '0') + ':' + 
+                          String(now.getSeconds()).padStart(2, '0');
+    $('#fecha_registro').val(fechaRegistro);
+    
+    $('#modalFormulario').modal('show');
+  });
+};
+
+const guardar = () => {
+  $('#btnGuardar').on('click', function() {
+    const id_funcionario = Number($('#txtIdFuncionario').val()) || 0;
+    const nombre = $('#nombre').val().trim();
+    const apellido = $('#apellido').val().trim();
+    const cedula = $('#cedula').val().trim();
+    const fecha_nacimiento = $('#fecha_nacimiento').val();
+    const telefono = $('#telefono').val().trim();
+    const direccion = $('#direccion').val().trim();
+    const correo = $('#correo').val().trim();
+    const id_cargo = $('#id_cargo').val();
+    const fecha_registro = $('#fecha_registro').val();
+    const tabla = $('#tbl').DataTable();
+
+    // Validaciones
+    if (!nombre || !apellido || !cedula || !fecha_nacimiento || !telefono || !direccion || !correo || !id_cargo) {
+      Swal.fire("Error", "Todos los campos son obligatorios.", "error");
+      return;
+    }
+
+    // Validar email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(correo)) {
+      Swal.fire("Error", "El correo electrónico no es válido.", "error");
+      return;
+    }
+
+    const data = {
+      nombre: nombre,
+      apellido: apellido,
+      cedula: cedula,
+      fecha_nacimiento: fecha_nacimiento,
+      telefono: telefono,
+      direccion: direccion,
+      correo: correo,
+      id_cargo: parseInt(id_cargo),
+      fecha_registro: fecha_registro
+    };
+
+    if (id_funcionario > 0) {
+      // Editar
+      fetch(`/api/v1/funcionarios/${id_funcionario}`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+      })
+      .then(resp => resp.json())
+      .then(result => {
+        if (result && result.success) {
+          tabla.ajax.reload(null, false);
+          Swal.fire("Actualizado", "El funcionario ha sido actualizado correctamente.", "success")
+            .then(() => { $('#modalFormulario').modal("hide"); });
+        } else {
+          Swal.fire("Error", result.error || "Error al actualizar.", "error");
+        }
+      })
+      .catch((error) => {
+        console.error('Error al actualizar:', error);
+        Swal.fire("Error", "Ocurrió un error al actualizar.", "error");
+      });
+    } else {
+      // Agregar
+      fetch(`/api/v1/funcionarios`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+      })
+      .then(resp => resp.json())
+      .then(result => {
+        if (result && result.success) {
+          tabla.ajax.reload(null, false);
+          Swal.fire("Registrado", "El funcionario ha sido registrado correctamente.", "success")
+            .then(() => { $('#modalFormulario').modal("hide"); });
+        } else {
+          Swal.fire("Error", result.error || "Error al guardar.", "error");
+        }
+      })
+      .catch((error) => {
+        console.error('Error al guardar:', error);
+        Swal.fire("Error", "Ocurrió un error al guardar.", "error");
+      });
+    }
+  });
+};
+
+const editar = () => {
+  $('#tbl tbody').on('click', '.btn-editar', function() {
+    const id_funcionario = $(this).data('id');
+    
+    console.log('Editando ID:', id_funcionario);
+
+    fetch(`/api/v1/funcionarios/${id_funcionario}`, { 
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' }
+    })
+      .then(resp => resp.json())
+      .then(result => {
+        console.log('Respuesta del servidor:', result);
+        if (result && result.success) {
+          const f = result.data;
+          $('#txtIdFuncionario').val(f.id_funcionario);
+          $('#nombre').val(f.nombre);
+          $('#apellido').val(f.apellido);
+          $('#cedula').val(f.cedula);
+          $('#fecha_nacimiento').val(f.fecha_nacimiento);
+          $('#telefono').val(f.telefono);
+          $('#direccion').val(f.direccion);
+          $('#correo').val(f.correo);
+          $('#id_cargo').val(f.id_cargo);
+          $('#txtCargo').val(f.cargo);
+          $('#fecha_registro').val(f.fecha_registro);
+          $('#modalTitle').text("Editar Funcionario");
+          $('#modalFormulario').modal('show');
+        } else {
+          Swal.fire("Error", result.error || "No se pudo cargar el funcionario.", "error");
+        }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        Swal.fire("Error", "Ocurrió un error al obtener los datos.", "error");
+      });
+  });
+};
+
+const eliminar = () => {
+  $('#tbl tbody').on('click', '.btn-eliminar', function() {
+    const id_funcionario = $(this).data('id');
+    const tabla = $('#tbl').DataTable();
+    
+    console.log('Eliminando ID:', id_funcionario);
+
+    Swal.fire({
+      title: "¿Deseas eliminar este funcionario?",
+      text: "Esta acción no se puede deshacer",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: "Sí, eliminar",
+      cancelButtonText: "Cancelar"
+    }).then((result) => {
+      if (result.isConfirmed) {
+        fetch(`/api/v1/funcionarios/${id_funcionario}`, {
+          method: 'DELETE',
+          headers: { 
+            'Content-Type': 'application/json'
+          }
+        })
+        .then(resp => resp.json())
+        .then(result => {
+          console.log('Respuesta eliminar:', result);
+          if (result && result.success) {
+            tabla.ajax.reload(null, false);
+            Swal.fire("Eliminado", "Funcionario eliminado correctamente.", "success");
+          } else {
+            Swal.fire("Error", result.error || "Error al eliminar.", "error");
+          }
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          Swal.fire("Error", "Ocurrió un error al eliminar.", "error");
+        });
+      }
+    });
+  });
+};
+
+// Validación: Solo números en teléfono y cédula
+$('#telefono, #cedula').on('input', function() {
+  this.value = this.value.replace(/[^0-9]/g, '');
+});
+
+/* ======================
+   Inicializar eventos
+   ====================== */
+const addEvents = () => {
+  agregar();
+  guardar();
+  editar();
+  eliminar();
+  buscarCargo();
+};
+
+// Inicializar todo cuando el DOM esté listo
+$(function() {
+  initDatatable();
+  initDatatableCargo();
+  addEvents();
+});
+
+</script>
+{% endblock %}

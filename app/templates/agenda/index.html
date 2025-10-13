@@ -1,0 +1,913 @@
+{% extends 'base.html' %}
+{% block titulo %}
+Agenda Médica
+{% endblock %}
+
+{% block contenido %}
+<div class="container-fluid mt-4">
+  <!-- ========================================
+       ENCABEZADO DE LA PÁGINA
+       ======================================== -->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="text-primary">
+      <i class="fas fa-calendar-alt"></i> Gestión de Agenda Médica
+    </h2>
+    <button type="button" class="btn btn-primary btn-lg shadow-sm" id="btnAgregar">
+      <i class="fas fa-plus-circle"></i> Nueva Agenda
+    </button>
+  </div>
+
+  <!-- ========================================
+       TABLA PRINCIPAL: LISTA DE CABECERAS
+       ======================================== -->
+  <div class="card shadow-sm">
+    <div class="card-header bg-primary text-white">
+      <h5 class="mb-0"><i class="fas fa-list"></i> Agendas Registradas</h5>
+    </div>
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-hover table-striped" id="tblCabeceras">
+          <thead class="table-light">
+            <tr>
+              <th><i class="fas fa-user-md"></i> Médico</th>
+              <th><i class="fas fa-stethoscope"></i> Especialidad</th>
+              <th><i class="fas fa-calendar-day"></i> Fecha</th>
+              <th><i class="fas fa-toggle-on"></i> Estado</th>
+              <th><i class="fas fa-calendar-check"></i> Registrada</th>
+              <th><i class="fas fa-cogs"></i> Acciones</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================
+       MODAL: CREAR/EDITAR CABECERA
+       ======================================== -->
+  <div class="modal fade" id="modalCabecera" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <!-- Header del modal -->
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title" id="modalCabeceraTitle">
+            <i class="fas fa-calendar-plus"></i> Nueva Agenda
+          </h5>
+          <button type="button" class="close text-white" data-dismiss="modal">
+            <span>&times;</span>
+          </button>
+        </div>
+
+        <!-- Cuerpo del modal -->
+        <div class="modal-body">
+          <!-- Input hidden para ID (usado en edición) -->
+          <input type="hidden" id="id_agenda_cabecera">
+
+          <div class="row">
+            <!-- Médico (con modal de búsqueda) -->
+            <div class="col-md-6 mb-3">
+              <label class="font-weight-bold">
+                <i class="fas fa-user-md text-primary"></i> Médico *
+              </label>
+              <input type="hidden" id="id_medico">
+              <div class="input-group">
+                <input type="text" class="form-control" id="txtMedico" 
+                       placeholder="Click para seleccionar médico" readonly>
+                <div class="input-group-append">
+                  <button class="btn btn-outline-primary" type="button" id="btnBuscarMedico">
+                    <i class="fas fa-search"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Especialidad -->
+            <div class="col-md-6 mb-3">
+              <label class="font-weight-bold">
+                <i class="fas fa-stethoscope text-info"></i> Especialidad *
+              </label>
+              <input type="hidden" id="id_especialidad">
+              <div class="input-group">
+                <input type="text" class="form-control" id="txtEspecialidad" 
+                       placeholder="Click para seleccionar especialidad" readonly>
+                <div class="input-group-append">
+                  <button class="btn btn-outline-info" type="button" id="btnBuscarEspecialidad">
+                    <i class="fas fa-search"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Fecha Agenda -->
+            <div class="col-md-6 mb-3">
+              <label class="font-weight-bold">
+                <i class="fas fa-calendar-day text-success"></i> Fecha de Agenda *
+              </label>
+              <input type="date" class="form-control" id="fecha_agenda">
+            </div>
+
+            <!-- Estado -->
+            <div class="col-md-6 mb-3">
+              <label class="font-weight-bold">
+                <i class="fas fa-toggle-on text-warning"></i> Estado *
+              </label>
+              <select class="form-control" id="estado">
+                <option value="Activo">Activo</option>
+                <option value="Inactivo">Inactivo</option>
+              </select>
+            </div>
+
+            <!-- Funcionario (automático - usuario logueado) -->
+            <input type="hidden" id="id_funcionario" value="1">
+            <!-- TODO: Obtener del usuario logueado -->
+
+            <!-- Observaciones -->
+            <div class="col-12 mb-3">
+              <label class="font-weight-bold">
+                <i class="fas fa-comment-alt text-secondary"></i> Observaciones
+              </label>
+              <textarea class="form-control" id="observaciones" rows="3" 
+                        placeholder="Ingrese observaciones opcionales..."></textarea>
+            </div>
+          </div>
+
+          <div class="alert alert-info">
+            <i class="fas fa-info-circle"></i> 
+            <strong>Nota:</strong> Después de guardar la cabecera, podrá agregar los horarios disponibles haciendo clic en el botón "Ver Detalles".
+          </div>
+        </div>
+
+        <!-- Footer del modal -->
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">
+            <i class="fas fa-times"></i> Cancelar
+          </button>
+          <button type="button" class="btn btn-primary" id="btnGuardarCabecera">
+            <i class="fas fa-save"></i> Guardar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================
+       MODAL: VER DETALLES DE UNA CABECERA
+       ======================================== -->
+  <div class="modal fade" id="modalDetalles" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable" role="document">
+      <div class="modal-content">
+        <!-- Header -->
+        <div class="modal-header bg-info text-white">
+          <h5 class="modal-title">
+            <i class="fas fa-calendar-check"></i> Detalles de la Agenda
+          </h5>
+          <button type="button" class="close text-white" data-dismiss="modal">
+            <span>&times;</span>
+          </button>
+        </div>
+
+        <!-- Cuerpo -->
+        <div class="modal-body">
+          <!-- Información de la Cabecera (solo lectura) -->
+          <div class="card mb-3 border-info">
+            <div class="card-header bg-light">
+              <h6 class="mb-0"><i class="fas fa-info-circle"></i> Información General</h6>
+            </div>
+            <div class="card-body">
+              <div class="row">
+                <div class="col-md-4">
+                  <strong>Médico:</strong> <span id="infoCabeceraMedico">-</span>
+                </div>
+                <div class="col-md-4">
+                  <strong>Especialidad:</strong> <span id="infoCabeceraEspecialidad">-</span>
+                </div>
+                <div class="col-md-4">
+                  <strong>Fecha:</strong> <span id="infoCabeceraFecha">-</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Botón para agregar horarios -->
+          <div class="text-right mb-3">
+            <button type="button" class="btn btn-success" id="btnAgregarHorarios">
+              <i class="fas fa-clock"></i> Agregar Horarios
+            </button>
+          </div>
+
+          <!-- Tabla de Detalles -->
+          <div class="table-responsive">
+            <table class="table table-hover table-bordered" id="tblDetalles">
+              <thead class="table-success">
+                <tr>
+                  <th>Día</th>
+                  <th>Turno</th>
+                  <th>Hora Inicio</th>
+                  <th>Hora Fin</th>
+                  <th>Cupos Disp.</th>
+                  <th>Cupos Max.</th>
+                  <th>Estado</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">
+            <i class="fas fa-times"></i> Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================
+       MODAL: SELECCIONAR DISPONIBILIDADES
+       ======================================== -->
+  <div class="modal fade" id="modalDisponibilidades" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable" role="document">
+      <div class="modal-content">
+        <!-- Header -->
+        <div class="modal-header bg-success text-white">
+          <h5 class="modal-title">
+            <i class="fas fa-clock"></i> Seleccionar Horarios Disponibles
+          </h5>
+          <button type="button" class="close text-white" data-dismiss="modal">
+            <span>&times;</span>
+          </button>
+        </div>
+
+        <!-- Cuerpo -->
+        <div class="modal-body">
+          <input type="hidden" id="id_cabecera_actual">
+          
+          <div class="alert alert-warning">
+            <i class="fas fa-exclamation-triangle"></i> 
+            Seleccione los horarios que desea publicar para esta agenda.
+          </div>
+
+          <!-- Lista de disponibilidades con checkboxes -->
+          <div id="listaDisponibilidades">
+            <!-- Se carga dinámicamente con JavaScript -->
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">
+            <i class="fas fa-times"></i> Cancelar
+          </button>
+          <button type="button" class="btn btn-success" id="btnGuardarDisponibilidades">
+            <i class="fas fa-save"></i> Guardar Selección
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================
+       MODALES DE BÚSQUEDA: MÉDICO Y ESPECIALIDAD
+       ======================================== -->
+  
+  <!-- Modal Buscar Médico -->
+  <div class="modal fade" id="modalBuscarMedico" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title">
+            <i class="fas fa-user-md"></i> Seleccionar Médico
+          </h5>
+          <button type="button" class="close text-white" data-dismiss="modal">
+            <span>&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="table-responsive">
+            <table class="table table-hover" id="tblMedicos">
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>Apellido</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Buscar Especialidad -->
+  <div class="modal fade" id="modalBuscarEspecialidad" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <div class="modal-header bg-info text-white">
+          <h5 class="modal-title">
+            <i class="fas fa-stethoscope"></i> Seleccionar Especialidad
+          </h5>
+          <button type="button" class="close text-white" data-dismiss="modal">
+            <span>&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="table-responsive">
+            <table class="table table-hover" id="tblEspecialidades">
+              <thead>
+                <tr>
+                  <th>Especialidad</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Estilos personalizados -->
+<style>
+  /* Mejoras visuales */
+  .card {
+    border-radius: 10px;
+    border: none;
+  }
+
+  .modal-content {
+    border-radius: 15px;
+  }
+
+  .table-hover tbody tr:hover {
+    background-color: #f8f9fa;
+    cursor: pointer;
+  }
+
+  .badge-custom-activo {
+    background-color: #28a745;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 5px;
+  }
+
+  .badge-custom-inactivo {
+    background-color: #dc3545;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 5px;
+  }
+
+  .disponibilidad-item {
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 10px;
+    transition: all 0.3s;
+  }
+
+  .disponibilidad-item:hover {
+    border-color: #28a745;
+    background-color: #f8f9fa;
+  }
+
+  .disponibilidad-item.selected {
+    border-color: #28a745;
+    background-color: #d4edda;
+  }
+
+  .btn-sm-custom {
+    padding: 5px 10px;
+    font-size: 0.875rem;
+  }
+</style>
+
+{% endblock %}
+
+{% block js %}
+<script>
+// ========================================
+// VARIABLES GLOBALES
+// ========================================
+let cabeceraActual = null; // Guarda la cabecera seleccionada para ver detalles
+
+// ========================================
+// FUNCIÓN: Formatear fecha DD/MM/YYYY
+// ========================================
+function formatearFecha(fecha) {
+  if (!fecha) return '';
+  const [anio, mes, dia] = fecha.split('-');
+  return `${dia}/${mes}/${anio}`;
+}
+
+// ========================================
+// DATATABLE: CABECERAS
+// ========================================
+const initDatatableCabeceras = () => {
+  $('#tblCabeceras').DataTable({
+    language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
+    ajax: '/api/v1/agenda/cabeceras',
+    columns: [
+      { data: 'medico_nombre' },
+      { data: 'especialidad' },
+      { 
+        data: 'fecha_agenda',
+        render: (data) => formatearFecha(data)
+      },
+      { 
+        data: 'estado',
+        render: (data) => {
+          return data === 'Activo' 
+            ? '<span class="badge-custom-activo"><i class="fas fa-check-circle"></i> Activo</span>'
+            : '<span class="badge-custom-inactivo"><i class="fas fa-times-circle"></i> Inactivo</span>';
+        }
+      },
+      { 
+        data: 'fecha_registro',
+        render: (data) => {
+          if (!data) return '-';
+          const fecha = new Date(data);
+          return fecha.toLocaleString('es-PY');
+        }
+      },
+      {
+        data: (row) => `
+          <button class="btn btn-info btn-sm-custom" name="btn_ver_detalles" 
+                  data-id="${row.id_agenda_cabecera}" title="Ver Detalles">
+            <i class="fas fa-eye"></i>
+          </button>
+          <button class="btn btn-warning btn-sm-custom" name="btn_editar" 
+                  data-id="${row.id_agenda_cabecera}" title="Editar">
+            <i class="fas fa-edit"></i>
+          </button>
+          <button class="btn btn-danger btn-sm-custom" name="btn_eliminar" 
+                  data-id="${row.id_agenda_cabecera}" title="Eliminar">
+            <i class="fas fa-trash-alt"></i>
+          </button>
+        `
+      }
+    ]
+  });
+};
+
+// ========================================
+// DATATABLE: MÉDICOS (para seleccionar)
+// ========================================
+const initDatatableMedicos = () => {
+  $('#tblMedicos').DataTable({
+    language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
+    ajax: '/api/v1/medico',
+    columns: [
+      { data: 'nombre' },
+      { data: 'apellido' },
+      {
+        data: (row) => `
+          <button class="btn btn-primary btn-sm" name="btn_seleccionar_medico" 
+                  data-id="${row.id_medico}" 
+                  data-nombre="${row.nombre} ${row.apellido}">
+            <i class="fas fa-check"></i> Seleccionar
+          </button>
+        `
+      }
+    ]
+  });
+
+  // Evento: Seleccionar médico
+  $('#tblMedicos').on('click', 'button[name="btn_seleccionar_medico"]', function() {
+    const id = $(this).data('id');
+    const nombre = $(this).data('nombre');
+    $('#id_medico').val(id);
+    $('#txtMedico').val(nombre);
+    $('#modalBuscarMedico').modal('hide');
+  });
+};
+
+// ========================================
+// DATATABLE: ESPECIALIDADES (para seleccionar)
+// ========================================
+const initDatatableEspecialidades = () => {
+  $('#tblEspecialidades').DataTable({
+    language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
+    ajax: '/api/v1/especialidades',
+    columns: [
+      { data: 'nombre_especialidad' },
+      {
+        data: (row) => `
+          <button class="btn btn-info btn-sm" name="btn_seleccionar_especialidad" 
+                  data-id="${row.id_especialidad}" 
+                  data-nombre="${row.nombre_especialidad}">
+            <i class="fas fa-check"></i> Seleccionar
+          </button>
+        `
+      }
+    ]
+  });
+
+  // Evento: Seleccionar especialidad
+  $('#tblEspecialidades').on('click', 'button[name="btn_seleccionar_especialidad"]', function() {
+    const id = $(this).data('id');
+    const nombre = $(this).data('nombre');
+    $('#id_especialidad').val(id);
+    $('#txtEspecialidad').val(nombre);
+    $('#modalBuscarEspecialidad').modal('hide');
+  });
+};
+
+// ========================================
+// FUNCIÓN: Agregar nueva cabecera
+// ========================================
+const agregar = () => {
+  $('#btnAgregar').on('click', () => {
+    $('#modalCabeceraTitle').html('<i class="fas fa-calendar-plus"></i> Nueva Agenda');
+    $('#id_agenda_cabecera').val('');
+    $('#id_medico').val('');
+    $('#txtMedico').val('');
+    $('#id_especialidad').val('');
+    $('#txtEspecialidad').val('');
+    $('#fecha_agenda').val('');
+    $('#estado').val('Activo');
+    $('#observaciones').val('');
+    $('#modalCabecera').modal('show');
+  });
+};
+
+// ========================================
+// FUNCIÓN: Guardar cabecera (crear/editar)
+// ========================================
+const guardarCabecera = () => {
+  $('#btnGuardarCabecera').on('click', () => {
+    const id = $('#id_agenda_cabecera').val();
+    const payload = {
+      id_medico: $('#id_medico').val(),
+      id_especialidad: $('#id_especialidad').val(),
+      fecha_agenda: $('#fecha_agenda').val(),
+      estado: $('#estado').val(),
+      id_funcionario: $('#id_funcionario').val(),
+      observaciones: $('#observaciones').val()
+    };
+
+    // Validar campos obligatorios
+    if (!payload.id_medico || !payload.id_especialidad || !payload.fecha_agenda) {
+      Swal.fire('Error', 'Complete todos los campos obligatorios', 'error');
+      return;
+    }
+
+    const method = id ? 'PUT' : 'POST';
+    const url = id ? `/api/v1/agenda/cabeceras/${id}` : '/api/v1/agenda/cabeceras';
+
+    fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    .then(resp => resp.json())
+    .then(data => {
+      if (data.success) {
+        $('#tblCabeceras').DataTable().ajax.reload();
+        $('#modalCabecera').modal('hide');
+        Swal.fire('Éxito', id ? 'Agenda actualizada' : 'Agenda creada', 'success');
+      } else {
+        Swal.fire('Error', data.error, 'error');
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      Swal.fire('Error', 'Ocurrió un error al guardar', 'error');
+    });
+  });
+};
+
+// ========================================
+// FUNCIÓN: Editar cabecera
+// ========================================
+const editar = () => {
+  $('#tblCabeceras').on('click', 'button[name="btn_editar"]', function() {
+    const id = $(this).data('id');
+    
+    fetch(`/api/v1/agenda/cabeceras/${id}`)
+    .then(resp => resp.json())
+    .then(data => {
+      if (data.success) {
+        const cab = data.data;
+        $('#modalCabeceraTitle').html('<i class="fas fa-edit"></i> Editar Agenda');
+        $('#id_agenda_cabecera').val(cab.id_agenda_cabecera);
+        $('#id_medico').val(cab.id_medico);
+        $('#txtMedico').val(cab.medico_nombre);
+        $('#id_especialidad').val(cab.id_especialidad);
+        $('#txtEspecialidad').val(cab.especialidad);
+        $('#fecha_agenda').val(cab.fecha_agenda);
+        $('#estado').val(cab.estado);
+        $('#observaciones').val(cab.observaciones || '');
+        $('#modalCabecera').modal('show');
+      }
+    });
+  });
+};
+
+// ========================================
+// FUNCIÓN: Eliminar cabecera
+// ========================================
+const eliminar = () => {
+  $('#tblCabeceras').on('click', 'button[name="btn_eliminar"]', function() {
+    const id = $(this).data('id');
+    
+    Swal.fire({
+      title: '¿Eliminar esta agenda?',
+      text: 'También se eliminarán todos sus horarios publicados',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        fetch(`/api/v1/agenda/cabeceras/${id}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' }
+        })
+        .then(resp => resp.json())
+        .then(data => {
+          if (data.success) {
+            $('#tblCabeceras').DataTable().ajax.reload();
+            Swal.fire('Eliminado', 'Agenda eliminada correctamente', 'success');
+          } else {
+            Swal.fire('Error', data.error, 'error');
+          }
+        });
+      }
+    });
+  });
+};
+
+// ========================================
+// FUNCIÓN: Ver detalles de una cabecera
+// ========================================
+const verDetalles = () => {
+  $('#tblCabeceras').on('click', 'button[name="btn_ver_detalles"]', function() {
+    const id = $(this).data('id');
+    
+    // Obtener info de la cabecera
+    fetch(`/api/v1/agenda/cabeceras/${id}`)
+    .then(resp => resp.json())
+    .then(data => {
+      if (data.success) {
+        cabeceraActual = data.data;
+        
+        // Mostrar info de cabecera
+        $('#infoCabeceraMedico').text(cabeceraActual.medico_nombre);
+        $('#infoCabeceraEspecialidad').text(cabeceraActual.especialidad);
+        $('#infoCabeceraFecha').text(formatearFecha(cabeceraActual.fecha_agenda));
+        
+        // Cargar detalles
+        cargarDetalles(id);
+        
+        // Mostrar modal
+        $('#modalDetalles').modal('show');
+      }
+    });
+  });
+};
+
+// ========================================
+// FUNCIÓN: Cargar detalles de una cabecera
+// ========================================
+const cargarDetalles = (id_cabecera) => {
+  fetch(`/api/v1/agenda/cabeceras/${id_cabecera}/detalles`)
+  .then(resp => resp.json())
+  .then(data => {
+    if (data.success) {
+      const tbody = $('#tblDetalles tbody');
+      tbody.empty();
+      
+      if (data.data.length === 0) {
+        tbody.append(`
+          <tr>
+            <td colspan="8" class="text-center text-muted">
+              <i class="fas fa-info-circle"></i> No hay horarios publicados. 
+              Click en "Agregar Horarios" para comenzar.
+            </td>
+          </tr>
+        `);
+      } else {
+        data.data.forEach(d => {
+          const estadoBadge = d.estado_detalle === 'Disponible' 
+            ? '<span class="badge badge-success">Disponible</span>'
+            : d.estado_detalle === 'Agotado'
+            ? '<span class="badge badge-danger">Agotado</span>'
+            : '<span class="badge badge-secondary">Cancelado</span>';
+          
+          tbody.append(`
+            <tr>
+              <td>${d.des_dia}</td>
+              <td>${d.des_turno}</td>
+              <td>${d.hora_inicio}</td>
+              <td>${d.hora_fin}</td>
+              <td><strong>${d.cupos_disponibles}</strong></td>
+              <td>${d.cupos_maximos}</td>
+              <td>${estadoBadge}</td>
+              <td>
+                <button class="btn btn-danger btn-sm" name="btn_eliminar_detalle" 
+                        data-id="${d.id_agenda_detalle}" title="Eliminar">
+                  <i class="fas fa-trash-alt"></i>
+                </button>
+              </td>
+            </tr>
+          `);
+        });
+      }
+    }
+  });
+};
+
+// ========================================
+// FUNCIÓN: Agregar horarios (disponibilidades)
+// ========================================
+const agregarHorarios = () => {
+  $('#btnAgregarHorarios').on('click', () => {
+    if (!cabeceraActual) {
+      Swal.fire('Error', 'No hay cabecera seleccionada', 'error');
+      return;
+    }
+
+    $('#id_cabecera_actual').val(cabeceraActual.id_agenda_cabecera);
+    
+    // Obtener disponibilidades del médico en esa fecha
+    fetch(`/api/v1/disponibilidades/medico-fecha?id_medico=${cabeceraActual.id_medico}&fecha=${cabeceraActual.fecha_agenda}`)
+    .then(resp => resp.json())
+    .then(data => {
+      if (data.success && data.data.length > 0) {
+        mostrarDisponibilidades(data.data);
+        $('#modalDisponibilidades').modal('show');
+      } else {
+        Swal.fire('Aviso', 'No hay disponibilidades configuradas para este médico en esta fecha', 'info');
+      }
+    });
+  });
+};
+
+// ========================================
+// FUNCIÓN: Mostrar lista de disponibilidades
+// ========================================
+const mostrarDisponibilidades = (disponibilidades) => {
+  const container = $('#listaDisponibilidades');
+  container.empty();
+  
+  disponibilidades.forEach(d => {
+    container.append(`
+      <div class="disponibilidad-item">
+        <div class="custom-control custom-checkbox">
+          <input type="checkbox" class="custom-control-input check-disponibilidad" 
+                 id="disp_${d.id_disponibilidad}" 
+                 value="${d.id_disponibilidad}">
+          <label class="custom-control-label" for="disp_${d.id_disponibilidad}">
+            <strong>${d.dispo_hora_inicio} - ${d.dispo_hora_fin}</strong> 
+            <span class="badge badge-info ml-2">${d.des_turno}</span>
+            <span class="badge badge-secondary ml-2">${d.dispo_cupos} cupos</span>
+          </label>
+        </div>
+      </div>
+    `);
+  });
+};
+
+// ========================================
+// FUNCIÓN: Guardar disponibilidades seleccionadas
+// ========================================
+const guardarDisponibilidades = () => {
+  $('#btnGuardarDisponibilidades').on('click', () => {
+    const id_cabecera = $('#id_cabecera_actual').val();
+    
+    // Obtener IDs de checkboxes marcados
+    const idsSeleccionados = [];
+    $('.check-disponibilidad:checked').each(function() {
+      idsSeleccionados.push(parseInt($(this).val()));
+    });
+
+    if (idsSeleccionados.length === 0) {
+      Swal.fire('Aviso', 'Debe seleccionar al menos un horario', 'warning');
+      return;
+    }
+
+    // Enviar al API
+    fetch(`/api/v1/agenda/cabeceras/${id_cabecera}/detalles`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids_disponibilidades: idsSeleccionados })
+    })
+    .then(resp => resp.json())
+    .then(data => {
+      if (data.success) {
+        $('#modalDisponibilidades').modal('hide');
+        cargarDetalles(id_cabecera); // Recargar tabla de detalles
+        Swal.fire('Éxito', `Se agregaron ${data.data.cantidad} horarios`, 'success');
+      } else {
+        Swal.fire('Error', data.error, 'error');
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      Swal.fire('Error', 'Ocurrió un error al guardar', 'error');
+    });
+  });
+};
+
+// ========================================
+// FUNCIÓN: Eliminar un detalle
+// ========================================
+const eliminarDetalle = () => {
+  $('#tblDetalles').on('click', 'button[name="btn_eliminar_detalle"]', function() {
+    const id = $(this).data('id');
+    
+    Swal.fire({
+      title: '¿Eliminar este horario?',
+      text: 'Esta acción no se puede deshacer',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        fetch(`/api/v1/agenda/detalles/${id}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' }
+        })
+        .then(resp => resp.json())
+        .then(data => {
+          if (data.success) {
+            cargarDetalles(cabeceraActual.id_agenda_cabecera);
+            Swal.fire('Eliminado', 'Horario eliminado correctamente', 'success');
+          } else {
+            Swal.fire('Error', data.error, 'error');
+          }
+        });
+      }
+    });
+  });
+};
+
+// ========================================
+// EVENTOS: Abrir modales de búsqueda
+// ========================================
+const abrirModalesBusqueda = () => {
+  $('#btnBuscarMedico').on('click', () => {
+    $('#modalBuscarMedico').modal('show');
+  });
+
+  $('#btnBuscarEspecialidad').on('click', () => {
+    $('#modalBuscarEspecialidad').modal('show');
+  });
+
+  // También permitir click en el input
+  $('#txtMedico').on('click', () => {
+    $('#modalBuscarMedico').modal('show');
+  });
+
+  $('#txtEspecialidad').on('click', () => {
+    $('#modalBuscarEspecialidad').modal('show');
+  });
+};
+
+// ========================================
+// EFECTO: Resaltar disponibilidad al marcar
+// ========================================
+$(document).on('change', '.check-disponibilidad', function() {
+  const item = $(this).closest('.disponibilidad-item');
+  if ($(this).is(':checked')) {
+    item.addClass('selected');
+  } else {
+    item.removeClass('selected');
+  }
+});
+
+// ========================================
+// INICIALIZACIÓN AL CARGAR LA PÁGINA
+// ========================================
+$(function() {
+  // Inicializar DataTables
+  initDatatableCabeceras();
+  initDatatableMedicos();
+  initDatatableEspecialidades();
+
+  // Registrar eventos
+  agregar();
+  guardarCabecera();
+  editar();
+  eliminar();
+  verDetalles();
+  agregarHorarios();
+  guardarDisponibilidades();
+  eliminarDetalle();
+  abrirModalesBusqueda();
+
+  console.log('✅ Sistema de Agenda Médica inicializado correctamente');
+});
+
+</script>
+{% endblock %}

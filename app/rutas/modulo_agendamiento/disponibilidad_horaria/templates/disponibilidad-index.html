@@ -1,0 +1,569 @@
+{% extends 'base.html' %}
+
+{% block titulo %}
+Disponibilidad Horaria
+{% endblock %}
+
+{% block contenido %}
+<div class="container mt-10">
+  <h3>Listar Disponibilidades</h3>
+
+  <!-- Tarjeta -->
+  <div class="card">
+    <div class="card-header">
+      <button type="button" class="btn btn-outline-primary" id="btnAgregar">Agregar</button>
+    </div>
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-striped" id="tbl">
+          <thead>
+            <tr>
+              <th>Médico</th>
+              <th>Día</th>
+              <th>Turno</th>
+              <th>Hora Inicio</th>
+              <th>Hora Fin</th>
+              <th>Fecha</th>
+              <th>Cupos</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <!-- /Tarjeta -->
+
+  <!-- Modal formulario -->
+  <div class="modal" id="modalFormulario">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content">
+        <!-- Modal Header -->
+        <div class="modal-header">
+          <h4 class="modal-title" id="modalTitle"></h4>
+          <button type="button" class="close" data-dismiss="modal">&times;</button>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+          <input type="hidden" id="id_disponibilidad">
+          <input type="hidden" id="id_medico">
+          <input type="hidden" id="id_dia">
+          <input type="hidden" id="id_turno">
+
+          <div class="container-fluid">
+            <div class="row">
+              <div class="col-md-6 col-lg-4">
+                <div class="form-group">
+                  <label for="txtMedico">Médico:</label>
+                  <input type="text" class="form-control" placeholder="Seleccione el médico" id="txtMedico" readonly>
+                </div>
+              </div>
+              <div class="col-md-6 col-lg-4">
+                <div class="form-group">
+                  <label for="txtDia">Día:</label>
+                  <input type="text" class="form-control" placeholder="Seleccione el día" id="txtDia" readonly>
+                </div>
+              </div>
+              <div class="col-md-6 col-lg-4">
+                <div class="form-group">
+                  <label for="txtTurno">Turno:</label>
+                  <input type="text" class="form-control" placeholder="Seleccione el turno" id="txtTurno" readonly>
+                </div>
+              </div>
+              <div class="col-md-6 col-lg-4">
+                <div class="form-group">
+                  <label for="dispo_hora_inicio">Hora de inicio:</label>
+                  <input type="time" class="form-control" id="dispo_hora_inicio">
+                </div>
+              </div>
+              <div class="col-md-6 col-lg-4">
+                <div class="form-group">
+                  <label for="dispo_hora_fin">Hora de fin:</label>
+                  <input type="time" class="form-control" id="dispo_hora_fin">
+                </div>
+              </div>
+              <div class="col-md-6 col-lg-4">
+                <div class="form-group">
+                  <label for="dispo_fecha">Fecha:</label>
+                  <input type="date" class="form-control" id="dispo_fecha">
+                </div>
+              </div>
+              <div class="col-md-6 col-lg-4">
+                <div class="form-group">
+                  <label for="dispo_cupos">Cupos:</label>
+                  <input type="number" class="form-control" id="dispo_cupos" placeholder="Ingrese la cantidad de cupos" min="0">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary" id="btnGuardar">Guardar</button>
+          <button type="button" class="btn btn-danger" data-dismiss="modal">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal para seleccionar médico -->
+  <div class="modal fade" id="modalBuscarMedico" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h4 class="modal-title">Seleccionar Médico</h4>
+          <button type="button" class="close" data-dismiss="modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="table-responsive">
+            <table class="table table-striped table-bordered w-100" id="tblMedico">
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>Apellido</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Buscar Día -->
+  <div class="modal" id="modalBuscarDia">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h4 class="modal-title" id="modalDiaTitle">Seleccionar Día</h4>
+          <button type="button" class="close" data-dismiss="modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="table-responsive">
+            <table class="table table-striped table-bordered w-100" id="tblDia">
+              <thead>
+                <tr>
+                  <th>Días laborales</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Buscar Turno -->
+  <div class="modal" id="modalBuscarTurno">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h4 class="modal-title" id="modalTurnoTitle">Seleccionar Turno</h4>
+          <button type="button" class="close" data-dismiss="modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="table-responsive">
+            <table class="table table-striped table-bordered w-100" id="tblTurno">
+              <thead>
+                <tr>
+                  <th>Turno</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+    <!-- Alert -->
+  <div class="row mt-4 d-none" id="rowAlerta">
+    <div class="col col-md-12">
+      <div class="alert alert-success">
+        <strong>Registro Exitoso!</strong>
+        <div class="row" id="mostrarAlerta"></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script>
+// 🔹 Inicializar tabla principal de disponibilidades
+const initDatatable = () => {
+  $('#tbl').DataTable({
+    language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
+    ajax: {
+      url: '/api/v1/disponibilidades',
+      dataSrc: 'data'
+    },
+    columns: [
+      { data: 'medico_nombre' },
+      { data: 'des_dia' },
+      { data: 'des_turno' },
+      { data: 'dispo_hora_inicio' },
+      { data: 'dispo_hora_fin' },
+      { data: 'dispo_fecha' },
+      { data: 'dispo_cupos' },
+      { 
+        data: null,
+        render: function (data, type, row) {
+          return `
+            <button type="button" class="btn btn-info btn-sm btn-editar" data-id="${row.id_disponibilidad}">
+              <i class="fas fa-edit"></i>
+            </button>
+            <button type="button" class="btn btn-danger btn-sm btn-eliminar" data-id="${row.id_disponibilidad}">
+              <i class="fas fa-trash-alt"></i>
+            </button>`;
+        }
+      }
+    ]
+  });
+};
+
+/* ======================
+   Tabla de selección de médico
+   ====================== */
+const initDatatableMedico = () => {
+  $('#tblMedico').DataTable({
+    language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
+    ajax: {
+      url: '/api/v1/medico',
+      dataSrc: 'data'
+    },
+    columns: [
+      { data: 'nombre' },
+      { data: 'apellido' },
+      {
+        data: function (row) {
+          return `<button type="button" name="btn_seleccionar_Medico" class="btn btn-primary" 
+                  data-id="${row.id_medico}" data-nombre="${row.nombre}" data-apellido="${row.apellido}">
+                  Seleccionar</button>`;
+        }
+      }
+    ]
+  });
+
+  $('#tblMedico').on('click', 'button[name="btn_seleccionar_Medico"]', function () {
+    const idMedico = $(this).data('id');
+    const nombre = $(this).data('nombre');
+    const apellido = $(this).data('apellido');
+    $('#txtMedico').val(`${nombre} ${apellido}`);
+    $('#id_medico').val(idMedico);
+    $('#modalBuscarMedico').modal('hide');
+  });
+};
+
+const buscarMedico = () => {
+  $('#txtMedico').on('click', function () {
+    $('#modalMedicoTitle').text("Seleccionar Médico");
+    $('#modalBuscarMedico').modal('show');
+  });
+};
+
+/* ======================
+   Tabla de selección de día
+   ====================== */
+const initDatatableDia = () => {
+  $('#tblDia').DataTable({
+    language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
+    ajax: {
+      url: '/api/v1/dias',
+      dataSrc: 'data'
+    },
+    columns: [
+      { data: 'descripcion' },
+      {
+        data: function (row) {
+          return `<button type="button" name="btn_seleccionar_Dia" class="btn btn-primary"
+                  data-id="${row.id_dia}" data-nombre="${row.descripcion}">Seleccionar</button>`;
+        }
+      }
+    ]
+  });
+
+  $('#tblDia').on('click', 'button[name="btn_seleccionar_Dia"]', function () {
+    const idDia = $(this).data('id');
+    const nombreDia = $(this).data('nombre');
+    $('#txtDia').val(nombreDia);
+    $('#id_dia').val(idDia);
+    $('#modalBuscarDia').modal('hide');
+  });
+};
+
+const buscarDia = () => {
+  $('#txtDia').on('click', function () {
+    $('#modalDiaTitle').text("Seleccionar Día");
+    $('#modalBuscarDia').modal('show');
+  });
+};
+
+/* ======================
+   Tabla de selección de turno
+   ====================== */
+const initDatatableTurno = () => {
+  $('#tblTurno').DataTable({
+    language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
+    ajax: {
+      url: '/api/v1/turnos',
+      dataSrc: 'data'
+    },
+    columns: [
+      { data: 'descripcion' },
+      {
+        data: function (row) {
+          return `<button type="button" name="btn_seleccionar_Turno" class="btn btn-primary"
+                  data-id="${row.id_turno}" data-nombre="${row.descripcion}">Seleccionar</button>`;
+        }
+      }
+    ]
+  });
+
+  $('#tblTurno').on('click', 'button[name="btn_seleccionar_Turno"]', function () {
+    const idTurno = $(this).data('id');
+    const nombreTurno = $(this).data('nombre');
+    $('#txtTurno').val(nombreTurno);
+    $('#id_turno').val(idTurno);
+    $('#modalBuscarTurno').modal('hide');
+  });
+};
+
+const buscarTurno = () => {
+  $('#txtTurno').on('click', function () {
+    $('#modalTurnoTitle').text("Seleccionar Turno");
+    $('#modalBuscarTurno').modal('show');
+  });
+};
+
+/* ======================
+   CRUD Functions
+   ====================== */
+const agregar = () => {
+  $('#btnAgregar').on('click', function() {
+    $('#modalTitle').text("Agregar Disponibilidad Horaria");
+    $('#id_disponibilidad').val("");
+    $('#id_medico').val("");
+    $('#id_dia').val("");
+    $('#id_turno').val("");
+    $('#txtMedico').val("");
+    $('#txtDia').val("");
+    $('#txtTurno').val("");
+    $('#dispo_hora_inicio').val("");
+    $('#dispo_hora_fin').val("");
+    $('#dispo_fecha').val("");
+    $('#dispo_cupos').val("");
+    $('#modalFormulario').modal('show');
+  });
+};
+
+const guardar = () => {
+  $('#btnGuardar').on('click', function() {
+    const id_disponibilidad = Number($('#id_disponibilidad').val()) || 0;
+    const id_medico = $('#id_medico').val();
+    const id_dia = $('#id_dia').val();
+    const id_turno = $('#id_turno').val();
+    const dispo_hora_inicio = $('#dispo_hora_inicio').val();
+    const dispo_hora_fin = $('#dispo_hora_fin').val();
+    const dispo_fecha = $('#dispo_fecha').val();
+    const dispo_cupos = $('#dispo_cupos').val();
+    const tabla = $('#tbl').DataTable();
+
+    // Validaciones
+    if (!id_medico || id_medico === '') {
+      Swal.fire("Error", "Debe seleccionar un médico.", "error");
+      return;
+    }
+    if (!id_dia || id_dia === '') {
+      Swal.fire("Error", "Debe seleccionar un día.", "error");
+      return;
+    }
+    if (!id_turno || id_turno === '') {
+      Swal.fire("Error", "Debe seleccionar un turno.", "error");
+      return;
+    }
+    if (!dispo_hora_inicio || !dispo_hora_fin || !dispo_fecha || !dispo_cupos) {
+      Swal.fire("Error", "Todos los campos son obligatorios.", "error");
+      return;
+    }
+    if (dispo_hora_inicio >= dispo_hora_fin) {
+      Swal.fire("Error", "La hora de inicio debe ser menor que la hora de fin.", "error");
+      return;
+    }
+
+    const data = {
+      id_medico: parseInt(id_medico),
+      id_dia: parseInt(id_dia),
+      id_turno: parseInt(id_turno),
+      dispo_hora_inicio,
+      dispo_hora_fin,
+      dispo_fecha,
+      dispo_cupos: parseInt(dispo_cupos)
+    };
+
+    if (id_disponibilidad > 0) {
+      // Editar
+      fetch(`/api/v1/disponibilidades/${id_disponibilidad}`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json', 
+        },
+        body: JSON.stringify(data)
+      })
+      .then(resp => resp.json())
+      .then(result => {
+        if (result && result.success) {
+          tabla.ajax.reload(null, false);
+          Swal.fire("Actualizado", "La disponibilidad ha sido actualizada correctamente.", "success")
+            .then(() => { $('#modalFormulario').modal("hide"); });
+        } else {
+          Swal.fire("Error", result.error || "Error al actualizar.", "error");
+        }
+      })
+      .catch((error) => {
+        console.error('Error al actualizar:', error);
+        Swal.fire("Error", "Ocurrió un error al actualizar.", "error");
+      });
+    } else {
+      // Agregar
+      fetch(`/api/v1/disponibilidades`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+      })
+      .then(resp => resp.json())
+      .then(result => {
+        if (result && result.success) {
+          tabla.ajax.reload(null, false);
+          Swal.fire("Registrado", "La disponibilidad ha sido registrada correctamente.", "success")
+            .then(() => { $('#modalFormulario').modal("hide"); });
+        } else {
+          Swal.fire("Error", result.error || "Error al guardar.", "error");
+        }
+      })
+      .catch((error) => {
+        console.error('Error al guardar:', error);
+        Swal.fire("Error", "Ocurrió un error al guardar.", "error");
+      });
+    }
+  });
+};
+
+const editar = () => {
+  $('#tbl tbody').on('click', '.btn-editar', function() {
+    const id_disponibilidad = $(this).data('id');
+    
+    console.log('Editando ID:', id_disponibilidad);
+
+    fetch(`/api/v1/disponibilidades/${id_disponibilidad}`, { 
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' }
+    })
+      .then(resp => resp.json())
+      .then(result => {
+        console.log('Respuesta del servidor:', result);
+        if (result && result.success) {
+          const d = result.data;
+          $('#id_disponibilidad').val(d.id_disponibilidad);
+          $('#id_medico').val(d.id_medico);
+          $('#txtMedico').val(d.medico_nombre);
+          $('#id_dia').val(d.id_dia);
+          $('#txtDia').val(d.des_dia);
+          $('#id_turno').val(d.id_turno);
+          $('#txtTurno').val(d.des_turno);
+          $('#dispo_hora_inicio').val(d.dispo_hora_inicio);
+          $('#dispo_hora_fin').val(d.dispo_hora_fin);
+          $('#dispo_fecha').val(d.dispo_fecha);
+          $('#dispo_cupos').val(d.dispo_cupos);
+          $('#modalTitle').text("Editar Disponibilidad");
+          $('#modalFormulario').modal('show');
+        } else {
+          Swal.fire("Error", result.error || "No se pudo cargar la disponibilidad.", "error");
+        }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        Swal.fire("Error", "Ocurrió un error al obtener los datos.", "error");
+      });
+  });
+};
+
+const eliminar = () => {
+  $('#tbl tbody').on('click', '.btn-eliminar', function() {
+    const id_disponibilidad = $(this).data('id');
+    const tabla = $('#tbl').DataTable();
+    
+    console.log('Eliminando ID:', id_disponibilidad);
+
+    Swal.fire({
+      title: "¿Deseas eliminar esta disponibilidad?",
+      text: "Esta acción no se puede deshacer",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: "Sí, eliminar",
+      cancelButtonText: "Cancelar"
+    }).then((result) => {
+      if (result.isConfirmed) {
+        fetch(`/api/v1/disponibilidades/${id_disponibilidad}`, {
+          method: 'DELETE',
+          headers: { 
+            'Content-Type': 'application/json', 
+          }
+        })
+        .then(resp => resp.json())
+        .then(result => {
+          console.log('Respuesta eliminar:', result);
+          if (result && result.success) {
+            tabla.ajax.reload(null, false);
+            Swal.fire("Eliminado", "Disponibilidad eliminada correctamente.", "success");
+          } else {
+            Swal.fire("Error", result.error || "Error al eliminar.", "error");
+          }
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          Swal.fire("Error", "Ocurrió un error al eliminar.", "error");
+        });
+      }
+    });
+  });
+};
+
+/* ======================
+   Inicializar eventos
+   ====================== */
+const addEvents = () => {
+  agregar();
+  guardar();
+  editar();
+  eliminar();
+  buscarMedico();
+  buscarDia();
+  buscarTurno();
+};
+
+// Inicializar todo cuando el DOM esté listo
+$(function() {
+  initDatatable();
+  initDatatableMedico();
+  initDatatableDia();
+  initDatatableTurno();
+  addEvents();
+});
+</script>
+{% endblock %}
