@@ -882,7 +882,6 @@ function enviarOdontograma(id_odontograma, id_paciente, id_medico, detalles) {
     method: method,
     headers: {
       'Content-Type': 'application/json',
-      'X-CSRFToken': CSRFToken
     },
     body: JSON.stringify(payload)
   })
@@ -1153,7 +1152,6 @@ function eliminar() {
           method: 'DELETE',
           headers: {
             'Content-Type': 'application/json',
-            'X-CSRFToken': CSRFToken
           }
         })
         .then(resp => resp.json())

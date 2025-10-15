@@ -15,8 +15,8 @@ def obtener_id_funcionario_actual():
     TODO: Implementar según tu sistema de autenticación
     Por ahora retorna 1 como valor por defecto
     """
-    # Ejemplo: return session.get('id_funcionario', 1)
-    return 1  # Cambiar por tu lógica de sesión
+    # Ejemplo: return session.get('id_funcionario', 2)
+    return 2  # Cambiar por tu lógica de sesión
 
 # ========================================
 # API - ESTADOS DENTALES

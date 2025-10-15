@@ -12,7 +12,6 @@ from app.rutas.referenciales.estado_cita.estado_cita_routes import estacitmod  #
 from app.rutas.referenciales.especialidad.especialidad_routes import especimod  #especialidad
 from app.rutas.referenciales.dia.dia_routes import diamod  #dia
 from app.rutas.referenciales.turno.turno_routes import turmod  #turno
-from app.rutas.referenciales.consultorio.consultorio_routes import consulmod
 from app.rutas.referenciales.avisosRecordatorios.AvisosRecordatorios_routes import avisomod
 from app.rutas.modulo_agendamiento.disponibilidad_horaria.disponibilidad_routes import disponibilidadmod
 from app.rutas.referenciales.cargo.cargo_routes import cargomod #cargo
@@ -25,6 +24,7 @@ from app.rutas.modulo_agendamiento.agenda.agenda_routes import agenda_bp
 from app.rutas.modulo_agendamiento.paciente.paciente_routes import pacientemod
 from app.rutas.modulo_agendamiento.cita.cita_routes import citamod
 from app.rutas.modulo_agendamiento.odontograma.odontograma_routes import odontogramamod
+from app.rutas.modulo_agendamiento.historial.historial_routes import historialmod
 
 
 # registrar referenciales
@@ -37,7 +37,6 @@ app.register_blueprint(estacitmod, url_prefix=f'{modulo0}/estadocita')  #estado 
 app.register_blueprint(especimod, url_prefix=f'{modulo0}/especialidad') #especialidad
 app.register_blueprint(diamod, url_prefix=f'{modulo0}/dia') #dia
 app.register_blueprint(turmod, url_prefix=f'{modulo0}/turno') #turno
-app.register_blueprint(consulmod, url_prefix=f'{modulo0}/consultorio')
 app.register_blueprint(avisomod, url_prefix=f'{modulo0}/avisos')
 app.register_blueprint(disponibilidadmod, url_prefix=f'{modulo0}/disponibilidad')
 app.register_blueprint(cargomod, url_prefix=f'{modulo0}/cargo') #cargo
@@ -50,6 +49,7 @@ app.register_blueprint(agenda_bp, url_prefix=f'{modulo0}/agenda')
 app.register_blueprint(pacientemod, url_prefix=f'{modulo0}/paciente')
 app.register_blueprint(citamod, url_prefix=f'{modulo0}/cita')
 app.register_blueprint(odontogramamod, url_prefix=f'{modulo0}/odontograma')
+app.register_blueprint(historialmod, url_prefix=f'{modulo0}/historial')
 
 
 
@@ -66,8 +66,6 @@ from app.rutas.referenciales.dia.dia_api import diaapi
 #turno
 from app.rutas.referenciales.turno.turno_api import turnoapi
 
-from app.rutas.referenciales.consultorio.consultorio_api import consultorioapi
-
 from app.rutas.referenciales.avisosRecordatorios.AvisosRecordatorios_api import avisoapi
 
 from app.rutas.modulo_agendamiento.disponibilidad_horaria.disponibilidad_api import disponibilidadapi
@@ -82,6 +80,7 @@ from app.rutas.modulo_agendamiento.agenda.agenda_api import agendaapi
 from app.rutas.modulo_agendamiento.paciente.paciente_api import pacienteapi
 from app.rutas.modulo_agendamiento.cita.cita_api import citaapi
 from app.rutas.modulo_agendamiento.odontograma.odontograma_api import odontogramaapi
+from app.rutas.modulo_agendamiento.historial.historial_api import historialapi
 
 # APIS v1
 #Ciudad
@@ -103,8 +102,6 @@ app.register_blueprint(diaapi, url_prefix=version1)
 version1 = '/api/v1'
 app.register_blueprint(turnoapi, url_prefix=version1)
 
-version1 = '/api/v1'
-app.register_blueprint(consultorioapi, url_prefix=version1)
 
 version1 = '/api/v1'
 app.register_blueprint(avisoapi, url_prefix=version1)
@@ -133,6 +130,8 @@ app.register_blueprint(citaapi, url_prefix=version1)
 
 version1 = '/api/v1'
 app.register_blueprint(odontogramaapi, url_prefix=version1)
+
+app.register_blueprint(historialapi, url_prefix=version1)
 
 
 
