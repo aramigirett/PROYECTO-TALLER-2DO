@@ -12,7 +12,6 @@ from app.rutas.referenciales.estado_cita.estado_cita_routes import estacitmod  #
 from app.rutas.referenciales.especialidad.especialidad_routes import especimod  #especialidad
 from app.rutas.referenciales.dia.dia_routes import diamod  #dia
 from app.rutas.referenciales.turno.turno_routes import turmod  #turno
-from app.rutas.referenciales.avisosRecordatorios.AvisosRecordatorios_routes import avisomod
 from app.rutas.modulo_agendamiento.disponibilidad_horaria.disponibilidad_routes import disponibilidadmod
 from app.rutas.referenciales.cargo.cargo_routes import cargomod #cargo
 
@@ -25,6 +24,13 @@ from app.rutas.modulo_agendamiento.paciente.paciente_routes import pacientemod
 from app.rutas.modulo_agendamiento.cita.cita_routes import citamod
 from app.rutas.modulo_agendamiento.odontograma.odontograma_routes import odontogramamod
 from app.rutas.modulo_agendamiento.historial.historial_routes import historialmod
+from app.rutas.modulo_agendamiento.avisosRecordatorios.avisos_routes import avisos_bp
+
+#Consultorio TODOO
+from app.rutas.modulo_agendamiento.consultorio.consultorio_routes import consulmod
+from app.rutas.modulo_consultorio.tipo_diagnostico.tipo_diagnostico_routes import diagnosticomod
+from app.rutas.modulo_consultorio.sintoma.sintoma_routes import sintomod
+
 
 
 # registrar referenciales
@@ -37,7 +43,6 @@ app.register_blueprint(estacitmod, url_prefix=f'{modulo0}/estadocita')  #estado 
 app.register_blueprint(especimod, url_prefix=f'{modulo0}/especialidad') #especialidad
 app.register_blueprint(diamod, url_prefix=f'{modulo0}/dia') #dia
 app.register_blueprint(turmod, url_prefix=f'{modulo0}/turno') #turno
-app.register_blueprint(avisomod, url_prefix=f'{modulo0}/avisos')
 app.register_blueprint(disponibilidadmod, url_prefix=f'{modulo0}/disponibilidad')
 app.register_blueprint(cargomod, url_prefix=f'{modulo0}/cargo') #cargo
 
@@ -50,7 +55,13 @@ app.register_blueprint(pacientemod, url_prefix=f'{modulo0}/paciente')
 app.register_blueprint(citamod, url_prefix=f'{modulo0}/cita')
 app.register_blueprint(odontogramamod, url_prefix=f'{modulo0}/odontograma')
 app.register_blueprint(historialmod, url_prefix=f'{modulo0}/historial')
+app.register_blueprint(avisos_bp, url_prefix=f'{modulo0}/avisos-recordatorios')
+app.register_blueprint(consulmod, url_prefix=f'{modulo0}/consultorio')
 
+
+#Cosnultorio TODOO
+app.register_blueprint(diagnosticomod, url_prefix=f'{modulo0}/diagnostico')
+app.register_blueprint(sintomod, url_prefix=f'{modulo0}/sintoma')
 
 
 #ciudad
@@ -66,8 +77,6 @@ from app.rutas.referenciales.dia.dia_api import diaapi
 #turno
 from app.rutas.referenciales.turno.turno_api import turnoapi
 
-from app.rutas.referenciales.avisosRecordatorios.AvisosRecordatorios_api import avisoapi
-
 from app.rutas.modulo_agendamiento.disponibilidad_horaria.disponibilidad_api import disponibilidadapi
 
 #cargo
@@ -81,6 +90,13 @@ from app.rutas.modulo_agendamiento.paciente.paciente_api import pacienteapi
 from app.rutas.modulo_agendamiento.cita.cita_api import citaapi
 from app.rutas.modulo_agendamiento.odontograma.odontograma_api import odontogramaapi
 from app.rutas.modulo_agendamiento.historial.historial_api import historialapi
+from app.rutas.modulo_agendamiento.avisosRecordatorios.avisos_api import avisoapi
+from app.rutas.modulo_agendamiento.consultorio.consultorio_api import consultorioapi
+
+#Consulrorio TODOOO
+from app.rutas.modulo_consultorio.tipo_diagnostico.tipo_diagnostico_api import diagnosticoapi
+from app.rutas.modulo_consultorio.sintoma.sintoma_api import sintomaapi
+
 
 # APIS v1
 #Ciudad
@@ -103,8 +119,6 @@ version1 = '/api/v1'
 app.register_blueprint(turnoapi, url_prefix=version1)
 
 
-version1 = '/api/v1'
-app.register_blueprint(avisoapi, url_prefix=version1)
 
 version1 = '/api/v1'
 app.register_blueprint(disponibilidadapi, url_prefix=version1)
@@ -133,7 +147,41 @@ app.register_blueprint(odontogramaapi, url_prefix=version1)
 
 app.register_blueprint(historialapi, url_prefix=version1)
 
+app.register_blueprint(avisoapi, url_prefix=version1)
 
+version1 = '/api/v1'
+app.register_blueprint(consultorioapi, url_prefix=version1)
+
+#Consultorio TODOOO
+version1 = '/api/v1'
+app.register_blueprint(diagnosticoapi, url_prefix=version1)
+app.register_blueprint(sintomaapi, url_prefix=version1)
+
+
+##REGISTRAR CONSULTA Y FICHA MEDICA
+# ============================================
+# IMPORTS: MÓDULO CONSULTORIO
+# ============================================
+
+# Routes (Vistas HTML)
+from app.rutas.modulo_consultorio.consulta.consulta_routes import consultamod
+
+# APIs (Endpoints REST)
+from app.rutas.modulo_consultorio.consulta.consulta_api import consultaapi
+from app.rutas.modulo_consultorio.consulta.consulta_detalle_api import consultadetalleapi
+from app.rutas.modulo_consultorio.consulta.ficha_medica_api import fichamedicaapi
+# ============================================
+# MÓDULO CONSULTORIO - ROUTES
+# ============================================
+modulo0 = '/referenciales'
+app.register_blueprint(consultamod, url_prefix=f'{modulo0}/consulta')
+# ============================================
+# MÓDULO CONSULTORIO - APIs
+# ============================================
+version1 = '/api/v1'
+app.register_blueprint(consultaapi, url_prefix=version1)
+app.register_blueprint(consultadetalleapi, url_prefix=version1)
+app.register_blueprint(fichamedicaapi, url_prefix=version1)
 
 
 @app.route('/login')
@@ -142,7 +190,9 @@ def login():
 
 
 
-
 @app.route('/vista')
 def vista():
     return render_template('vista-index.html')
+
+
+

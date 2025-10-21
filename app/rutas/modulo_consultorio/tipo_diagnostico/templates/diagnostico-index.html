@@ -1,0 +1,234 @@
+{% extends 'base.html' %}
+    
+{% block titulo %}
+Diagnósticos
+{% endblock %}
+
+{% block contenido %}
+<div class="container mt-4">
+    <h3>Listar Diagnósticos</h3>
+
+    <!-- tarjeta -->
+    <div class="card">
+      <div class="card-header">
+        <button type="button" class="btn btn-outline-info" id="btnAgregar">Agregar</button>
+      </div>
+      <div class="card-body">
+        <table class="table table-striped" id="tbl">
+          <thead class="table-info">
+            <tr>
+              <th>Diagnóstico</th>
+              <th>Tipo Diagnóstico</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+    <!-- /tarjeta -->
+
+    <!-- Modal formulario -->
+    <div class="modal" id="modalFormulario">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+
+          <div class="modal-header">
+            <h4 class="modal-title" id="modalTitle"></h4>
+            <button type="button" class="close" data-dismiss="modal">&times;</button>
+          </div>
+
+          <div class="modal-body">
+            <input type="hidden" id="txtIdDiagnostico">
+
+            <div class="form-group">
+              <label for="txtDescripcion">Diagnóstico:</label>
+              <textarea type="text" class="form-control" placeholder="Ingrese la descripción del diagnóstico" id="txtDescripcion"></textarea>
+            </div>
+
+            <div class="form-group">
+              <label for="txtTipo">Tipo Diagnóstico:</label>
+              <input type="text" class="form-control" placeholder="Ej: Odontológico, Neurológico, General" id="txtTipo">
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-primary" id="btnGuardar">Guardar</button>
+            <button type="button" class="btn btn-danger" data-dismiss="modal">Cerrar</button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block js %}
+<script>
+
+  const initDatatable = () => {
+    $('#tbl').DataTable({
+      language: {
+        url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}",
+      },
+      ajax:'/api/v1/diagnosticos',
+      columns: [
+        { data: 'descripcion_diagnostico' },
+        { data: 'tipo_diagnostico' },
+        { data: function(row) {
+            return `
+              <button type="button" name="btn_editar" class="btn btn-info" data-id="${row.id_tipo_diagnostico}" title="Editar">
+                <i class="fas fa-edit"></i>
+              </button>
+              <button type="button" name="btn_eliminar" class="btn btn-danger" data-id="${row.id_tipo_diagnostico}" title="Eliminar">
+                <i class="fas fa-trash-alt"></i>
+              </button>`;
+          }
+        }
+      ]
+    });
+  }
+
+  const agregar = () => {
+    $('#btnAgregar').on('click', function(){
+      $('#modalTitle').text("Agregar Diagnóstico");
+      $('#txtIdDiagnostico').val("");
+      $('#txtDescripcion').val("");
+      $('#txtTipo').val("");
+      $('#modalFormulario').modal();
+    });
+  }
+
+  const guardar = () => {
+    $('#btnGuardar').on('click', function() {
+      const id = $('#txtIdDiagnostico').val();
+      const descripcion_diagnostico = $('#txtDescripcion').val();
+      const tipo_diagnostico = $('#txtTipo').val();
+      const tabla = $('#tbl').DataTable();
+
+      const payload = { descripcion_diagnostico, tipo_diagnostico };
+
+      if (id) {
+        // Update
+        fetch(`/api/v1/diagnosticos/${id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        })
+        .then(resp => resp.json())
+        .then(data => {
+          if (data && data.success) {
+            tabla.ajax.reload();
+            Swal.fire("Actualizado", "El diagnóstico ha sido actualizado correctamente.", "success");
+          } else {
+            Swal.fire("Error", data.error || "No se pudo actualizar.");
+          }
+        }).catch(() => {
+          Swal.fire("Error", "Ocurrió un error al actualizar.", "error");
+        });
+      } else {
+        // Insert
+        fetch(`/api/v1/diagnosticos`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        })
+        .then(resp => resp.json())
+        .then(data => {
+          if (data && data.success) {
+            tabla.ajax.reload();
+            Swal.fire("Agregado", "El diagnóstico ha sido agregado correctamente.", "success");
+          } else {
+            Swal.fire("Error", data.error || "No se pudo guardar.");
+          }
+        }).catch(() => {
+          Swal.fire("Error", "Ocurrió un error al guardar.", "error");
+        });
+      }
+
+      $('#modalFormulario').modal("hide");
+    });
+  }
+
+  const editar = () => {
+    $('#tbl').on('click', 'button[name="btn_editar"]', function() {
+      const id = $(this).data('id');
+      Swal.fire({
+        title: "¿Deseas editar este registro?",
+        showCancelButton: true,
+        confirmButtonText: "Sí",
+        cancelButtonText: `No`
+      }).then((result) => {
+        if (result.isConfirmed) {
+          fetch(`/api/v1/diagnosticos/${id}`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' }
+          })
+          .then(resp => resp.json())
+          .then(data => {
+            if (data.success) {
+              $('#modalTitle').text("Editar Diagnóstico");
+              $('#txtIdDiagnostico').val(data.data.id_tipo_diagnostico);
+              $('#txtDescripcion').val(data.data.descripcion_diagnostico);
+              $('#txtTipo').val(data.data.tipo_diagnostico);
+              $('#modalFormulario').modal();
+            } else {
+              Swal.fire("Error", data.error, "error");
+            }
+          });
+        }
+      });
+    });
+  };
+
+  const eliminar = () => {
+    $('#tbl').on('click', 'button[name="btn_eliminar"]', function(){
+      const id = $(this).data('id');
+      Swal.fire({
+        title: "¿Deseas eliminar este registro?",
+        showCancelButton: true,
+        confirmButtonText: "Sí",
+        cancelButtonText: `No`
+      }).then((result) => {
+        if (result.isConfirmed) {
+          fetch(`/api/v1/diagnosticos/${id}`, {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          })
+          .then(resp => resp.json())
+          .then(data => {
+            if (data && data.success) {
+              const tabla = $('#tbl').DataTable();
+              tabla.ajax.reload();
+              Swal.fire("Eliminado", "", "success");
+            } else {
+              Swal.fire("Error", data.error || "No se pudo eliminar.");
+            }
+          }).catch(() => {
+            Swal.fire("Error", "Ocurrió un error al eliminar.", "error");
+          });
+        }
+      });
+    });
+  }
+
+  const addEvents = () => {
+    agregar();
+    guardar();
+    editar();
+    eliminar();
+  }
+
+  $(function() {
+    initDatatable();
+    addEvents();
+  });
+</script>
+{% endblock %}

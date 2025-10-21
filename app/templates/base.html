@@ -88,6 +88,23 @@
             <a class="collapse-item" href="{{ url_for('disponibilidad.disponibilidadIndex') }}">Disponibilidad Horaria</a>
             <a class="collapse-item" href="{{ url_for('odontograma.odontogramaIndex') }}">Registrar Odontograma</a>
             <a class="collapse-item" href="{{ url_for('historial.historialIndex') }}">📋 Historial Médico</a>
+            <a class="collapse-item" href="{{ url_for('consultorio.consultorioIndex') }}">Consultorio</a>
+        </div>
+    </div>
+</li>
+
+<!-- Nav Item - Referenciales Consultorio -->
+<li class="nav-item">
+    <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseRefConsultorio"
+        aria-expanded="true" aria-controls="collapseRefConsultorio">
+        <i class="far fa-file"></i>
+        <span>Referenciales Consultorio</span>
+    </a>
+    <div id="collapseRefConsultorio" class="collapse" aria-labelledby="headingRefConsultorio" data-parent="#accordionSidebar">
+        <div class="bg-white py-2 collapse-inner rounded">
+            <a class="collapse-item" href="{{ url_for('diagnostico.diagnosticoIndex') }}">Tipo diagnóstico</a>
+            <a class="collapse-item" href="{{ url_for('consulta.consultaIndex') }}">Registrar Consulta</a>
+            <a class="collapse-item" href="{{ url_for('sintoma.sintomaIndex') }}">Síntomas</a>
         </div>
     </div>
 </li>
@@ -102,7 +119,7 @@
         <div class="bg-white py-2 collapse-inner rounded">
             <a class="collapse-item" href="{{ url_for('agenda_bp.index') }}">Registrar Agenda</a>
             <a class="collapse-item" href="{{ url_for('cita.citaIndex') }}">Registrar Citas</a>
-            <a class="collapse-item" href="{{ url_for('avisosrecordatorios.avisosrecordatorios_index') }}">Registrar Avisos</a>
+            <a class="collapse-item" href="{{ url_for('avisos_bp.avisos_recordatorios') }}">Registrar Avisos</a>
         </div>
     </div>
 </li>
@@ -396,7 +413,7 @@
      <script src="{{ url_for('static', filename='vendor/datatables/dataTables.bootstrap4.min.js') }}"></script>
 
      <!-- Libreria para mensajes emergentes -->
-     <script src="{{ url_for('static', filename='vendor/sweetalert/sweetalert2@11.js') }}"></script>
+     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     {# Este bloque pertenece a nuestros scripts de js #}
     {% block js %}
@@ -405,5 +422,4 @@
     
 
 </body>
-
 </html>

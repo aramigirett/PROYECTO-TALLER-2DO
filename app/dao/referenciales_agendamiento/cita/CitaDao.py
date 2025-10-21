@@ -692,3 +692,73 @@ class CitaDao:
         finally:
             cur.close()
             con.close()
+
+    def obtenerCitasPacienteConfirmadas(self, id_paciente):
+        """Obtiene citas confirmadas del paciente"""
+        sql = """
+        SELECT DISTINCT
+            cc.id_cita_cabecera,
+            cd.id_cita_detalle,
+            cd.fecha_cita,
+            cd.hora_cita,
+            COALESCE(m.nombre || ' ' || m.apellido, 'Sin médico') AS medico,
+            COALESCE(e.nombre_especialidad, 'Sin especialidad') AS especialidad,
+            'Sin consultorio' AS consultorio,
+            NULL AS codigo,
+            ec.descripcion AS estado_cita,
+            cd.motivo_consulta,
+            cd.id_estado_cita,
+            ac.id_medico
+        FROM cita_detalle cd
+        INNER JOIN cita_cabecera cc ON cd.id_cita_cabecera = cc.id_cita_cabecera
+        INNER JOIN estado_cita ec ON cd.id_estado_cita = ec.id_estado_cita
+        INNER JOIN agenda_cabecera ac ON cc.id_agenda_cabecera = ac.id_agenda_cabecera
+        LEFT JOIN medico m ON ac.id_medico = m.id_medico
+        LEFT JOIN especialidades e ON ac.id_especialidad = e.id_especialidad
+        WHERE cc.id_paciente = %s
+        ORDER BY cd.fecha_cita DESC
+        LIMIT 10;
+        """
+        conexion = Conexion()
+        con = conexion.getConexion()
+        cur = con.cursor()
+        try:
+            app.logger.info(f"🔍 Buscando citas para paciente ID: {id_paciente}")
+            cur.execute(sql, (id_paciente,))
+            rows = cur.fetchall()
+        
+            app.logger.info(f"📊 Registros encontrados: {len(rows)}")
+        
+            if not rows:
+                return []
+        
+            citas = []
+            for row in rows:
+                hora_str = str(row[3])[:5] if row[3] else "00:00"
+                fecha_str = str(row[2]) if row[2] else ""
+            
+                cita = {
+                    'id_cita_cabecera': row[0],
+                    'id_cita_detalle': row[1],
+                    'fecha_cita': fecha_str,
+                    'hora_cita': hora_str,
+                    'medico': row[4],
+                    'especialidad': row[5],
+                    'consultorio': row[6],
+                    'codigo': row[7],
+                    'estado_cita': row[8],
+                    'motivo_consulta': row[9],
+                    'id_estado_cita': row[10],
+                    'id_medico': row[11]
+                }
+                citas.append(cita)
+                app.logger.info(f"✅ Cita: {fecha_str} {hora_str}")
+    
+            return citas
+    
+        except Exception as e:
+            app.logger.error(f"❌ Error: {str(e)}")
+            return []
+        finally:
+            cur.close()
+            con.close()

@@ -10,22 +10,14 @@ citaapi = Blueprint('citaapi', __name__)
 # ========================================
 
 def serialize_time(obj):
-    """
-    Convierte objetos time de Python en string formato HH:MM:SS
-    Necesario para serializar a JSON
-    """
+    """Convierte objetos time de Python en string formato HH:MM:SS"""
     if isinstance(obj, time):
         return obj.strftime('%H:%M:%S')
     return obj
 
 def obtener_id_funcionario_actual():
-    """
-    Obtiene el ID del funcionario logueado desde la sesión
-    TODO: Implementar según tu sistema de autenticación
-    Por ahora retorna 1 como valor por defecto
-    """
-    # Ejemplo: return session.get('id_funcionario', 2)
-    return 2  # Cambiar por tu lógica de sesión
+    """Obtiene el ID del funcionario logueado"""
+    return 2
 
 # ========================================
 # API - ESTADOS DE CITA
@@ -33,10 +25,6 @@ def obtener_id_funcionario_actual():
 
 @citaapi.route('/estados-cita', methods=['GET'])
 def getEstadosCita():
-    """
-    Obtiene todos los estados de cita disponibles
-    Endpoint: GET /api/v1/estados-cita
-    """
     citadao = CitaDao()
     try:
         estados = citadao.getEstadosCita()
@@ -58,10 +46,6 @@ def getEstadosCita():
 
 @citaapi.route('/citas-cabecera', methods=['GET'])
 def getCitasCabecera():
-    """
-    Obtiene todas las cabeceras de citas
-    Endpoint: GET /api/v1/citas-cabecera
-    """
     citadao = CitaDao()
     try:
         cabeceras = citadao.getCitasCabecera()
@@ -79,10 +63,6 @@ def getCitasCabecera():
 
 @citaapi.route('/citas-cabecera/<int:id_cita_cabecera>', methods=['GET'])
 def getCitaCabeceraById(id_cita_cabecera):
-    """
-    Obtiene una cabecera específica por ID
-    Endpoint: GET /api/v1/citas-cabecera/{id}
-    """
     citadao = CitaDao()
     try:
         cabecera = citadao.getCitaCabeceraById(id_cita_cabecera)
@@ -106,19 +86,9 @@ def getCitaCabeceraById(id_cita_cabecera):
 
 @citaapi.route('/citas-cabecera', methods=['POST'])
 def addCitaCabecera():
-    """
-    Crea una nueva cabecera de cita
-    Endpoint: POST /api/v1/citas-cabecera
-    Body: {
-        "id_paciente": int,
-        "id_agenda_cabecera": int,
-        "observaciones": string (opcional)
-    }
-    """
     data = request.get_json()
     citadao = CitaDao()
 
-    # Validar campos requeridos
     campos_requeridos = ['id_paciente', 'id_agenda_cabecera']
     for campo in campos_requeridos:
         if campo not in data or data[campo] in (None, "", "null"):
@@ -128,15 +98,12 @@ def addCitaCabecera():
             }), 400
 
     try:
-        # Obtener ID del funcionario logueado
         id_funcionario = obtener_id_funcionario_actual()
-
-        # Guardar cabecera
         cabecera_id = citadao.guardarCitaCabecera(
             data['id_paciente'],
             data['id_agenda_cabecera'],
             id_funcionario,
-            data.get('observaciones')  # Opcional
+            data.get('observaciones')
         )
 
         if cabecera_id:
@@ -165,19 +132,9 @@ def addCitaCabecera():
 
 @citaapi.route('/citas-cabecera/<int:id_cita_cabecera>', methods=['PUT'])
 def updateCitaCabecera(id_cita_cabecera):
-    """
-    Actualiza una cabecera de cita existente
-    Endpoint: PUT /api/v1/citas-cabecera/{id}
-    Body: {
-        "id_paciente": int,
-        "id_agenda_cabecera": int,
-        "observaciones": string (opcional)
-    }
-    """
     data = request.get_json()
     citadao = CitaDao()
 
-    # Validar campos requeridos
     campos_requeridos = ['id_paciente', 'id_agenda_cabecera']
     for campo in campos_requeridos:
         if campo not in data or data[campo] in (None, "", "null"):
@@ -220,12 +177,6 @@ def updateCitaCabecera(id_cita_cabecera):
 
 @citaapi.route('/citas-cabecera/<int:id_cita_cabecera>', methods=['DELETE'])
 def deleteCitaCabecera(id_cita_cabecera):
-    """
-    Elimina una cabecera de cita
-    IMPORTANTE: También elimina todos los detalles asociados (CASCADE)
-    y devuelve los cupos a las agendas
-    Endpoint: DELETE /api/v1/citas-cabecera/{id}
-    """
     citadao = CitaDao()
     try:
         if citadao.deleteCitaCabecera(id_cita_cabecera):
@@ -248,13 +199,6 @@ def deleteCitaCabecera(id_cita_cabecera):
 
 @citaapi.route('/citas-cabecera/<int:id_cita_cabecera>/estado', methods=['PATCH'])
 def cambiarEstadoCabecera(id_cita_cabecera):
-    """
-    Cambia el estado de una cabecera (Activo/Inactivo)
-    Endpoint: PATCH /api/v1/citas-cabecera/{id}/estado
-    Body: {
-        "estado": "Activo" | "Inactivo"
-    }
-    """
     data = request.get_json()
     citadao = CitaDao()
 
@@ -289,15 +233,10 @@ def cambiarEstadoCabecera(id_cita_cabecera):
 
 @citaapi.route('/citas-detalle/cabecera/<int:id_cita_cabecera>', methods=['GET'])
 def getDetallesPorCabecera(id_cita_cabecera):
-    """
-    Obtiene todos los detalles de una cabecera específica
-    Endpoint: GET /api/v1/citas-detalle/cabecera/{id_cita_cabecera}
-    """
     citadao = CitaDao()
     try:
         detalles = citadao.getDetallesPorCabecera(id_cita_cabecera)
         
-        # Serializar objetos time
         for detalle in detalles:
             if 'hora_cita' in detalle:
                 detalle['hora_cita'] = serialize_time(detalle['hora_cita'])
@@ -320,15 +259,10 @@ def getDetallesPorCabecera(id_cita_cabecera):
 
 @citaapi.route('/citas-detalle/<int:id_cita_detalle>', methods=['GET'])
 def getDetalleById(id_cita_detalle):
-    """
-    Obtiene un detalle específico por ID
-    Endpoint: GET /api/v1/citas-detalle/{id}
-    """
     citadao = CitaDao()
     try:
         detalle = citadao.getDetalleById(id_cita_detalle)
         if detalle:
-            # Serializar objetos time
             if 'hora_cita' in detalle:
                 detalle['hora_cita'] = serialize_time(detalle['hora_cita'])
             
@@ -351,23 +285,9 @@ def getDetalleById(id_cita_detalle):
 
 @citaapi.route('/citas-detalle', methods=['POST'])
 def addCitaDetalle():
-    """
-    Crea un nuevo detalle de cita
-    IMPORTANTE: Gestiona cupos automáticamente
-    Endpoint: POST /api/v1/citas-detalle
-    Body: {
-        "id_cita_cabecera": int,
-        "id_agenda_detalle": int,
-        "fecha_cita": "YYYY-MM-DD",
-        "hora_cita": "HH:MM",
-        "motivo_consulta": string,
-        "id_estado_cita": int
-    }
-    """
     data = request.get_json()
     citadao = CitaDao()
 
-    # Validar campos requeridos
     campos_requeridos = ['id_cita_cabecera', 'id_agenda_detalle', 'fecha_cita', 
                          'hora_cita', 'motivo_consulta', 'id_estado_cita']
     for campo in campos_requeridos:
@@ -387,7 +307,6 @@ def addCitaDetalle():
             data['id_estado_cita']
         )
 
-        # Verificar si no hay cupos
         if detalle_id == "SIN_CUPOS":
             return jsonify({
                 'success': False,
@@ -423,22 +342,9 @@ def addCitaDetalle():
 
 @citaapi.route('/citas-detalle/<int:id_cita_detalle>', methods=['PUT'])
 def updateCitaDetalle(id_cita_detalle):
-    """
-    Actualiza un detalle de cita existente
-    IMPORTANTE: Gestiona cupos según cambios de estado o horario
-    Endpoint: PUT /api/v1/citas-detalle/{id}
-    Body: {
-        "id_agenda_detalle": int,
-        "fecha_cita": "YYYY-MM-DD",
-        "hora_cita": "HH:MM",
-        "motivo_consulta": string,
-        "id_estado_cita": int
-    }
-    """
     data = request.get_json()
     citadao = CitaDao()
 
-    # Validar campos requeridos
     campos_requeridos = ['id_agenda_detalle', 'fecha_cita', 'hora_cita', 
                          'motivo_consulta', 'id_estado_cita']
     for campo in campos_requeridos:
@@ -458,7 +364,6 @@ def updateCitaDetalle(id_cita_detalle):
             data['id_estado_cita']
         )
 
-        # Verificar si no hay cupos
         if exito == "SIN_CUPOS":
             return jsonify({
                 'success': False,
@@ -493,11 +398,6 @@ def updateCitaDetalle(id_cita_detalle):
 
 @citaapi.route('/citas-detalle/<int:id_cita_detalle>', methods=['DELETE'])
 def deleteCitaDetalle(id_cita_detalle):
-    """
-    Elimina un detalle de cita
-    IMPORTANTE: Devuelve el cupo si el estado ocupaba cupo
-    Endpoint: DELETE /api/v1/citas-detalle/{id}
-    """
     citadao = CitaDao()
     try:
         if citadao.deleteCitaDetalle(id_cita_detalle):
@@ -524,10 +424,6 @@ def deleteCitaDetalle(id_cita_detalle):
 
 @citaapi.route('/agenda-detalle/cupos/<int:id_agenda_detalle>', methods=['GET'])
 def verificarCupos(id_agenda_detalle):
-    """
-    Verifica los cupos disponibles de un agenda_detalle específico
-    Endpoint: GET /api/v1/agenda-detalle/cupos/{id}
-    """
     citadao = CitaDao()
     try:
         cupos = citadao.verificarCuposDisponibles(id_agenda_detalle)
@@ -545,3 +441,27 @@ def verificarCupos(id_agenda_detalle):
             'success': False,
             'error': 'Ocurrió un error al verificar los cupos.'
         }), 500
+
+# ========================================
+# NUEVO ENDPOINT: Obtener citas del paciente
+# ========================================
+
+@citaapi.route('/citas/paciente/<int:id_paciente>', methods=['GET'])
+def obtener_citas_paciente(id_paciente):
+    """Obtiene citas confirmadas del paciente para avisos"""
+    citadao = CitaDao()
+    try:
+        citas = citadao.obtenerCitasPacienteConfirmadas(id_paciente)
+        
+        return jsonify(
+            success=True,
+            data=citas,
+            cantidad=len(citas) if citas else 0
+        ), 200
+            
+    except Exception as e:
+        app.logger.error(f"Error en obtener_citas_paciente: {e}")
+        return jsonify(
+            success=False,
+            error=str(e)
+        ), 500

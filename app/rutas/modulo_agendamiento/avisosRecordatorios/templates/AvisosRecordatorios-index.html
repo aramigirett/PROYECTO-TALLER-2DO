@@ -1,0 +1,1300 @@
+{% extends 'base.html' %}
+
+{% block titulo %}
+Avisos Recordatorios
+{% endblock titulo %}
+
+{% block contenido %}
+<div class="container-fluid mt-4">
+  <!-- ENCABEZADO DE LA PÁGINA -->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="text-primary">
+      <i class="fas fa-bell"></i> Gestión de Avisos Recordatorios
+    </h2>
+    <div class="btn-group" role="group">
+      <button type="button" class="btn btn-primary btn-lg shadow-sm" id="btnAgregar">
+        <i class="fas fa-plus-circle"></i> Nuevo Aviso
+      </button>
+      <button type="button" class="btn btn-success btn-lg shadow-sm" id="btnEnviarWhatsApp">
+        <i class="fab fa-whatsapp"></i> Enviar WhatsApp
+      </button>
+      <button type="button" class="btn btn-info btn-lg shadow-sm" id="btnEstadisticas">
+        <i class="fas fa-chart-bar"></i> Estadísticas
+      </button>
+    </div>
+  </div>
+
+  <!-- GUÍA RÁPIDA -->
+<!--   <div class="alert alert-info shadow-sm">
+    <h5><i class="fas fa-question-circle"></i> Cómo Funciona</h5>
+    <ol class="mb-0">
+      <li><strong>Crear Aviso:</strong> Haz clic en "Nuevo Aviso" y completa los datos de la cita</li>
+      <li><strong>Enviar:</strong> Usa "Enviar WhatsApp" para enviar todos los pendientes o usa el botón individual</li>
+      <li><strong>Monitorear:</strong> Revisa el estado del envío y confirmación del paciente en la tabla</li>
+    </ol>
+  </div> -->
+
+  <!-- TABLA PRINCIPAL -->
+  <div class="card shadow-sm">
+    <div class="card-header bg-primary text-white">
+      <h5 class="mb-0"><i class="fas fa-list"></i> Avisos Registrados</h5>
+    </div>
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-hover table-striped" id="tblAvisos">
+          <thead class="table-light">
+            <tr>
+              <th><i class="fas fa-user-tie"></i> Funcionario</th>
+              <th><i class="fas fa-door-open"></i> Consultorio</th>
+              <th><i class="fas fa-user"></i> Paciente</th>
+              <th><i class="fas fa-phone"></i> Teléfono</th>
+              <th><i class="fas fa-user-md"></i> Médico</th>
+              <th><i class="fas fa-calendar-day"></i> Fecha Cita</th>
+              <th><i class="fas fa-clock"></i> Hora Cita</th>
+              <th><i class="fas fa-paper-plane"></i> Forma Envío</th>
+              <th><i class="fas fa-envelope"></i> Mensaje</th>
+              <th><i class="fas fa-send"></i> Estado Envío</th>
+              <th><i class="fas fa-check-circle"></i> Confirmación</th>
+              <th><i class="fas fa-cogs"></i> Acciones</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CREAR/EDITAR AVISO -->
+  <div class="modal fade" id="modalAviso" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg" role="document">
+      <div class="modal-content">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title" id="modalTitle">
+            <i class="fas fa-bell"></i> Nuevo Aviso Recordatorio
+          </h5>
+          <button type="button" class="close text-white" data-dismiss="modal">
+            <span>&times;</span>
+          </button>
+        </div>
+
+        <div class="modal-body">
+          <form id="formAvisoModal">
+            <input type="hidden" id="id_aviso_modal">
+
+            <div class="row">
+              <!-- Funcionario -->
+              <div class="col-md-6 mb-3">
+                <label class="font-weight-bold">
+                  <i class="fas fa-user-tie text-primary"></i> Funcionario *
+                </label>
+                <div class="input-group">
+                  <input type="text" class="form-control" id="txtFuncionario" 
+                         placeholder="Click para seleccionar" readonly required>
+                  <div class="input-group-append">
+                    <button class="btn btn-outline-primary" type="button" id="btnBuscarFuncionario">
+                      <i class="fas fa-search"></i>
+                    </button>
+                  </div>
+                </div>
+                <input type="hidden" id="id_funcionario_modal">
+              </div>
+
+              <!-- Consultorio -->
+              <div class="col-md-6 mb-3">
+                <label class="font-weight-bold">
+                  <i class="fas fa-door-open text-info"></i> Consultorio *
+                </label>
+                <div class="input-group">
+                  <input type="text" class="form-control" id="txtConsultorio" 
+                         placeholder="Click para seleccionar" readonly required>
+                  <div class="input-group-append">
+                    <button class="btn btn-outline-info" type="button" id="btnBuscarConsultorio">
+                      <i class="fas fa-search"></i>
+                    </button>
+                  </div>
+                </div>
+                <input type="hidden" id="codigo">
+              </div>
+
+              <!-- Paciente -->
+              <div class="col-md-6 mb-3">
+                <label class="font-weight-bold">
+                  <i class="fas fa-user text-success"></i> Paciente *
+                </label>
+                <div class="input-group">
+                  <input type="text" class="form-control" id="txtpaciente" 
+                         placeholder="Click para seleccionar" readonly required>
+                  <div class="input-group-append">
+                    <button class="btn btn-outline-success" type="button" id="btnBuscarPaciente">
+                      <i class="fas fa-search"></i>
+                    </button>
+                  </div>
+                </div>
+                <input type="hidden" id="id_paciente">
+              </div>
+              
+              <!-- NUEVA SECCIÓN: Cita del Paciente (Auto-cargada) -->
+              <div class="col-md-6 mb-3">
+                <label class="font-weight-bold">
+                   <i class="fas fa-calendar-check text-success"></i> Cita Confirmada (Opcional)
+                </label>
+                <select class="form-control" id="cita_seleccionada">
+                  <option value="">-- Seleccionar cita del paciente --</option>
+                </select>
+                <small class="text-muted d-block mt-1">
+                  <i class="fas fa-info-circle"></i> Se carga automáticamente al seleccionar paciente
+                </small>
+              </div>
+
+              <!-- Médico (opcional) -->
+              <div class="col-md-6 mb-3">
+                <label class="font-weight-bold">
+                  <i class="fas fa-user-md text-warning"></i> Médico (Opcional)
+                </label>
+                <div class="input-group">
+                  <input type="text" class="form-control" id="txtMedico" 
+                         placeholder="Click para seleccionar" readonly>
+                  <div class="input-group-append">
+                    <button class="btn btn-outline-warning" type="button" id="btnBuscarMedico">
+                      <i class="fas fa-search"></i>
+                    </button>
+                  </div>
+                </div>
+                <input type="hidden" id="id_medico">
+              </div>
+
+              <!-- Fecha -->
+              <div class="col-md-6 mb-3">
+                <label class="font-weight-bold">
+                  <i class="fas fa-calendar-alt text-danger"></i> Fecha Cita *
+                </label>
+                <input type="date" class="form-control" id="fecha_cita_modal" required>
+                <small class="text-muted">Se carga automáticamente si seleccionas una cita</small>
+              </div>
+
+              <!-- Hora -->
+              <div class="col-md-6 mb-3">
+                <label class="font-weight-bold">
+                  <i class="fas fa-hourglass-end text-danger"></i> Hora Cita *
+                </label>
+                <input type="time" class="form-control" id="hora_cita_modal" required>
+                <small class="text-muted">Se carga automáticamente si seleccionas una cita</small>
+              </div>
+
+              <!-- Forma de Envío -->
+              <div class="col-md-6 mb-3">
+                <label class="font-weight-bold">
+                  <i class="fas fa-paper-plane text-secondary"></i> Forma Envío *
+                </label>
+                <select class="form-control" id="forma_envio_modal" required>
+                  <option value="">Seleccione</option>
+                  <option value="WhatsApp">WhatsApp</option>
+                  <option value="Gmail">Gmail</option>
+                  <option value="SMS">SMS</option>
+                </select>
+              </div>
+
+              <!-- Estado Confirmación -->
+              <div class="col-md-6 mb-3">
+                <label class="font-weight-bold">
+                  <i class="fas fa-check-circle text-success"></i> Estado Confirmación
+                </label>
+                <select class="form-control" id="estado_confirmacion_modal">
+                  <option value="Pendiente">Pendiente</option>
+                  <option value="Confirmado">Confirmado</option>
+                  <option value="Cancelado">Cancelado</option>
+                </select>
+              </div>
+
+              <!-- CAMPO CRÍTICO: Mensaje Personalizado (OBLIGATORIO) -->
+              <div class="col-12 mb-3">
+                <label class="font-weight-bold">
+                  <i class="fas fa-comment-alt text-danger"></i> Mensaje para el Paciente *
+                </label>
+                <textarea class="form-control" id="mensaje_modal" rows="4" 
+                          placeholder="Escriba aquí el mensaje personalizado que desea enviar al paciente..."
+                          required></textarea>
+                <small class="text-muted d-block mt-1">
+                  <i class="fas fa-lightbulb"></i> 
+                  <strong>Ejemplo:</strong> "Hola Juan, le recordamos su cita para el tratamiento de conducto el próximo jueves 25 de octubre a las 2:30 PM con el Dr. Carlos García en el Consultorio 2. Por favor confirme su asistencia. Gracias!"
+                </small>
+              </div>
+
+            </div>
+
+            <div class="alert alert-info">
+              <i class="fas fa-info-circle"></i>
+              <strong>Sistema de Mensajes Personalizados:</strong> Este sistema NO genera mensajes automáticos. 
+              Usted debe escribir un mensaje personalizado para cada paciente. 
+              El mensaje se enviará exactamente como lo escriba.
+            </div>
+          </form>
+        </div>
+              
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">
+            <i class="fas fa-times"></i> Cancelar
+          </button>
+          <button type="submit" class="btn btn-primary" form="formAvisoModal">
+            <i class="fas fa-save"></i> Guardar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODALES DE BÚSQUEDA -->
+  
+  <!-- Modal Paciente -->
+  <div class="modal fade" id="modalBuscarPaciente" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <div class="modal-header bg-success text-white">
+          <h5 class="modal-title"><i class="fas fa-user"></i> Seleccionar Paciente</h5>
+          <button type="button" class="close text-white" data-dismiss="modal">
+            <span>&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="table-responsive">
+            <table class="table table-hover" id="tblPaciente">
+              <thead class="table-light">
+                <tr>
+                  <th>Nombre</th>
+                  <th>Apellido</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Funcionario -->
+  <div class="modal fade" id="modalBuscarFuncionario" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title"><i class="fas fa-user-tie"></i> Seleccionar Funcionario</h5>
+          <button type="button" class="close text-white" data-dismiss="modal">
+            <span>&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="table-responsive">
+            <table class="table table-hover" id="tblFuncionario">
+              <thead class="table-light">
+                <tr>
+                  <th>Nombre</th>
+                  <th>Apellido</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Médico -->
+  <div class="modal fade" id="modalBuscarMedico" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <div class="modal-header bg-warning text-dark">
+          <h5 class="modal-title"><i class="fas fa-user-md"></i> Seleccionar Médico</h5>
+          <button type="button" class="close" data-dismiss="modal">
+            <span>&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="table-responsive">
+            <table class="table table-hover" id="tblMedico">
+              <thead class="table-light">
+                <tr>
+                  <th>Nombre</th>
+                  <th>Apellido</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Consultorio -->
+  <div class="modal fade" id="modalBuscarConsultorio" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <div class="modal-header bg-info text-white">
+          <h5 class="modal-title"><i class="fas fa-door-open"></i> Seleccionar Consultorio</h5>
+          <button type="button" class="close text-white" data-dismiss="modal">
+            <span>&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="table-responsive">
+            <table class="table table-hover" id="tblConsultorio">
+              <thead class="table-light">
+                <tr>
+                  <th>Consultorio</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Estadísticas -->
+  <div class="modal fade" id="modalEstadisticas" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <div class="modal-header bg-info text-white">
+          <h5 class="modal-title"><i class="fas fa-chart-bar"></i> Estadísticas de Avisos</h5>
+          <button type="button" class="close text-white" data-dismiss="modal">
+            <span>&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="row">
+            <div class="col-md-4">
+              <div class="card text-center shadow-sm">
+                <div class="card-body">
+                  <h6 class="card-title">Total Avisos</h6>
+                  <h3 class="text-primary"><i class="fas fa-bell"></i> <span id="statTotal">0</span></h3>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="card text-center shadow-sm">
+                <div class="card-body">
+                  <h6 class="card-title">Pendientes</h6>
+                  <h3 class="text-warning"><i class="fas fa-hourglass"></i> <span id="statPendientes">0</span></h3>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="card text-center shadow-sm">
+                <div class="card-body">
+                  <h6 class="card-title">Enviados</h6>
+                  <h3 class="text-success"><i class="fas fa-check"></i> <span id="statEnviados">0</span></h3>
+                </div>
+              </div>
+            </div>
+          </div>
+          <hr>
+          <div class="row mt-3">
+            <div class="col-md-4">
+              <p><strong>WhatsApp:</strong> <span id="statWhatsApp" class="badge badge-success">0</span></p>
+              <p><strong>Gmail:</strong> <span id="statGmail" class="badge badge-info">0</span></p>
+              <p><strong>SMS:</strong> <span id="statSMS" class="badge badge-secondary">0</span></p>
+            </div>
+            <div class="col-md-4">
+              <p><strong>Confirmados:</strong> <span id="statConfirmados" class="badge badge-success">0</span></p>
+              <p><strong>Pendientes Conf.:</strong> <span id="statPendientesConf" class="badge badge-warning">0</span></p>
+            </div>
+            <div class="col-md-4">
+              <p><strong>Cancelados:</strong> <span id="statCancelados" class="badge badge-danger">0</span></p>
+              <p><strong>Errores:</strong> <span id="statErrores" class="badge badge-danger">0</span></p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock contenido %}
+
+<!-- Estilos personalizados -->
+<style>
+  .card {
+    border-radius: 10px;
+    border: none;
+  }
+
+  .modal-content {
+    border-radius: 15px;
+  }
+
+  .table-hover tbody tr:hover {
+    background-color: #f8f9fa;
+    cursor: pointer;
+  }
+
+  .btn-group {
+    display: flex;
+    gap: 10px;
+  }
+
+  .alert-info {
+    border-left: 4px solid #17a2b8;
+    background-color: #f0f7ff;
+  }
+
+  /* ========================================
+     ✅ FIX PARA SCROLL Y MODALES ANIDADOS
+     ======================================== */
+  .modal {
+    overflow-y: auto !important;
+    z-index: 1050;
+  }
+
+  .modal-body {
+    overflow-y: auto !important;
+    max-height: calc(100vh - 200px);
+  }
+
+  body.modal-open {
+    overflow: hidden !important;
+    padding-right: 0 !important;
+  }
+
+  /* Cuando hay múltiples modales */
+  .modal.show {
+    overflow-y: auto !important;
+  }
+
+  .modal-backdrop.show {
+    opacity: 0.5;
+  }
+
+  /* Asegurar que el backdrop no bloquee */
+  .modal-backdrop {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 1040;
+    background-color: #000;
+  }
+
+  /* Fix para cuando se cierran modales anidados */
+  .modal-open .modal {
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  /* ✅ FIX ADICIONAL: Asegurar scroll suave */
+  .modal-dialog {
+    margin: 1.75rem auto;
+  }
+
+  /* ✅ Prevenir conflictos de scroll */
+  .modal-open .modal {
+    overflow: auto !important;
+  }
+
+  /* ✅ DataTables dentro de modales */
+  .modal .dataTables_wrapper {
+    overflow-x: auto;
+  }
+
+  /* ✅ Fix para el modal principal de avisos */
+  #modalAviso .modal-body {
+    overflow-y: auto !important;
+    max-height: calc(100vh - 200px);
+  }
+
+  /* ✅ Fix para modales de búsqueda */
+  #modalBuscarPaciente .modal-body,
+  #modalBuscarFuncionario .modal-body,
+  #modalBuscarMedico .modal-body,
+  #modalBuscarConsultorio .modal-body {
+    overflow-y: auto !important;
+    max-height: calc(100vh - 250px);
+  }
+</style>
+
+{% block js %}
+<script>
+
+// ========================================
+// FIX: Restaurar scroll en modales anidados
+// ========================================
+
+function preservarScrollModal(modalSecundario, modalPrincipal) {
+  let scrollTop = 0;
+  
+  $(modalSecundario).on('show.bs.modal', function() {
+    scrollTop = $(modalPrincipal + ' .modal-body').scrollTop();
+  });
+  
+  $(modalSecundario).on('hidden.bs.modal', function() {
+    setTimeout(() => {
+      $(modalPrincipal + ' .modal-body').scrollTop(scrollTop);
+      $(modalPrincipal).css('overflow-y', 'auto');
+      $('body').addClass('modal-open');
+    }, 100);
+  });
+}  
+
+// ============================================================
+// FUNCIONES AUXILIARES: Formateo de fechas
+// ============================================================
+
+function formatDateForInput(fecha) {
+  if (!fecha) return '';
+  const d = new Date(fecha);
+  if (isNaN(d)) return '';
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const year = d.getUTCFullYear();
+  return year + '-' + month + '-' + day;
+}
+
+function formatDateForDisplay(fecha) {
+  if (!fecha) return '';
+  const d = new Date(fecha);
+  if (isNaN(d)) return '';
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const year = d.getUTCFullYear();
+  return day + '/' + month + '/' + year;
+}
+
+function formatearFecha(fecha) {
+  if (!fecha) return '';
+  const parts = fecha.split('-');
+  const anio = parts[0];
+  const mes = parts[1];
+  const dia = parts[2];
+  return dia + '/' + mes + '/' + anio;
+}
+
+// ============================================================
+// DATATABLE: AVISOS - Tabla principal
+// ============================================================
+
+const initDatatableAvisos = () => {
+  const datatablesUrl = "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}";
+  const avisosUrl = '/api/v1/avisos';
+  
+  $('#tblAvisos').DataTable({
+    language: { url: datatablesUrl },
+    ajax: { url: avisosUrl, dataSrc: 'data' },
+    destroy: true,
+    columns: [
+      { data: 'funcionario' },
+      { data: 'nombre_consultorio' },
+      { data: 'paciente' },
+      { data: 'telefono_paciente', render: function(data) { return data || 'Sin teléfono'; } },
+      { data: 'medico', render: function(data) { return data || 'Sin médico'; } },
+      { data: 'fecha_cita', render: function(data) { return formatDateForDisplay(data); } },
+      { data: 'hora_cita' },
+      { 
+        data: 'forma_envio',
+        render: function(data) {
+          const icons = {
+            'WhatsApp': '<i class="fab fa-whatsapp text-success"></i>',
+            'Gmail': '<i class="fas fa-envelope text-primary"></i>',
+            'SMS': '<i class="fas fa-sms text-info"></i>'
+          };
+          return (icons[data] || '') + ' ' + data;
+        }
+      },
+      { 
+        data: 'mensaje',
+        render: function(data, type, row) {
+          if (!data || data.trim() === '') {
+            return '<span class="badge badge-secondary">Sin mensaje</span>';
+          } else {
+            const mensajeCorto = data.length > 30 ? data.substring(0, 30) + '...' : data;
+            return '<span title="' + data.replace(/"/g, '&quot;') + '">' + mensajeCorto + '</span>' +
+                   '<button type="button" class="btn btn-sm btn-link p-0 ml-1" onclick="verMensajeCompleto(\'' + data.replace(/'/g, "\\'") + '\', \'Personalizado\')" title="Ver completo">' +
+                   '<i class="fas fa-eye"></i></button>';
+          }
+        }
+      },
+      { 
+        data: 'estado_envio', 
+        render: function(data) {
+          const badges = {
+            'Pendiente': 'badge-warning',
+            'Enviado': 'badge-success',
+            'Error': 'badge-danger'
+          };
+          return '<span class="badge ' + (badges[data] || 'badge-secondary') + '">' + data + '</span>';
+        }
+      },
+      { 
+        data: 'estado_confirmacion', 
+        render: function(data) {
+          const badges = {
+            'Pendiente': 'badge-warning',
+            'Confirmado': 'badge-success',
+            'Cancelado': 'badge-danger'
+          };
+          return '<span class="badge ' + (badges[data] || 'badge-secondary') + '">' + (data || 'Pendiente') + '</span>';
+        }
+      },
+      {
+        data: function(row) {
+          let buttons = '<button type="button" name="btn_editar" class="btn btn-info btn-sm" data-id_aviso="' + row.id_aviso + '" title="Editar">' +
+                        '<i class="fas fa-edit"></i></button>' +
+                        '<button type="button" name="btn_eliminar" class="btn btn-danger btn-sm" data-id_aviso="' + row.id_aviso + '" title="Eliminar">' +
+                        '<i class="fas fa-trash-alt"></i></button>';
+          
+          if (row.forma_envio === 'WhatsApp' && row.estado_envio === 'Pendiente') {
+            buttons += '<button type="button" name="btn_enviar_individual" class="btn btn-success btn-sm" data-id_aviso="' + row.id_aviso + '" title="Enviar ahora">' +
+                       '<i class="fab fa-whatsapp"></i></button>';
+          }
+          
+          return buttons;
+        }
+      }
+    ]
+  });
+};
+
+// ============================================================
+// DATATABLE: PACIENTES - Para seleccionar
+// ============================================================
+
+const initDatatablePaciente = () => {
+  console.log('Inicializando tabla de pacientes...');
+  
+  const datatablesUrl = "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}";
+  const pacientesUrl = '/api/v1/pacientes';
+  
+  $('#tblPaciente').DataTable({
+    language: { url: datatablesUrl },
+    ajax: { 
+      url: pacientesUrl, 
+      dataSrc: 'data',
+      error: function(xhr, error, thrown) {
+        console.error('Error al cargar pacientes:', error, thrown);
+        Swal.fire('Error', 'No se pudieron cargar los pacientes', 'error');
+      }
+    },
+    destroy: true,
+    columns: [
+      { data: 'nombre' },
+      { data: 'apellido' },
+      { 
+        data: null,
+        render: function(data, type, row) {
+          return '<button type="button" class="btn btn-primary btn-sm btn-sel-paciente" ' +
+                 'data-id="' + row.id_paciente + '" ' +
+                 'data-nombre="' + row.nombre + '" ' +
+                 'data-apellido="' + row.apellido + '">' +
+                 '<i class="fas fa-check"></i> Seleccionar</button>';
+        }
+      }
+    ]
+  });
+  
+  console.log('Tabla de pacientes inicializada');
+};
+
+// ============================================================
+// DATATABLE: FUNCIONARIOS - Para seleccionar
+// ============================================================
+
+const initDatatableFuncionario = () => {
+  const datatablesUrl = "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}";
+  const funcionariosUrl = '/api/v1/funcionarios';
+  
+  $('#tblFuncionario').DataTable({
+    language: { url: datatablesUrl },
+    ajax: { url: funcionariosUrl, dataSrc: 'data' },
+    destroy: true,
+    columns: [
+      { data: 'nombre' },
+      { data: 'apellido' },
+      { 
+        data: function(row) {
+          return '<button type="button" name="btn_sel_funcionario" class="btn btn-primary btn-sm" ' +
+                 'data-id="' + row.id_funcionario + '" ' +
+                 'data-nombre="' + row.nombre + '" ' +
+                 'data-apellido="' + row.apellido + '">Seleccionar</button>';
+        }
+      }
+    ]
+  });
+  
+  $('#tblFuncionario').on('click', 'button[name="btn_sel_funcionario"]', function () {
+    $('#txtFuncionario').val($(this).data('nombre') + ' ' + $(this).data('apellido'));
+    $('#id_funcionario_modal').val($(this).data('id'));
+    $('#modalBuscarFuncionario').modal('hide');
+  });
+};
+
+// ============================================================
+// DATATABLE: MÉDICOS - Para seleccionar
+// ============================================================
+
+const initDatatableMedico = () => {
+  const datatablesUrl = "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}";
+  const medicoUrl = '/api/v1/medico';
+  
+  $('#tblMedico').DataTable({
+    language: { url: datatablesUrl },
+    ajax: { url: medicoUrl, dataSrc: 'data' },
+    destroy: true,
+    columns: [
+      { data: 'nombre' },
+      { data: 'apellido' },
+      { 
+        data: function(row) {
+          return '<button type="button" name="btn_sel_medico" class="btn btn-primary btn-sm" ' +
+                 'data-id="' + row.id_medico + '" ' +
+                 'data-nombre="' + row.nombre + '" ' +
+                 'data-apellido="' + row.apellido + '">Seleccionar</button>';
+        }
+      }
+    ]
+  });
+  
+  $('#tblMedico').on('click', 'button[name="btn_sel_medico"]', function () {
+    $('#txtMedico').val($(this).data('nombre') + ' ' + $(this).data('apellido'));
+    $('#id_medico').val($(this).data('id'));
+    $('#modalBuscarMedico').modal('hide');
+  });
+};
+
+// ============================================================
+// DATATABLE: CONSULTORIOS - Para seleccionar
+// ============================================================
+
+const initDatatableConsultorio = () => {
+  const datatablesUrl = "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}";
+  const consultoriosUrl = '/api/v1/consultorios';
+  
+  $('#tblConsultorio').DataTable({
+    language: { url: datatablesUrl },
+    ajax: consultoriosUrl,
+    destroy: true,
+    columns: [
+      { data: 'nombre_consultorio' },
+      { 
+        data: function(row) {
+          return '<button type="button" name="btn_seleccionar_consultorio" class="btn btn-primary btn-sm" ' +
+                 'data-codigo="' + row.codigo + '" ' +
+                 'data-consultorio="' + row.nombre_consultorio + '">Seleccionar</button>';
+        }
+      }
+    ]
+  });
+  
+  $('#tblConsultorio').on('click', 'button[name="btn_seleccionar_consultorio"]', function () {
+    $('#txtConsultorio').val($(this).data('consultorio'));
+    $('#codigo').val($(this).data('codigo'));
+    $('#modalBuscarConsultorio').modal('hide');
+  });
+};
+
+// ============================================================
+// NUEVA FUNCIÓN: Cargar citas del paciente
+// ============================================================
+
+function cargarCitasDelPaciente(id_paciente) {
+    console.log('Buscando citas confirmadas para paciente ' + id_paciente);
+    
+    const selectCitas = $('#cita_seleccionada');
+    selectCitas.html('<option value="">-- Cargando citas --</option>');
+    
+    const citasUrl = '/api/v1/citas/paciente/' + id_paciente;
+    
+    fetch(citasUrl)
+        .then(response => response.json())
+        .then(data => {
+            console.log('Respuesta del servidor:', data);
+            
+            selectCitas.html('<option value="">-- Seleccionar cita del paciente --</option>');
+            
+            if (data.success && data.data && data.data.length > 0) {
+                console.log('Encontradas ' + data.data.length + ' citas confirmadas');
+                
+                data.data.forEach((cita) => {
+                    const fecha = formatearFecha(cita.fecha_cita);
+                    const opcionTexto = fecha + ' ' + cita.hora_cita + ' - ' + cita.medico + ' (' + cita.consultorio + ')';
+                    
+                    const opcionValue = JSON.stringify({
+                        fecha_cita: cita.fecha_cita,
+                        hora_cita: cita.hora_cita,
+                        medico: cita.medico,
+                        id_medico: cita.id_medico,  // ← AGREGAR ESTA LÍNEA
+                        consultorio: cita.consultorio,
+                        codigo: cita.codigo || null,
+                        motivo_consulta: cita.motivo_consulta,
+                        especialidad: cita.especialidad
+                    });
+                    
+                    selectCitas.append(
+                        '<option value=\'' + opcionValue.replace(/'/g, "\\'") + '\'>' + opcionTexto + '</option>'
+                    );
+                });
+                
+                console.log('Citas cargadas en el select');
+            } else {
+                console.log('No hay citas confirmadas para este paciente');
+                selectCitas.html(
+                    '<option value="">-- No hay citas confirmadas --</option>'
+                );
+            }
+        })
+        .catch(err => {
+            console.error('Error al cargar citas:', err);
+            selectCitas.html('<option value="">-- Error al cargar citas --</option>');
+            Swal.fire('Error', 'No se pudieron cargar las citas del paciente', 'error');
+        });
+}
+
+// ============================================================
+// EVENTO: Al cambiar la cita seleccionada, auto-llenar campos
+// ============================================================
+
+$(document).on('change', '#cita_seleccionada', function() {
+    const seleccion = $(this).val();
+    
+    if (!seleccion) {
+        console.log('Deseleccionaron la cita');
+        return;
+    }
+    
+    try {
+        const cita = JSON.parse(seleccion);
+        console.log('Cita seleccionada:', cita);
+        
+        $('#fecha_cita_modal').val(cita.fecha_cita);
+        $('#hora_cita_modal').val(cita.hora_cita);
+        $('#txtMedico').val(cita.medico);
+        $('#id_medico').val(cita.id_medico);  // ← AGREGAR ESTA LÍNEA
+        $('#codigo').val(cita.codigo);
+        $('#txtConsultorio').val(cita.consultorio);
+        
+        console.log('Campos auto-llenados');
+        console.log('ID Médico guardado:', cita.id_medico);  // ← VERIFICACIÓN
+        
+    } catch (error) {
+        console.error('Error al parsear cita:', error);
+    }
+});
+
+// ============================================================
+// EVENTO: Seleccionar paciente (CARGA CITAS AUTOMÁTICAMENTE)
+// ============================================================
+
+$(document).on('click', '.btn-sel-paciente', function() {
+    const id = $(this).data('id');
+    const nombre = $(this).data('nombre');
+    const apellido = $(this).data('apellido');
+    
+    console.log('Paciente seleccionado:', id, nombre, apellido);
+    
+    $('#txtpaciente').val(nombre + ' ' + apellido);
+    $('#id_paciente').val(id);
+    
+    $('#modalBuscarPaciente').modal('hide');
+    
+    cargarCitasDelPaciente(id);
+});
+
+// ============================================================
+// FUNCIÓN: Ver mensaje completo
+// ============================================================
+
+function verMensajeCompleto(mensaje, tipo) {
+  Swal.fire({
+    title: 'Mensaje ' + tipo,
+    html: '<pre style="text-align: left; white-space: pre-wrap;">' + mensaje + '</pre>',
+    icon: 'info',
+    width: '600px',
+    confirmButtonColor: '#17a2b8'
+  });
+}
+
+// ============================================================
+// EVENTO: Botón "Enviar WhatsApp" - Enviar todos pendientes
+// ============================================================
+
+$('#btnEnviarWhatsApp').on('click', function() {
+  Swal.fire({
+    title: 'Enviar avisos por WhatsApp',
+    text: 'Se enviarán todos los avisos pendientes de WhatsApp',
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'Sí, enviar',
+    cancelButtonText: 'Cancelar',
+    confirmButtonColor: '#25D366',
+    showLoaderOnConfirm: true,
+    preConfirm: () => {
+      return fetch('/api/v1/avisos/enviar-whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (!data.success) throw new Error(data.error || 'Error al enviar');
+        return data;
+      });
+    }
+  }).then((result) => {
+    if (result.isConfirmed) {
+      $('#tblAvisos').DataTable().ajax.reload();
+      Swal.fire({
+        icon: 'success',
+        title: 'Proceso completado',
+        text: 'Los avisos han sido procesados',
+        confirmButtonColor: '#25D366'
+      });
+    }
+  });
+});
+
+// ============================================================
+// EVENTO: Editar aviso
+// ============================================================
+
+$('#tblAvisos').on('click', 'button[name="btn_editar"]', async function() {
+  const idAviso = $(this).data('id_aviso');
+  try {
+    const response = await fetch('/api/v1/avisos/' + idAviso);
+    const result = await response.json();
+    if (result.success) {
+      const aviso = result.data;
+      $('#id_aviso_modal').val(aviso.id_aviso);
+      
+      if (aviso.paciente) {
+        $('#txtpaciente').val(aviso.paciente);
+        $('#id_paciente').val(aviso.id_paciente);
+      }
+      
+      if (aviso.funcionario) {
+        $('#txtFuncionario').val(aviso.funcionario);
+        $('#id_funcionario_modal').val(aviso.id_funcionario);
+      }
+      
+      if (aviso.medico) {
+        $('#txtMedico').val(aviso.medico);
+        $('#id_medico').val(aviso.id_medico);
+      }
+      
+      if (aviso.nombre_consultorio) {
+        $('#txtConsultorio').val(aviso.nombre_consultorio);
+        $('#codigo').val(aviso.codigo);
+      }
+      
+      $('#fecha_cita_modal').val(formatDateForInput(aviso.fecha_cita));
+      $('#hora_cita_modal').val(aviso.hora_cita);
+      $('#forma_envio_modal').val(aviso.forma_envio);
+      $('#mensaje_modal').val(aviso.mensaje || '');
+      $('#estado_confirmacion_modal').val(aviso.estado_confirmacion || 'Pendiente');
+      $('#modalTitle').text('Editar Aviso');
+      $('#modalAviso').modal('show');
+    } else {
+      Swal.fire('Error', result.error, 'error');
+    }
+  } catch (error) {
+    Swal.fire('Error', 'Error de conexión: ' + error, 'error');
+  }
+});
+
+// ============================================================
+// EVENTO: Eliminar aviso
+// ============================================================
+
+$('#tblAvisos').on('click', 'button[name="btn_eliminar"]', function() {
+  const id = $(this).data('id_aviso');
+  Swal.fire({
+    title: 'Eliminar aviso',
+    text: 'Esta acción no se puede deshacer',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Sí, eliminar',
+    cancelButtonText: 'Cancelar',
+    confirmButtonColor: '#d33'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      fetch('/api/v1/avisos/' + id, { method: 'DELETE' })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          Swal.fire('Eliminado', 'Aviso eliminado correctamente', 'success');
+          $('#tblAvisos').DataTable().ajax.reload();
+        } else {
+          Swal.fire('Error', data.error, 'error');
+        }
+      });
+    }
+  });
+});
+
+// ============================================================
+// EVENTO: Estadísticas
+// ============================================================
+
+$('#btnEstadisticas').on('click', function() {
+  fetch('/api/v1/avisos/estadisticas')
+    .then(resp => resp.json())
+    .then(result => {
+      if (result.success) {
+        const data = result.data;
+        $('#statTotal').text(data.total);
+        $('#statPendientes').text(data.por_estado.pendientes);
+        $('#statEnviados').text(data.por_estado.enviados);
+        $('#statErrores').text(data.por_estado.errores);
+        $('#statWhatsApp').text(data.por_forma_envio.whatsapp);
+        $('#statGmail').text(data.por_forma_envio.gmail);
+        $('#statSMS').text(data.por_forma_envio.sms);
+        $('#statConfirmados').text(data.por_confirmacion.confirmados);
+        $('#statPendientesConf').text(data.por_confirmacion.pendientes);
+        $('#statCancelados').text(data.por_confirmacion.cancelados);
+        $('#modalEstadisticas').modal('show');
+      }
+    });
+});
+
+// ============================================================
+// EVENTO: Agregar nuevo aviso
+// ============================================================
+
+const agregarAviso = () => {
+  $('#btnAgregar').on('click', () => {
+    console.log('Abriendo nuevo aviso...');
+    
+    $('#formAvisoModal')[0].reset();
+    $('#id_aviso_modal').val('');
+    $('#id_paciente').val('');
+    $('#txtpaciente').val('');
+    $('#id_funcionario_modal').val('');
+    $('#txtFuncionario').val('');
+    $('#id_medico').val('');
+    $('#txtMedico').val('');
+    $('#codigo').val('');
+    $('#txtConsultorio').val('');
+    $('#fecha_cita_modal').val('');
+    $('#hora_cita_modal').val('');
+    $('#forma_envio_modal').val('');
+    $('#mensaje_modal').val('');
+    $('#estado_confirmacion_modal').val('Pendiente');
+    
+    $('#cita_seleccionada').html('<option value="">-- Seleccionar cita del paciente --</option>');
+    
+    $('#modalTitle').text('Agregar Aviso');
+    $('#modalAviso').modal('show');
+  });
+};
+
+// ============================================================
+// EVENTO: Guardar aviso (VALIDACIÓN: MENSAJE OBLIGATORIO)
+// ============================================================
+
+$('#formAvisoModal').on('submit', async function(e) {
+  e.preventDefault();
+  
+  const mensaje = $('#mensaje_modal').val().trim();
+  
+  if (!mensaje) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Mensaje requerido',
+      text: 'IMPORTANTE: Debes escribir un mensaje personalizado para el paciente.',
+      confirmButtonColor: '#ffc107',
+      confirmButtonText: 'Entendido'
+    });
+    $('#mensaje_modal').focus();
+    return;
+  }
+  
+  if (mensaje.length < 10) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Mensaje muy corto',
+      text: 'Por favor, escribe un mensaje más completo (mínimo 10 caracteres)',
+      confirmButtonColor: '#ffc107'
+    });
+    return;
+  }
+  
+  const idAviso = $('#id_aviso_modal').val();
+  
+  const data = {
+    id_paciente: $('#id_paciente').val(),
+    id_funcionario: $('#id_funcionario_modal').val(),
+    id_medico: $('#id_medico').val() || null,
+    codigo: $('#codigo').val() ? parseInt($('#codigo').val()) : null,
+    fecha_cita: $('#fecha_cita_modal').val(),
+    hora_cita: $('#hora_cita_modal').val(),
+    forma_envio: $('#forma_envio_modal').val(),
+    mensaje: mensaje,
+    estado_confirmacion: $('#estado_confirmacion_modal').val()
+  };
+
+  if (!idAviso) {
+    data.estado_envio = 'Pendiente';
+  }
+
+  if (!data.id_paciente) {
+    Swal.fire('Error', 'Debe seleccionar un paciente', 'error');
+    return;
+  }
+  if (!data.id_funcionario) {
+    Swal.fire('Error', 'Debe seleccionar un funcionario', 'error');
+    return;
+  }
+  if (!data.fecha_cita) {
+    Swal.fire('Error', 'Debe ingresar una fecha de cita', 'error');
+    return;
+  }
+  if (!data.hora_cita) {
+    Swal.fire('Error', 'Debe ingresar una hora de cita', 'error');
+    return;
+  }
+  if (!data.forma_envio) {
+    Swal.fire('Error', 'Debe seleccionar una forma de envío', 'error');
+    return;
+  }
+  
+  try {
+    const url = idAviso ? '/api/v1/avisos/' + idAviso : '/api/v1/avisos';
+    const method = idAviso ? 'PUT' : 'POST';
+    
+    console.log('Guardando aviso...');
+    console.log('Mensaje:', mensaje.substring(0, 50) + '...');
+    
+    const response = await fetch(url, {
+      method: method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      Swal.fire({
+        icon: 'success',
+        title: idAviso ? 'Aviso actualizado' : 'Aviso creado',
+        text: 'El aviso está listo para ser enviado por WhatsApp',
+        confirmButtonColor: '#17a2b8'
+      });
+      $('#modalAviso').modal('hide');
+      $('#tblAvisos').DataTable().ajax.reload();
+    } else {
+      Swal.fire('Error', result.error || 'Error al guardar', 'error');
+    }
+  } catch (error) {
+    console.error('Error:', error);
+    Swal.fire('Error', 'Error de conexión: ' + error, 'error');
+  }
+});
+
+// ============================================================
+// EVENTO: Enviar aviso individual por WhatsApp
+// ============================================================
+
+$('#tblAvisos').on('click', 'button[name="btn_enviar_individual"]', function() {
+  const id = $(this).data('id_aviso');
+  
+  Swal.fire({
+    title: 'Enviar este aviso',
+    text: 'Se abrirá WhatsApp Web en una nueva ventana',
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'Sí, enviar',
+    cancelButtonText: 'Cancelar',
+    confirmButtonColor: '#25D366'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      fetch('/api/v1/avisos/' + id + '/enviar-whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          Swal.fire({
+            icon: 'info',
+            title: 'Proceso iniciado',
+            html: 'Se abrió WhatsApp Web.<br><br>' +
+                  '<strong>Pasos:</strong><br>' +
+                  '1. Escanea el código QR si es necesario<br>' +
+                  '2. Espera a que envíe el mensaje<br>' +
+                  '3. Recarga la página para ver el estado actualizado',
+            confirmButtonColor: '#25D366',
+            confirmButtonText: 'Entendido'
+          }).then(() => {
+            setTimeout(() => {
+              $('#tblAvisos').DataTable().ajax.reload();
+            }, 20000);
+          });
+        } else {
+          Swal.fire('Error', data.error, 'error');
+        }
+      })
+      .catch(error => {
+        Swal.fire('Error', 'Error de conexión: ' + error, 'error');
+      });
+    }
+  });
+});
+
+// ============================================================
+// EVENTOS: Botones para abrir modales de búsqueda
+// ============================================================
+
+$('#btnBuscarFuncionario').on('click', function() {
+  $('#modalBuscarFuncionario').modal('show');
+});
+
+$('#btnBuscarConsultorio').on('click', function() {
+  $('#modalBuscarConsultorio').modal('show');
+});
+
+$('#btnBuscarPaciente').on('click', function() {
+  $('#modalBuscarPaciente').modal('show');
+});
+
+$('#btnBuscarMedico').on('click', function() {
+  $('#modalBuscarMedico').modal('show');
+});
+
+// ============================================================
+// INICIALIZACIÓN AL CARGAR LA PÁGINA
+// ============================================================
+
+$(document).ready(function() {
+  console.log('Inicializando sistema de avisos...');
+
+  // ✅ AGREGAR ESTAS LÍNEAS AQUÍ:
+  preservarScrollModal('#modalBuscarPaciente', '#modalAviso');
+  preservarScrollModal('#modalBuscarFuncionario', '#modalAviso');
+  preservarScrollModal('#modalBuscarMedico', '#modalAviso');
+  preservarScrollModal('#modalBuscarConsultorio', '#modalAviso');
+  
+  $('#modalAviso').on('shown.bs.modal', function() {
+    $(this).css('overflow-y', 'auto');
+    $('body').addClass('modal-open').css('padding-right', '0px');
+  });
+  
+  $('#modalAviso').on('hidden.bs.modal', function() {
+    $('body').removeClass('modal-open').css('padding-right', '');
+    $('.modal-backdrop').remove();
+  });
+  // FIN DE LAS LÍNEAS NUEVAS ✅
+  
+  initDatatableAvisos();
+  initDatatablePaciente();
+  initDatatableFuncionario();
+  initDatatableMedico();
+  initDatatableConsultorio();
+  agregarAviso();
+  
+  console.log('Sistema de avisos inicializado correctamente');
+});
+
+</script>
+{% endblock js %}
