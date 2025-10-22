@@ -183,6 +183,17 @@ app.register_blueprint(consultaapi, url_prefix=version1)
 app.register_blueprint(consultadetalleapi, url_prefix=version1)
 app.register_blueprint(fichamedicaapi, url_prefix=version1)
 
+# ============================================
+# IMPORTAR ROUTES DE FICHA MÉDICA
+# ============================================
+from app.rutas.modulo_consultorio.consulta.ficha_medica_routes import fichamedicamod
+
+# ============================================
+# REGISTRAR BLUEPRINT
+# ============================================
+modulo0 = '/referenciales'
+app.register_blueprint(fichamedicamod, url_prefix=f'{modulo0}/ficha-medica')
+
 
 @app.route('/login')
 def login():

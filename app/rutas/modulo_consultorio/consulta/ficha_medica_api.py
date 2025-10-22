@@ -219,3 +219,86 @@ def deleteFicha(ficha_id):
             'success': False,
             'error': 'Ocurrió un error interno. Consulte con el administrador.'
         }), 500
+    
+    # =====================================================
+# ENDPOINT: OBTENER TODAS LAS FICHAS CON INFO COMPLETA
+# =====================================================
+@fichamedicaapi.route('/fichas-todas', methods=['GET'])
+def getFichasTodas():
+    """
+    Obtiene todas las fichas médicas con información de consulta, paciente y médico
+    
+    URL: GET /api/v1/fichas-todas
+    """
+    from app.dao.referenciales_consultorio.consulta.FichaMedicaDao import FichaMedicaDao
+    
+    fichaSQL = """
+    SELECT 
+        fm.id_ficha_medica,
+        fm.id_consulta_cab,
+        cc.fecha_cita as fecha_consulta,
+        CONCAT(p.nombre, ' ', p.apellido) as nombre_paciente,
+        CONCAT(m.nombre, ' ', m.apellido) as nombre_medico,
+        fm.presion_arterial,
+        fm.temperatura,
+        fm.frecuencia_cardiaca,
+        fm.frecuencia_respiratoria,
+        fm.peso,
+        fm.talla,
+        fm.imc,
+        fm.examen_fisico_general,
+        fm.examen_bucal,
+        fm.observaciones_medico,
+        fm.fecha_registro
+    FROM ficha_medica_consulta fm
+    INNER JOIN consultas_cab cc ON fm.id_consulta_cab = cc.id_consulta_cab
+    INNER JOIN paciente p ON cc.id_paciente = p.id_paciente
+    INNER JOIN medico m ON cc.id_medico = m.id_medico
+    WHERE fm.activo = true AND cc.activo = true
+    ORDER BY cc.fecha_cita DESC, fm.fecha_registro DESC
+    """
+    
+    from app.conexion.Conexion import Conexion
+    conexion = Conexion()
+    con = conexion.getConexion()
+    cur = con.cursor()
+    
+    try:
+        cur.execute(fichaSQL)
+        fichas = cur.fetchall()
+        
+        resultado = [{
+            'id_ficha_medica': f[0],
+            'id_consulta_cab': f[1],
+            'fecha_consulta': f[2].isoformat() if f[2] else None,
+            'nombre_paciente': f[3],
+            'nombre_medico': f[4],
+            'presion_arterial': f[5],
+            'temperatura': float(f[6]) if f[6] else None,
+            'frecuencia_cardiaca': f[7],
+            'frecuencia_respiratoria': f[8],
+            'peso': float(f[9]) if f[9] else None,
+            'talla': float(f[10]) if f[10] else None,
+            'imc': float(f[11]) if f[11] else None,
+            'examen_fisico_general': f[12],
+            'examen_bucal': f[13],
+            'observaciones_medico': f[14],
+            'fecha_registro': f[15].isoformat() if f[15] else None
+        } for f in fichas]
+        
+        return jsonify({
+            'success': True,
+            'data': resultado,
+            'error': None
+        }), 200
+        
+    except Exception as e:
+        app.logger.error(f"Error al obtener fichas: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Ocurrió un error interno. Consulte con el administrador.'
+        }), 500
+        
+    finally:
+        cur.close()
+        con.close()

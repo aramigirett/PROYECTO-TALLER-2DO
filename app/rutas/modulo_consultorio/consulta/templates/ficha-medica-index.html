@@ -1,0 +1,745 @@
+{% extends 'base.html' %}
+
+{% block titulo %}
+Gestión de Fichas Médicas
+{% endblock %}
+
+{% block contenido %}
+<div class="container-fluid mt-4">
+
+  <!-- ============================================ -->
+  <!-- TARJETAS DE ESTADÍSTICAS -->
+  <!-- ============================================ -->
+  <div class="row mb-4">
+    <!-- Total Fichas -->
+    <div class="col-xl-3 col-md-6 mb-3">
+      <div class="card border-left-primary shadow h-100 py-2">
+        <div class="card-body">
+          <div class="row no-gutters align-items-center">
+            <div class="col mr-2">
+              <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                Total Fichas
+              </div>
+              <div class="h5 mb-0 font-weight-bold text-gray-800" id="totalFichas">0</div>
+            </div>
+            <div class="col-auto">
+              <i class="fas fa-file-medical fa-2x text-gray-300"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Fichas de Hoy -->
+    <div class="col-xl-3 col-md-6 mb-3">
+      <div class="card border-left-success shadow h-100 py-2">
+        <div class="card-body">
+          <div class="row no-gutters align-items-center">
+            <div class="col mr-2">
+              <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                Fichas de Hoy
+              </div>
+              <div class="h5 mb-0 font-weight-bold text-gray-800" id="fichasHoy">0</div>
+            </div>
+            <div class="col-auto">
+              <i class="fas fa-calendar-day fa-2x text-gray-300"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pacientes Únicos -->
+    <div class="col-xl-3 col-md-6 mb-3">
+      <div class="card border-left-info shadow h-100 py-2">
+        <div class="card-body">
+          <div class="row no-gutters align-items-center">
+            <div class="col mr-2">
+              <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                Pacientes Atendidos
+              </div>
+              <div class="h5 mb-0 font-weight-bold text-gray-800" id="pacientesUnicos">0</div>
+            </div>
+            <div class="col-auto">
+              <i class="fas fa-users fa-2x text-gray-300"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- IMC Promedio -->
+    <div class="col-xl-3 col-md-6 mb-3">
+      <div class="card border-left-warning shadow h-100 py-2">
+        <div class="card-body">
+          <div class="row no-gutters align-items-center">
+            <div class="col mr-2">
+              <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                IMC Promedio
+              </div>
+              <div class="h5 mb-0 font-weight-bold text-gray-800" id="imcPromedio">0</div>
+            </div>
+            <div class="col-auto">
+              <i class="fas fa-weight fa-2x text-gray-300"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- FILTROS -->
+  <!-- ============================================ -->
+  <div class="card shadow-sm border-0 rounded-lg mb-3">
+    <div class="card-header bg-secondary text-white">
+      <h6 class="mb-0 font-weight-bold">
+        <i class="fas fa-filter mr-2"></i> Filtros de Búsqueda
+      </h6>
+    </div>
+    <div class="card-body">
+      <div class="row">
+        <!-- Buscar por Paciente -->
+        <div class="col-md-4 mb-2">
+          <label class="font-weight-bold">Buscar por Paciente:</label>
+          <input type="text" id="filtroPaciente" class="form-control" 
+                 placeholder="Nombre o apellido del paciente">
+        </div>
+
+        <!-- Fecha Desde -->
+        <div class="col-md-3 mb-2">
+          <label class="font-weight-bold">Desde:</label>
+          <input type="date" id="filtroFechaDesde" class="form-control">
+        </div>
+
+        <!-- Fecha Hasta -->
+        <div class="col-md-3 mb-2">
+          <label class="font-weight-bold">Hasta:</label>
+          <input type="date" id="filtroFechaHasta" class="form-control">
+        </div>
+
+        <!-- Botón Filtrar -->
+        <div class="col-md-2 mb-2 d-flex align-items-end">
+          <button type="button" class="btn btn-primary btn-block" id="btnFiltrar">
+            <i class="fas fa-search"></i> Filtrar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- CARD PRINCIPAL: TABLA DE FICHAS -->
+  <!-- ============================================ -->
+  <div class="card shadow-sm border-0 rounded-lg">
+    
+    <!-- HEADER -->
+    <div class="card-header bg-success text-white">
+      <h5 class="mb-0 font-weight-bold">
+        <i class="fas fa-file-medical-alt mr-2"></i> Listado de Fichas Médicas
+      </h5>
+    </div>
+
+    <!-- BODY: TABLA -->
+    <div class="card-body p-2">
+      <div class="table-responsive shadow-sm rounded">
+        <table class="table table-hover table-bordered align-middle text-center" id="tblFichasMedicas">
+          <thead class="bg-success text-white">
+            <tr>
+              <th>Paciente</th>
+              <th>Fecha Consulta</th>
+              <th>Médico</th>
+              <th>Presión Arterial</th>
+              <th>Temperatura (°C)</th>
+              <th>Peso (kg)</th>
+              <th>Talla (cm)</th>
+              <th>IMC</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ============================================ -->
+<!-- MODAL: VER FICHA COMPLETA -->
+<!-- ============================================ -->
+<div class="modal fade" id="modalVerFicha" tabindex="-1" role="dialog">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable" role="document">
+    <div class="modal-content">
+      
+      <!-- HEADER -->
+      <div class="modal-header bg-success text-white">
+        <h4 class="modal-title">
+          <i class="fas fa-file-medical"></i> Ficha Médica Completa
+        </h4>
+        <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+      </div>
+
+      <!-- BODY -->
+      <div class="modal-body">
+        
+        <!-- Información de la Consulta -->
+        <div class="alert alert-info">
+          <h5 class="font-weight-bold">📋 Información de la Consulta</h5>
+          <div id="infoConsultaVer"></div>
+        </div>
+
+        <!-- SIGNOS VITALES -->
+        <h5 class="text-success">Signos Vitales</h5>
+        <div class="row mb-3">
+          <div class="col-md-3">
+            <strong>Presión Arterial:</strong>
+            <p id="verPresionArterial" class="text-muted">-</p>
+          </div>
+          <div class="col-md-3">
+            <strong>Temperatura (°C):</strong>
+            <p id="verTemperatura" class="text-muted">-</p>
+          </div>
+          <div class="col-md-3">
+            <strong>Frecuencia Cardíaca:</strong>
+            <p id="verFrecuenciaCardiaca" class="text-muted">-</p>
+          </div>
+          <div class="col-md-3">
+            <strong>Frecuencia Respiratoria:</strong>
+            <p id="verFrecuenciaRespiratoria" class="text-muted">-</p>
+          </div>
+        </div>
+
+        <div class="row mb-3">
+          <div class="col-md-4">
+            <strong>Peso (kg):</strong>
+            <p id="verPeso" class="text-muted">-</p>
+          </div>
+          <div class="col-md-4">
+            <strong>Talla (cm):</strong>
+            <p id="verTalla" class="text-muted">-</p>
+          </div>
+          <div class="col-md-4">
+            <strong>IMC:</strong>
+            <p id="verIMC" class="text-muted">-</p>
+          </div>
+        </div>
+
+        <!-- EXAMEN FÍSICO -->
+        <hr>
+        <h5 class="text-success">Examen Físico</h5>
+        <div class="row mb-3">
+          <div class="col-md-6">
+            <strong>Examen Físico General:</strong>
+            <p id="verExamenFisicoGeneral" class="text-muted">-</p>
+          </div>
+          <div class="col-md-6">
+            <strong>Examen Bucal:</strong>
+            <p id="verExamenBucal" class="text-muted">-</p>
+          </div>
+        </div>
+
+        <!-- OBSERVACIONES -->
+        <hr>
+        <h5 class="text-success">Observaciones del Médico</h5>
+        <p id="verObservacionesMedico" class="text-muted">-</p>
+
+        <!-- Botón Ver Consulta -->
+        <hr>
+        <button type="button" class="btn btn-info" id="btnVerConsultaCompleta">
+          <i class="fas fa-eye"></i> Ver Consulta Completa
+        </button>
+      </div>
+
+      <!-- FOOTER -->
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- MODAL: EDITAR FICHA -->
+<!-- ============================================ -->
+<div class="modal fade" id="modalEditarFicha" tabindex="-1" role="dialog">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable" role="document">
+    <div class="modal-content">
+      
+      <!-- HEADER -->
+      <div class="modal-header bg-warning text-dark">
+        <h4 class="modal-title">
+          <i class="fas fa-edit"></i> Editar Ficha Médica
+        </h4>
+        <button type="button" class="close" data-dismiss="modal">&times;</button>
+      </div>
+
+      <!-- BODY -->
+      <div class="modal-body">
+        <input type="hidden" id="editIdFichaMedica">
+        <input type="hidden" id="editIdConsulta">
+        
+        <!-- Información de la Consulta -->
+        <div class="alert alert-info">
+          <h5 class="font-weight-bold">📋 Información de la Consulta</h5>
+          <div id="infoConsultaEditar"></div>
+        </div>
+
+        <!-- SIGNOS VITALES -->
+        <h5 class="text-warning">Signos Vitales</h5>
+        <div class="row">
+          <div class="col-md-3 mb-3">
+            <label class="font-weight-bold">Presión Arterial</label>
+            <input type="text" id="editPresionArterial" class="form-control" 
+                   placeholder="120/80">
+          </div>
+          <div class="col-md-3 mb-3">
+            <label class="font-weight-bold">Temperatura (°C)</label>
+            <input type="number" id="editTemperatura" class="form-control" 
+                   step="0.1" placeholder="36.5">
+          </div>
+          <div class="col-md-3 mb-3">
+            <label class="font-weight-bold">Frecuencia Cardíaca</label>
+            <input type="number" id="editFrecuenciaCardiaca" class="form-control" 
+                   placeholder="72">
+          </div>
+          <div class="col-md-3 mb-3">
+            <label class="font-weight-bold">Frecuencia Respiratoria</label>
+            <input type="number" id="editFrecuenciaRespiratoria" class="form-control" 
+                   placeholder="16">
+          </div>
+          <div class="col-md-4 mb-3">
+            <label class="font-weight-bold">Peso (kg)</label>
+            <input type="number" id="editPeso" class="form-control" 
+                   step="0.1" placeholder="70.5">
+          </div>
+          <div class="col-md-4 mb-3">
+            <label class="font-weight-bold">Talla (cm)</label>
+            <input type="number" id="editTalla" class="form-control" 
+                   step="0.1" placeholder="175">
+          </div>
+          <div class="col-md-4 mb-3">
+            <label class="font-weight-bold">IMC (calculado)</label>
+            <input type="text" id="editIMC" class="form-control" readonly>
+          </div>
+        </div>
+
+        <!-- EXAMEN FÍSICO -->
+        <hr>
+        <h5 class="text-warning">Examen Físico</h5>
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <label class="font-weight-bold">Examen Físico General</label>
+            <textarea id="editExamenFisicoGeneral" class="form-control" rows="4"></textarea>
+          </div>
+          <div class="col-md-6 mb-3">
+            <label class="font-weight-bold">Examen Bucal</label>
+            <textarea id="editExamenBucal" class="form-control" rows="4"></textarea>
+          </div>
+        </div>
+
+        <!-- OBSERVACIONES -->
+        <hr>
+        <h5 class="text-warning">Observaciones del Médico</h5>
+        <textarea id="editObservacionesMedico" class="form-control" rows="3"></textarea>
+      </div>
+
+      <!-- FOOTER -->
+      <div class="modal-footer">
+        <button type="button" class="btn btn-warning" id="btnGuardarEdicion">
+          <i class="fas fa-save"></i> Guardar Cambios
+        </button>
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Librerías -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.10.21/css/dataTables.bootstrap4.min.css">
+<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.bundle.min.js"></script>
+
+<style>
+.border-left-primary {
+  border-left: 0.25rem solid #4e73df !important;
+}
+.border-left-success {
+  border-left: 0.25rem solid #1cc88a !important;
+}
+.border-left-info {
+  border-left: 0.25rem solid #36b9cc !important;
+}
+.border-left-warning {
+  border-left: 0.25rem solid #f6c23e !important;
+}
+</style>
+
+{% endblock %}
+
+{% block js %}
+<script>
+// ============================================
+// VARIABLES GLOBALES
+// ============================================
+let fichaActualId = null;
+let consultaActualId = null;
+
+// ============================================
+// FUNCIONES AUXILIARES
+// ============================================
+
+/**
+ * Formatea fecha YYYY-MM-DD a DD/MM/YYYY
+ */
+function formatDateForDisplay(fecha) {
+  if (!fecha) return '';
+  const d = new Date(fecha);
+  if (isNaN(d)) return '';
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const year = d.getUTCFullYear();
+  return `${day}/${month}/${year}`;
+}
+
+// ============================================
+// ACTUALIZAR ESTADÍSTICAS
+// ============================================
+function actualizarEstadisticas() {
+  // Obtener datos de la tabla actual
+  const table = $('#tblFichasMedicas').DataTable();
+  const data = table.rows({search: 'applied'}).data().toArray();
+  
+  if (data.length === 0) {
+    $('#totalFichas').text('0');
+    $('#fichasHoy').text('0');
+    $('#pacientesUnicos').text('0');
+    $('#imcPromedio').text('0');
+    return;
+  }
+
+  // Total fichas
+  $('#totalFichas').text(data.length);
+
+  // Fichas de hoy
+  const hoy = new Date().toISOString().split('T')[0];
+  const fichasHoy = data.filter(f => f.fecha_consulta === hoy).length;
+  $('#fichasHoy').text(fichasHoy);
+
+  // Pacientes únicos
+  const pacientesUnicos = new Set(data.map(f => f.nombre_paciente)).size;
+  $('#pacientesUnicos').text(pacientesUnicos);
+
+  // IMC promedio
+  const imcValidos = data.filter(f => f.imc && !isNaN(f.imc));
+  if (imcValidos.length > 0) {
+    const sumaIMC = imcValidos.reduce((sum, f) => sum + parseFloat(f.imc), 0);
+    const promedioIMC = (sumaIMC / imcValidos.length).toFixed(2);
+    $('#imcPromedio').text(promedioIMC);
+  } else {
+    $('#imcPromedio').text('N/A');
+  }
+}
+
+// ============================================
+// DATATABLE: FICHAS MÉDICAS
+// ============================================
+function initDatatableFichas() {
+  if ($.fn.DataTable.isDataTable('#tblFichasMedicas')) {
+    $('#tblFichasMedicas').DataTable().destroy();
+  }
+
+  $('#tblFichasMedicas').DataTable({
+    language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
+    ajax: {
+      url: '/api/v1/fichas-todas',
+      dataSrc: 'data',
+      error: function(xhr, error, code) {
+        console.error('Error al cargar fichas:', error);
+        Swal.fire('Error', 'No se pudieron cargar las fichas médicas', 'error');
+      }
+    },
+    columns: [
+      { data: 'nombre_paciente' },
+      { 
+        data: 'fecha_consulta',
+        render: d => formatDateForDisplay(d)
+      },
+      { data: 'nombre_medico' },
+      { 
+        data: 'presion_arterial',
+        render: d => d || '-'
+      },
+      { 
+        data: 'temperatura',
+        render: d => d ? `${d}°C` : '-'
+      },
+      { 
+        data: 'peso',
+        render: d => d ? `${d} kg` : '-'
+      },
+      { 
+        data: 'talla',
+        render: d => d ? `${d} cm` : '-'
+      },
+      { 
+        data: 'imc',
+        render: function(d) {
+          if (!d) return '-';
+          const imc = parseFloat(d);
+          let color = '#28a745'; // Verde (normal)
+          if (imc < 18.5) color = '#ffc107'; // Amarillo (bajo peso)
+          if (imc >= 25 && imc < 30) color = '#fd7e14'; // Naranja (sobrepeso)
+          if (imc >= 30) color = '#dc3545'; // Rojo (obesidad)
+          return `<span style="color:${color}; font-weight:bold;">${imc}</span>`;
+        }
+      },
+      { 
+        data: null,
+        render: row => `
+          <button class="btn btn-success btn-sm" name="btn_ver_ficha" 
+                  data-id="${row.id_ficha_medica}" title="Ver Ficha">
+            <i class="fas fa-eye"></i>
+          </button>
+          <button class="btn btn-warning btn-sm" name="btn_editar_ficha" 
+                  data-id="${row.id_ficha_medica}" title="Editar">
+            <i class="fas fa-edit"></i>
+          </button>
+        `
+      }
+    ],
+    order: [[1, 'desc']], // Ordenar por fecha descendente
+    drawCallback: function() {
+      actualizarEstadisticas();
+    }
+  });
+}
+
+// ============================================
+// CREAR ENDPOINT TEMPORAL EN API (NECESARIO)
+// ============================================
+// NOTA: Necesitamos crear un endpoint nuevo en ficha_medica_api.py
+// que traiga TODAS las fichas con info de consulta
+
+// ============================================
+// BOTÓN FILTRAR
+// ============================================
+$('#btnFiltrar').on('click', function() {
+  const table = $('#tblFichasMedicas').DataTable();
+  
+  // Filtro por paciente
+  const filtroPaciente = $('#filtroPaciente').val();
+  table.column(0).search(filtroPaciente);
+  
+  // Aplicar filtros
+  table.draw();
+  
+  // Actualizar estadísticas
+  actualizarEstadisticas();
+});
+
+// Filtrar al presionar Enter en el campo paciente
+$('#filtroPaciente').on('keyup', function(e) {
+  if (e.key === 'Enter') {
+    $('#btnFiltrar').click();
+  }
+});
+
+// ============================================
+// VER FICHA COMPLETA
+// ============================================
+$('#tblFichasMedicas').on('click', 'button[name="btn_ver_ficha"]', function() {
+  const idFicha = $(this).data('id');
+  fichaActualId = idFicha;
+  
+  // Cargar datos de la ficha
+  fetch(`/api/v1/ficha-medica/${idFicha}`)
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        const ficha = d.data;
+        consultaActualId = ficha.id_consulta_cab;
+        
+        // Cargar info de la consulta
+        fetch(`/api/v1/consultas/${ficha.id_consulta_cab}`)
+          .then(r => r.json())
+          .then(dc => {
+            if (dc.success) {
+              const c = dc.data;
+              $('#infoConsultaVer').html(`
+                <strong>Paciente:</strong> ${c.nombre_paciente}<br>
+                <strong>Médico:</strong> ${c.nombre_medico}<br>
+                <strong>Fecha:</strong> ${formatDateForDisplay(c.fecha_cita)} - ${c.hora_cita}<br>
+                <strong>Consultorio:</strong> ${c.nombre_consultorio}<br>
+                <strong>Estado:</strong> ${c.estado}
+              `);
+            }
+          });
+        
+        // Llenar datos de signos vitales
+        $('#verPresionArterial').text(ficha.presion_arterial || '-');
+        $('#verTemperatura').text(ficha.temperatura ? `${ficha.temperatura}°C` : '-');
+        $('#verFrecuenciaCardiaca').text(ficha.frecuencia_cardiaca || '-');
+        $('#verFrecuenciaRespiratoria').text(ficha.frecuencia_respiratoria || '-');
+        $('#verPeso').text(ficha.peso ? `${ficha.peso} kg` : '-');
+        $('#verTalla').text(ficha.talla ? `${ficha.talla} cm` : '-');
+        $('#verIMC').text(ficha.imc || '-');
+        
+        // Llenar examen físico
+        $('#verExamenFisicoGeneral').text(ficha.examen_fisico_general || '-');
+        $('#verExamenBucal').text(ficha.examen_bucal || '-');
+        
+        // Llenar observaciones
+        $('#verObservacionesMedico').text(ficha.observaciones_medico || '-');
+        
+        // Mostrar modal
+        $('#modalVerFicha').modal('show');
+      } else {
+        Swal.fire('Error', 'No se pudo cargar la ficha médica', 'error');
+      }
+    })
+    .catch(err => {
+      console.error('Error:', err);
+      Swal.fire('Error', 'No se pudo cargar la ficha médica', 'error');
+    });
+});
+
+// ============================================
+// BOTÓN VER CONSULTA COMPLETA
+// ============================================
+$('#btnVerConsultaCompleta').on('click', function() {
+  if (consultaActualId) {
+    // Redirigir a la página de consultas con el ID
+    window.location.href = `/referenciales/consulta/consulta-index?consulta=${consultaActualId}`;
+  }
+});
+
+// ============================================
+// EDITAR FICHA
+// ============================================
+$('#tblFichasMedicas').on('click', 'button[name="btn_editar_ficha"]', function() {
+  const idFicha = $(this).data('id');
+  fichaActualId = idFicha;
+  
+  // Cargar datos de la ficha
+  fetch(`/api/v1/ficha-medica/${idFicha}`)
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        const ficha = d.data;
+        consultaActualId = ficha.id_consulta_cab;
+        
+        // Cargar info de la consulta
+        fetch(`/api/v1/consultas/${ficha.id_consulta_cab}`)
+          .then(r => r.json())
+          .then(dc => {
+            if (dc.success) {
+              const c = dc.data;
+              $('#infoConsultaEditar').html(`
+                <strong>Paciente:</strong> ${c.nombre_paciente}<br>
+                <strong>Médico:</strong> ${c.nombre_medico}<br>
+                <strong>Fecha:</strong> ${formatDateForDisplay(c.fecha_cita)} - ${c.hora_cita}<br>
+                <strong>Consultorio:</strong> ${c.nombre_consultorio}<br>
+                <strong>Estado:</strong> ${c.estado}
+              `);
+            }
+          });
+        
+        // Llenar formulario de edición
+        $('#editIdFichaMedica').val(ficha.id_ficha_medica);
+        $('#editIdConsulta').val(ficha.id_consulta_cab);
+        $('#editPresionArterial').val(ficha.presion_arterial || '');
+        $('#editTemperatura').val(ficha.temperatura || '');
+        $('#editFrecuenciaCardiaca').val(ficha.frecuencia_cardiaca || '');
+        $('#editFrecuenciaRespiratoria').val(ficha.frecuencia_respiratoria || '');
+        $('#editPeso').val(ficha.peso || '');
+        $('#editTalla').val(ficha.talla || '');
+        $('#editIMC').val(ficha.imc || '');
+        $('#editExamenFisicoGeneral').val(ficha.examen_fisico_general || '');
+        $('#editExamenBucal').val(ficha.examen_bucal || '');
+        $('#editObservacionesMedico').val(ficha.observaciones_medico || '');
+        
+        // Mostrar modal
+        $('#modalEditarFicha').modal('show');
+      } else {
+        Swal.fire('Error', 'No se pudo cargar la ficha médica', 'error');
+      }
+    })
+    .catch(err => {
+      console.error('Error:', err);
+      Swal.fire('Error', 'No se pudo cargar la ficha médica', 'error');
+    });
+});
+
+// ============================================
+// CALCULAR IMC EN EDICIÓN
+// ============================================
+$('#editPeso, #editTalla').on('input', function() {
+  const peso = parseFloat($('#editPeso').val());
+  const talla = parseFloat($('#editTalla').val()) / 100; // Convertir cm a m
+  
+  if (peso && talla) {
+    const imc = (peso / (talla * talla)).toFixed(2);
+    $('#editIMC').val(imc);
+  }
+});
+
+// ============================================
+// GUARDAR EDICIÓN
+// ============================================
+$('#btnGuardarEdicion').on('click', function() {
+  const idFicha = $('#editIdFichaMedica').val();
+  
+  const payload = {
+    id_consulta_cab: parseInt($('#editIdConsulta').val()),
+    presion_arterial: $('#editPresionArterial').val() || null,
+    temperatura: $('#editTemperatura').val() ? parseFloat($('#editTemperatura').val()) : null,
+    frecuencia_cardiaca: $('#editFrecuenciaCardiaca').val() ? parseInt($('#editFrecuenciaCardiaca').val()) : null,
+    frecuencia_respiratoria: $('#editFrecuenciaRespiratoria').val() ? parseInt($('#editFrecuenciaRespiratoria').val()) : null,
+    peso: $('#editPeso').val() ? parseFloat($('#editPeso').val()) : null,
+    talla: $('#editTalla').val() ? parseFloat($('#editTalla').val()) : null,
+    imc: $('#editIMC').val() ? parseFloat($('#editIMC').val()) : null,
+    examen_fisico_general: $('#editExamenFisicoGeneral').val() || null,
+    examen_bucal: $('#editExamenBucal').val() || null,
+    observaciones_medico: $('#editObservacionesMedico').val() || null
+  };
+
+  // Enviar petición
+  fetch(`/api/v1/ficha-medica/${idFicha}`, {
+    method: 'PUT',
+    headers: { 
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (d.success) {
+      $('#modalEditarFicha').modal('hide');
+      $('#tblFichasMedicas').DataTable().ajax.reload();
+      Swal.fire('Éxito', 'Ficha médica actualizada correctamente', 'success');
+    } else {
+      Swal.fire('Error', d.error || 'No se pudo actualizar', 'error');
+    }
+  })
+  .catch(err => {
+    console.error('Error:', err);
+    Swal.fire('Error', 'No se pudo actualizar la ficha médica', 'error');
+  });
+});
+
+// ============================================
+// INICIALIZACIÓN AL CARGAR LA PÁGINA
+// ============================================
+$(document).ready(function() {
+  // Inicializar tabla
+  initDatatableFichas();
+  
+  console.log('✅ Módulo de Gestión de Fichas Médicas inicializado correctamente');
+});
+</script>
+{% endblock %}

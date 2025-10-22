@@ -12,29 +12,29 @@ class ConsultaDao:
 
     def getConsultas(self):
         """
-        Obtiene TODAS las consultas con información relacionada
-        (paciente, médico, consultorio)
+        Obtiene todas las consultas activas con información de ficha médica
         """
         consultaSQL = """
         SELECT 
             cc.id_consulta_cab,
-            cc.id_cita,
             cc.id_paciente,
-            p.nombre || ' ' || p.apellido as nombre_paciente,
+            CONCAT(p.nombre, ' ', p.apellido) as nombre_paciente,
             cc.id_medico,
-            m.nombre || ' ' || m.apellido as nombre_medico,
+            CONCAT(m.nombre, ' ', m.apellido) as nombre_medico,
             cc.id_consultorio,
-            con.nombre_consultorio,
-            cc.id_funcionario,
+            co.nombre_consultorio,
             cc.fecha_cita,
             cc.hora_cita,
             cc.duracion_minutos,
             cc.estado,
-            cc.fecha_registro
+            cc.activo,
+            CASE WHEN fm.id_ficha_medica IS NOT NULL THEN true ELSE false END as tiene_ficha
         FROM consultas_cab cc
-        INNER JOIN paciente p ON cc.id_paciente = p.id_paciente
-        INNER JOIN medico m ON cc.id_medico = m.id_medico
-        INNER JOIN consultorio con ON cc.id_consultorio = con.codigo
+        LEFT JOIN paciente p ON cc.id_paciente = p.id_paciente
+        LEFT JOIN medico m ON cc.id_medico = m.id_medico
+        LEFT JOIN consultorio co ON cc.id_consultorio = co.codigo
+        LEFT JOIN ficha_medica_consulta fm ON cc.id_consulta_cab = fm.id_consulta_cab
+        WHERE cc.activo = true
         ORDER BY cc.fecha_cita DESC, cc.hora_cita DESC
         """
         
@@ -46,22 +46,20 @@ class ConsultaDao:
             cur.execute(consultaSQL)
             consultas = cur.fetchall()
             
-            # Transformar a lista de diccionarios
             return [{
                 'id_consulta_cab': c[0],
-                'id_cita': c[1],
-                'id_paciente': c[2],
-                'nombre_paciente': c[3],
-                'id_medico': c[4],
-                'nombre_medico': c[5],
-                'id_consultorio': c[6],
-                'nombre_consultorio': c[7],
-                'id_funcionario': c[8],
-                'fecha_cita': c[9].isoformat() if c[9] else None,
-                'hora_cita': str(c[10]) if c[10] else None,
-                'duracion_minutos': c[11],
-                'estado': c[12],
-                'fecha_registro': c[13].isoformat() if c[13] else None
+                'id_paciente': c[1],
+                'nombre_paciente': c[2],
+                'id_medico': c[3],
+                'nombre_medico': c[4],
+                'id_consultorio': c[5],
+                'nombre_consultorio': c[6],
+                'fecha_cita': c[7].isoformat() if c[7] else None,
+                'hora_cita': str(c[8]) if c[8] else None,
+                'duracion_minutos': c[9],
+                'estado': c[10],
+                'activo': c[11],
+                'tiene_ficha': c[12]
             } for c in consultas]
             
         except Exception as e:
@@ -81,9 +79,9 @@ class ConsultaDao:
             cc.id_consulta_cab,
             cc.id_cita,
             cc.id_paciente,
-            p.nombre || ' ' || p.apellido as nombre_paciente,
+            CONCAT(p.nombre, ' ', p.apellido) as nombre_paciente,
             cc.id_medico,
-            m.nombre || ' ' || m.apellido as nombre_medico,
+            CONCAT(m.nombre, ' ', m.apellido) as nombre_medico,
             cc.id_consultorio,
             con.nombre_consultorio,
             cc.id_funcionario,
@@ -234,10 +232,17 @@ class ConsultaDao:
 
     def deleteConsulta(self, id_consulta_cab):
         """
-        Elimina una consulta (y sus detalles por CASCADE)
+        Soft Delete: marca como inactivo en lugar de eliminar
         """
         deleteSQL = """
-        DELETE FROM consultas_cab
+        UPDATE consultas_cab
+        SET activo = false
+        WHERE id_consulta_cab = %s
+        """
+        
+        deleteFichaSQL = """
+        UPDATE ficha_medica_consulta
+        SET activo = false
         WHERE id_consulta_cab = %s
         """
         
@@ -246,7 +251,12 @@ class ConsultaDao:
         cur = con.cursor()
         
         try:
+            # Marcar ficha como inactiva
+            cur.execute(deleteFichaSQL, (id_consulta_cab,))
+            
+            # Marcar consulta como inactiva
             cur.execute(deleteSQL, (id_consulta_cab,))
+            
             rows_affected = cur.rowcount
             con.commit()
             return rows_affected > 0

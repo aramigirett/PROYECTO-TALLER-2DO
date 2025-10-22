@@ -1,89 +1,93 @@
 {% extends 'base.html' %}
 
 {% block titulo %}
-Registrar Consulta
+Gestión de Consultas Médicas
 {% endblock %}
 
 {% block contenido %}
 <div class="container-fluid mt-4">
 
   <!-- ============================================ -->
-  <!-- TARJETAS DE ESTADÍSTICAS -->
+  <!-- TARJETAS DE ESTADÍSTICAS - DISEÑO MÉDICO -->
   <!-- ============================================ -->
   <div class="row mb-4">
     <!-- Consultas de Hoy -->
     <div class="col-xl-3 col-md-6 mb-3">
-      <div class="card border-left-primary shadow h-100 py-2">
+      <div class="card card-medical shadow-medical h-100">
         <div class="card-body">
-          <div class="row no-gutters align-items-center">
-            <div class="col mr-2">
-              <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+          <div class="d-flex align-items-center">
+            <div class="icon-medical bg-blue">
+              <i class="fas fa-calendar-day"></i>
+            </div>
+            <div class="ml-3 flex-grow-1">
+              <div class="text-xs font-weight-bold text-uppercase mb-1 text-medical-blue">
                 Consultas de Hoy
               </div>
-              <div class="h5 mb-0 font-weight-bold text-gray-800" id="consultasHoy">0</div>
-            </div>
-            <div class="col-auto">
-              <i class="fas fa-calendar-day fa-2x text-gray-300"></i>
+              <div class="h4 mb-0 font-weight-bold text-gray-800" id="consultasHoy">0</div>
             </div>
           </div>
         </div>
+        <div class="card-footer-medical bg-blue"></div>
       </div>
     </div>
 
     <!-- En Seguimiento -->
     <div class="col-xl-3 col-md-6 mb-3">
-      <div class="card border-left-warning shadow h-100 py-2">
+      <div class="card card-medical shadow-medical h-100">
         <div class="card-body">
-          <div class="row no-gutters align-items-center">
-            <div class="col mr-2">
-              <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+          <div class="d-flex align-items-center">
+            <div class="icon-medical bg-warning">
+              <i class="fas fa-clock"></i>
+            </div>
+            <div class="ml-3 flex-grow-1">
+              <div class="text-xs font-weight-bold text-uppercase mb-1 text-medical-warning">
                 En Seguimiento
               </div>
-              <div class="h5 mb-0 font-weight-bold text-gray-800" id="consultasEnSeguimiento">0</div>
-            </div>
-            <div class="col-auto">
-              <i class="fas fa-clock fa-2x text-gray-300"></i>
+              <div class="h4 mb-0 font-weight-bold text-gray-800" id="consultasEnSeguimiento">0</div>
             </div>
           </div>
         </div>
+        <div class="card-footer-medical bg-warning"></div>
       </div>
     </div>
 
     <!-- Finalizadas -->
     <div class="col-xl-3 col-md-6 mb-3">
-      <div class="card border-left-success shadow h-100 py-2">
+      <div class="card card-medical shadow-medical h-100">
         <div class="card-body">
-          <div class="row no-gutters align-items-center">
-            <div class="col mr-2">
-              <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+          <div class="d-flex align-items-center">
+            <div class="icon-medical bg-green">
+              <i class="fas fa-check-circle"></i>
+            </div>
+            <div class="ml-3 flex-grow-1">
+              <div class="text-xs font-weight-bold text-uppercase mb-1 text-medical-green">
                 Finalizadas
               </div>
-              <div class="h5 mb-0 font-weight-bold text-gray-800" id="consultasFinalizadas">0</div>
-            </div>
-            <div class="col-auto">
-              <i class="fas fa-check-circle fa-2x text-gray-300"></i>
+              <div class="h4 mb-0 font-weight-bold text-gray-800" id="consultasFinalizadas">0</div>
             </div>
           </div>
         </div>
+        <div class="card-footer-medical bg-green"></div>
       </div>
     </div>
 
     <!-- Total Consultas -->
     <div class="col-xl-3 col-md-6 mb-3">
-      <div class="card border-left-info shadow h-100 py-2">
+      <div class="card card-medical shadow-medical h-100">
         <div class="card-body">
-          <div class="row no-gutters align-items-center">
-            <div class="col mr-2">
-              <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+          <div class="d-flex align-items-center">
+            <div class="icon-medical bg-info">
+              <i class="fas fa-clipboard-list"></i>
+            </div>
+            <div class="ml-3 flex-grow-1">
+              <div class="text-xs font-weight-bold text-uppercase mb-1 text-medical-info">
                 Total Consultas
               </div>
-              <div class="h5 mb-0 font-weight-bold text-gray-800" id="totalConsultas">0</div>
-            </div>
-            <div class="col-auto">
-              <i class="fas fa-clipboard-list fa-2x text-gray-300"></i>
+              <div class="h4 mb-0 font-weight-bold text-gray-800" id="totalConsultas">0</div>
             </div>
           </div>
         </div>
+        <div class="card-footer-medical bg-info"></div>
       </div>
     </div>
   </div>
@@ -91,32 +95,34 @@ Registrar Consulta
   <!-- ============================================ -->
   <!-- CARD PRINCIPAL: TABLA DE CONSULTAS -->
   <!-- ============================================ -->
-  <div class="card shadow-sm border-0 rounded-lg">
+  <div class="card card-medical shadow-medical">
     
-    <!-- HEADER -->
-    <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
-      <button type="button" class="btn btn-light btn-sm" id="btnAgregar">
-        <i class="fas fa-plus-circle mr-1"></i> Agregar Consulta
-      </button>
-      <h5 class="mb-0 font-weight-bold">
-        <i class="fas fa-stethoscope mr-2"></i> Gestión de Consultas Médicas
-      </h5>
+    <!-- HEADER CON GRADIENTE MÉDICO -->
+    <div class="card-header card-header-medical">
+      <div class="d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 font-weight-bold text-white">
+          <i class="fas fa-stethoscope mr-2"></i> Gestión de Consultas Médicas
+        </h5>
+        <button type="button" class="btn btn-medical-white" id="btnAgregar">
+          <i class="fas fa-plus-circle mr-1"></i> Nueva Consulta
+        </button>
+      </div>
     </div>
 
     <!-- BODY: TABLA -->
-    <div class="card-body p-2">
-      <div class="table-responsive shadow-sm rounded">
-        <table class="table table-hover table-bordered align-middle text-center" id="tblConsultas">
-          <thead class="bg-info text-white">
+    <div class="card-body p-3">
+      <div class="table-responsive">
+        <table class="table table-medical table-hover align-middle" id="tblConsultas">
+          <thead>
             <tr>
-              <th>Fecha</th>
-              <th>Hora</th>
-              <th>Paciente</th>
-              <th>Médico</th>
-              <th>Consultorio</th>
-              <th>Duración (min)</th>
-              <th>Estado</th>
-              <th>Acciones</th>
+              <th><i class="fas fa-calendar mr-1"></i> Fecha</th>
+              <th><i class="fas fa-clock mr-1"></i> Hora</th>
+              <th><i class="fas fa-user mr-1"></i> Paciente</th>
+              <th><i class="fas fa-user-md mr-1"></i> Médico</th>
+              <th><i class="fas fa-door-open mr-1"></i> Consultorio</th>
+              <th><i class="fas fa-hourglass-half mr-1"></i> Duración</th>
+              <th><i class="fas fa-flag mr-1"></i> Estado</th>
+              <th><i class="fas fa-cogs mr-1"></i> Acciones</th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -132,99 +138,142 @@ Registrar Consulta
 <!-- ============================================ -->
 <div class="modal fade" id="modalFormulario" tabindex="-1" role="dialog">
   <div class="modal-dialog modal-lg modal-dialog-scrollable" role="document">
-    <div class="modal-content shadow-lg border-0 rounded-lg">
+    <div class="modal-content modal-medical">
 
-      <!-- HEADER -->
-      <div class="modal-header bg-info text-white rounded-top">
-        <h5 class="modal-title font-weight-bold">
-          <i class="fas fa-stethoscope mr-2"></i> <span id="modalTitle">Nueva Consulta</span>
+      <!-- HEADER CON GRADIENTE -->
+      <div class="modal-header modal-header-medical">
+        <h5 class="modal-title font-weight-bold text-white">
+          <i class="fas fa-stethoscope mr-2"></i> <span id="modalTitle">Nueva Consulta Médica</span>
         </h5>
-        <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+        <button type="button" class="close text-white" data-dismiss="modal">
+          <span>&times;</span>
+        </button>
       </div>
 
       <!-- BODY -->
-      <div class="modal-body">
+      <div class="modal-body bg-medical-light p-4">
         <input type="hidden" id="txtIdConsulta">
 
-        <div class="row">
-          
-          <!-- Paciente -->
-          <div class="col-md-6 mb-3">
-            <input type="hidden" id="id_paciente">
-            <label class="font-weight-bold">Paciente: <span class="text-danger">*</span></label>
-            <input type="text" id="txtPaciente" class="form-control" 
-                   placeholder="Click para seleccionar Paciente" readonly required>
-            <div class="text-danger small" id="error_txtPaciente" style="display:none;">Campo obligatorio</div>
+        <!-- SECCIÓN: INFORMACIÓN DEL PACIENTE -->
+        <div class="section-medical mb-4">
+          <div class="section-header-medical">
+            <i class="fas fa-user-circle"></i> Información del Paciente
           </div>
-
-          <!-- Médico -->
-          <div class="col-md-6 mb-3">
-            <input type="hidden" id="id_medico">
-            <label class="font-weight-bold">Médico: <span class="text-danger">*</span></label>
-            <input type="text" id="txtMedico" class="form-control" 
-                   placeholder="Click para seleccionar Médico" readonly required>
-            <div class="text-danger small" id="error_txtMedico" style="display:none;">Campo obligatorio</div>
+          <div class="section-body-medical">
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <input type="hidden" id="id_paciente">
+                <label class="label-medical">Paciente <span class="text-danger">*</span></label>
+                <div class="input-group input-group-medical">
+                  <input type="text" id="txtPaciente" class="form-control form-control-medical" 
+                         placeholder="Click para seleccionar" readonly required>
+                  <div class="input-group-append">
+                    <span class="input-group-text input-group-text-medical">
+                      <i class="fas fa-search"></i>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
+        </div>
 
-          <!-- Consultorio -->
-          <div class="col-md-6 mb-3">
-            <input type="hidden" id="id_consultorio">
-            <label class="font-weight-bold">Consultorio: <span class="text-danger">*</span></label>
-            <input type="text" id="txtConsultorio" class="form-control" 
-                   placeholder="Click para seleccionar Consultorio" readonly required>
-            <div class="text-danger small" id="error_txtConsultorio" style="display:none;">Campo obligatorio</div>
+        <!-- SECCIÓN: ASIGNACIÓN MÉDICA -->
+        <div class="section-medical mb-4">
+          <div class="section-header-medical">
+            <i class="fas fa-user-md"></i> Asignación Médica
           </div>
+          <div class="section-body-medical">
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <input type="hidden" id="id_medico">
+                <label class="label-medical">Médico <span class="text-danger">*</span></label>
+                <div class="input-group input-group-medical">
+                  <input type="text" id="txtMedico" class="form-control form-control-medical" 
+                         placeholder="Click para seleccionar" readonly required>
+                  <div class="input-group-append">
+                    <span class="input-group-text input-group-text-medical">
+                      <i class="fas fa-search"></i>
+                    </span>
+                  </div>
+                </div>
+              </div>
 
-          <!-- Funcionario (Opcional) -->
-          <div class="col-md-6 mb-3">
-            <input type="hidden" id="id_funcionario">
-            <label class="font-weight-bold">Funcionario:</label>
-            <input type="text" id="txtFuncionario" class="form-control" 
-                   placeholder="Click para seleccionar Funcionario (opcional)" readonly>
+              <div class="col-md-6 mb-3">
+                <input type="hidden" id="id_consultorio">
+                <label class="label-medical">Consultorio <span class="text-danger">*</span></label>
+                <div class="input-group input-group-medical">
+                  <input type="text" id="txtConsultorio" class="form-control form-control-medical" 
+                         placeholder="Click para seleccionar" readonly required>
+                  <div class="input-group-append">
+                    <span class="input-group-text input-group-text-medical">
+                      <i class="fas fa-search"></i>
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="col-md-6 mb-3">
+                <input type="hidden" id="id_funcionario">
+                <label class="label-medical">Funcionario (Opcional)</label>
+                <div class="input-group input-group-medical">
+                  <input type="text" id="txtFuncionario" class="form-control form-control-medical" 
+                         placeholder="Click para seleccionar" readonly>
+                  <div class="input-group-append">
+                    <span class="input-group-text input-group-text-medical">
+                      <i class="fas fa-search"></i>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
+        </div>
 
-          <!-- Fecha Cita -->
-          <div class="col-md-6 mb-3">
-            <label class="font-weight-bold">Fecha Cita: <span class="text-danger">*</span></label>
-            <input type="date" id="fecha_cita" class="form-control" required>
-            <div class="text-danger small" id="error_fecha_cita" style="display:none;">Campo obligatorio</div>
+        <!-- SECCIÓN: PROGRAMACIÓN -->
+        <div class="section-medical mb-4">
+          <div class="section-header-medical">
+            <i class="fas fa-calendar-alt"></i> Programación de la Consulta
           </div>
+          <div class="section-body-medical">
+            <div class="row">
+              <div class="col-md-4 mb-3">
+                <label class="label-medical">Fecha <span class="text-danger">*</span></label>
+                <input type="date" id="fecha_cita" class="form-control form-control-medical" required>
+              </div>
 
-          <!-- Hora Cita -->
-          <div class="col-md-6 mb-3">
-            <label class="font-weight-bold">Hora Cita: <span class="text-danger">*</span></label>
-            <input type="time" id="hora_cita" class="form-control" required>
-            <div class="text-danger small" id="error_hora_cita" style="display:none;">Campo obligatorio</div>
+              <div class="col-md-4 mb-3">
+                <label class="label-medical">Hora <span class="text-danger">*</span></label>
+                <input type="time" id="hora_cita" class="form-control form-control-medical" required>
+              </div>
+
+              <div class="col-md-4 mb-3">
+                <label class="label-medical">Duración (min)</label>
+                <input type="number" id="duracion_minutos" class="form-control form-control-medical" 
+                       placeholder="30" min="1">
+              </div>
+
+              <div class="col-md-6 mb-3">
+                <label class="label-medical">Estado</label>
+                <select id="estado" class="form-control form-control-medical">
+                  <option value="programada">📅 Programada</option>
+                  <option value="en_proceso">⏳ En Proceso</option>
+                  <option value="finalizada">✅ Finalizada</option>
+                  <option value="cancelada">❌ Cancelada</option>
+                </select>
+              </div>
+            </div>
           </div>
-
-          <!-- Duración -->
-          <div class="col-md-6 mb-3">
-            <label class="font-weight-bold">Duración (minutos):</label>
-            <input type="number" id="duracion_minutos" class="form-control" 
-                   placeholder="30" min="1">
-          </div>
-
-          <!-- Estado -->
-          <div class="col-md-6 mb-3">
-            <label class="font-weight-bold">Estado:</label>
-            <select id="estado" class="form-control">
-              <option value="programada">Programada</option>
-              <option value="en_proceso">En Proceso</option>
-              <option value="finalizada">Finalizada</option>
-              <option value="cancelada">Cancelada</option>
-            </select>
-          </div>
-
         </div>
       </div>
 
       <!-- FOOTER -->
       <div class="modal-footer bg-light">
-        <button type="button" class="btn btn-info" id="btnGuardar">
-          <i class="fas fa-save mr-1"></i> Guardar
+        <button type="button" class="btn btn-medical-primary" id="btnGuardar">
+          <i class="fas fa-save mr-1"></i> Guardar Consulta
         </button>
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">
-          <i class="fas fa-times mr-1"></i> Cerrar
+        <button type="button" class="btn btn-medical-secondary" data-dismiss="modal">
+          <i class="fas fa-times mr-1"></i> Cancelar
         </button>
       </div>
 
@@ -237,110 +286,126 @@ Registrar Consulta
 <!-- ============================================ -->
 <div class="modal fade" id="modalDetalles" tabindex="-1" role="dialog">
   <div class="modal-dialog modal-xl modal-dialog-scrollable" role="document">
-    <div class="modal-content">
+    <div class="modal-content modal-medical">
       
       <!-- HEADER -->
-      <div class="modal-header table-success">
-        <h4 class="modal-title">Detalles de Consulta</h4>
-        <button type="button" class="close" data-dismiss="modal">&times;</button>
+      <div class="modal-header modal-header-medical-green">
+        <h5 class="modal-title font-weight-bold text-white">
+          <i class="fas fa-file-medical-alt mr-2"></i> Detalles de Consulta Médica
+        </h5>
+        <button type="button" class="close text-white" data-dismiss="modal">
+          <span>&times;</span>
+        </button>
       </div>
 
       <!-- BODY -->
-      <div class="modal-body">
+      <div class="modal-body p-4">
         <input type="hidden" id="idConsultaDetalle">
         
         <!-- Información de la consulta -->
-        <div class="alert alert-info">
-          <strong>📋 Información de la Consulta</strong><br>
+        <div class="alert alert-medical-info">
+          <i class="fas fa-info-circle mr-2"></i>
+          <strong>Información de la Consulta</strong><br>
           <span id="infoConsulta"></span>
         </div>
 
-        <!-- BOTONES PRINCIPALES -->
-        <div class="mb-3">
-          <button type="button" class="btn btn-success btn-sm" id="btnCrearFichaMedica">
-            <i class="fas fa-notes-medical"></i> Crear/Ver Ficha Médica
+        <!-- BOTONES PRINCIPALES CON ESTILO MÉDICO -->
+        <div class="mb-4">
+          <button type="button" class="btn btn-medical-success mr-2 mb-2" id="btnVerEditarFichaMedica">
+            <i class="fas fa-file-medical mr-1"></i> Ver/Editar Ficha Médica
           </button>
-          <button type="button" class="btn btn-primary btn-sm" id="btnGestionarDiagnosticos">
-            <i class="fas fa-stethoscope"></i> Gestionar Diagnósticos
+          <button type="button" class="btn btn-medical-primary mr-2 mb-2" id="btnGestionarDiagnosticos">
+            <i class="fas fa-stethoscope mr-1"></i> Gestionar Diagnósticos
           </button>
-          <button type="button" class="btn btn-warning btn-sm" id="btnRegistrarTratamientos">
-            <i class="fas fa-pills"></i> Registrar Tratamientos
+          <button type="button" class="btn btn-medical-warning mb-2" id="btnRegistrarTratamientos">
+            <i class="fas fa-pills mr-1"></i> Registrar Tratamientos
           </button>
         </div>
 
-        <hr>
+        <hr class="hr-medical">
 
         <!-- FORMULARIO: AGREGAR DETALLE CLÍNICO -->
-        <h5>Agregar Detalle Clínico</h5>
-        
-        <div class="row">
-          <!-- Síntoma -->
-          <div class="col-md-6 mb-3">
-            <input type="hidden" id="id_sintoma">
-            <label class="font-weight-bold">Síntoma: <span class="text-danger">*</span></label>
-            <input type="text" id="txtSintoma" class="form-control" 
-                   placeholder="Click para seleccionar Síntoma" readonly required>
-            <div class="text-danger small" id="error_txtSintoma" style="display:none;">Campo obligatorio</div>
+        <div class="section-medical mb-4">
+          <div class="section-header-medical">
+            <i class="fas fa-notes-medical"></i> Agregar Detalle Clínico
           </div>
+          <div class="section-body-medical">
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <input type="hidden" id="id_sintoma">
+                <label class="label-medical">Síntoma <span class="text-danger">*</span></label>
+                <div class="input-group input-group-medical">
+                  <input type="text" id="txtSintoma" class="form-control form-control-medical" 
+                         placeholder="Click para seleccionar" readonly required>
+                  <div class="input-group-append">
+                    <span class="input-group-text input-group-text-medical">
+                      <i class="fas fa-search"></i>
+                    </span>
+                  </div>
+                </div>
+              </div>
 
-          <!-- Pieza Dental -->
-          <div class="col-md-6 mb-3">
-            <label class="font-weight-bold">Pieza Dental:</label>
-            <input type="text" id="pieza_dental" class="form-control" 
-                   placeholder="Ej: 18, 21, 4.6">
-          </div>
+              <div class="col-md-6 mb-3">
+                <label class="label-medical">Pieza Dental</label>
+                <input type="text" id="pieza_dental" class="form-control form-control-medical" 
+                       placeholder="Ej: 18, 21, 4.6">
+              </div>
 
-          <!-- Diagnóstico -->
-          <div class="col-md-12 mb-3">
-            <label class="font-weight-bold">Diagnóstico: <span class="text-danger">*</span></label>
-            <textarea id="diagnostico" class="form-control" rows="2" 
-                      placeholder="Diagnóstico general..." required></textarea>
-            <div class="text-danger small" id="error_diagnostico" style="display:none;">Campo obligatorio</div>
-          </div>
+              <div class="col-md-12 mb-3">
+                <label class="label-medical">Diagnóstico <span class="text-danger">*</span></label>
+                <textarea id="diagnostico" class="form-control form-control-medical" rows="2" 
+                          placeholder="Diagnóstico general..." required></textarea>
+              </div>
 
-          <!-- Tratamiento -->
-          <div class="col-md-12 mb-3">
-            <label class="font-weight-bold">Tratamiento: <span class="text-danger">*</span></label>
-            <textarea id="tratamiento" class="form-control" rows="2" 
-                      placeholder="Tratamiento general..." required></textarea>
-            <div class="text-danger small" id="error_tratamiento" style="display:none;">Campo obligatorio</div>
-          </div>
+              <div class="col-md-12 mb-3">
+                <label class="label-medical">Tratamiento <span class="text-danger">*</span></label>
+                <textarea id="tratamiento" class="form-control form-control-medical" rows="2" 
+                          placeholder="Tratamiento general..." required></textarea>
+              </div>
 
-          <!-- Procedimiento -->
-          <div class="col-md-12 mb-3">
-            <label class="font-weight-bold">Procedimiento:</label>
-            <textarea id="procedimiento" class="form-control" rows="2" 
-                      placeholder="Procedimiento realizado..."></textarea>
+              <div class="col-md-12 mb-3">
+                <label class="label-medical">Procedimiento</label>
+                <textarea id="procedimiento" class="form-control form-control-medical" rows="2" 
+                          placeholder="Procedimiento realizado..."></textarea>
+              </div>
+            </div>
+
+            <button type="button" class="btn btn-medical-success" id="btnAgregarDetalle">
+              <i class="fas fa-plus-circle mr-1"></i> Agregar Detalle
+            </button>
           </div>
         </div>
 
-        <button type="button" class="btn btn-success mb-3" id="btnAgregarDetalle">
-          <i class="fas fa-plus"></i> Agregar Detalle
-        </button>
-
         <!-- TABLA DE DETALLES REGISTRADOS -->
-        <hr>
-        <h5>Detalles Registrados</h5>
-        <div class="table-responsive">
-          <table class="table table-sm table-bordered" id="tblDetalles">
-            <thead class="table-secondary">
-              <tr>
-                <th>Síntoma</th>
-                <th>Pieza Dental</th>
-                <th>Diagnóstico</th>
-                <th>Tratamiento</th>
-                <th>Procedimiento</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
+        <div class="section-medical">
+          <div class="section-header-medical">
+            <i class="fas fa-list"></i> Detalles Registrados
+          </div>
+          <div class="section-body-medical">
+            <div class="table-responsive">
+              <table class="table table-medical table-sm" id="tblDetalles">
+                <thead>
+                  <tr>
+                    <th>Síntoma</th>
+                    <th>Pieza Dental</th>
+                    <th>Diagnóstico</th>
+                    <th>Tratamiento</th>
+                    <th>Procedimiento</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </div>
 
       <!-- FOOTER -->
-      <div class="modal-footer">
-        <button type="button" class="btn btn-danger" data-dismiss="modal">Cerrar</button>
+      <div class="modal-footer bg-light">
+        <button type="button" class="btn btn-medical-secondary" data-dismiss="modal">
+          <i class="fas fa-times mr-1"></i> Cerrar
+        </button>
       </div>
     </div>
   </div>
@@ -351,106 +416,130 @@ Registrar Consulta
 <!-- ============================================ -->
 <div class="modal fade" id="modalFichaMedica" tabindex="-1" role="dialog">
   <div class="modal-dialog modal-xl modal-dialog-scrollable" role="document">
-    <div class="modal-content">
+    <div class="modal-content modal-medical">
       
       <!-- HEADER -->
-      <div class="modal-header bg-success text-white">
-        <h4 class="modal-title">
-          <i class="fas fa-file-medical"></i> Ficha Médica de Consulta
-        </h4>
-        <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+      <div class="modal-header modal-header-medical-green">
+        <h5 class="modal-title font-weight-bold text-white">
+          <i class="fas fa-file-medical mr-2"></i> Ficha Médica de Consulta
+        </h5>
+        <button type="button" class="close text-white" data-dismiss="modal">
+          <span>&times;</span>
+        </button>
       </div>
 
       <!-- BODY -->
-      <div class="modal-body">
+      <div class="modal-body p-4">
         <input type="hidden" id="idConsultaFicha">
         <input type="hidden" id="idFichaMedicaExistente">
         
         <!-- SIGNOS VITALES -->
-        <h5 class="text-success">Signos Vitales</h5>
-        <div class="row">
-          <div class="col-md-3 mb-3">
-            <label class="font-weight-bold">Presión Arterial</label>
-            <input type="text" id="presion_arterial" class="form-control" 
-                   placeholder="120/80">
+        <div class="section-medical mb-4">
+          <div class="section-header-medical">
+            <i class="fas fa-heartbeat"></i> Signos Vitales
           </div>
-          <div class="col-md-3 mb-3">
-            <label class="font-weight-bold">Temperatura (°C)</label>
-            <input type="number" id="temperatura" class="form-control" 
-                   step="0.1" placeholder="36.5">
-          </div>
-          <div class="col-md-3 mb-3">
-            <label class="font-weight-bold">Frecuencia Cardíaca</label>
-            <input type="number" id="frecuencia_cardiaca" class="form-control" 
-                   placeholder="72">
-          </div>
-          <div class="col-md-3 mb-3">
-            <label class="font-weight-bold">Frecuencia Respiratoria</label>
-            <input type="number" id="frecuencia_respiratoria" class="form-control" 
-                   placeholder="16">
-          </div>
-          <div class="col-md-4 mb-3">
-            <label class="font-weight-bold">Peso (kg)</label>
-            <input type="number" id="peso" class="form-control" 
-                   step="0.1" placeholder="70.5">
-          </div>
-          <div class="col-md-4 mb-3">
-            <label class="font-weight-bold">Talla (cm)</label>
-            <input type="number" id="talla" class="form-control" 
-                   step="0.1" placeholder="175">
-          </div>
-          <div class="col-md-4 mb-3">
-            <label class="font-weight-bold">IMC (calculado)</label>
-            <input type="text" id="imc" class="form-control" readonly>
+          <div class="section-body-medical">
+            <div class="row">
+              <div class="col-md-3 mb-3">
+                <label class="label-medical">Presión Arterial</label>
+                <input type="text" id="presion_arterial" class="form-control form-control-medical" 
+                       placeholder="120/80">
+              </div>
+              <div class="col-md-3 mb-3">
+                <label class="label-medical">Temperatura (°C)</label>
+                <input type="number" id="temperatura" class="form-control form-control-medical" 
+                       step="0.1" placeholder="36.5">
+              </div>
+              <div class="col-md-3 mb-3">
+                <label class="label-medical">Frec. Cardíaca</label>
+                <input type="number" id="frecuencia_cardiaca" class="form-control form-control-medical" 
+                       placeholder="72">
+              </div>
+              <div class="col-md-3 mb-3">
+                <label class="label-medical">Frec. Respiratoria</label>
+                <input type="number" id="frecuencia_respiratoria" class="form-control form-control-medical" 
+                       placeholder="16">
+              </div>
+              <div class="col-md-4 mb-3">
+                <label class="label-medical">Peso (kg)</label>
+                <input type="number" id="peso" class="form-control form-control-medical" 
+                       step="0.1" placeholder="70.5">
+              </div>
+              <div class="col-md-4 mb-3">
+                <label class="label-medical">Talla (cm)</label>
+                <input type="number" id="talla" class="form-control form-control-medical" 
+                       step="0.1" placeholder="175">
+              </div>
+              <div class="col-md-4 mb-3">
+                <label class="label-medical">IMC (calculado)</label>
+                <input type="text" id="imc" class="form-control form-control-medical" readonly>
+              </div>
+            </div>
           </div>
         </div>
 
         <!-- EXAMEN FÍSICO -->
-        <hr>
-        <h5 class="text-success">Examen Físico</h5>
-        <div class="row">
-          <div class="col-md-6 mb-3">
-            <label class="font-weight-bold">Examen Físico General</label>
-            <textarea id="examen_fisico_general" class="form-control" rows="4"></textarea>
+        <div class="section-medical mb-4">
+          <div class="section-header-medical">
+            <i class="fas fa-user-check"></i> Examen Físico
           </div>
-          <div class="col-md-6 mb-3">
-            <label class="font-weight-bold">Examen Bucal</label>
-            <textarea id="examen_bucal" class="form-control" rows="4"></textarea>
+          <div class="section-body-medical">
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="label-medical">Examen Físico General</label>
+                <textarea id="examen_fisico_general" class="form-control form-control-medical" rows="4"></textarea>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="label-medical">Examen Bucal</label>
+                <textarea id="examen_bucal" class="form-control form-control-medical" rows="4"></textarea>
+              </div>
+            </div>
           </div>
         </div>
 
         <!-- OBSERVACIONES -->
-        <hr>
-        <h5 class="text-success">Observaciones del Médico</h5>
-        <textarea id="observaciones_medico" class="form-control" rows="3"></textarea>
+        <div class="section-medical">
+          <div class="section-header-medical">
+            <i class="fas fa-clipboard"></i> Observaciones del Médico
+          </div>
+          <div class="section-body-medical">
+            <textarea id="observaciones_medico" class="form-control form-control-medical" rows="3"></textarea>
+          </div>
+        </div>
       </div>
 
       <!-- FOOTER -->
-      <div class="modal-footer">
-        <button type="button" class="btn btn-success" id="btnGuardarFichaMedica">
-          <i class="fas fa-save"></i> Guardar Ficha Médica
+      <div class="modal-footer bg-light">
+        <button type="button" class="btn btn-medical-success" id="btnGuardarFichaMedica">
+          <i class="fas fa-save mr-1"></i> Guardar Ficha Médica
         </button>
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+        <button type="button" class="btn btn-medical-secondary" data-dismiss="modal">
+          <i class="fas fa-times mr-1"></i> Cerrar
+        </button>
       </div>
     </div>
   </div>
 </div>
 
 <!-- ============================================ -->
-<!-- MODALES DE SELECCIÓN -->
+<!-- MODALES DE SELECCIÓN (Igual que antes) -->
 <!-- ============================================ -->
 
 <!-- Modal Paciente -->
 <div class="modal fade" id="modalBuscarPaciente" tabindex="-1" role="dialog">
   <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
-    <div class="modal-content">
-      <div class="modal-header bg-primary text-white">
-        <h4 class="modal-title">Seleccionar Paciente</h4>
-        <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+    <div class="modal-content modal-medical">
+      <div class="modal-header modal-header-medical">
+        <h5 class="modal-title font-weight-bold text-white">
+          <i class="fas fa-user mr-2"></i> Seleccionar Paciente
+        </h5>
+        <button type="button" class="close text-white" data-dismiss="modal">
+          <span>&times;</span>
+        </button>
       </div>
       <div class="modal-body">
         <div class="table-responsive">
-          <table class="table table-striped table-bordered w-100" id="tblPaciente">
+          <table class="table table-medical table-hover w-100" id="tblPaciente">
             <thead>
               <tr>
                 <th>Nombre</th>
@@ -470,14 +559,18 @@ Registrar Consulta
 <!-- Modal Médico -->
 <div class="modal fade" id="modalBuscarMedico" tabindex="-1" role="dialog">
   <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
-    <div class="modal-content">
-      <div class="modal-header bg-primary text-white">
-        <h4 class="modal-title">Seleccionar Médico</h4>
-        <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+    <div class="modal-content modal-medical">
+      <div class="modal-header modal-header-medical">
+        <h5 class="modal-title font-weight-bold text-white">
+          <i class="fas fa-user-md mr-2"></i> Seleccionar Médico
+        </h5>
+        <button type="button" class="close text-white" data-dismiss="modal">
+          <span>&times;</span>
+        </button>
       </div>
       <div class="modal-body">
         <div class="table-responsive">
-          <table class="table table-striped table-bordered w-100" id="tblMedico">
+          <table class="table table-medical table-hover w-100" id="tblMedico">
             <thead>
               <tr>
                 <th>Nombre</th>
@@ -497,14 +590,18 @@ Registrar Consulta
 <!-- Modal Consultorio -->
 <div class="modal fade" id="modalBuscarConsultorio" tabindex="-1" role="dialog">
   <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
-    <div class="modal-content">
-      <div class="modal-header bg-primary text-white">
-        <h4 class="modal-title">Seleccionar Consultorio</h4>
-        <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+    <div class="modal-content modal-medical">
+      <div class="modal-header modal-header-medical">
+        <h5 class="modal-title font-weight-bold text-white">
+          <i class="fas fa-door-open mr-2"></i> Seleccionar Consultorio
+        </h5>
+        <button type="button" class="close text-white" data-dismiss="modal">
+          <span>&times;</span>
+        </button>
       </div>
       <div class="modal-body">
         <div class="table-responsive">
-          <table class="table table-striped table-bordered w-100" id="tblConsultorio">
+          <table class="table table-medical table-hover w-100" id="tblConsultorio">
             <thead>
               <tr>
                 <th>Nombre</th>
@@ -522,14 +619,18 @@ Registrar Consulta
 <!-- Modal Funcionario -->
 <div class="modal fade" id="modalBuscarFuncionario" tabindex="-1" role="dialog">
   <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
-    <div class="modal-content">
-      <div class="modal-header bg-primary text-white">
-        <h4 class="modal-title">Seleccionar Funcionario</h4>
-        <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+    <div class="modal-content modal-medical">
+      <div class="modal-header modal-header-medical">
+        <h5 class="modal-title font-weight-bold text-white">
+          <i class="fas fa-user-tie mr-2"></i> Seleccionar Funcionario
+        </h5>
+        <button type="button" class="close text-white" data-dismiss="modal">
+          <span>&times;</span>
+        </button>
       </div>
       <div class="modal-body">
         <div class="table-responsive">
-          <table class="table table-striped table-bordered w-100" id="tblFuncionario">
+          <table class="table table-medical table-hover w-100" id="tblFuncionario">
             <thead>
               <tr>
                 <th>Nombre</th>
@@ -549,14 +650,18 @@ Registrar Consulta
 <!-- Modal Síntoma -->
 <div class="modal fade" id="modalBuscarSintoma" tabindex="-1" role="dialog">
   <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
-    <div class="modal-content">
-      <div class="modal-header bg-primary text-white">
-        <h4 class="modal-title">Seleccionar Síntoma</h4>
-        <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+    <div class="modal-content modal-medical">
+      <div class="modal-header modal-header-medical">
+        <h5 class="modal-title font-weight-bold text-white">
+          <i class="fas fa-notes-medical mr-2"></i> Seleccionar Síntoma
+        </h5>
+        <button type="button" class="close text-white" data-dismiss="modal">
+          <span>&times;</span>
+        </button>
       </div>
       <div class="modal-body">
         <div class="table-responsive">
-          <table class="table table-striped table-bordered w-100" id="tblSintoma">
+          <table class="table table-medical table-hover w-100" id="tblSintoma">
             <thead>
               <tr>
                 <th>Descripción</th>
@@ -580,22 +685,401 @@ Registrar Consulta
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.bundle.min.js"></script>
 
+<!-- ============================================ -->
+<!-- ESTILOS CSS MÉDICO/CLÍNICO PROFESIONAL -->
+<!-- ============================================ -->
 <style>
-.border-left-primary {
-  border-left: 0.25rem solid #4e73df !important;
+/* ========================================
+   VARIABLES DE COLOR MÉDICO
+   ======================================== */
+:root {
+  --medical-blue: #1565C0;
+  --medical-blue-dark: #0D47A1;
+  --medical-blue-light: #E3F2FD;
+  --medical-green: #2E7D32;
+  --medical-green-dark: #1B5E20;
+  --medical-green-light: #E8F5E9;
+  --medical-gray: #455A64;
+  --medical-gray-light: #ECEFF1;
+  --medical-warning: #F57C00;
+  --medical-warning-light: #FFF3E0;
+  --medical-white: #FFFFFF;
+  --medical-shadow: 0 2px 10px rgba(0,0,0,0.08);
+  --medical-shadow-hover: 0 4px 20px rgba(0,0,0,0.15);
 }
-.border-left-success {
-  border-left: 0.25rem solid #1cc88a !important;
+
+/* ========================================
+   TARJETAS DE ESTADÍSTICAS
+   ======================================== */
+.card-medical {
+  border: none;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  background: var(--medical-white);
 }
-.border-left-info {
-  border-left: 0.25rem solid #36b9cc !important;
+
+.card-medical:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--medical-shadow-hover);
 }
-.border-left-warning {
-  border-left: 0.25rem solid #f6c23e !important;
+
+.shadow-medical {
+  box-shadow: var(--medical-shadow);
+}
+
+.icon-medical {
+  width: 60px;
+  height: 60px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: white;
+}
+
+.icon-medical.bg-blue {
+  background: linear-gradient(135deg, var(--medical-blue) 0%, var(--medical-blue-dark) 100%);
+}
+
+.icon-medical.bg-green {
+  background: linear-gradient(135deg, var(--medical-green) 0%, var(--medical-green-dark) 100%);
+}
+
+.icon-medical.bg-warning {
+  background: linear-gradient(135deg, var(--medical-warning) 0%, #E65100 100%);
+}
+
+.icon-medical.bg-info {
+  background: linear-gradient(135deg, #0288D1 0%, #01579B 100%);
+}
+
+.card-footer-medical {
+  height: 4px;
+  background: var(--medical-gray-light);
+}
+
+.card-footer-medical.bg-blue {
+  background: linear-gradient(90deg, var(--medical-blue) 0%, var(--medical-blue-dark) 100%);
+}
+
+.card-footer-medical.bg-green {
+  background: linear-gradient(90deg, var(--medical-green) 0%, var(--medical-green-dark) 100%);
+}
+
+.card-footer-medical.bg-warning {
+  background: linear-gradient(90deg, var(--medical-warning) 0%, #E65100 100%);
+}
+
+.card-footer-medical.bg-info {
+  background: linear-gradient(90deg, #0288D1 0%, #01579B 100%);
+}
+
+.text-medical-blue { color: var(--medical-blue); }
+.text-medical-green { color: var(--medical-green); }
+.text-medical-warning { color: var(--medical-warning); }
+.text-medical-info { color: #0288D1; }
+
+/* ========================================
+   CARD HEADER CON GRADIENTE
+   ======================================== */
+.card-header-medical {
+  background: linear-gradient(135deg, var(--medical-blue) 0%, var(--medical-blue-dark) 100%);
+  border: none;
+  padding: 1.25rem;
+  border-radius: 12px 12px 0 0;
+}
+
+/* ========================================
+   TABLA MÉDICA
+   ======================================== */
+.table-medical {
+  margin-bottom: 0;
+}
+
+.table-medical thead {
+  background: linear-gradient(135deg, var(--medical-blue) 0%, var(--medical-blue-dark) 100%);
+  color: white;
+}
+
+.table-medical thead th {
+  border: none;
+  font-weight: 600;
+  padding: 12px;
+  text-align: center;
+  vertical-align: middle;
+  font-size: 0.9rem;
+}
+
+.table-medical tbody tr {
+  transition: all 0.2s ease;
+}
+
+.table-medical tbody tr:hover {
+  background-color: var(--medical-blue-light);
+  transform: scale(1.01);
+}
+
+.table-medical tbody td {
+  vertical-align: middle;
+  padding: 12px;
+  border-color: #dee2e6;
+}
+
+/* ========================================
+   MODALES MÉDICOS
+   ======================================== */
+.modal-medical {
+  border-radius: 15px;
+  overflow: hidden;
+}
+
+.modal-header-medical {
+  background: linear-gradient(135deg, var(--medical-blue) 0%, var(--medical-blue-dark) 100%);
+  border: none;
+  padding: 1.25rem;
+}
+
+.modal-header-medical-green {
+  background: linear-gradient(135deg, var(--medical-green) 0%, var(--medical-green-dark) 100%);
+  border: none;
+  padding: 1.25rem;
+}
+
+.bg-medical-light {
+  background-color: #FAFAFA;
+}
+
+/* ========================================
+   SECCIONES DENTRO DE MODALES
+   ======================================== */
+.section-medical {
+  background: white;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.section-header-medical {
+  background: linear-gradient(135deg, var(--medical-blue-light) 0%, #BBDEFB 100%);
+  color: var(--medical-blue-dark);
+  padding: 12px 20px;
+  font-weight: 600;
+  font-size: 1rem;
+  border-left: 4px solid var(--medical-blue);
+}
+
+.section-body-medical {
+  padding: 20px;
+}
+
+/* ========================================
+   FORMULARIOS MÉDICOS
+   ======================================== */
+.label-medical {
+  font-weight: 600;
+  color: var(--medical-gray);
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+}
+
+.form-control-medical {
+  border: 2px solid #E0E0E0;
+  border-radius: 8px;
+  padding: 10px 15px;
+  transition: all 0.3s ease;
+  font-size: 0.95rem;
+}
+
+.form-control-medical:focus {
+  border-color: var(--medical-blue);
+  box-shadow: 0 0 0 0.2rem rgba(21, 101, 192, 0.15);
+  outline: none;
+}
+
+.form-control-medical:read-only {
+  background-color: #F5F5F5;
+  cursor: pointer;
+}
+
+.input-group-medical .input-group-text-medical {
+  background: var(--medical-blue);
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.input-group-medical .input-group-text-medical:hover {
+  background: var(--medical-blue-dark);
+}
+
+/* ========================================
+   BOTONES MÉDICOS
+   ======================================== */
+.btn-medical-primary {
+  background: linear-gradient(135deg, var(--medical-blue) 0%, var(--medical-blue-dark) 100%);
+  border: none;
+  color: white;
+  padding: 10px 25px;
+  border-radius: 8px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(21, 101, 192, 0.3);
+}
+
+.btn-medical-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(21, 101, 192, 0.4);
+  color: white;
+}
+
+.btn-medical-success {
+  background: linear-gradient(135deg, var(--medical-green) 0%, var(--medical-green-dark) 100%);
+  border: none;
+  color: white;
+  padding: 10px 25px;
+  border-radius: 8px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(46, 125, 50, 0.3);
+}
+
+.btn-medical-success:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(46, 125, 50, 0.4);
+  color: white;
+}
+
+.btn-medical-warning {
+  background: linear-gradient(135deg, var(--medical-warning) 0%, #E65100 100%);
+  border: none;
+  color: white;
+  padding: 10px 25px;
+  border-radius: 8px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(245, 124, 0, 0.3);
+}
+
+.btn-medical-warning:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(245, 124, 0, 0.4);
+  color: white;
+}
+
+.btn-medical-secondary {
+  background: var(--medical-gray);
+  border: none;
+  color: white;
+  padding: 10px 25px;
+  border-radius: 8px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.btn-medical-secondary:hover {
+  background: #37474F;
+  transform: translateY(-2px);
+  color: white;
+}
+
+.btn-medical-white {
+  background: white;
+  border: 2px solid white;
+  color: var(--medical-blue);
+  padding: 8px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.btn-medical-white:hover {
+  background: var(--medical-blue-light);
+  border-color: var(--medical-blue-light);
+  transform: translateY(-2px);
+}
+
+/* ========================================
+   BADGES DE ESTADO
+   ======================================== */
+.badge-medical {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.badge-medical-programada {
+  background-color: var(--medical-blue-light);
+  color: var(--medical-blue-dark);
+}
+
+.badge-medical-proceso {
+  background-color: var(--medical-warning-light);
+  color: var(--medical-warning);
+}
+
+.badge-medical-finalizada {
+  background-color: var(--medical-green-light);
+  color: var(--medical-green-dark);
+}
+
+.badge-medical-cancelada {
+  background-color: #FFEBEE;
+  color: #C62828;
+}
+
+/* ========================================
+   ALERTAS MÉDICAS
+   ======================================== */
+.alert-medical-info {
+  background: linear-gradient(135deg, var(--medical-blue-light) 0%, #E1F5FE 100%);
+  border-left: 4px solid var(--medical-blue);
+  color: var(--medical-blue-dark);
+  padding: 15px;
+  border-radius: 8px;
+  font-size: 0.95rem;
+}
+
+/* ========================================
+   HR MÉDICO
+   ======================================== */
+.hr-medical {
+  border: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent 0%, var(--medical-blue) 50%, transparent 100%);
+  margin: 2rem 0;
+}
+
+/* ========================================
+   RESPONSIVO
+   ======================================== */
+@media (max-width: 768px) {
+  .card-header-medical {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .icon-medical {
+    width: 50px;
+    height: 50px;
+    font-size: 20px;
+  }
+  
+  .btn-medical-white,
+  .btn-medical-primary,
+  .btn-medical-success,
+  .btn-medical-warning {
+    width: 100%;
+    margin-bottom: 0.5rem;
+  }
 }
 </style>
 
 {% endblock %}
+
 
 {% block js %}
 <script>
@@ -966,7 +1450,7 @@ $('#btnAgregar').on('click', function() {
 });
 
 // ============================================
-// GUARDAR CONSULTA
+// GUARDAR CONSULTA (CON VALIDACIÓN DE FICHA)
 // ============================================
 $('#btnGuardar').on('click', function() {
   const idConsulta = $('#txtIdConsulta').val();
@@ -1013,9 +1497,56 @@ $('#btnGuardar').on('click', function() {
   .then(r => r.json())
   .then(d => {
     if (d.success) {
+      const consultaId = d.data.id_consulta_cab;
+      
       $('#modalFormulario').modal('hide');
       $('#tblConsultas').DataTable().ajax.reload();
-      Swal.fire('Éxito', 'Consulta guardada correctamente', 'success');
+      
+      // 🆕 SI ES NUEVA CONSULTA, SUGERIR CREAR FICHA
+      if (!idConsulta) {
+        Swal.fire({
+          title: '¡Consulta guardada!',
+          html: '¿Deseas crear la Ficha Médica ahora?<br><small class="text-muted">Es obligatorio para finalizar la consulta</small>',
+          icon: 'success',
+          showCancelButton: true,
+          confirmButtonText: 'Sí, crear ahora',
+          cancelButtonText: 'Después',
+          confirmButtonColor: '#28a745',
+          cancelButtonColor: '#6c757d'
+        }).then((result) => {
+          if (result.isConfirmed) {
+            // Cargar información de la consulta
+            fetch(`/api/v1/consultas/${consultaId}`)
+              .then(r => r.json())
+              .then(d => {
+                if (d.success) {
+                  const c = d.data;
+                  $('#infoConsulta').html(`
+                    <strong>Paciente:</strong> ${c.nombre_paciente}<br>
+                    <strong>Médico:</strong> ${c.nombre_medico}<br>
+                    <strong>Fecha:</strong> ${formatDateForDisplay(c.fecha_cita)} - ${c.hora_cita}<br>
+                    <strong>Consultorio:</strong> ${c.nombre_consultorio}<br>
+                    <strong>Estado:</strong> ${c.estado}
+                  `);
+                }
+              });
+            
+            // Configurar ID de consulta y abrir modal de ficha médica
+            consultaActualId = consultaId;
+            $('#idConsultaFicha').val(consultaId);
+            $('#idFichaMedicaExistente').val('');
+            
+            // Limpiar campos de ficha médica
+            $('#presion_arterial, #temperatura, #frecuencia_cardiaca, #frecuencia_respiratoria, #peso, #talla, #imc, #examen_fisico_general, #examen_bucal, #observaciones_medico').val('');
+            
+            // Abrir modal de ficha médica
+            $('#modalFichaMedica').modal('show');
+          }
+        });
+      } else {
+        // Si es edición, solo mostrar mensaje de éxito
+        Swal.fire('Éxito', 'Consulta actualizada correctamente', 'success');
+      }
     } else {
       Swal.fire('Error', d.error || 'No se pudo guardar', 'error');
     }
@@ -1025,6 +1556,7 @@ $('#btnGuardar').on('click', function() {
     Swal.fire('Error', 'No se pudo guardar la consulta', 'error');
   });
 });
+
 
 // ============================================
 // EDITAR CONSULTA
@@ -1321,43 +1853,78 @@ $('#tblDetalles').on('click', 'button[name="btn_eliminar_detalle"]', function() 
 });
 
 // ============================================
-// BOTÓN: CREAR/VER FICHA MÉDICA
+// BOTÓN: VER/EDITAR FICHA MÉDICA
 // ============================================
-$('#btnCrearFichaMedica').on('click', function() {
-  $('#idConsultaFicha').val(consultaActualId);
+$('#btnVerEditarFichaMedica').on('click', function() {
+  const idConsulta = consultaActualId;
   
-  // Cargar ficha médica si existe
-  fetch(`/api/v1/ficha-medica/consulta/${consultaActualId}`)
+  if (!idConsulta) {
+    Swal.fire('Error', 'No se ha seleccionado una consulta', 'error');
+    return;
+  }
+  
+  // Verificar si la consulta tiene ficha médica
+  fetch(`/api/v1/ficha-medica/consulta/${idConsulta}`)
     .then(r => r.json())
     .then(d => {
       if (d.success && d.data) {
-        // Ficha médica existe - cargar datos
+        // ✅ LA CONSULTA TIENE FICHA - Abrir para ver/editar
         const ficha = d.data;
+        $('#idConsultaFicha').val(idConsulta);
         $('#idFichaMedicaExistente').val(ficha.id_ficha_medica);
-        $('#presion_arterial').val(ficha.presion_arterial);
-        $('#temperatura').val(ficha.temperatura);
-        $('#frecuencia_cardiaca').val(ficha.frecuencia_cardiaca);
-        $('#frecuencia_respiratoria').val(ficha.frecuencia_respiratoria);
-        $('#peso').val(ficha.peso);
-        $('#talla').val(ficha.talla);
-        $('#imc').val(ficha.imc);
-        $('#examen_fisico_general').val(ficha.examen_fisico_general);
-        $('#examen_bucal').val(ficha.examen_bucal);
-        $('#observaciones_medico').val(ficha.observaciones_medico);
+        
+        // 🆕 Cambiar título y color del modal
+        $('#modalFichaMedica .modal-title').html('<i class="fas fa-edit"></i> Editar Ficha Médica');
+        $('#modalFichaMedica .modal-header').removeClass('bg-success').addClass('bg-warning text-dark');
+        
+        // Cargar datos existentes
+        $('#presion_arterial').val(ficha.presion_arterial || '');
+        $('#temperatura').val(ficha.temperatura || '');
+        $('#frecuencia_cardiaca').val(ficha.frecuencia_cardiaca || '');
+        $('#frecuencia_respiratoria').val(ficha.frecuencia_respiratoria || '');
+        $('#peso').val(ficha.peso || '');
+        $('#talla').val(ficha.talla || '');
+        $('#imc').val(ficha.imc || '');
+        $('#examen_fisico_general').val(ficha.examen_fisico_general || '');
+        $('#examen_bucal').val(ficha.examen_bucal || '');
+        $('#observaciones_medico').val(ficha.observaciones_medico || '');
+        
+        // Abrir modal
+        $('#modalFichaMedica').modal('show');
+        
       } else {
-        // Ficha médica no existe - limpiar campos
-        $('#idFichaMedicaExistente').val('');
-        $('#presion_arterial, #temperatura, #frecuencia_cardiaca, #frecuencia_respiratoria, #peso, #talla, #imc, #examen_fisico_general, #examen_bucal, #observaciones_medico').val('');
+        // ❌ LA CONSULTA NO TIENE FICHA - Preguntar si desea crear
+        Swal.fire({
+          title: 'Sin Ficha Médica',
+          html: 'Esta consulta no tiene ficha médica registrada.<br>¿Deseas crearla ahora?',
+          icon: 'question',
+          showCancelButton: true,
+          confirmButtonText: 'Sí, crear ahora',
+          cancelButtonText: 'Cancelar',
+          confirmButtonColor: '#28a745',
+          cancelButtonColor: '#6c757d'
+        }).then((result) => {
+          if (result.isConfirmed) {
+            // Preparar modal para crear nueva ficha
+            $('#idConsultaFicha').val(idConsulta);
+            $('#idFichaMedicaExistente').val('');
+            
+            // 🆕 Cambiar título y color del modal
+            $('#modalFichaMedica .modal-title').html('<i class="fas fa-plus-circle"></i> Crear Ficha Médica');
+            $('#modalFichaMedica .modal-header').removeClass('bg-warning text-dark').addClass('bg-success text-white');
+            
+            // Limpiar todos los campos
+            $('#presion_arterial, #temperatura, #frecuencia_cardiaca, #frecuencia_respiratoria, #peso, #talla, #imc, #examen_fisico_general, #examen_bucal, #observaciones_medico').val('');
+            
+            // Abrir modal
+            $('#modalFichaMedica').modal('show');
+          }
+        });
       }
-      
-      $('#modalFichaMedica').modal('show');
     })
     .catch(err => {
-      console.error('Error:', err);
-      // Si hay error, mostrar modal vacío
-      $('#idFichaMedicaExistente').val('');
-      $('#presion_arterial, #temperatura, #frecuencia_cardiaca, #frecuencia_respiratoria, #peso, #talla, #imc, #examen_fisico_general, #examen_bucal, #observaciones_medico').val('');
-      $('#modalFichaMedica').modal('show');
+      console.error('Error al verificar ficha:', err);
+      Swal.fire('Error', 'No se pudo verificar si la consulta tiene ficha médica', 'error');
     });
 });
 
