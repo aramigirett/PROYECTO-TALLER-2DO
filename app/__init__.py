@@ -194,6 +194,22 @@ from app.rutas.modulo_consultorio.consulta.ficha_medica_routes import fichamedic
 modulo0 = '/referenciales'
 app.register_blueprint(fichamedicamod, url_prefix=f'{modulo0}/ficha-medica')
 
+# ============================================
+# IMPORTAR API DIAGNÓSTICO
+# ============================================
+from app.rutas.modulo_consultorio.diagnostico.diagnostico_api import diagnostico_medico_api
+# ============================================
+# REGISTRAR BLUEPRINT
+# ============================================
+version1 = '/api/v1'
+app.register_blueprint(diagnostico_medico_api, url_prefix=version1)
+# ============================================
+# IMPORTAR ROUTES DE DIAGNÓSTICO
+# ============================================
+from app.rutas.modulo_consultorio.diagnostico.diagnostico_routes import diagnosticos_medicos_mod
+
+app.register_blueprint(diagnosticos_medicos_mod, url_prefix=f'{modulo0}/diagnosticos-medicos')
+
 
 @app.route('/login')
 def login():

@@ -282,7 +282,7 @@ Gestión de Consultas Médicas
 </div>
 
 <!-- ============================================ -->
-<!-- MODAL: DETALLES DE CONSULTA -->
+<!-- MODAL: DETALLES DE CONSULTA CON TABS -->
 <!-- ============================================ -->
 <div class="modal fade" id="modalDetalles" tabindex="-1" role="dialog">
   <div class="modal-dialog modal-xl modal-dialog-scrollable" role="document">
@@ -291,7 +291,7 @@ Gestión de Consultas Médicas
       <!-- HEADER -->
       <div class="modal-header modal-header-medical-green">
         <h5 class="modal-title font-weight-bold text-white">
-          <i class="fas fa-file-medical-alt mr-2"></i> Detalles de Consulta Médica
+          <i class="fas fa-file-medical-alt mr-2"></i> Gestión de Consulta Médica
         </h5>
         <button type="button" class="close text-white" data-dismiss="modal">
           <span>&times;</span>
@@ -299,105 +299,211 @@ Gestión de Consultas Médicas
       </div>
 
       <!-- BODY -->
-      <div class="modal-body p-4">
+      <div class="modal-body p-0">
         <input type="hidden" id="idConsultaDetalle">
         
-        <!-- Información de la consulta -->
-        <div class="alert alert-medical-info">
-          <i class="fas fa-info-circle mr-2"></i>
-          <strong>Información de la Consulta</strong><br>
-          <span id="infoConsulta"></span>
-        </div>
+        <!-- TABS NAVEGACIÓN -->
+        <ul class="nav nav-tabs-medical" id="tabsDetalleConsulta" role="tablist">
+          <li class="nav-item">
+            <a class="nav-link-medical active" id="tab-informacion" data-toggle="tab" href="#contenido-informacion" role="tab">
+              <i class="fas fa-info-circle mr-2"></i>
+              <span>Información</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link-medical" id="tab-agregar" data-toggle="tab" href="#contenido-agregar" role="tab">
+              <i class="fas fa-plus-circle mr-2"></i>
+              <span>Agregar Detalle</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link-medical" id="tab-registrados" data-toggle="tab" href="#contenido-registrados" role="tab">
+              <i class="fas fa-list-alt mr-2"></i>
+              <span>Detalles Registrados</span>
+            </a>
+          </li>
+        </ul>
 
-        <!-- BOTONES PRINCIPALES CON ESTILO MÉDICO -->
-        <div class="mb-4">
-          <button type="button" class="btn btn-medical-success mr-2 mb-2" id="btnVerEditarFichaMedica">
-            <i class="fas fa-file-medical mr-1"></i> Ver/Editar Ficha Médica
-          </button>
-          <button type="button" class="btn btn-medical-primary mr-2 mb-2" id="btnGestionarDiagnosticos">
-            <i class="fas fa-stethoscope mr-1"></i> Gestionar Diagnósticos
-          </button>
-          <button type="button" class="btn btn-medical-warning mb-2" id="btnRegistrarTratamientos">
-            <i class="fas fa-pills mr-1"></i> Registrar Tratamientos
-          </button>
-        </div>
+        <!-- CONTENIDO DE LOS TABS -->
+        <div class="tab-content tab-content-medical" id="contenidoTabsDetalles">
+          
+          <!-- ============================================ -->
+          <!-- TAB 1: INFORMACIÓN -->
+          <!-- ============================================ -->
+          <div class="tab-pane fade show active" id="contenido-informacion" role="tabpanel">
+            <div class="p-4">
+              
+              <!-- INFO DE LA CONSULTA -->
+              <div class="info-card-medical mb-4">
+                <div class="info-card-header">
+                  <i class="fas fa-clipboard-check mr-2"></i> Datos de la Consulta
+                </div>
+                <div class="info-card-body">
+                  <span id="infoConsulta"></span>
+                </div>
+              </div>
 
-        <hr class="hr-medical">
+              <!-- ACCIONES RÁPIDAS -->
+              <div class="section-medical">
+                <div class="section-header-medical">
+                  <i class="fas fa-bolt"></i> Acciones Rápidas
+                </div>
+                <div class="section-body-medical">
+                  <div class="row">
+                    
+                    <!-- Card Ficha Médica -->
+                    <div class="col-md-4 mb-3">
+                      <div class="action-card-medical action-card-success" id="btnVerEditarFichaMedica">
+                        <div class="action-card-icon">
+                          <i class="fas fa-file-medical"></i>
+                        </div>
+                        <div class="action-card-title">Ficha Médica</div>
+                        <div class="action-card-desc">Ver o editar ficha médica del paciente</div>
+                      </div>
+                    </div>
 
-        <!-- FORMULARIO: AGREGAR DETALLE CLÍNICO -->
-        <div class="section-medical mb-4">
-          <div class="section-header-medical">
-            <i class="fas fa-notes-medical"></i> Agregar Detalle Clínico
-          </div>
-          <div class="section-body-medical">
-            <div class="row">
-              <div class="col-md-6 mb-3">
-                <input type="hidden" id="id_sintoma">
-                <label class="label-medical">Síntoma <span class="text-danger">*</span></label>
-                <div class="input-group input-group-medical">
-                  <input type="text" id="txtSintoma" class="form-control form-control-medical" 
-                         placeholder="Click para seleccionar" readonly required>
-                  <div class="input-group-append">
-                    <span class="input-group-text input-group-text-medical">
-                      <i class="fas fa-search"></i>
-                    </span>
+                    <!-- Card Diagnósticos -->
+                    <div class="col-md-4 mb-3">
+                      <div class="action-card-medical action-card-primary" id="btnGestionarDiagnosticos">
+                        <div class="action-card-icon">
+                          <i class="fas fa-stethoscope"></i>
+                        </div>
+                        <div class="action-card-title">Diagnósticos</div>
+                        <div class="action-card-desc">Gestionar diagnósticos detallados</div>
+                      </div>
+                    </div>
+
+                    <!-- Card Tratamientos -->
+                    <div class="col-md-4 mb-3">
+                      <div class="action-card-medical action-card-warning" id="btnRegistrarTratamientos">
+                        <div class="action-card-icon">
+                          <i class="fas fa-pills"></i>
+                        </div>
+                        <div class="action-card-title">Tratamientos</div>
+                        <div class="action-card-desc">Registrar tratamientos médicos</div>
+                      </div>
+                    </div>
+
                   </div>
                 </div>
               </div>
 
-              <div class="col-md-6 mb-3">
-                <label class="label-medical">Pieza Dental</label>
-                <input type="text" id="pieza_dental" class="form-control form-control-medical" 
-                       placeholder="Ej: 18, 21, 4.6">
-              </div>
-
-              <div class="col-md-12 mb-3">
-                <label class="label-medical">Diagnóstico <span class="text-danger">*</span></label>
-                <textarea id="diagnostico" class="form-control form-control-medical" rows="2" 
-                          placeholder="Diagnóstico general..." required></textarea>
-              </div>
-
-              <div class="col-md-12 mb-3">
-                <label class="label-medical">Tratamiento <span class="text-danger">*</span></label>
-                <textarea id="tratamiento" class="form-control form-control-medical" rows="2" 
-                          placeholder="Tratamiento general..." required></textarea>
-              </div>
-
-              <div class="col-md-12 mb-3">
-                <label class="label-medical">Procedimiento</label>
-                <textarea id="procedimiento" class="form-control form-control-medical" rows="2" 
-                          placeholder="Procedimiento realizado..."></textarea>
-              </div>
-            </div>
-
-            <button type="button" class="btn btn-medical-success" id="btnAgregarDetalle">
-              <i class="fas fa-plus-circle mr-1"></i> Agregar Detalle
-            </button>
-          </div>
-        </div>
-
-        <!-- TABLA DE DETALLES REGISTRADOS -->
-        <div class="section-medical">
-          <div class="section-header-medical">
-            <i class="fas fa-list"></i> Detalles Registrados
-          </div>
-          <div class="section-body-medical">
-            <div class="table-responsive">
-              <table class="table table-medical table-sm" id="tblDetalles">
-                <thead>
-                  <tr>
-                    <th>Síntoma</th>
-                    <th>Pieza Dental</th>
-                    <th>Diagnóstico</th>
-                    <th>Tratamiento</th>
-                    <th>Procedimiento</th>
-                    <th>Acciones</th>
-                  </tr>
-                </thead>
-                <tbody></tbody>
-              </table>
             </div>
           </div>
+
+          <!-- ============================================ -->
+          <!-- TAB 2: AGREGAR DETALLE CLÍNICO -->
+          <!-- ============================================ -->
+          <div class="tab-pane fade" id="contenido-agregar" role="tabpanel">
+            <div class="p-4">
+              
+              <div class="section-medical">
+                <div class="section-header-medical">
+                  <i class="fas fa-notes-medical"></i> Formulario de Detalle Clínico
+                </div>
+                <div class="section-body-medical">
+                  
+                  <div class="row">
+                    <!-- Síntoma -->
+                    <div class="col-md-6 mb-3">
+                      <input type="hidden" id="id_sintoma">
+                      <label class="label-medical">Síntoma <span class="text-danger">*</span></label>
+                      <div class="input-group input-group-medical">
+                        <input type="text" id="txtSintoma" class="form-control form-control-medical" 
+                               placeholder="Click para seleccionar síntoma" readonly required>
+                        <div class="input-group-append">
+                          <span class="input-group-text input-group-text-medical">
+                            <i class="fas fa-search"></i>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Pieza Dental -->
+                    <div class="col-md-6 mb-3">
+                      <label class="label-medical">Pieza Dental</label>
+                      <input type="text" id="pieza_dental" class="form-control form-control-medical" 
+                             placeholder="Ej: 18, 21, 4.6">
+                    </div>
+
+                    <!-- Diagnóstico -->
+                    <div class="col-md-12 mb-3">
+                      <label class="label-medical">Diagnóstico General <span class="text-danger">*</span></label>
+                      <textarea id="diagnostico" class="form-control form-control-medical" rows="3" 
+                                placeholder="Ingrese el diagnóstico general del paciente..." required></textarea>
+                    </div>
+
+                    <!-- Tratamiento -->
+                    <div class="col-md-12 mb-3">
+                      <label class="label-medical">Tratamiento Indicado <span class="text-danger">*</span></label>
+                      <textarea id="tratamiento" class="form-control form-control-medical" rows="3" 
+                                placeholder="Ingrese el tratamiento indicado..." required></textarea>
+                    </div>
+
+                    <!-- Procedimiento -->
+                    <div class="col-md-12 mb-3">
+                      <label class="label-medical">Procedimiento Realizado</label>
+                      <textarea id="procedimiento" class="form-control form-control-medical" rows="3" 
+                                placeholder="Describa el procedimiento realizado (opcional)..."></textarea>
+                    </div>
+                  </div>
+
+                  <!-- Botón Guardar -->
+                  <div class="text-right mt-3">
+                    <button type="button" class="btn btn-medical-success btn-lg" id="btnAgregarDetalle">
+                      <i class="fas fa-save mr-2"></i> Guardar Detalle Clínico
+                    </button>
+                  </div>
+
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- ============================================ -->
+          <!-- TAB 3: DETALLES REGISTRADOS -->
+          <!-- ============================================ -->
+          <div class="tab-pane fade" id="contenido-registrados" role="tabpanel">
+            <div class="p-4">
+              
+              <div class="section-medical">
+                <div class="section-header-medical">
+                  <i class="fas fa-history"></i> Historial de Detalles Clínicos
+                </div>
+                <div class="section-body-medical">
+                  
+                  <div class="table-responsive">
+                    <table class="table table-medical table-hover" id="tblDetalles">
+                      <thead>
+                        <tr>
+                          <th><i class="fas fa-thermometer mr-1"></i> Síntoma</th>
+                          <th><i class="fas fa-tooth mr-1"></i> Pieza Dental</th>
+                          <th><i class="fas fa-diagnoses mr-1"></i> Diagnóstico</th>
+                          <th><i class="fas fa-prescription mr-1"></i> Tratamiento</th>
+                          <th><i class="fas fa-procedures mr-1"></i> Procedimiento</th>
+                          <th><i class="fas fa-cogs mr-1"></i> Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <!-- Se llena dinámicamente -->
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <!-- Mensaje si no hay detalles -->
+                  <div class="text-center text-muted py-4" id="sinDetallesMsg" style="display: none;">
+                    <i class="fas fa-inbox fa-3x mb-3" style="opacity: 0.3;"></i>
+                    <p>No hay detalles clínicos registrados aún.</p>
+                    <p>Use la pestaña <strong>"Agregar Detalle"</strong> para registrar el primer detalle.</p>
+                  </div>
+
+                </div>
+              </div>
+
+            </div>
+          </div>
+
         </div>
       </div>
 
@@ -1076,6 +1182,222 @@ Gestión de Consultas Médicas
     margin-bottom: 0.5rem;
   }
 }
+
+/* ========================================
+   TABS MÉDICOS (NUEVO)
+   ======================================== */
+.nav-tabs-medical {
+  background: white;
+  border-bottom: 3px solid var(--medical-gray-light);
+  margin: 0;
+  padding: 0;
+  display: flex;
+}
+
+.nav-tabs-medical .nav-item {
+  flex: 1;
+}
+
+.nav-link-medical {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem 1.5rem;
+  color: var(--medical-gray);
+  font-weight: 600;
+  text-decoration: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  background: white;
+  font-size: 0.95rem;
+}
+
+.nav-link-medical:hover {
+  color: var(--medical-blue);
+  background: var(--medical-blue-light);
+  border-bottom-color: var(--medical-blue);
+}
+
+.nav-link-medical.active {
+  color: var(--medical-blue-dark);
+  background: var(--medical-blue-light);
+  border-bottom-color: var(--medical-blue);
+  font-weight: 700;
+}
+
+.nav-link-medical i {
+  font-size: 1.1rem;
+}
+
+.tab-content-medical {
+  background: #FAFAFA;
+  min-height: 500px;
+}
+
+.tab-pane {
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ========================================
+   ACTION CARDS (NUEVO)
+   ======================================== */
+.action-card-medical {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+  height: 100%;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.action-card-medical:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+}
+
+.action-card-success {
+  border-color: var(--medical-green-light);
+}
+
+.action-card-success:hover {
+  border-color: var(--medical-green);
+  background: var(--medical-green-light);
+}
+
+.action-card-primary {
+  border-color: var(--medical-blue-light);
+}
+
+.action-card-primary:hover {
+  border-color: var(--medical-blue);
+  background: var(--medical-blue-light);
+}
+
+.action-card-warning {
+  border-color: var(--medical-warning-light);
+}
+
+.action-card-warning:hover {
+  border-color: var(--medical-warning);
+  background: var(--medical-warning-light);
+}
+
+.action-card-icon {
+  width: 70px;
+  height: 70px;
+  margin: 0 auto 1rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  transition: all 0.3s ease;
+}
+
+.action-card-success .action-card-icon {
+  background: var(--medical-green-light);
+  color: var(--medical-green-dark);
+}
+
+.action-card-success:hover .action-card-icon {
+  background: var(--medical-green);
+  color: white;
+  transform: scale(1.1) rotate(5deg);
+}
+
+.action-card-primary .action-card-icon {
+  background: var(--medical-blue-light);
+  color: var(--medical-blue-dark);
+}
+
+.action-card-primary:hover .action-card-icon {
+  background: var(--medical-blue);
+  color: white;
+  transform: scale(1.1) rotate(5deg);
+}
+
+.action-card-warning .action-card-icon {
+  background: var(--medical-warning-light);
+  color: var(--medical-warning);
+}
+
+.action-card-warning:hover .action-card-icon {
+  background: var(--medical-warning);
+  color: white;
+  transform: scale(1.1) rotate(5deg);
+}
+
+.action-card-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--medical-gray);
+  margin-bottom: 0.5rem;
+}
+
+.action-card-desc {
+  font-size: 0.85rem;
+  color: #757575;
+  line-height: 1.4;
+}
+
+/* ========================================
+   INFO CARD (NUEVO)
+   ======================================== */
+.info-card-medical {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.info-card-header {
+  background: linear-gradient(135deg, var(--medical-blue-light) 0%, #BBDEFB 100%);
+  color: var(--medical-blue-dark);
+  padding: 1rem 1.5rem;
+  font-weight: 700;
+  font-size: 1.05rem;
+  border-left: 4px solid var(--medical-blue);
+}
+
+.info-card-body {
+  padding: 1.5rem;
+  font-size: 0.95rem;
+  line-height: 1.8;
+  color: var(--medical-gray);
+}
+
+/* ========================================
+   RESPONSIVO TABS
+   ======================================== */
+@media (max-width: 768px) {
+  .nav-tabs-medical {
+    flex-direction: column;
+  }
+  
+  .nav-link-medical {
+    border-bottom: 1px solid #dee2e6;
+    border-left: 3px solid transparent;
+  }
+  
+  .nav-link-medical.active {
+    border-bottom: 1px solid #dee2e6;
+    border-left-color: var(--medical-blue);
+  }
+  
+  .action-card-medical {
+    margin-bottom: 1rem;
+  }
+}
 </style>
 
 {% endblock %}
@@ -1736,7 +2058,17 @@ function limpiarModalDetalle() {
   detalleEditandoId = null;
   $('#btnAgregarDetalle').html('<i class="fas fa-plus"></i> Agregar Detalle');
 }
-
+// Limpiar formulario de detalle
+$('#btnLimpiarDetalle').on('click', function() {
+  limpiarModalDetalle();
+  Swal.fire({
+    icon: 'success',
+    title: 'Formulario limpiado',
+    text: 'Puede agregar un nuevo detalle clínico',
+    timer: 1500,
+    showConfirmButton: false
+  });
+});
 // ============================================
 // AGREGAR DETALLE CLÍNICO
 // ============================================
@@ -1995,18 +2327,36 @@ $('#btnGuardarFichaMedica').on('click', function() {
 // BOTÓN: GESTIONAR DIAGNÓSTICOS
 // ============================================
 $('#btnGestionarDiagnosticos').on('click', function() {
-  Swal.fire({
-    title: 'Gestionar Diagnósticos',
-    html: `
-      <p>Esta funcionalidad abrirá el módulo completo de <strong>Registrar Diagnósticos</strong>.</p>
-      <p class="text-muted">Se implementará en el siguiente paso.</p>
-    `,
-    icon: 'info',
-    confirmButtonText: 'Entendido'
-  });
+  const idConsulta = consultaActualId;
   
-  // TODO: Implementar navegación al módulo de Registrar Diagnósticos
-  // window.location.href = '/referenciales/diagnostico/diagnostico-index?consulta=' + consultaActualId;
+  if (!idConsulta) {
+    Swal.fire('Error', 'No se ha seleccionado una consulta', 'error');
+    return;
+  }
+  
+  // Obtener datos de la consulta
+  fetch(`/api/v1/consultas/${idConsulta}`)
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        const c = d.data;
+        
+        // Redirigir al módulo de Diagnósticos con parámetros
+        const url = `/referenciales/diagnosticos-medicos/diagnostico-index?consulta=${idConsulta}&paciente=${c.id_paciente}&medico=${c.id_medico}`;
+        
+        // Abrir en la misma pestaña
+        window.location.href = url;
+        
+        // O si prefieres en nueva pestaña:
+        // window.open(url, '_blank');
+      } else {
+        Swal.fire('Error', 'No se pudo cargar la información de la consulta', 'error');
+      }
+    })
+    .catch(err => {
+      console.error('Error:', err);
+      Swal.fire('Error', 'No se pudo procesar la solicitud', 'error');
+    });
 });
 
 // ============================================

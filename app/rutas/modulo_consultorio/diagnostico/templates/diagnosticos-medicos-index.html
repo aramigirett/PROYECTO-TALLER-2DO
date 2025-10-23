@@ -1,0 +1,1206 @@
+{% extends 'base.html' %}
+
+{% block titulo %}
+Gestión de Diagnósticos
+{% endblock %}
+
+{% block contenido %}
+<div class="container-fluid mt-4">
+
+  <!-- ============================================ -->
+  <!-- TARJETAS DE ESTADÍSTICAS -->
+  <!-- ============================================ -->
+  <div class="row mb-4">
+    <!-- Total Diagnósticos -->
+    <div class="col-xl-3 col-md-6 mb-3">
+      <div class="card border-left-primary shadow h-100 py-2">
+        <div class="card-body">
+          <div class="row no-gutters align-items-center">
+            <div class="col mr-2">
+              <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                Total Diagnósticos
+              </div>
+              <div class="h5 mb-0 font-weight-bold text-gray-800" id="totalDiagnosticos">0</div>
+            </div>
+            <div class="col-auto">
+              <i class="fas fa-notes-medical fa-2x text-gray-300"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Diagnósticos de Hoy -->
+    <div class="col-xl-3 col-md-6 mb-3">
+      <div class="card border-left-success shadow h-100 py-2">
+        <div class="card-body">
+          <div class="row no-gutters align-items-center">
+            <div class="col mr-2">
+              <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                Diagnósticos de Hoy
+              </div>
+              <div class="h5 mb-0 font-weight-bold text-gray-800" id="diagnosticosHoy">0</div>
+            </div>
+            <div class="col-auto">
+              <i class="fas fa-calendar-day fa-2x text-gray-300"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pacientes Únicos -->
+    <div class="col-xl-3 col-md-6 mb-3">
+      <div class="card border-left-info shadow h-100 py-2">
+        <div class="card-body">
+          <div class="row no-gutters align-items-center">
+            <div class="col mr-2">
+              <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                Pacientes Atendidos
+              </div>
+              <div class="h5 mb-0 font-weight-bold text-gray-800" id="pacientesUnicos">0</div>
+            </div>
+            <div class="col-auto">
+              <i class="fas fa-users fa-2x text-gray-300"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Por Tipo -->
+    <div class="col-xl-3 col-md-6 mb-3">
+      <div class="card border-left-warning shadow h-100 py-2">
+        <div class="card-body">
+          <div class="row no-gutters align-items-center">
+            <div class="col mr-2">
+              <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                Tipos Registrados
+              </div>
+              <div class="h5 mb-0 font-weight-bold text-gray-800" id="tiposUnicos">0</div>
+            </div>
+            <div class="col-auto">
+              <i class="fas fa-list-alt fa-2x text-gray-300"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- FORMULARIO: REGISTRAR DIAGNÓSTICO -->
+  <!-- ============================================ -->
+  <div class="clinical-form-container mb-4">
+    <div class="clinical-form-header">
+      <div class="d-flex align-items-center justify-content-between">
+        <div class="d-flex align-items-center">
+          <div class="clinical-icon-box">
+            <i class="fas fa-stethoscope"></i>
+          </div>
+          <div class="ml-3">
+            <h5 class="mb-0 text-white font-weight-bold">Registrar Diagnóstico Médico</h5>
+            <small class="text-white-50">Complete la información del diagnóstico</small>
+          </div>
+        </div>
+        <button type="button" class="btn-close-clinical" id="btnLimpiarFormulario" title="Limpiar formulario">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+    </div>
+
+    <div class="clinical-form-body">
+      <input type="hidden" id="txtIdDiagnostico">
+      <input type="hidden" id="id_consulta_detalle">
+
+      <div class="row">
+        <!-- COLUMNA IZQUIERDA: DATOS DEL PACIENTE Y MÉDICO -->
+        <div class="col-lg-6">
+          <div class="clinical-card mb-3">
+            <div class="clinical-card-label">
+              <i class="fas fa-user-md text-primary"></i>
+              <span>Información Médica</span>
+            </div>
+            
+            <!-- Paciente -->
+            <div class="form-group mb-3">
+              <input type="hidden" id="id_paciente">
+              <label class="label-medical-new">
+                <i class="fas fa-user text-primary mr-1"></i>
+                Paciente <span class="required-star">*</span>
+              </label>
+              <div class="input-medical-wrapper">
+                <input type="text" id="txtPaciente" class="form-control-medical-new" 
+                       placeholder="Seleccione el paciente" readonly required>
+                <span class="input-medical-icon">
+                  <i class="fas fa-search"></i>
+                </span>
+              </div>
+              <div class="text-danger small" id="error_txtPaciente" style="display:none;">
+                <i class="fas fa-exclamation-triangle mr-1"></i>Campo obligatorio
+              </div>
+            </div>
+
+            <!-- Médico -->
+            <div class="form-group mb-3">
+              <input type="hidden" id="id_medico">
+              <label class="label-medical-new">
+                <i class="fas fa-user-md text-success mr-1"></i>
+                Médico <span class="required-star">*</span>
+              </label>
+              <div class="input-medical-wrapper">
+                <input type="text" id="txtMedico" class="form-control-medical-new" 
+                       placeholder="Seleccione el médico" readonly required>
+                <span class="input-medical-icon">
+                  <i class="fas fa-search"></i>
+                </span>
+              </div>
+              <div class="text-danger small" id="error_txtMedico" style="display:none;">
+                <i class="fas fa-exclamation-triangle mr-1"></i>Campo obligatorio
+              </div>
+            </div>
+
+            <!-- Tipo de Diagnóstico -->
+            <div class="form-group mb-3">
+              <label class="label-medical-new">
+                <i class="fas fa-clipboard-list text-info mr-1"></i>
+                Tipo de Diagnóstico <span class="required-star">*</span>
+              </label>
+              <select id="id_tipo_diagnostico" class="form-control-medical-new" required>
+                <option value="">-- Seleccione el tipo --</option>
+              </select>
+              <div class="text-danger small" id="error_id_tipo_diagnostico" style="display:none;">
+                <i class="fas fa-exclamation-triangle mr-1"></i>Campo obligatorio
+              </div>
+            </div>
+
+            <!-- Fecha de Diagnóstico -->
+            <div class="form-group mb-0">
+              <label class="label-medical-new">
+                <i class="fas fa-calendar text-warning mr-1"></i>
+                Fecha de Diagnóstico <span class="required-star">*</span>
+              </label>
+              <input type="date" id="fecha_diagnostico" class="form-control-medical-new" required>
+              <div class="text-danger small" id="error_fecha_diagnostico" style="display:none;">
+                <i class="fas fa-exclamation-triangle mr-1"></i>Campo obligatorio
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- COLUMNA DERECHA: DETALLES DEL DIAGNÓSTICO -->
+        <div class="col-lg-6">
+          <div class="clinical-card mb-3">
+            <div class="clinical-card-label">
+              <i class="fas fa-tooth text-info"></i>
+              <span>Detalles Clínicos</span>
+            </div>
+            
+            <!-- Pieza Dental -->
+            <div class="form-group mb-3">
+              <label class="label-medical-new">
+                <i class="fas fa-tooth text-info mr-1"></i>
+                Pieza Dental
+                <button type="button" class="btn btn-sm btn-link p-0 ml-2" id="btnVerOdontograma" title="Ver Odontograma">
+                  <i class="fas fa-external-link-alt"></i> Ver Odontograma
+                </button>
+              </label>
+              <div class="input-medical-wrapper">
+                <input type="text" id="pieza_dental" class="form-control-medical-new" 
+                       placeholder="Ej: 18, 21, 4.6">
+                <span class="input-medical-icon">
+                  <i class="fas fa-tooth"></i>
+                </span>
+              </div>
+              <small class="form-text text-muted">
+                <i class="fas fa-info-circle mr-1"></i>
+                Ingrese el número de la pieza dental según nomenclatura FDI
+              </small>
+            </div>
+
+            <!-- Síntomas -->
+            <div class="form-group mb-3">
+              <label class="label-medical-new">
+                <i class="fas fa-heartbeat text-danger mr-1"></i>
+                Síntomas
+              </label>
+              <textarea id="sintomas" class="form-control-medical-textarea" rows="3" 
+                        placeholder="Describa los síntomas del paciente..."></textarea>
+            </div>
+
+            <!-- Código (Solo lectura si está editando) -->
+            <div class="form-group mb-0" id="divCodigo" style="display:none;">
+              <label class="label-medical-new">
+                <i class="fas fa-barcode text-secondary mr-1"></i>
+                Código
+              </label>
+              <input type="text" id="codigo" class="form-control-medical-new" readonly>
+            </div>
+          </div>
+        </div>
+
+        <!-- DESCRIPCIÓN DEL DIAGNÓSTICO (ANCHO COMPLETO) -->
+        <div class="col-12">
+          <div class="clinical-card mb-3" style="background: #e3f2fd;">
+            <div class="clinical-card-label">
+              <i class="fas fa-file-medical-alt text-primary"></i>
+              <span>Diagnóstico Médico</span>
+            </div>
+            
+            <div class="form-group mb-0">
+              <label class="label-medical-new">
+                <i class="fas fa-notes-medical text-primary mr-1"></i>
+                Descripción del Diagnóstico <span class="required-star">*</span>
+              </label>
+              <textarea id="descripcion_diagnostico" class="form-control-medical-textarea" rows="4" 
+                        placeholder="Describa detalladamente el diagnóstico médico..." required></textarea>
+              <div class="text-danger small" id="error_descripcion_diagnostico" style="display:none;">
+                <i class="fas fa-exclamation-triangle mr-1"></i>Campo obligatorio
+              </div>
+            </div>
+          </div>
+        </div>
+
+      <!-- BOTONES -->
+      <div class="text-center mt-4">
+        <button type="button" class="btn btn-save-clinical" id="btnGuardarDiagnostico">
+          <i class="fas fa-save mr-2"></i>
+          <span>Guardar Diagnóstico</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- TABLA: DIAGNÓSTICOS REGISTRADOS -->
+  <!-- ============================================ -->
+  <div class="card shadow-sm border-0 rounded-lg">
+    
+    <!-- HEADER -->
+    <div class="card-header bg-primary text-white">
+      <h5 class="mb-0 font-weight-bold">
+        <i class="fas fa-list-alt mr-2"></i> Diagnósticos Registrados
+      </h5>
+    </div>
+
+    <!-- BODY: TABLA -->
+    <div class="card-body p-2">
+      <div class="table-responsive shadow-sm rounded">
+        <table class="table table-hover table-bordered align-middle text-center" id="tblDiagnosticos">
+          <thead class="bg-primary text-white">
+            <tr>
+              <th>Código</th>
+              <th>Paciente</th>
+              <th>Médico</th>
+              <th>Tipo</th>
+              <th>Pieza Dental</th>
+              <th>Fecha</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ============================================ -->
+<!-- MODAL: VER DIAGNÓSTICO COMPLETO -->
+<!-- ============================================ -->
+<div class="modal fade" id="modalVerDiagnostico" tabindex="-1" role="dialog">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable" role="document">
+    <div class="modal-content">
+      
+      <!-- HEADER -->
+      <div class="modal-header modal-header-medical">
+        <h4 class="modal-title text-white">
+          <i class="fas fa-file-medical"></i> Diagnóstico Completo
+        </h4>
+        <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+      </div>
+
+      <!-- BODY -->
+      <div class="modal-body">
+        <!-- Código -->
+        <div class="mb-3">
+          <strong><i class="fas fa-barcode text-secondary mr-1"></i> Código:</strong>
+          <p id="verCodigo" class="text-muted">-</p>
+        </div>
+
+        <!-- Paciente y Médico -->
+        <div class="row mb-3">
+          <div class="col-md-6">
+            <strong><i class="fas fa-user text-primary mr-1"></i> Paciente:</strong>
+            <p id="verPaciente" class="text-muted">-</p>
+          </div>
+          <div class="col-md-6">
+            <strong><i class="fas fa-user-md text-success mr-1"></i> Médico:</strong>
+            <p id="verMedico" class="text-muted">-</p>
+          </div>
+        </div>
+
+        <!-- Tipo y Fecha -->
+        <div class="row mb-3">
+          <div class="col-md-6">
+            <strong><i class="fas fa-clipboard-list text-info mr-1"></i> Tipo:</strong>
+            <p id="verTipo" class="text-muted">-</p>
+          </div>
+          <div class="col-md-6">
+            <strong><i class="fas fa-calendar text-warning mr-1"></i> Fecha:</strong>
+            <p id="verFecha" class="text-muted">-</p>
+          </div>
+        </div>
+
+        <!-- Pieza Dental -->
+        <div class="mb-3">
+          <strong><i class="fas fa-tooth text-info mr-1"></i> Pieza Dental:</strong>
+          <p id="verPieza" class="text-muted">-</p>
+        </div>
+
+        <!-- Síntomas -->
+        <hr>
+        <h5 class="text-danger">
+          <i class="fas fa-heartbeat mr-2"></i>Síntomas
+        </h5>
+        <p id="verSintomas" class="text-muted">-</p>
+
+        <!-- Diagnóstico -->
+        <hr>
+        <h5 class="text-primary">
+          <i class="fas fa-notes-medical mr-2"></i>Diagnóstico
+        </h5>
+        <p id="verDescripcion" class="text-muted">-</p>
+
+        <!-- Observaciones -->
+        <hr>
+        <h5 class="text-warning">
+          <i class="fas fa-comment-medical mr-2"></i>Observaciones
+        </h5>
+        <p id="verObservaciones" class="text-muted">-</p>
+      </div>
+
+      <!-- FOOTER -->
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- MODALES DE SELECCIÓN (PACIENTE Y MÉDICO) -->
+<!-- ============================================ -->
+
+<!-- Modal Paciente -->
+<div class="modal fade" id="modalBuscarPaciente" tabindex="-1" role="dialog">
+  <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h4 class="modal-title">Seleccionar Paciente</h4>
+        <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="table-responsive">
+          <table class="table table-striped table-bordered w-100" id="tblPaciente">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Apellido</th>
+                <th>Cédula</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Médico -->
+<div class="modal fade" id="modalBuscarMedico" tabindex="-1" role="dialog">
+  <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h4 class="modal-title">Seleccionar Médico</h4>
+        <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="table-responsive">
+          <table class="table table-striped table-bordered w-100" id="tblMedico">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Apellido</th>
+                <th>Especialidad</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Librerías -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.10.21/css/dataTables.bootstrap4.min.css">
+<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.bundle.min.js"></script>
+
+<style>
+/* ========================================
+   VARIABLES DE COLOR MÉDICO
+   ======================================== */
+:root {
+  --medical-blue: #1565C0;
+  --medical-blue-dark: #0D47A1;
+  --medical-blue-light: #E3F2FD;
+  --medical-green: #2E7D32;
+  --medical-green-dark: #1B5E20;
+  --medical-green-light: #E8F5E9;
+  --medical-gray: #455A64;
+  --medical-gray-light: #ECEFF1;
+  --medical-warning: #F57C00;
+  --medical-warning-light: #FFF3E0;
+  --medical-white: #FFFFFF;
+  --medical-shadow: 0 2px 10px rgba(0,0,0,0.08);
+  --medical-shadow-hover: 0 4px 20px rgba(0,0,0,0.15);
+}
+
+/* ========================================
+   TARJETAS DE ESTADÍSTICAS
+   ======================================== */
+.border-left-primary {
+  border-left: 0.25rem solid #4e73df !important;
+}
+.border-left-success {
+  border-left: 0.25rem solid #1cc88a !important;
+}
+.border-left-info {
+  border-left: 0.25rem solid #36b9cc !important;
+}
+.border-left-warning {
+  border-left: 0.25rem solid #f6c23e !important;
+}
+
+/* ========================================
+   FORMULARIO DIAGNÓSTICO
+   ======================================== */
+.clinical-form-container {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  overflow: hidden;
+  border: 2px solid #e3f2fd;
+}
+
+.clinical-form-header {
+  background: linear-gradient(135deg, #1565C0 0%, #0D47A1 100%);
+  padding: 20px 25px;
+}
+
+.clinical-icon-box {
+  width: 50px;
+  height: 50px;
+  background: rgba(255,255,255,0.2);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: white;
+}
+
+.btn-close-clinical {
+  background: rgba(255,255,255,0.2);
+  border: 2px solid rgba(255,255,255,0.3);
+  color: white;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 18px;
+}
+
+.btn-close-clinical:hover {
+  background: rgba(255,255,255,0.3);
+  border-color: rgba(255,255,255,0.5);
+  transform: rotate(90deg);
+}
+
+.clinical-form-body {
+  padding: 30px 25px;
+  background: #fafafa;
+}
+
+.clinical-card {
+  background: white;
+  border-radius: 10px;
+  padding: 20px;
+  border: 1px solid #e0e0e0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  height: 100%;
+}
+
+.clinical-card-procedure {
+  background: #fffbf0;
+  border-radius: 10px;
+  padding: 20px;
+  border: 2px dashed #F57C00;
+}
+
+.clinical-card-label {
+  display: flex;
+  align-items: center;
+  padding-bottom: 15px;
+  margin-bottom: 20px;
+  border-bottom: 2px solid #e3f2fd;
+  font-weight: 600;
+  font-size: 14px;
+  color: #455A64;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.clinical-card-label i {
+  font-size: 18px;
+  margin-right: 10px;
+}
+
+.label-medical-new {
+  font-weight: 600;
+  font-size: 13px;
+  color: #37474F;
+  margin-bottom: 8px;
+  display: block;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.required-star {
+  color: #d32f2f;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.input-medical-wrapper {
+  position: relative;
+}
+
+.form-control-medical-new {
+  width: 100%;
+  padding: 12px 45px 12px 15px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  background: white;
+}
+
+.form-control-medical-new:focus {
+  border-color: #1565C0;
+  box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.1);
+  outline: none;
+}
+
+.form-control-medical-new:read-only {
+  background: #f5f5f5;
+  cursor: pointer;
+}
+
+.form-control-medical-new:read-only:hover {
+  border-color: #1565C0;
+}
+
+.input-medical-icon {
+  position: absolute;
+  right: 15px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #90A4AE;
+  font-size: 16px;
+  pointer-events: none;
+}
+
+.form-control-medical-textarea {
+  width: 100%;
+  padding: 12px 15px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  background: white;
+  resize: vertical;
+  min-height: 80px;
+}
+
+.form-control-medical-textarea:focus {
+  border-color: #1565C0;
+  box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.1);
+  outline: none;
+}
+
+.btn-save-clinical {
+  background: linear-gradient(135deg, #2E7D32 0%, #1B5E20 100%);
+  color: white;
+  border: none;
+  padding: 14px 40px;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 4px 12px rgba(46, 125, 50, 0.3);
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+}
+
+.btn-save-clinical:hover {
+  background: linear-gradient(135deg, #388E3C 0%, #2E7D32 100%);
+  box-shadow: 0 6px 16px rgba(46, 125, 50, 0.4);
+  transform: translateY(-2px);
+}
+
+.btn-save-clinical i {
+  font-size: 16px;
+}
+
+/* ========================================
+   TABLA
+   ======================================== */
+.table-hover tbody tr:hover {
+  background-color: #e3f2fd;
+  transform: scale(1.01);
+  transition: all 0.2s ease;
+}
+
+/* ========================================
+   MODALES
+   ======================================== */
+.modal-header-medical {
+  background: linear-gradient(135deg, #1565C0 0%, #0D47A1 100%);
+  border: none;
+  padding: 1.25rem;
+}
+
+/* ========================================
+   RESPONSIVO
+   ======================================== */
+@media (max-width: 991px) {
+  .clinical-card {
+    margin-bottom: 20px;
+  }
+}
+</style>
+
+{% endblock %}
+
+{% block js %}
+<script>
+// ============================================
+// VARIABLES GLOBALES
+// ============================================
+
+// Parámetros de URL (cuando viene desde Consulta)
+const urlParams = new URLSearchParams(window.location.search);
+const idConsultaParam = urlParams.get('consulta');
+const idPacienteParam = urlParams.get('paciente');
+const idMedicoParam = urlParams.get('medico');
+
+// ============================================
+// FUNCIONES AUXILIARES
+// ============================================
+
+function formatDateForDisplay(fecha) {
+  if (!fecha) return '';
+  const d = new Date(fecha);
+  if (isNaN(d)) return '';
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const year = d.getUTCFullYear();
+  return `${day}/${month}/${year}`;
+}
+
+// ============================================
+// ACTUALIZAR ESTADÍSTICAS
+// ============================================
+function actualizarEstadisticas() {
+  fetch('/api/v1/diagnosticos-medicos')
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        const diagnosticos = d.data;
+        const hoy = new Date().toISOString().split('T')[0];
+        
+        // Total
+        $('#totalDiagnosticos').text(diagnosticos.length);
+        
+        // Diagnósticos de hoy
+        const diagHoy = diagnosticos.filter(diag => diag.fecha_diagnostico === hoy).length;
+        $('#diagnosticosHoy').text(diagHoy);
+        
+        // Pacientes únicos
+        const pacientesUnicos = new Set(diagnosticos.map(diag => diag.id_paciente)).size;
+        $('#pacientesUnicos').text(pacientesUnicos);
+        
+        // Tipos únicos
+        const tiposUnicos = new Set(diagnosticos.map(diag => diag.id_tipo_diagnostico)).size;
+        $('#tiposUnicos').text(tiposUnicos);
+      }
+    })
+    .catch(err => console.error('Error al actualizar estadísticas:', err));
+}
+
+// ============================================
+// CARGAR TIPOS DE DIAGNÓSTICO
+// ============================================
+function cargarTiposDiagnostico() {
+  fetch('/api/v1/diagnosticos')
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        const select = $('#id_tipo_diagnostico');
+        select.empty();
+        select.append('<option value="">-- Seleccione el tipo --</option>');
+        
+        d.data.forEach(tipo => {
+          select.append(`<option value="${tipo.id_tipo_diagnostico}">${tipo.descripcion_diagnostico}</option>`);
+        });
+      }
+    })
+    .catch(err => console.error('Error al cargar tipos:', err));
+}
+
+// ============================================
+// DATATABLE: DIAGNÓSTICOS
+// ============================================
+function initDatatableDiagnosticos() {
+  if ($.fn.DataTable.isDataTable('#tblDiagnosticos')) {
+    $('#tblDiagnosticos').DataTable().destroy();
+  }
+
+  $('#tblDiagnosticos').DataTable({
+    language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
+    ajax: {
+      url: '/api/v1/diagnosticos-medicos',
+      dataSrc: 'data'
+    },
+    columns: [
+      { data: 'codigo' },
+      { data: 'nombre_paciente' },
+      { data: 'nombre_medico' },
+      { data: 'tipo_diagnostico' },
+      { 
+        data: 'pieza_dental',
+        render: d => d || '-'
+      },
+      { 
+        data: 'fecha_diagnostico',
+        render: d => formatDateForDisplay(d)
+      },
+      { 
+        data: null,
+        render: row => `
+          <button class="btn btn-success btn-sm" name="btn_ver" 
+                  data-id="${row.id_diagnostico}" title="Ver">
+            <i class="fas fa-eye"></i>
+          </button>
+          <button class="btn btn-info btn-sm" name="btn_editar" 
+                  data-id="${row.id_diagnostico}" title="Editar">
+            <i class="fas fa-edit"></i>
+          </button>
+          <button class="btn btn-danger btn-sm" name="btn_eliminar" 
+                  data-id="${row.id_diagnostico}" title="Eliminar">
+            <i class="fas fa-trash-alt"></i>
+          </button>
+        `
+      }
+    ],
+    order: [[5, 'desc']],
+    drawCallback: function() {
+      actualizarEstadisticas();
+    }
+  });
+}
+
+// ============================================
+// DATATABLE: PACIENTES
+// ============================================
+function initDatatablePaciente() {
+  if ($.fn.DataTable.isDataTable('#tblPaciente')) {
+    $('#tblPaciente').DataTable().destroy();
+  }
+
+  $('#tblPaciente').DataTable({
+    language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
+    ajax: { 
+      url: '/api/v1/pacientes',
+      dataSrc: 'data'
+    },
+    columns: [
+      { data: 'nombre' },
+      { data: 'apellido' },
+      { data: 'cedula_entidad' },
+      { 
+        data: null,
+        render: row => `
+          <button class="btn btn-primary btn-sm" name="btn_seleccionar_paciente"
+                  data-id="${row.id_paciente}"
+                  data-nombre="${row.nombre}"
+                  data-apellido="${row.apellido}">
+            Seleccionar
+          </button>
+        `
+      }
+    ]
+  });
+
+  // Evento seleccionar paciente
+  $('#tblPaciente').on('click', 'button[name="btn_seleccionar_paciente"]', function() {
+    const btn = $(this);
+    $('#id_paciente').val(btn.data('id'));
+    $('#txtPaciente').val(`${btn.data('nombre')} ${btn.data('apellido')}`);
+    $('#modalBuscarPaciente').modal('hide');
+  });
+}
+
+// ============================================
+// DATATABLE: MÉDICOS
+// ============================================
+function initDatatableMedico() {
+  if ($.fn.DataTable.isDataTable('#tblMedico')) {
+    $('#tblMedico').DataTable().destroy();
+  }
+
+  $('#tblMedico').DataTable({
+    language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
+    ajax: { 
+      url: '/api/v1/medico',
+      dataSrc: 'data'
+    },
+    columns: [
+      { data: 'nombre' },
+      { data: 'apellido' },
+      { data: 'especialidades' },
+      { 
+        data: null,
+        render: row => `
+          <button class="btn btn-primary btn-sm" name="btn_seleccionar_medico"
+                  data-id="${row.id_medico}"
+                  data-nombre="${row.nombre}"
+                  data-apellido="${row.apellido}">
+            Seleccionar
+          </button>
+        `
+      }
+    ]
+  });
+
+  // Evento seleccionar médico
+  $('#tblMedico').on('click', 'button[name="btn_seleccionar_medico"]', function() {
+    const btn = $(this);
+    $('#id_medico').val(btn.data('id'));
+    $('#txtMedico').val(`${btn.data('nombre')} ${btn.data('apellido')}`);
+    $('#modalBuscarMedico').modal('hide');
+  });
+}
+
+// ============================================
+// ABRIR MODALES DE SELECCIÓN
+// ============================================
+$('#txtPaciente').click(() => $('#modalBuscarPaciente').modal('show'));
+$('#txtMedico').click(() => $('#modalBuscarMedico').modal('show'));
+
+// ============================================
+// LIMPIAR FORMULARIO
+// ============================================
+function limpiarFormulario() {
+  $('#txtIdDiagnostico').val('');
+  $('#id_consulta_detalle').val('');
+  $('#id_paciente').val('');
+  $('#txtPaciente').val('');
+  $('#id_medico').val('');
+  $('#txtMedico').val('');
+  $('#id_tipo_diagnostico').val('');
+  $('#pieza_dental').val('');
+  $('#fecha_diagnostico').val('');
+  $('#sintomas').val('');
+  $('#descripcion_diagnostico').val('');
+  $('#observaciones').val('');
+  $('#codigo').val('');
+  $('#divCodigo').hide();
+  $('.text-danger.small').hide();
+  
+  // Scroll al inicio del formulario
+  $('html, body').animate({
+    scrollTop: $('.clinical-form-container').offset().top - 100
+  }, 500);
+}
+
+$('#btnLimpiarFormulario').on('click', function() {
+  limpiarFormulario();
+  Swal.fire({
+    icon: 'success',
+    title: 'Formulario limpiado',
+    timer: 1500,
+    showConfirmButton: false
+  });
+});
+
+// ============================================
+// GUARDAR DIAGNÓSTICO
+// ============================================
+$('#btnGuardarDiagnostico').on('click', function() {
+  const idDiagnostico = $('#txtIdDiagnostico').val();
+  
+  // Preparar datos
+  const payload = {
+    id_consulta_detalle: $('#id_consulta_detalle').val() || null,
+    id_paciente: parseInt($('#id_paciente').val()),
+    id_medico: parseInt($('#id_medico').val()),
+    id_tipo_diagnostico: parseInt($('#id_tipo_diagnostico').val()),
+    descripcion_diagnostico: $('#descripcion_diagnostico').val(),
+    pieza_dental: $('#pieza_dental').val() || null,
+    fecha_diagnostico: $('#fecha_diagnostico').val(),
+    sintomas: $('#sintomas').val() || null,
+    observaciones: $('#observaciones').val() || null
+  };
+
+  // Validaciones
+  let valido = true;
+  $('.text-danger.small').hide();
+  
+  if (!payload.id_paciente) { $('#error_txtPaciente').show(); valido = false; }
+  if (!payload.id_medico) { $('#error_txtMedico').show(); valido = false; }
+  if (!payload.id_tipo_diagnostico) { $('#error_id_tipo_diagnostico').show(); valido = false; }
+  if (!payload.descripcion_diagnostico) { $('#error_descripcion_diagnostico').show(); valido = false; }
+  if (!payload.fecha_diagnostico) { $('#error_fecha_diagnostico').show(); valido = false; }
+
+  if (!valido) {
+    Swal.fire('Campos incompletos', 'Complete todos los campos obligatorios', 'warning');
+    return;
+  }
+
+  // Determinar URL y método
+  const url = idDiagnostico ? `/api/v1/diagnosticos-medicos/${idDiagnostico}` : '/api/v1/diagnosticos-medicos';
+  const method = idDiagnostico ? 'PUT' : 'POST';
+
+  // Enviar petición
+  fetch(url, {
+    method: method,
+    headers: { 
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (d.success) {
+      limpiarFormulario();
+      $('#tblDiagnosticos').DataTable().ajax.reload();
+      Swal.fire('Éxito', 'Diagnóstico guardado correctamente', 'success');
+    } else {
+      Swal.fire('Error', d.error || 'No se pudo guardar', 'error');
+    }
+  })
+  .catch(err => {
+    console.error('Error:', err);
+    Swal.fire('Error', 'No se pudo guardar el diagnóstico', 'error');
+  });
+});
+
+// ============================================
+// VER DIAGNÓSTICO
+// ============================================
+$('#tblDiagnosticos').on('click', 'button[name="btn_ver"]', function() {
+  const id = $(this).data('id');
+  
+  fetch(`/api/v1/diagnosticos-medicos/${id}`)
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        const diag = d.data;
+        $('#verCodigo').text(diag.codigo || '-');
+        $('#verPaciente').text(diag.nombre_paciente);
+        $('#verMedico').text(diag.nombre_medico);
+        $('#verTipo').text(diag.tipo_diagnostico);
+        $('#verFecha').text(formatDateForDisplay(diag.fecha_diagnostico));
+        $('#verPieza').text(diag.pieza_dental || '-');
+        $('#verSintomas').text(diag.sintomas || '-');
+        $('#verDescripcion').text(diag.descripcion_diagnostico);
+        $('#verObservaciones').text(diag.observaciones || '-');
+        
+        $('#modalVerDiagnostico').modal('show');
+      }
+    })
+    .catch(err => {
+      console.error('Error:', err);
+      Swal.fire('Error', 'No se pudo cargar el diagnóstico', 'error');
+    });
+});
+
+// ============================================
+// EDITAR DIAGNÓSTICO
+// ============================================
+$('#tblDiagnosticos').on('click', 'button[name="btn_editar"]', function() {
+  const id = $(this).data('id');
+  
+  fetch(`/api/v1/diagnosticos-medicos/${id}`)
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        const diag = d.data;
+        $('#txtIdDiagnostico').val(diag.id_diagnostico);
+        $('#id_consulta_detalle').val(diag.id_consulta_detalle || '');
+        $('#id_paciente').val(diag.id_paciente);
+        $('#txtPaciente').val(diag.nombre_paciente);
+        $('#id_medico').val(diag.id_medico);
+        $('#txtMedico').val(diag.nombre_medico);
+        $('#id_tipo_diagnostico').val(diag.id_tipo_diagnostico);
+        $('#pieza_dental').val(diag.pieza_dental || '');
+        $('#fecha_diagnostico').val(diag.fecha_diagnostico);
+        $('#sintomas').val(diag.sintomas || '');
+        $('#descripcion_diagnostico').val(diag.descripcion_diagnostico);
+        $('#observaciones').val(diag.observaciones || '');
+        $('#codigo').val(diag.codigo);
+        $('#divCodigo').show();
+
+        // Scroll al formulario
+        $('html, body').animate({
+          scrollTop: $('.clinical-form-container').offset().top - 100
+        }, 500);
+      }
+    })
+    .catch(err => {
+      console.error('Error:', err);
+      Swal.fire('Error', 'No se pudo cargar el diagnóstico', 'error');
+    });
+});
+
+// ============================================
+// ELIMINAR DIAGNÓSTICO
+// ============================================
+$('#tblDiagnosticos').on('click', 'button[name="btn_eliminar"]', function() {
+  const id = $(this).data('id');
+  
+  Swal.fire({
+    title: '¿Eliminar diagnóstico?',
+    text: 'Esta acción no se puede deshacer',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#d33',
+    cancelButtonColor: '#3085d6',
+    confirmButtonText: 'Sí, eliminar',
+    cancelButtonText: 'Cancelar'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      fetch(`/api/v1/diagnosticos-medicos/${id}`, {
+        method: 'DELETE',
+      })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) {
+          $('#tblDiagnosticos').DataTable().ajax.reload();
+          Swal.fire('Eliminado', 'Diagnóstico eliminado correctamente', 'success');
+        } else {
+          Swal.fire('Error', d.error, 'error');
+        }
+      })
+      .catch(err => {
+        console.error('Error:', err);
+        Swal.fire('Error', 'No se pudo eliminar el diagnóstico', 'error');
+      });
+    }
+  });
+});
+
+// ============================================
+// BOTÓN VER ODONTOGRAMA
+// ============================================
+$('#btnVerOdontograma').on('click', function() {
+  const idPaciente = $('#id_paciente').val();
+  
+  if (!idPaciente) {
+    Swal.fire('Atención', 'Primero seleccione un paciente', 'warning');
+    return;
+  }
+  
+  // Abrir odontograma en nueva pestaña
+  window.open(`/referenciales/odontograma/odontograma-index?paciente=${idPaciente}`, '_blank');
+});
+
+// ============================================
+// PRE-CARGAR DATOS SI VIENE DESDE CONSULTA
+// ============================================
+function preCargarDatosConsulta() {
+  if (idConsultaParam) {
+    $('#id_consulta_detalle').val(idConsultaParam);
+  }
+  
+  if (idPacienteParam) {
+    // Cargar nombre del paciente
+    fetch(`/api/v1/pacientes/${idPacienteParam}`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) {
+          const p = d.data;
+          $('#id_paciente').val(p.id_paciente);
+          $('#txtPaciente').val(`${p.nombre} ${p.apellido}`);
+        }
+      });
+  }
+  
+  if (idMedicoParam) {
+    // Cargar nombre del médico
+    fetch(`/api/v1/medico/${idMedicoParam}`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) {
+          const m = d.data;
+          $('#id_medico').val(m.id_medico);
+          $('#txtMedico').val(`${m.nombre} ${m.apellido}`);
+        }
+      });
+  }
+  
+  // Establecer fecha de hoy
+  const hoy = new Date().toISOString().split('T')[0];
+  $('#fecha_diagnostico').val(hoy);
+}
+
+// ============================================
+// INICIALIZACIÓN
+// ============================================
+$(document).ready(function() {
+  // Inicializar tablas
+  initDatatableDiagnosticos();
+  initDatatablePaciente();
+  initDatatableMedico();
+  
+  // Cargar tipos de diagnóstico
+  cargarTiposDiagnostico();
+  
+  // Actualizar estadísticas
+  actualizarEstadisticas();
+  
+  // Pre-cargar datos si viene desde consulta
+  preCargarDatosConsulta();
+  
+  console.log('✅ Módulo de Diagnósticos inicializado correctamente');
+});
+</script>
+{% endblock %}

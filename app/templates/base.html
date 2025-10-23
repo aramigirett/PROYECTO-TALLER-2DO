@@ -56,39 +56,44 @@
             <!-- Divider -->
             <hr class="sidebar-divider">
 
-            <!-- Nav Item - Referenciales -->
+             <!-- Nav Item - Agendamiento -->
 <li class="nav-item">
-    <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseReferenciales"
-        aria-expanded="true" aria-controls="collapseReferenciales">
-        <span>Referenciales</span>
+    <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseAgendamiento"
+        aria-expanded="false" aria-controls="collapseAgendamiento">
+        <i class="fas fa-calendar-alt"></i>
+        <span class="text-wrap">Agendamiento</span>
     </a>
-    <div id="collapseReferenciales" class="collapse" aria-labelledby="headingReferenciales" data-parent="#accordionSidebar">
+    <div id="collapseAgendamiento" class="collapse" aria-labelledby="headingAgendamiento"
+        data-parent="#accordionSidebar">
         <div class="bg-white py-2 collapse-inner rounded">
-            <a class="collapse-item" href="{{ url_for('ciudad.ciudadIndex') }}">Ciudad</a>
-            <a class="collapse-item" href="{{ url_for('pais.paisIndex') }}">Pais</a>
-            <a class="collapse-item" href="{{ url_for('estadocita.estadocitaIndex') }}">Estados</a> 
-            <a class="collapse-item" href="{{ url_for('especialidad.especialidadIndex') }}">Especialidad</a>   
-            <a class="collapse-item" href="{{ url_for('dia.diaIndex') }}">Dia</a>
-            <a class="collapse-item" href="{{ url_for('turno.turnoIndex') }}">Turno</a>
-            <a class="collapse-item" href="{{ url_for('cargo.cargoIndex') }}">Cargo</a>
+            <a class="collapse-item" href="{{ url_for('agenda_bp.index') }}">Registrar Agenda</a>
+            <a class="collapse-item" href="{{ url_for('cita.citaIndex') }}">Registrar Citas</a>
+            <a class="collapse-item" href="{{ url_for('avisos_bp.avisos_recordatorios') }}">Registrar Avisos</a>
+            <a class="collapse-item" href="{{ url_for('paciente.pacienteIndex') }}">Registrar Pacientes</a>
+            <a class="collapse-item" href="{{ url_for('funcionario.funcionarioIndex') }}">Registrar Funcionario</a>
+            <a class="collapse-item" href="{{ url_for('medico.medicoIndex') }}">Registrar Medicos</a>
+            <a class="collapse-item" href="{{ url_for('odontograma.odontogramaIndex') }}">Registrar Odontograma</a>
         </div>
     </div>
 </li>
 
+<!-- Nav Item - Referenciales Agendamiento -->
 <li class="nav-item">
-    <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseReferenciales"
-        aria-expanded="true" aria-controls="collapseReferenciales">
-        <span>Modulo Agendamiento</span>
+    <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseRefAgendamiento"
+        aria-expanded="true" aria-controls="collapseRefAgendamiento">
+        <i class="far fa-file"></i>
+        <span>Referenciales Agendamiento</span>
     </a>
-    <div id="collapseReferenciales" class="collapse" aria-labelledby="headingReferenciales" data-parent="#accordionSidebar">
+    <div id="collapseRefAgendamiento" class="collapse" aria-labelledby="headingRefAgendamiento" data-parent="#accordionSidebar">
         <div class="bg-white py-2 collapse-inner rounded">
-            <a class="collapse-item" href="{{ url_for('medico.medicoIndex') }}">Registrar Medicos</a>
-            <a class="collapse-item" href="{{ url_for('paciente.pacienteIndex') }}">Registrar Pacientes</a>
-            <a class="collapse-item" href="{{ url_for('funcionario.funcionarioIndex') }}">Registrar Funcionario</a>
-            <a class="collapse-item" href="{{ url_for('disponibilidad.disponibilidadIndex') }}">Disponibilidad Horaria</a>
-            <a class="collapse-item" href="{{ url_for('odontograma.odontogramaIndex') }}">Registrar Odontograma</a>
-            <a class="collapse-item" href="{{ url_for('historial.historialIndex') }}">📋 Historial Médico</a>
+            <a class="collapse-item" href="{{ url_for('ciudad.ciudadIndex') }}">Ciudad</a>
+            <a class="collapse-item" href="{{ url_for('cargo.cargoIndex') }}">Cargo</a>
+            <a class="collapse-item" href="{{ url_for('estadocita.estadocitaIndex') }}">Estados</a> 
             <a class="collapse-item" href="{{ url_for('consultorio.consultorioIndex') }}">Consultorio</a>
+            <a class="collapse-item" href="{{ url_for('disponibilidad.disponibilidadIndex') }}">Disponibilidad Horaria</a>
+            <a class="collapse-item" href="{{ url_for('especialidad.especialidadIndex') }}">Especialidad</a>   
+            <a class="collapse-item" href="{{ url_for('dia.diaIndex') }}">Dia</a>
+            <a class="collapse-item" href="{{ url_for('turno.turnoIndex') }}">Turno</a>
         </div>
     </div>
 </li>
@@ -103,27 +108,28 @@
     <div id="collapseRefConsultorio" class="collapse" aria-labelledby="headingRefConsultorio" data-parent="#accordionSidebar">
         <div class="bg-white py-2 collapse-inner rounded">
             <a class="collapse-item" href="{{ url_for('diagnostico.diagnosticoIndex') }}">Tipo diagnóstico</a>
-            <a class="collapse-item" href="{{ url_for('consulta.consultaIndex') }}">Registrar Consulta</a>
-            <a class="collapse-item" href="{{ url_for('fichamedica.fichaMedicaIndex') }}">Gestión Fichas Médicas</a>
             <a class="collapse-item" href="{{ url_for('sintoma.sintomaIndex') }}">Síntomas</a>
         </div>
     </div>
-</li>
+</li>-->>
 
-<!-- Nav Item - Módulo Agendamiento -->
+<!-- Nav Item - Módulo Consultorio -->
 <li class="nav-item">
-    <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseAgendamiento"
-        aria-expanded="true" aria-controls="collapseAgendamiento">
-        <span>Modulo Agendamiento</span>
+    <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseModuloConsultorio"
+        aria-expanded="true" aria-controls="collapseModuloConsultorio">
+        <i class="far fa-file"></i>
+        <span>Módulo Consultorio</span>
     </a>
-    <div id="collapseAgendamiento" class="collapse" aria-labelledby="headingAgendamiento" data-parent="#accordionSidebar">
+    <div id="collapseModuloConsultorio" class="collapse" aria-labelledby="headingModuloConsultorio" data-parent="#accordionSidebar">
         <div class="bg-white py-2 collapse-inner rounded">
-            <a class="collapse-item" href="{{ url_for('agenda_bp.index') }}">Registrar Agenda</a>
-            <a class="collapse-item" href="{{ url_for('cita.citaIndex') }}">Registrar Citas</a>
-            <a class="collapse-item" href="{{ url_for('avisos_bp.avisos_recordatorios') }}">Registrar Avisos</a>
+            <a class="collapse-item" href="{{ url_for('consulta.consultaIndex') }}">Registrar Consulta</a>
+            <a class="collapse-item" href="{{ url_for('fichamedica.fichaMedicaIndex') }}">Gestión Fichas Médicas</a>
+            <a class="collapse-item" href="{{ url_for('diagnostico_medico.diagnosticoIndex') }}">Gestión Diagnósticos</a>
+            <a class="collapse-item" href="{{ url_for('historial.historialIndex') }}">📋 Historial Médico</a>
         </div>
     </div>
-</li>
+</li>                                                                                                                                
+
 
 
             <!-- Divider -->
