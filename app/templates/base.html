@@ -1,13 +1,13 @@
 {% from 'macros.html' import modal %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 
 <head>
 
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <meta name="description" content="">
+    <meta name="description" content="OdontoClinic - Sistema de Gestión Dental">
     <meta name="author" content="">
     <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
 
@@ -15,15 +15,271 @@
 
     <!-- CSS de iconos y fuentes-->
     <link href="{{ url_for('static', filename='vendor/fontawesome-free/css/all.min.css') }}" rel="stylesheet" type="text/css">
-    <link
-        href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i"
-        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i" rel="stylesheet">
 
     <!-- CSS principal-->
     <link href="{{ url_for('static', filename='css/sb-admin-2.min.css') }}" rel="stylesheet">
 
     <!-- CSS de Datatables -->
     <link href="{{ url_for('static', filename='vendor/datatables/dataTables.bootstrap4.min.css') }}" rel="stylesheet">
+
+    <!-- CSS personalizado para OdontoClinic -->
+    <style>
+        :root {
+            --primary-color: #5B7FBF;
+            --secondary-color: #2E5C8A;
+            --accent-color: #FFD699;
+            --light-bg: #F0F4F8;
+            --border-color: #E0E7F1;
+        }
+
+        body {
+            background-color: var(--light-bg);
+            font-family: 'Nunito', sans-serif;
+        }
+
+        /* Sidebar mejorado */
+        .bg-gradient-primary {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%) !important;
+        }
+
+        .sidebar {
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .sidebar-brand {
+            padding: 1.5rem 0;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .sidebar-brand-icon {
+            font-size: 2rem;
+            color: var(--accent-color);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+
+        .sidebar-brand-text {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: #fff;
+            letter-spacing: 0.5px;
+        }
+
+        /* Elementos del menú */
+        .nav-link {
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: 500;
+            transition: all 0.3s ease;
+            padding: 1rem 1.25rem;
+            border-left: 3px solid transparent;
+        }
+
+        .nav-link:hover {
+            color: #fff;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-left-color: var(--accent-color);
+            padding-left: calc(1.25rem - 3px);
+        }
+
+        .nav-link.active {
+            background-color: rgba(255, 255, 255, 0.2);
+            color: var(--accent-color);
+            border-left-color: var(--accent-color);
+        }
+
+        .nav-link i {
+            color: var(--accent-color);
+            margin-right: 0.75rem;
+            width: 1.2rem;
+            text-align: center;
+        }
+
+        /* Divisores */
+        .sidebar-divider {
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+            margin: 1rem 0;
+        }
+
+        /* Collapse items */
+        .collapse-inner {
+            background-color: #f8f9fc;
+            border-left: 3px solid var(--accent-color);
+        }
+
+        .collapse-item {
+            color: var(--secondary-color);
+            padding: 0.75rem 1.5rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .collapse-item:hover {
+            color: var(--primary-color);
+            background-color: #e2e8f0;
+            padding-left: 2rem;
+        }
+
+        /* Topbar */
+        .topbar {
+            background-color: #fff;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .navbar-light .navbar-nav .nav-link {
+            color: var(--secondary-color);
+            font-weight: 500;
+        }
+
+        /* Contenedor principal */
+        .container-fluid {
+            background-color: var(--light-bg);
+            padding: 2rem;
+        }
+
+        /* Cards mejoradas */
+        .card {
+            border: none;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            border-radius: 0.75rem;
+            border-top: 3px solid var(--primary-color);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+        }
+
+        .card-header {
+            background-color: #f8f9fc;
+            border-bottom: 1px solid var(--border-color);
+            font-weight: 600;
+            color: var(--secondary-color);
+        }
+
+        /* Botones */
+        .btn-primary {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--secondary-color);
+            border-color: var(--secondary-color);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(43, 92, 138, 0.3);
+        }
+
+        /* Footer */
+        .sticky-footer {
+            background: linear-gradient(135deg, var(--light-bg) 0%, #fff 100%);
+            border-top: 1px solid var(--border-color);
+            color: var(--secondary-color);
+            font-weight: 500;
+        }
+
+        /* Modal mejorado */
+        .modal-header {
+            background-color: var(--primary-color);
+            color: #fff;
+            font-weight: 600;
+        }
+
+        .modal-header .btn-close {
+            filter: brightness(0) invert(1);
+        }
+
+        /* Badge y etiquetas */
+        .badge {
+            font-weight: 600;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.4rem;
+        }
+
+        /* Tabla */
+        table {
+            font-size: 0.95rem;
+        }
+
+        thead th {
+            background-color: var(--primary-color);
+            color: #fff;
+            font-weight: 600;
+            border: none;
+        }
+
+        tbody tr:hover {
+            background-color: rgba(91, 127, 191, 0.05);
+        }
+
+        /* Scroll to top button */
+        .scroll-to-top {
+            background-color: var(--primary-color);
+        }
+
+        .scroll-to-top:hover {
+            background-color: var(--secondary-color);
+        }
+
+        /* Sidebar toggle button */
+        #sidebarToggle {
+            background-color: var(--primary-color);
+            border: 2px solid var(--primary-color);
+            color: #fff;
+        }
+
+        #sidebarToggle:hover {
+            background-color: var(--secondary-color);
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .container-fluid {
+                padding: 1rem;
+            }
+
+            .sidebar-brand-text {
+                font-size: 0.9rem;
+            }
+
+            .nav-link {
+                padding: 0.75rem 1rem;
+            }
+        }
+
+        /* Animación de carga suave */
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Estado de los enlaces */
+        .nav-item .collapsed {
+            background-color: transparent;
+        }
+
+        .nav-item .collapsed:not(.collapsed) {
+            background-color: rgba(255, 255, 255, 0.15);
+        }
+    </style>
 
 </head>
 
@@ -38,9 +294,9 @@
             <!-- Sidebar - Brand -->
             <a class="sidebar-brand d-flex align-items-center justify-content-center" href="index.html">
                 <div class="sidebar-brand-icon rotate-n-15">
-                    <i class="fas fa-laugh-wink"></i>
+                    <i class="fas fa-tooth"></i>
                 </div>
-                <div class="sidebar-brand-text mx-3">OdontoClinic<sup></sup></div>
+                <div class="sidebar-brand-text mx-3">OdontoClinic</div>
             </a>
 
             <!-- Divider -->
@@ -49,92 +305,89 @@
             <!-- Nav Item - Dashboard -->
             <li class="nav-item">
                 <a class="nav-link" href="{{ url_for('vista.vistaIndex') }}">
-                    <i class="fas fa-fw fa-tachometer-alt"></i>
+                    <i class="fas fa-fw fa-home"></i>
                     <span>Panel General</span></a>
             </li>
 
             <!-- Divider -->
             <hr class="sidebar-divider">
 
-             <!-- Nav Item - Agendamiento -->
-<li class="nav-item">
-    <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseAgendamiento"
-        aria-expanded="false" aria-controls="collapseAgendamiento">
-        <i class="fas fa-calendar-alt"></i>
-        <span class="text-wrap">Agendamiento</span>
-    </a>
-    <div id="collapseAgendamiento" class="collapse" aria-labelledby="headingAgendamiento"
-        data-parent="#accordionSidebar">
-        <div class="bg-white py-2 collapse-inner rounded">
-            <a class="collapse-item" href="{{ url_for('agenda_bp.index') }}">Registrar Agenda</a>
-            <a class="collapse-item" href="{{ url_for('cita.citaIndex') }}">Registrar Citas</a>
-            <a class="collapse-item" href="{{ url_for('avisos_bp.avisos_recordatorios') }}">Registrar Avisos</a>
-            <a class="collapse-item" href="{{ url_for('paciente.pacienteIndex') }}">Registrar Pacientes</a>
-            <a class="collapse-item" href="{{ url_for('funcionario.funcionarioIndex') }}">Registrar Funcionario</a>
-            <a class="collapse-item" href="{{ url_for('medico.medicoIndex') }}">Registrar Medicos</a>
-            <a class="collapse-item" href="{{ url_for('odontograma.odontogramaIndex') }}">Registrar Odontograma</a>
-        </div>
-    </div>
-</li>
+            <!-- Nav Item - Agendamiento -->
+            <li class="nav-item">
+                <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseAgendamiento"
+                    aria-expanded="false" aria-controls="collapseAgendamiento">
+                    <i class="fas fa-calendar-check"></i>
+                    <span class="text-wrap">Agendamiento</span>
+                </a>
+                <div id="collapseAgendamiento" class="collapse" aria-labelledby="headingAgendamiento"
+                    data-parent="#accordionSidebar">
+                    <div class="bg-white py-2 collapse-inner rounded">
+                        <a class="collapse-item" href="{{ url_for('agenda_bp.index') }}"><i class="fas fa-calendar-alt"></i> Registrar Agenda</a>
+                        <a class="collapse-item" href="{{ url_for('cita.citaIndex') }}"><i class="fas fa-book"></i> Registrar Citas</a>
+                        <a class="collapse-item" href="{{ url_for('avisos_bp.avisos_recordatorios') }}"><i class="fas fa-bell"></i> Registrar Avisos</a>
+                        <a class="collapse-item" href="{{ url_for('paciente.pacienteIndex') }}"><i class="fas fa-user-injured"></i> Registrar Pacientes</a>
+                        <a class="collapse-item" href="{{ url_for('funcionario.funcionarioIndex') }}"><i class="fas fa-users"></i> Registrar Funcionario</a>
+                        <a class="collapse-item" href="{{ url_for('medico.medicoIndex') }}"><i class="fas fa-stethoscope"></i> Registrar Médicos</a>
+                        <a class="collapse-item" href="{{ url_for('odontograma.odontogramaIndex') }}"><i class="fas fa-teeth"></i> Registrar Odontograma</a>
+                    </div>
+                </div>
+            </li>
 
-<!-- Nav Item - Referenciales Agendamiento -->
-<li class="nav-item">
-    <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseRefAgendamiento"
-        aria-expanded="true" aria-controls="collapseRefAgendamiento">
-        <i class="far fa-file"></i>
-        <span>Referenciales Agendamiento</span>
-    </a>
-    <div id="collapseRefAgendamiento" class="collapse" aria-labelledby="headingRefAgendamiento" data-parent="#accordionSidebar">
-        <div class="bg-white py-2 collapse-inner rounded">
-            <a class="collapse-item" href="{{ url_for('ciudad.ciudadIndex') }}">Ciudad</a>
-            <a class="collapse-item" href="{{ url_for('cargo.cargoIndex') }}">Cargo</a>
-            <a class="collapse-item" href="{{ url_for('estadocita.estadocitaIndex') }}">Estados</a> 
-            <a class="collapse-item" href="{{ url_for('consultorio.consultorioIndex') }}">Consultorio</a>
-            <a class="collapse-item" href="{{ url_for('disponibilidad.disponibilidadIndex') }}">Disponibilidad Horaria</a>
-            <a class="collapse-item" href="{{ url_for('especialidad.especialidadIndex') }}">Especialidad</a>   
-            <a class="collapse-item" href="{{ url_for('dia.diaIndex') }}">Dia</a>
-            <a class="collapse-item" href="{{ url_for('turno.turnoIndex') }}">Turno</a>
-        </div>
-    </div>
-</li>
+            <!-- Nav Item - Referenciales Agendamiento -->
+            <li class="nav-item">
+                <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseRefAgendamiento"
+                    aria-expanded="false" aria-controls="collapseRefAgendamiento">
+                    <i class="fas fa-file-alt"></i>
+                    <span>Referenciales Agendamiento</span>
+                </a>
+                <div id="collapseRefAgendamiento" class="collapse" aria-labelledby="headingRefAgendamiento" data-parent="#accordionSidebar">
+                    <div class="bg-white py-2 collapse-inner rounded">
+                        <a class="collapse-item" href="{{ url_for('ciudad.ciudadIndex') }}"><i class="fas fa-map-marker-alt"></i> Ciudad</a>
+                        <a class="collapse-item" href="{{ url_for('cargo.cargoIndex') }}"><i class="fas fa-briefcase"></i> Cargo</a>
+                        <a class="collapse-item" href="{{ url_for('estadocita.estadocitaIndex') }}"><i class="fas fa-list"></i> Estados</a>
+                        <a class="collapse-item" href="{{ url_for('consultorio.consultorioIndex') }}"><i class="fas fa-clinic-medical"></i> Consultorio</a>
+                        <a class="collapse-item" href="{{ url_for('disponibilidad.disponibilidadIndex') }}"><i class="fas fa-clock"></i> Disponibilidad Horaria</a>
+                        <a class="collapse-item" href="{{ url_for('especialidad.especialidadIndex') }}"><i class="fas fa-certificate"></i> Especialidad</a>
+                        <a class="collapse-item" href="{{ url_for('dia.diaIndex') }}"><i class="fas fa-sun"></i> Día</a>
+                        <a class="collapse-item" href="{{ url_for('turno.turnoIndex') }}"><i class="fas fa-hourglass"></i> Turno</a>
+                    </div>
+                </div>
+            </li>
 
-<!-- Nav Item - Referenciales Consultorio -->
-<li class="nav-item">
-    <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseRefConsultorio"
-        aria-expanded="true" aria-controls="collapseRefConsultorio">
-        <i class="far fa-file"></i>
-        <span>Referenciales Consultorio</span>
-    </a>
-    <div id="collapseRefConsultorio" class="collapse" aria-labelledby="headingRefConsultorio" data-parent="#accordionSidebar">
-        <div class="bg-white py-2 collapse-inner rounded">
-            <a class="collapse-item" href="{{ url_for('diagnostico.diagnosticoIndex') }}">Tipo diagnóstico</a>
-            <a class="collapse-item" href="{{ url_for('sintoma.sintomaIndex') }}">Síntomas</a>
-        </div>
-    </div>
-</li>-->>
+            <!-- Nav Item - Referenciales Consultorio -->
+            <li class="nav-item">
+                <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseRefConsultorio"
+                    aria-expanded="false" aria-controls="collapseRefConsultorio">
+                    <i class="fas fa-file-alt"></i>
+                    <span>Referenciales Consultorio</span>
+                </a>
+                <div id="collapseRefConsultorio" class="collapse" aria-labelledby="headingRefConsultorio" data-parent="#accordionSidebar">
+                    <div class="bg-white py-2 collapse-inner rounded">
+                        <a class="collapse-item" href="{{ url_for('diagnostico.diagnosticoIndex') }}"><i class="fas fa-microscope"></i> Tipo diagnóstico</a>
+                        <a class="collapse-item" href="{{ url_for('sintoma.sintomaIndex') }}"><i class="fas fa-heartbeat"></i> Síntomas</a>
+                    </div>
+                </div>
+            </li>
 
-<!-- Nav Item - Módulo Consultorio -->
-<li class="nav-item">
-    <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseModuloConsultorio"
-        aria-expanded="true" aria-controls="collapseModuloConsultorio">
-        <i class="far fa-file"></i>
-        <span>Módulo Consultorio</span>
-    </a>
-    <div id="collapseModuloConsultorio" class="collapse" aria-labelledby="headingModuloConsultorio" data-parent="#accordionSidebar">
-        <div class="bg-white py-2 collapse-inner rounded">
-            <a class="collapse-item" href="{{ url_for('consulta.consultaIndex') }}">Registrar Consulta</a>
-            <a class="collapse-item" href="{{ url_for('fichamedica.fichaMedicaIndex') }}">Gestión Fichas Médicas</a>
-            <a class="collapse-item" href="{{ url_for('diagnostico_medico.diagnosticoIndex') }}">Gestión Diagnósticos</a>
-            <a class="collapse-item" href="{{ url_for('historial.historialIndex') }}">📋 Historial Médico</a>
-        </div>
-    </div>
-</li>                                                                                                                                
-
-
+            <!-- Nav Item - Módulo Consultorio -->
+            <li class="nav-item">
+                <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseModuloConsultorio"
+                    aria-expanded="false" aria-controls="collapseModuloConsultorio">
+                    <i class="fas fa-file-medical"></i>
+                    <span>Módulo Consultorio</span>
+                </a>
+                <div id="collapseModuloConsultorio" class="collapse" aria-labelledby="headingModuloConsultorio" data-parent="#accordionSidebar">
+                    <div class="bg-white py-2 collapse-inner rounded">
+                        <a class="collapse-item" href="{{ url_for('consulta.consultaIndex') }}"><i class="fas fa-stethoscope"></i> Registrar Consulta</a>
+                        <a class="collapse-item" href="{{ url_for('fichamedica.fichaMedicaIndex') }}"><i class="fas fa-file-medical-alt"></i> Gestión Fichas Médicas</a>
+                        <a class="collapse-item" href="{{ url_for('diagnostico_medico.diagnosticoIndex') }}"><i class="fas fa-diagnoses"></i> Gestión Diagnósticos</a>
+                        <a class="collapse-item" href="{{ url_for('historial.historialIndex') }}"><i class="fas fa-history"></i> Historial Médico</a>
+                    </div>
+                </div>
+            </li>
 
             <!-- Divider -->
             <hr class="sidebar-divider">
-
 
             <!-- Sidebar Toggler (Sidebar) -->
             <div class="text-center d-none d-md-inline">
@@ -151,7 +404,7 @@
             <div id="content">
 
                 <!-- Topbar -->
-                <nav class="navbar navbar-expand navbar-light bg-white topbar mb-4 static-top shadow">
+                <nav class="navbar navbar-expand navbar-light bg-white topbar mb-4 static-top shadow-sm">
 
                     <!-- Sidebar Toggle (Topbar) -->
                     <button id="sidebarToggleTop" class="btn btn-link d-md-none rounded-circle mr-3">
@@ -159,13 +412,12 @@
                     </button>
 
                     <!-- Topbar Search -->
-                    <form
-                        class="d-none d-sm-inline-block form-inline mr-auto ml-md-3 my-2 my-md-0 mw-100 navbar-search">
+                    <form class="d-none d-sm-inline-block form-inline mr-auto ml-md-3 my-2 my-md-0 mw-100 navbar-search">
                         <div class="input-group">
-                            <input type="text" class="form-control bg-light border-0 small" placeholder="Search for..."
+                            <input type="text" class="form-control bg-light border-1 small" placeholder="Buscar..."
                                 aria-label="Search" aria-describedby="basic-addon2">
                             <div class="input-group-append">
-                                <button class="btn btn-warning" type="button">
+                                <button class="btn btn-primary" type="button">
                                     <i class="fas fa-search fa-sm"></i>
                                 </button>
                             </div>
@@ -185,8 +437,8 @@
                             <div class="dropdown-menu dropdown-menu-right p-3 shadow animated--grow-in"
                                 aria-labelledby="searchDropdown">
                                 <form class="form-inline mr-auto w-100 navbar-search">
-                                    <div class="input-group">
-                                        <input type="text" class="form-control bg-light border-0 small"
+                                    <div class="input-group w-100">
+                                        <input type="text" class="form-control bg-light border-1 small"
                                             placeholder="Search for..." aria-label="Search"
                                             aria-describedby="basic-addon2">
                                         <div class="input-group-append">
@@ -204,14 +456,13 @@
                             <a class="nav-link dropdown-toggle" href="#" id="alertsDropdown" role="button"
                                 data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                                 <i class="fas fa-bell fa-fw"></i>
-                                <!-- Counter - Alerts -->
                                 <span class="badge badge-danger badge-counter">3+</span>
                             </a>
                             <!-- Dropdown - Alerts -->
                             <div class="dropdown-list dropdown-menu dropdown-menu-right shadow animated--grow-in"
                                 aria-labelledby="alertsDropdown">
-                                <h6 class="dropdown-header">
-                                    Alerts Center
+                                <h6 class="dropdown-header bg-primary text-white">
+                                    Centro de Alertas
                                 </h6>
                                 <a class="dropdown-item d-flex align-items-center" href="#">
                                     <div class="mr-3">
@@ -220,33 +471,22 @@
                                         </div>
                                     </div>
                                     <div>
-                                        <div class="small text-gray-500">December 12, 2019</div>
-                                        <span class="font-weight-bold">A new monthly report is ready to download!</span>
+                                        <div class="small text-gray-500">2 de Octubre 2025</div>
+                                        <span class="font-weight-bold">Cita próxima en 30 minutos</span>
                                     </div>
                                 </a>
                                 <a class="dropdown-item d-flex align-items-center" href="#">
                                     <div class="mr-3">
                                         <div class="icon-circle bg-success">
-                                            <i class="fas fa-donate text-white"></i>
+                                            <i class="fas fa-check text-white"></i>
                                         </div>
                                     </div>
                                     <div>
-                                        <div class="small text-gray-500">December 7, 2019</div>
-                                        $290.29 has been deposited into your account!
+                                        <div class="small text-gray-500">30 de Septiembre 2025</div>
+                                        <span class="font-weight-bold">Paciente registrado exitosamente</span>
                                     </div>
                                 </a>
-                                <a class="dropdown-item d-flex align-items-center" href="#">
-                                    <div class="mr-3">
-                                        <div class="icon-circle bg-warning">
-                                            <i class="fas fa-exclamation-triangle text-white"></i>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <div class="small text-gray-500">December 2, 2019</div>
-                                        Spending Alert: We've noticed unusually high spending for your account.
-                                    </div>
-                                </a>
-                                <a class="dropdown-item text-center small text-gray-500" href="#">Show All Alerts</a>
+                                <a class="dropdown-item text-center small text-gray-500" href="#">Ver todas las alertas</a>
                             </div>
                         </li>
 
@@ -255,14 +495,13 @@
                             <a class="nav-link dropdown-toggle" href="#" id="messagesDropdown" role="button"
                                 data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                                 <i class="fas fa-envelope fa-fw"></i>
-                                <!-- Counter - Messages -->
-                                <span class="badge badge-danger badge-counter">7</span>
+                                <span class="badge badge-success badge-counter">7</span>
                             </a>
                             <!-- Dropdown - Messages -->
                             <div class="dropdown-list dropdown-menu dropdown-menu-right shadow animated--grow-in"
                                 aria-labelledby="messagesDropdown">
-                                <h6 class="dropdown-header">
-                                    Message Center
+                                <h6 class="dropdown-header bg-primary text-white">
+                                    Centro de Mensajes
                                 </h6>
                                 <a class="dropdown-item d-flex align-items-center" href="#">
                                     <div class="dropdown-list-image mr-3">
@@ -270,49 +509,12 @@
                                             alt="...">
                                         <div class="status-indicator bg-success"></div>
                                     </div>
-                                    <div class="font-weight-bold">
-                                        <div class="text-truncate">Hi there! I am wondering if you can help me with a
-                                            problem I've been having.</div>
-                                        <div class="small text-gray-500">Emily Fowler · 58m</div>
-                                    </div>
-                                </a>
-                                <a class="dropdown-item d-flex align-items-center" href="#">
-                                    <div class="dropdown-list-image mr-3">
-                                        <img class="rounded-circle" src="{{ url_for('static', filename='img/undraw_profile_2.svg') }}"
-                                            alt="...">
-                                        <div class="status-indicator"></div>
-                                    </div>
                                     <div>
-                                        <div class="text-truncate">I have the photos that you ordered last month, how
-                                            would you like them sent to you?</div>
-                                        <div class="small text-gray-500">Jae Chun · 1d</div>
+                                        <div class="text-truncate">Tienes un recordatorio de cita</div>
+                                        <div class="small text-gray-500">Dr. García · Ahora</div>
                                     </div>
                                 </a>
-                                <a class="dropdown-item d-flex align-items-center" href="#">
-                                    <div class="dropdown-list-image mr-3">
-                                        <img class="rounded-circle" src="{{ url_for('static', filename='img/undraw_profile_3.svg') }}"
-                                            alt="...">
-                                        <div class="status-indicator bg-warning"></div>
-                                    </div>
-                                    <div>
-                                        <div class="text-truncate">Last month's report looks great, I am very happy with
-                                            the progress so far, keep up the good work!</div>
-                                        <div class="small text-gray-500">Morgan Alvarez · 2d</div>
-                                    </div>
-                                </a>
-                                <a class="dropdown-item d-flex align-items-center" href="#">
-                                    <div class="dropdown-list-image mr-3">
-                                        <img class="rounded-circle" src="https://source.unsplash.com/Mv9hjnEUHR4/60x60"
-                                            alt="...">
-                                        <div class="status-indicator bg-success"></div>
-                                    </div>
-                                    <div>
-                                        <div class="text-truncate">Am I a good boy? The reason I ask is because someone
-                                            told me that people say this to all dogs, even if they aren't good...</div>
-                                        <div class="small text-gray-500">Chicken the Dog · 2w</div>
-                                    </div>
-                                </a>
-                                <a class="dropdown-item text-center small text-gray-500" href="#">Read More Messages</a>
+                                <a class="dropdown-item text-center small text-gray-500" href="#">Ver todos los mensajes</a>
                             </div>
                         </li>
 
@@ -330,21 +532,21 @@
                             <div class="dropdown-menu dropdown-menu-right shadow animated--grow-in"
                                 aria-labelledby="userDropdown">
                                 <a class="dropdown-item" href="#">
-                                    <i class="fas fa-user fa-sm fa-fw mr-2 text-gray-400"></i>
-                                    Perfil
+                                    <i class="fas fa-user fa-sm fa-fw mr-2 text-primary"></i>
+                                    Mi Perfil
                                 </a>
                                 <a class="dropdown-item" href="#">
-                                    <i class="fas fa-cogs fa-sm fa-fw mr-2 text-gray-400"></i>
-                                    Configuracion
+                                    <i class="fas fa-cogs fa-sm fa-fw mr-2 text-primary"></i>
+                                    Configuración
                                 </a>
                                 <a class="dropdown-item" href="#">
-                                    <i class="fas fa-list fa-sm fa-fw mr-2 text-gray-400"></i>
-                                    Activity Log
+                                    <i class="fas fa-list fa-sm fa-fw mr-2 text-primary"></i>
+                                    Registro de Actividades
                                 </a>
                                 <div class="dropdown-divider"></div>
                                 <a class="dropdown-item" href="#" data-toggle="modal" data-target="#logoutModal">
-                                    <i class="fas fa-sign-out-alt fa-sm fa-fw mr-2 text-gray-400"></i>
-                                    Cerrar Sesion
+                                    <i class="fas fa-sign-out-alt fa-sm fa-fw mr-2 text-danger"></i>
+                                    Cerrar Sesión
                                 </a>
                             </div>
                         </li>
@@ -355,7 +557,7 @@
                 <!-- End of Topbar -->
 
                 <!-- Begin Page Content -->
-                <div class="container-fluid">
+                <div class="container-fluid fade-in">
                     {% block contenido %}
                     {% endblock %}
                 </div>
@@ -368,7 +570,7 @@
             <footer class="sticky-footer bg-white">
                 <div class="container my-auto">
                     <div class="copyright text-center my-auto">
-                        <span>Copyright &copy; AramiGirett</span>
+                        <span>Copyright &copy; OdontoClinic 2025 | Desarrollado por AramiGirett</span>
                     </div>
                 </div>
             </footer>
@@ -391,15 +593,20 @@
         <div class="modal-dialog" role="document">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="exampleModalLabel">Condirmar cierre de sesion</h5>
+                    <h5 class="modal-title" id="exampleModalLabel">¿Confirmar cierre de sesión?</h5>
                     <button class="close" type="button" data-dismiss="modal" aria-label="Close">
                         <span aria-hidden="true">×</span>
                     </button>
                 </div>
-                <div class="modal-body">Seguro que quiere cerrar sesión?</div>
+                <div class="modal-body">
+                    <i class="fas fa-exclamation-triangle text-warning mr-2"></i>
+                    ¿Estás seguro de que deseas cerrar sesión?
+                </div>
                 <div class="modal-footer">
                     <button class="btn btn-secondary" type="button" data-dismiss="modal">Cancelar</button>
-                    <a class="btn btn-primary" href="{{ url_for('login') }}">Cerrar</a>
+                    <a class="btn btn-danger" href="{{ url_for('login') }}">
+                        <i class="fas fa-sign-out-alt mr-2"></i>Cerrar Sesión
+                    </a>
                 </div>
             </div>
         </div>
@@ -415,18 +622,17 @@
     <!-- Custom scripts for all pages-->
     <script src="{{ url_for('static', filename='js/sb-admin-2.min.js') }}"></script>
 
-     <!-- Librerias para usar Datatables -->
-     <script src="{{ url_for('static', filename='vendor/datatables/jquery.dataTables.min.js') }}"></script>
-     <script src="{{ url_for('static', filename='vendor/datatables/dataTables.bootstrap4.min.js') }}"></script>
+    <!-- Librerias para usar Datatables -->
+    <script src="{{ url_for('static', filename='vendor/datatables/jquery.dataTables.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='vendor/datatables/dataTables.bootstrap4.min.js') }}"></script>
 
-     <!-- Libreria para mensajes emergentes -->
-     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Libreria para mensajes emergentes -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     {# Este bloque pertenece a nuestros scripts de js #}
     {% block js %}
     {% endblock %}
 
-    
-
 </body>
+
 </html>

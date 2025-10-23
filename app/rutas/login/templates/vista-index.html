@@ -5,15 +5,20 @@
 {% endblock %}
 
 {% block contenido %}
-<div>
-    <!-- Mostrar la imagen en el contenido -->
-    <img src="{{ url_for('static', filename='img/fondovista.jpg') }}" alt="Mi imagen" style="width: 100%; height:auto;">
-</div>
-  
-
+<style>
+    .container-fluid {
+        padding: 0 !important;
+        margin: 0 !important;
+    }
     
+    body {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+</style>
 
-  <!-- Modal -->
+<img src="{{ url_for('static', filename='img/fondovista.jpg') }}" alt="Mi imagen" style="width: 100%; height: auto; display: block;">
+
   <div class="modal fade" id="agendaMedicoModal" tabindex="-1" aria-labelledby="agendaMedicoModalLabel" aria-hidden="true">
     <div class="modal-dialog">
       <div class="modal-content">
@@ -26,13 +31,11 @@
             <div class="mb-3">
               <label for="medico" class="form-label">Médico</label>
               <select class="form-select" id="medico" name="medico" required>
-                <!-- Opciones cargadas dinámicamente -->
               </select>
             </div>
             <div class="mb-3">
               <label for="dias" class="form-label">Días de Disponibilidad</label>
               <select class="form-select" id="dias" name="dias[]" multiple required>
-                <!-- Opciones cargadas dinámicamente -->
               </select>
             </div>
             <div class="mb-3">
@@ -53,15 +56,3 @@
     </div>
   </div>
 {% endblock %}
-
-<style>
-    body {
-        background-image: url("{{ url_for('static', filename='img/fondovista.jpg') }}");
-        background-position: center;
-        background-repeat: no-repeat;
-        background-size: cover;
-        height: 100vh;
-        margin: 0;
-        padding: 0;
-    }
-</style>
