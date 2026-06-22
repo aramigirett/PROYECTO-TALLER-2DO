@@ -51,7 +51,7 @@ def addPaciente():
     pacientedao = PacienteDao()
 
     campos_requeridos = ['nombre', 'apellido', 'cedula_entidad', 'fecha_nacimiento',
-                         'telefono', 'direccion', 'correo', 'id_ciudad', 'fecha_registro']
+                         'telefono', 'telefono_emergencia', 'direccion', 'correo', 'id_ciudad', 'fecha_registro']
     for campo in campos_requeridos:
         if not data.get(campo) or (isinstance(data[campo], str) and not data[campo].strip()):
             return jsonify({
@@ -69,7 +69,7 @@ def addPaciente():
 
         paciente_id = pacientedao.guardarPaciente(
             data['nombre'], data['apellido'], data['cedula_entidad'], data['fecha_nacimiento'],
-            data['telefono'], data['direccion'], data['correo'], data['id_ciudad'], data['fecha_registro']
+            data['telefono'], data['telefono_emergencia'], data['direccion'], data['correo'], data['id_ciudad'], data['fecha_registro']
         )
 
         if paciente_id:
@@ -101,7 +101,7 @@ def updatePaciente(paciente_id):
     pacientedao = PacienteDao()
 
     campos_requeridos = ['nombre', 'apellido', 'cedula_entidad', 'fecha_nacimiento',
-                         'telefono', 'direccion', 'correo', 'id_ciudad', 'fecha_registro']
+                         'telefono', 'telefono_emergencia', 'direccion', 'correo', 'id_ciudad', 'fecha_registro']
     for campo in campos_requeridos:
         if not data.get(campo) or (isinstance(data[campo], str) and not data[campo].strip()):
             return jsonify({
@@ -112,7 +112,7 @@ def updatePaciente(paciente_id):
     try:
         actualizado = pacientedao.updatePaciente(
             paciente_id, data['nombre'], data['apellido'], data['cedula_entidad'], data['fecha_nacimiento'],
-            data['telefono'], data['direccion'], data['correo'], data['id_ciudad'], data['fecha_registro']
+            data['telefono'], data['telefono_emergencia'], data['direccion'], data['correo'], data['id_ciudad'], data['fecha_registro']
         )
 
         if actualizado:

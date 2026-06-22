@@ -23,6 +23,7 @@ Paciente
               <th>Cédula</th>
               <th>Fecha Nacimiento</th>
               <th>Teléfono</th>
+              <th>Telefono Emergencia</th>
               <th>Correo</th>
               <th>Ciudad</th>
               <th>Acciones</th>
@@ -80,6 +81,12 @@ Paciente
                 <div class="form-group">
                   <label for="telefono">Teléfono:</label>
                   <input type="text" class="form-control" placeholder="Ingrese el teléfono" id="telefono">
+                </div>
+              </div>
+              <div class="col-md-6 col-lg-4">
+                <div class="form-group">
+                  <label for="telefono_emergencia">Teléfono Emergencia:</label>
+                  <input type="text" class="form-control" placeholder="Ingrese teléfono emergencia" id="telefono_emergencia">
                 </div>
               </div>
               <div class="col-md-6 col-lg-4">
@@ -163,6 +170,7 @@ const initDatatable = () => {
       { data: 'cedula_entidad' },
       { data: 'fecha_nacimiento' },
       { data: 'telefono' },
+      { data: 'telefono_emergencia' },
       { data: 'correo' },
       { data: 'ciudades' },
       {
@@ -214,7 +222,7 @@ const agregar = () => {
   $('#btnAgregar').on('click', function() {
     $('#modalTitle').text("Agregar Paciente");
     $('#txtIdPaciente').val("");
-    $('#nombre, #apellido, #cedula_entidad, #telefono, #direccion, #correo, #txtCiudad').val("");
+    $('#nombre, #apellido, #cedula_entidad, #telefono,  #telefono_emergencia, #direccion, #correo, #txtCiudad').val("");
     const now = new Date();
     const fechaRegistro = now.getFullYear() + '-' +
       String(now.getMonth() + 1).padStart(2, '0') + '-' +
@@ -236,6 +244,7 @@ const guardar = () => {
       cedula_entidad: $('#cedula_entidad').val().trim(),
       fecha_nacimiento: $('#fecha_nacimiento').val(),
       telefono: $('#telefono').val().trim(),
+      telefono_emergencia: $('#telefono_emergencia').val().trim(),
       direccion: $('#direccion').val().trim(),
       correo: $('#correo').val().trim(),
       id_ciudad: $('#id_ciudad').val(),
@@ -278,6 +287,7 @@ const editar = () => {
           $('#cedula_entidad').val(p.cedula_entidad);
           $('#fecha_nacimiento').val(p.fecha_nacimiento);
           $('#telefono').val(p.telefono);
+          $('#telefono_emergencia').val(p.telefono_emergencia);
           $('#direccion').val(p.direccion);
           $('#correo').val(p.correo);
           $('#id_ciudad').val(p.id_ciudad);

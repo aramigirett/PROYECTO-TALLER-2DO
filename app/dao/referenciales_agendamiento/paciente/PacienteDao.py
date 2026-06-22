@@ -10,7 +10,7 @@ class PacienteDao:
         sql = """
             SELECT p.id_paciente, p.nombre, p.apellido,
                    p.cedula_entidad, p.fecha_nacimiento, p.fecha_registro,
-                   p.telefono, p.direccion, p.correo,
+                   p.telefono, p.telefono_emergencia, p.direccion, p.correo,
                    p.id_ciudad, c.descripcion AS ciudades
             FROM paciente p
             LEFT JOIN ciudades c ON p.id_ciudad = c.id_ciudad
@@ -31,10 +31,11 @@ class PacienteDao:
                     "fecha_nacimiento": str(p[4]) if p[4] else None,
                     "fecha_registro": str(p[5]) if p[5] else None,
                     "telefono": p[6],
-                    "direccion": p[7],
-                    "correo": p[8],
-                    "id_ciudad": p[9],
-                    "ciudades": p[10]
+                    "telefono_emergencia": p[7],
+                    "direccion": p[8],
+                    "correo": p[9],
+                    "id_ciudad": p[10],
+                    "ciudades": p[11]
                 }
                 for p in pacientes
             ]
@@ -52,7 +53,7 @@ class PacienteDao:
         sql = """
             SELECT p.id_paciente, p.nombre, p.apellido,
                    p.cedula_entidad, p.fecha_nacimiento, p.fecha_registro,
-                   p.telefono, p.direccion, p.correo,
+                   p.telefono, p.telefono_emergencia, p.direccion, p.correo,
                    p.id_ciudad, c.descripcion AS ciudades
             FROM paciente p
             LEFT JOIN ciudades c ON p.id_ciudad = c.id_ciudad
@@ -73,10 +74,11 @@ class PacienteDao:
                     "fecha_nacimiento": str(p[4]) if p[4] else None,
                     "fecha_registro": str(p[5]) if p[5] else None,
                     "telefono": p[6],
-                    "direccion": p[7],
-                    "correo": p[8],
-                    "id_ciudad": p[9],
-                    "ciudades": p[10]
+                    "telefono_emergencia": p[7],
+                    "direccion": p[8],
+                    "correo": p[9],
+                    "id_ciudad": p[10],
+                    "ciudades": p[11]
                 }
             return None
         except Exception as e:
@@ -90,11 +92,11 @@ class PacienteDao:
     #   Insertar nuevo paciente
     # ==============================
     def guardarPaciente(self, nombre, apellido, cedula_entidad, fecha_nacimiento,
-                         telefono, direccion, correo, id_ciudad, fecha_registro=None):
+                         telefono, telefono_emergencia, direccion, correo, id_ciudad, fecha_registro=None):
         sql = """
             INSERT INTO paciente (nombre, apellido, cedula_entidad, fecha_nacimiento,
-                                  telefono, direccion, correo, id_ciudad, fecha_registro)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                                  telefono, telefono_emergencia, direccion, correo, id_ciudad, fecha_registro)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
             RETURNING id_paciente
         """
         conexion = Conexion()
@@ -102,7 +104,7 @@ class PacienteDao:
         cur = con.cursor()
         try:
             cur.execute(sql, (nombre, apellido, cedula_entidad, fecha_nacimiento,
-                              telefono, direccion, correo, id_ciudad, fecha_registro))
+                              telefono, telefono_emergencia, direccion, correo, id_ciudad, fecha_registro))
             paciente_id = cur.fetchone()[0]
             con.commit()
             return paciente_id
@@ -118,11 +120,11 @@ class PacienteDao:
     #   Actualizar paciente
     # ==============================
     def updatePaciente(self, paciente_id, nombre, apellido, cedula_entidad, fecha_nacimiento,
-                       telefono, direccion, correo, id_ciudad, fecha_registro=None):
+                       telefono, telefono_emergencia, direccion, correo, id_ciudad, fecha_registro=None):
         sql = """
             UPDATE paciente
             SET nombre=%s, apellido=%s, cedula_entidad=%s, fecha_nacimiento=%s,
-                telefono=%s, direccion=%s, correo=%s, id_ciudad=%s, fecha_registro=%s
+                telefono=%s, telefono_emergencia=%s, direccion=%s, correo=%s, id_ciudad=%s, fecha_registro=%s
             WHERE id_paciente=%s
         """
         conexion = Conexion()
@@ -130,7 +132,7 @@ class PacienteDao:
         cur = con.cursor()
         try:
             cur.execute(sql, (nombre, apellido, cedula_entidad, fecha_nacimiento,
-                              telefono, direccion, correo, id_ciudad, fecha_registro, paciente_id))
+                              telefono, telefono_emergencia, direccion, correo, id_ciudad, fecha_registro, paciente_id))
             actualizado = cur.rowcount > 0
             con.commit()
             return actualizado

@@ -5,122 +5,96 @@ Consultorios
 {% endblock %}
 
 {% block contenido %}
-<div class="container-fluid mt-4">
+<div class="container mt-4">
+  
+  <h3>Listar Consultorios</h3>
 
-  <!-- Card principal -->
-  <div class="card shadow-sm border-0 rounded-lg">
-    
-    <!-- Header: Botón Agregar y Título -->
-    <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
-      <button type="button" class="btn btn-light btn-sm" id="btnAgregar">
-        <i class="fas fa-plus-circle mr-1"></i> Agregar
-      </button>
-      <h5 class="mb-0 font-weight-bold">
-        <i class="fas fa-clinic-medical mr-2"></i> Consultorios
-      </h5>
+  <!-- tarjeta -->
+  <div class="card">
+    <div class="card-header">
+      <button type="button" class="btn btn-outline-primary" id="btnAgregar">Agregar</button>
     </div>
-
-    <!-- Body: Tabla de consultorios -->
-    <div class="card-body p-2">
-      <div class="table-responsive shadow-sm rounded">
-        <table class="table table-hover table-bordered align-middle text-center" id="tblConsultorios">
-          <thead class="bg-info text-white">
-            <tr>
-              <th>Nombre Consultorio</th>
-              <th>Dirección</th>
-              <th>Teléfono</th>
-              <th>Correo</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
+    <div class="card-body">
+      <table class="table table-striped" id="tblConsultorios">
+        <thead>
+          <tr>
+            <th>Nombre Consultorio</th>
+            <th>Dirección</th>
+            <th>Teléfono</th>
+            <th>Correo</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
     </div>
   </div>
+  <!-- /tarjeta -->
 
-  <!-- =========================== -->
   <!-- Modal Formulario Consultorio -->
-  <!-- =========================== -->
-  <div class="modal fade" id="modalFormulario" tabindex="-1" role="dialog">
-    <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
-      <div class="modal-content shadow-lg border-0 rounded-lg">
+  <div class="modal" id="modalFormulario">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
 
-        <!-- Header -->
-        <div class="modal-header bg-info text-white rounded-top">
-          <h5 class="modal-title font-weight-bold">
-            <i class="fas fa-clinic-medical mr-2"></i> <span id="modalTitle">Nuevo Consultorio</span>
-          </h5>
-          <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+        <!-- Modal Header -->
+        <div class="modal-header">
+          <h4 class="modal-title" id="modalTitle"></h4>
+          <button type="button" class="close" data-dismiss="modal">&times;</button>
         </div>
 
-        <!-- Body -->
+        <!-- Modal body -->
         <div class="modal-body">
           <form id="formConsultorio">
             <input type="hidden" id="txtCodigo">
 
             <div class="form-group">
-              <label for="txtNombre" class="font-weight-bold">
-                <i class="fas fa-hospital mr-1"></i> Nombre Consultorio <span class="text-danger">*</span>
-              </label>
-              <input type="text" class="form-control" id="txtNombre" 
-                     placeholder="Ej: Consultorio Central" required>
-              <small class="form-text text-muted">Mínimo 3 caracteres</small>
+              <label for="txtNombre">Nombre Consultorio:</label>
+              <input type="text" class="form-control" placeholder="Ingrese nombre del consultorio" 
+                     id="txtNombre" required>
             </div>
 
             <div class="form-group">
-              <label for="txtDireccion" class="font-weight-bold">
-                <i class="fas fa-map-marker-alt mr-1"></i> Dirección <span class="text-danger">*</span>
-              </label>
-              <input type="text" class="form-control" id="txtDireccion" 
-                     placeholder="Ej: Av. España 1234" required>
-              <small class="form-text text-muted">Mínimo 5 caracteres</small>
+              <label for="txtDireccion">Dirección:</label>
+              <input type="text" class="form-control" placeholder="Ingrese dirección" 
+                     id="txtDireccion" required>
             </div>
 
             <div class="form-group">
-              <label for="txtTelefono" class="font-weight-bold">
-                <i class="fas fa-phone mr-1"></i> Teléfono <span class="text-danger">*</span>
-              </label>
-              <input type="text" class="form-control" id="txtTelefono" 
-                     placeholder="Ej: 0981234567" maxlength="12" required>
-              <small class="form-text text-muted">Formato: 098 123 4567 (automático)</small>
+              <label for="txtTelefono">Teléfono:</label>
+              <input type="text" class="form-control" placeholder="Ingrese teléfono" 
+                     id="txtTelefono" maxlength="12" required>
             </div>
 
             <div class="form-group">
-              <label for="txtCorreo" class="font-weight-bold">
-                <i class="fas fa-envelope mr-1"></i> Correo <span class="text-danger">*</span>
-              </label>
-              <input type="email" class="form-control" id="txtCorreo" 
-                     placeholder="Ej: contacto@consultorio.com" required>
-              <small class="form-text text-muted">Formato válido de email</small>
+              <label for="txtCorreo">Correo:</label>
+              <input type="email" class="form-control" placeholder="Ingrese correo" 
+                     id="txtCorreo" required>
             </div>
           </form>
         </div>
 
-        <!-- Footer -->
-        <div class="modal-footer bg-light">
-          <button type="submit" class="btn btn-info" form="formConsultorio">
-            <i class="fas fa-save mr-1"></i> Guardar
-          </button>
-          <button type="button" class="btn btn-danger" data-dismiss="modal">
-            <i class="fas fa-times mr-1"></i> Cerrar
-          </button>
+        <!-- Modal footer -->
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary" id="btnGuardar">Guardar</button>
+          <button type="button" class="btn btn-danger" data-dismiss="modal">Cerrar</button>
         </div>
 
       </div>
     </div>
   </div>
-</div>
 
-<!-- Librerías necesarias -->
-<link rel="stylesheet" href="https://cdn.datatables.net/1.10.21/css/dataTables.bootstrap4.min.css">
-<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.bundle.min.js"></script>
+  <div class="row mt-4 d-none" id="rowAlerta">
+    <div class="col col-md-12">
+      <div class="alert alert-success">
+        <strong>Registro Exitoso!</strong>
+        <div class="row" id="mostrarAlerta"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
 {% endblock %}
+
 
 {% block js %}
 <script>

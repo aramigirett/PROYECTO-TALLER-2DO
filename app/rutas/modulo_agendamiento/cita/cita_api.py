@@ -17,7 +17,7 @@ def serialize_time(obj):
 
 def obtener_id_funcionario_actual():
     """Obtiene el ID del funcionario logueado"""
-    return 2
+    return 3
 
 # ========================================
 # API - ESTADOS DE CITA

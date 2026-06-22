@@ -82,8 +82,9 @@ def eliminar_aviso(id_aviso):
 def enviar_avisos_whatsapp():
     """Envía todos los avisos pendientes de WhatsApp"""
     try:
-        servicio = AvisoRecordatorioService()
-        servicio.procesar_avisos_pendientes()
+        with app.app_context():
+            servicio = AvisoRecordatorioService()
+            servicio.procesar_avisos_pendientes()
         return jsonify(success=True, mensaje="Proceso de envío completado")
     except Exception as e:
         app.logger.error(f"Error en enviar_avisos_whatsapp: {e}")
@@ -107,59 +108,72 @@ def enviar_aviso_individual(id_aviso):
         if not telefono:
             return jsonify(success=False, error="Paciente sin teléfono registrado"), 400
         
+        # ✅ OBTENER LA APLICACIÓN AQUÍ ANTES DEL THREAD
+        current_app = app._get_current_object()
+        
         # Función para ejecutar en segundo plano
         def enviar_en_segundo_plano():
             ws = None
             try:
-                ws = WhatsAppService()
-                print(f"\n{'='*60}")
-                print(f"Iniciando envío de aviso #{id_aviso}")
-                print(f"{'='*60}\n")
-                
-                if ws.inicializar_navegador():
-                    if ws.esperar_carga(timeout=240):
-                        # ✅ PASO 1: Generar el mensaje automático
-                        print(f"📝 Generando mensaje automático...")
-                        mensaje_generado = servicio.formatear_mensaje(aviso)
-                        print(f"✅ Mensaje generado ({len(mensaje_generado)} caracteres)")
-                        print(f"Primeros 150 chars: {mensaje_generado[:150]}...")
-                        
-                        # ✅ PASO 2: Enviar por WhatsApp
-                        if ws.enviar_mensaje(telefono, mensaje_generado):
-                            print(f"✅ Mensaje enviado por WhatsApp")
+                # ✅ USAR LA APLICACIÓN PASADA AL THREAD
+                with current_app.app_context():
+                    ws = WhatsAppService()
+                    print(f"\n{'='*60}")
+                    print(f"Iniciando envío de aviso #{id_aviso}")
+                    print(f"{'='*60}\n")
+                    
+                    if ws.inicializar_navegador():
+                        if ws.esperar_carga(timeout=240):
+                            # PASO 1: Generar el mensaje automático
+                            print(f"📝 Generando mensaje automático...")
+                            mensaje_generado = servicio.formatear_mensaje(aviso)
+                            print(f"✅ Mensaje generado ({len(mensaje_generado)} caracteres)")
+                            print(f"Primeros 150 chars: {mensaje_generado[:150]}...")
                             
-                            # ✅ PASO 3: GUARDAR el mensaje generado en la BD
-                            print(f"💾 Guardando mensaje generado en BD...")
-                            datos_actualizacion = {
-                                'id_paciente': aviso['id_paciente'],
-                                'id_funcionario': aviso['id_funcionario'],  # ✅ CAMBIO
-                                'id_medico': aviso.get('id_medico'),
-                                'codigo': aviso.get('codigo'),
-                                'fecha_cita': aviso['fecha_cita'],
-                                'hora_cita': aviso['hora_cita'],
-                                'forma_envio': aviso['forma_envio'],
-                                'mensaje': mensaje_generado,  # ✅ GUARDAR EL MENSAJE GENERADO
-                                'estado_envio': 'Enviado',
-                                'estado_confirmacion': aviso.get('estado_confirmacion', 'Pendiente')
-                            }
-                            
-                            resultado = dao.updateAviso(id_aviso, datos_actualizacion)
-                            
-                            if resultado:
-                                print(f"✅ Mensaje guardado en BD correctamente")
-                                print(f"   Longitud guardada: {len(mensaje_generado)} caracteres")
+                            # PASO 2: Enviar por WhatsApp
+                            if ws.enviar_mensaje(telefono, mensaje_generado):
+                                print(f"✅ Mensaje enviado por WhatsApp")
+                                
+                                # PASO 3: GUARDAR el mensaje generado en la BD
+                                print(f"💾 Guardando mensaje generado en BD...")
+                                datos_actualizacion = {
+                                    'id_paciente': aviso['id_paciente'],
+                                    'id_funcionario': aviso['id_funcionario'],
+                                    'id_medico': aviso.get('id_medico'),
+                                    'codigo': aviso.get('codigo'),
+                                    'fecha_cita': aviso['fecha_cita'],
+                                    'hora_cita': aviso['hora_cita'],
+                                    'forma_envio': aviso['forma_envio'],
+                                    'mensaje': mensaje_generado,
+                                    'estado_envio': 'Enviado',
+                                    'estado_confirmacion': aviso.get('estado_confirmacion', 'Pendiente')
+                                }
+                                
+                                resultado = dao.updateAviso(id_aviso, datos_actualizacion)
+                                
+                                if resultado:
+                                    print(f"✅ Mensaje guardado en BD correctamente")
+                                    print(f"   Longitud guardada: {len(mensaje_generado)} caracteres")
+                                else:
+                                    print(f"❌ Error al guardar en BD")
+                                
+                                print(f"\n{'='*60}")
+                                print(f"✅ Proceso completado:")
+                                print(f"   - Mensaje enviado por WhatsApp")
+                                print(f"   - Mensaje guardado en BD")
+                                print(f"   - Ventana mantenida abierta")
+                                print(f"{'='*60}\n")
+                                
                             else:
-                                print(f"❌ Error al guardar en BD")
-                            
-                            print(f"\n{'='*60}")
-                            print(f"✅ Proceso completado:")
-                            print(f"   - Mensaje enviado por WhatsApp")
-                            print(f"   - Mensaje guardado en BD")
-                            print(f"   - Ventana mantenida abierta")
-                            print(f"{'='*60}\n")
-                            
+                                print(f"❌ Error al enviar mensaje")
+                                dao.updateAviso(id_aviso, {
+                                    **aviso,
+                                    'estado_envio': 'Error'
+                                })
+                                if ws:
+                                    ws.cerrar()
                         else:
-                            print(f"❌ Error al enviar mensaje")
+                            print(f"❌ No se pudo conectar a WhatsApp Web")
                             dao.updateAviso(id_aviso, {
                                 **aviso,
                                 'estado_envio': 'Error'
@@ -167,29 +181,22 @@ def enviar_aviso_individual(id_aviso):
                             if ws:
                                 ws.cerrar()
                     else:
-                        print(f"❌ No se pudo conectar a WhatsApp Web")
+                        print(f"❌ No se pudo inicializar el navegador")
                         dao.updateAviso(id_aviso, {
                             **aviso,
                             'estado_envio': 'Error'
                         })
-                        if ws:
-                            ws.cerrar()
-                else:
-                    print(f"❌ No se pudo inicializar el navegador")
-                    dao.updateAviso(id_aviso, {
-                        **aviso,
-                        'estado_envio': 'Error'
-                    })
                     
             except Exception as e:
                 print(f"\n❌ Error en proceso de segundo plano: {e}")
                 import traceback
                 traceback.print_exc()
                 try:
-                    dao.updateAviso(id_aviso, {
-                        **aviso,
-                        'estado_envio': 'Error'
-                    })
+                    with current_app.app_context():
+                        dao.updateAviso(id_aviso, {
+                            **aviso,
+                            'estado_envio': 'Error'
+                        })
                 except:
                     pass
                 if ws:
