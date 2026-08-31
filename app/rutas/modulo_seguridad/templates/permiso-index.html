@@ -1,0 +1,288 @@
+{% extends 'base.html' %}
+
+{% block titulo %}
+Roles y Permisos
+{% endblock %}
+
+{% block contenido %}
+<div class="container mt-10">
+  <h3>Roles y Permisos</h3>
+
+  <!-- Tarjeta Roles (solo lectura) -->
+  <div class="card mb-4">
+    <div class="card-header">
+      Roles del sistema
+    </div>
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-striped" id="tblRoles">
+          <thead>
+            <tr>
+              <th>Rol</th>
+              <th>Estado</th>
+              <th>Cantidad de permisos</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <!-- /Tarjeta Roles -->
+
+  <!-- Tarjeta Permisos -->
+  <div class="card">
+    <div class="card-header">
+      <button type="button" class="btn btn-outline-primary" id="btnAgregar">Agregar Permiso</button>
+    </div>
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-striped" id="tbl">
+          <thead>
+            <tr>
+              <th>Permiso</th>
+              <th>Descripción</th>
+              <th>Rol</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <!-- /Tarjeta Permisos -->
+
+  <!-- Modal formulario -->
+  <div class="modal" id="modalFormulario">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content">
+        <!-- Modal Header -->
+        <div class="modal-header">
+          <h4 class="modal-title" id="modalTitle"></h4>
+          <button type="button" class="close" data-dismiss="modal">&times;</button>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+          <input type="hidden" id="txtIdPermiso">
+
+          <div class="container-fluid">
+            <div class="row">
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label for="txtNombrePermiso">Nombre del permiso:</label>
+                  <input type="text" class="form-control" placeholder="Ej: gestionar_usuarios" id="txtNombrePermiso">
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label for="selRolPermiso">Rol:</label>
+                  <select class="form-control" id="selRolPermiso">
+                    <option value="">Seleccione un rol</option>
+                  </select>
+                </div>
+              </div>
+              <div class="col-md-12">
+                <div class="form-group">
+                  <label for="txtDescripcionPermiso">Descripción:</label>
+                  <textarea class="form-control" placeholder="Descripción del permiso (opcional)" id="txtDescripcionPermiso" rows="3"></textarea>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary" id="btnGuardar">Guardar</button>
+          <button type="button" class="btn btn-danger" data-dismiss="modal">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+
+{% block js %}
+<script>
+
+  const initDatatableRoles = () => {
+    $('#tblRoles').DataTable({
+      language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
+      ajax: { url: '/api/v1/roles-con-permisos', dataSrc: 'data' },
+      searching: false,
+      paging: false,
+      info: false,
+      columns: [
+        { data: 'nombre_rol' },
+        { data: function(row) {
+            return row.activo
+              ? '<span class="badge badge-success">Activo</span>'
+              : '<span class="badge badge-secondary">Inactivo</span>';
+          }
+        },
+        { data: 'cantidad_permisos' }
+      ]
+    });
+  };
+
+  const cargarRoles = () => {
+    return fetch('/api/v1/roles')
+      .then(resp => resp.json())
+      .then(result => {
+        const sel = $('#selRolPermiso');
+        sel.find('option:not(:first)').remove();
+        if (result && result.success) {
+          result.data.forEach(rol => {
+            sel.append(`<option value="${rol.id_rol}">${rol.nombre_rol}</option>`);
+          });
+        }
+      });
+  };
+
+  const initDatatable = () => {
+    $('#tbl').DataTable({
+      language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
+      ajax: { url: '/api/v1/permisos', dataSrc: 'data' },
+      columns: [
+        { data: 'nombre_permiso' },
+        { data: function(row) { return row.descripcion || ''; } },
+        { data: 'nombre_rol' },
+        { data: function(row) {
+            return `<button type="button" name="btn_editar" class="btn btn-info" data-id="${row.id_permiso}" title="Editar"><i class="fas fa-edit"></i></button>
+                    <button type="button" name="btn_eliminar" class="btn btn-danger" data-id="${row.id_permiso}" title="Eliminar"><i class="fas fa-trash-alt"></i></button>`;
+          }
+        }
+      ]
+    });
+  };
+
+  const agregar = () => {
+    $('#btnAgregar').on('click', function() {
+      $('#modalTitle').text('Agregar Permiso');
+      $('#txtIdPermiso').val('');
+      $('#txtNombrePermiso').val('');
+      $('#txtDescripcionPermiso').val('');
+      $('#selRolPermiso').val('');
+      $('#modalFormulario').modal('show');
+    });
+  };
+
+  const guardar = () => {
+    $('#btnGuardar').on('click', function() {
+      const idPermiso = Number($('#txtIdPermiso').val()) || 0;
+      const nombre_permiso = $('#txtNombrePermiso').val().trim();
+      const descripcion = $('#txtDescripcionPermiso').val().trim();
+      const id_rol = $('#selRolPermiso').val();
+      const tabla = $('#tbl').DataTable();
+      const tablaRoles = $('#tblRoles').DataTable();
+
+      if (!nombre_permiso || !id_rol) {
+        Swal.fire('Error', 'El nombre del permiso y el rol son obligatorios.', 'error');
+        return;
+      }
+
+      const data = { nombre_permiso, descripcion, id_rol: parseInt(id_rol) };
+
+      const peticion = idPermiso
+        ? fetch(`/api/v1/permisos/${idPermiso}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
+        : fetch('/api/v1/permisos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+
+      peticion
+        .then(resp => resp.json())
+        .then(result => {
+          if (result && result.success) {
+            tabla.ajax.reload(null, false);
+            tablaRoles.ajax.reload(null, false);
+            Swal.fire(idPermiso ? 'Actualizado' : 'Registrado', `El permiso ha sido ${idPermiso ? 'actualizado' : 'registrado'} correctamente.`, 'success')
+              .then(() => { $('#modalFormulario').modal('hide'); });
+          } else {
+            Swal.fire('Error', result.error || 'Ocurrió un error al guardar.', 'error');
+          }
+        })
+        .catch(err => {
+          console.error(err);
+          Swal.fire('Error', 'Ocurrió un error al guardar el permiso.', 'error');
+        });
+    });
+  };
+
+  const editar = () => {
+    $('#tbl').on('click', 'button[name="btn_editar"]', function() {
+      const idPermiso = $(this).data('id');
+
+      fetch(`/api/v1/permisos/${idPermiso}`)
+        .then(resp => resp.json())
+        .then(result => {
+          if (!result || !result.success) {
+            Swal.fire('Error', (result && result.error) || 'No se pudo cargar el permiso.', 'error');
+            return;
+          }
+          const p = result.data;
+          $('#modalTitle').text('Editar Permiso');
+          $('#txtIdPermiso').val(p.id_permiso);
+          $('#txtNombrePermiso').val(p.nombre_permiso);
+          $('#txtDescripcionPermiso').val(p.descripcion || '');
+          $('#selRolPermiso').val(p.id_rol);
+          $('#modalFormulario').modal('show');
+        })
+        .catch(err => {
+          console.error(err);
+          Swal.fire('Error', 'Ocurrió un error al obtener los datos.', 'error');
+        });
+    });
+  };
+
+  const eliminar = () => {
+    $('#tbl').on('click', 'button[name="btn_eliminar"]', function() {
+      const idPermiso = $(this).data('id');
+      const tabla = $('#tbl').DataTable();
+      const tablaRoles = $('#tblRoles').DataTable();
+
+      Swal.fire({
+        title: '¿Deseas eliminar este permiso?',
+        text: 'Esta acción no se puede deshacer.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+      }).then((result) => {
+        if (result.isConfirmed) {
+          fetch(`/api/v1/permisos/${idPermiso}`, { method: 'DELETE' })
+            .then(resp => resp.json())
+            .then(data => {
+              if (data && data.success) {
+                tabla.ajax.reload(null, false);
+                tablaRoles.ajax.reload(null, false);
+                Swal.fire('Eliminado', 'Permiso eliminado correctamente.', 'success');
+              } else {
+                Swal.fire('Error', data.error || 'Error al eliminar.', 'error');
+              }
+            })
+            .catch(err => {
+              console.error(err);
+              Swal.fire('Error', 'Ocurrió un error al eliminar el permiso.', 'error');
+            });
+        }
+      });
+    });
+  };
+
+  const addEvents = () => {
+    agregar();
+    guardar();
+    editar();
+    eliminar();
+  };
+
+  $(function() {
+    initDatatableRoles();
+    initDatatable();
+    cargarRoles();
+    addEvents();
+  });
+</script>
+{% endblock %}

@@ -386,6 +386,24 @@
                 </div>
             </li>
 
+            <!-- Nav Item - Módulo Seguridad -->
+            <li class="nav-item">
+                <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseModuloSeguridad"
+                    aria-expanded="false" aria-controls="collapseModuloSeguridad">
+                    <i class="fas fa-user-shield"></i>
+                    <span>Módulo Seguridad</span>
+                </a>
+                <div id="collapseModuloSeguridad" class="collapse" aria-labelledby="headingModuloSeguridad" data-parent="#accordionSidebar">
+                    <div class="bg-white py-2 collapse-inner rounded">
+                        {% if session.get('nombre_rol') == 'Administrador' %}
+                        <a class="collapse-item" href="{{ url_for('usuario.usuarioIndex') }}"><i class="fas fa-users-cog"></i> Gestión de Usuarios</a>
+                        <a class="collapse-item" href="{{ url_for('permiso.permisoIndex') }}"><i class="fas fa-key"></i> Roles y Permisos</a>
+                        <a class="collapse-item" href="{{ url_for('auditoria.auditoriaIndex') }}"><i class="fas fa-shield-alt"></i> Tablero de Administrador</a>
+                        {% endif %}
+                    </div>
+                </div>
+            </li>
+
             <!-- Divider -->
             <hr class="sidebar-divider">
 
@@ -524,7 +542,7 @@
                         <li class="nav-item dropdown no-arrow">
                             <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button"
                                 data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                <span class="mr-2 d-none d-lg-inline text-gray-600 small">Douglas McGee</span>
+                                <span class="mr-2 d-none d-lg-inline text-gray-600 small">{{ session.get('nombre_completo') or session.get('ci_ruc', '') }}</span>
                                 <img class="img-profile rounded-circle"
                                     src="{{ url_for('static', filename='img/undraw_profile.svg') }}">
                             </a>
@@ -604,7 +622,7 @@
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-secondary" type="button" data-dismiss="modal">Cancelar</button>
-                    <a class="btn btn-danger" href="{{ url_for('login') }}">
+                    <a class="btn btn-danger" href="{{ url_for('seguridad.logout') }}">
                         <i class="fas fa-sign-out-alt mr-2"></i>Cerrar Sesión
                     </a>
                 </div>

@@ -1,11 +1,19 @@
+import os
+from dotenv import load_dotenv
 from flask import Flask
 from flask import render_template
 
+load_dotenv()
+
 app = Flask(__name__)
+app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-cambiar-en-produccion')
 
 # importar referenciales
-from app.rutas.login.login_routes import loginmod
 from app.rutas.login.vista_routes import vistamod
+from app.rutas.modulo_seguridad.seguridad_routes import seguridadmod
+from app.rutas.modulo_seguridad.usuario_routes import usuariomod
+from app.rutas.modulo_seguridad.auditoria_routes import auditoriamod
+from app.rutas.modulo_seguridad.permiso_routes import permisomod
 from app.rutas.referenciales.ciudad.ciudad_routes import ciumod #ciudad
 from app.rutas.referenciales.paises.pais_routes import paimod   #pais
 from app.rutas.referenciales.estado_cita.estado_cita_routes import estacitmod  #estado de la cita
@@ -35,8 +43,13 @@ from app.rutas.modulo_consultorio.sintoma.sintoma_routes import sintomod
 
 # registrar referenciales
 modulo0 = '/referenciales'
-app.register_blueprint(loginmod, url_prefix=f'{modulo0}/login') 
-app.register_blueprint(vistamod, url_prefix=f'{modulo0}/vista') 
+app.register_blueprint(vistamod, url_prefix=f'{modulo0}/vista')
+
+# Módulo Seguridad (Login + 2FA) - sin prefijo: /login, /verificar-2fa, /logout
+app.register_blueprint(seguridadmod)
+app.register_blueprint(usuariomod, url_prefix=f'{modulo0}/usuario')
+app.register_blueprint(auditoriamod, url_prefix=f'{modulo0}/auditoria')
+app.register_blueprint(permisomod, url_prefix=f'{modulo0}/permiso')
 app.register_blueprint(ciumod, url_prefix=f'{modulo0}/ciudad') #ciudad
 app.register_blueprint(paimod, url_prefix=f'{modulo0}/paises') #pais
 app.register_blueprint(estacitmod, url_prefix=f'{modulo0}/estadocita')  #estado de la cita
@@ -82,6 +95,15 @@ from app.rutas.modulo_agendamiento.disponibilidad_horaria.disponibilidad_api imp
 #cargo
 from app.rutas.referenciales.cargo.cargo_api import cargoapi
 
+#usuario (Módulo Seguridad)
+from app.rutas.modulo_seguridad.usuario_api import usuarioapi
+
+#auditoria (Módulo Seguridad)
+from app.rutas.modulo_seguridad.auditoria_api import auditoriaapi
+
+#permiso (Módulo Seguridad)
+from app.rutas.modulo_seguridad.permiso_api import permisoapi
+
 #Agendamiento nuevo
 from app.rutas.modulo_agendamiento.medico.medico_api import medicoapi
 from app.rutas.modulo_agendamiento.funcionario.funcionario_api import funcionarioapi
@@ -125,6 +147,15 @@ app.register_blueprint(disponibilidadapi, url_prefix=version1)
 
 version1 = '/api/v1'
 app.register_blueprint(cargoapi, url_prefix=version1)
+
+version1 = '/api/v1'
+app.register_blueprint(usuarioapi, url_prefix=version1)
+
+version1 = '/api/v1'
+app.register_blueprint(auditoriaapi, url_prefix=version1)
+
+version1 = '/api/v1'
+app.register_blueprint(permisoapi, url_prefix=version1)
 
 #Agendamiento nuevo
 version1 = '/api/v1'
@@ -209,12 +240,6 @@ app.register_blueprint(diagnostico_medico_api, url_prefix=version1)
 from app.rutas.modulo_consultorio.diagnostico.diagnostico_routes import diagnosticos_medicos_mod
 
 app.register_blueprint(diagnosticos_medicos_mod, url_prefix=f'{modulo0}/diagnosticos-medicos')
-
-
-@app.route('/login')
-def login():
-    return render_template('login-index.html')
-
 
 
 @app.route('/vista')

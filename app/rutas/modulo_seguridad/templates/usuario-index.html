@@ -1,0 +1,380 @@
+{% extends 'base.html' %}
+
+{% block titulo %}
+Usuarios
+{% endblock %}
+
+{% block contenido %}
+<div class="container mt-10">
+  <h3>Gestión de Usuarios</h3>
+
+  <!-- Tarjeta -->
+  <div class="card">
+    <div class="card-header">
+      <button type="button" class="btn btn-outline-primary" id="btnAgregar">Agregar</button>
+    </div>
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-striped" id="tbl">
+          <thead>
+            <tr>
+              <th>CI/RUC</th>
+              <th>Correo</th>
+              <th>Rol</th>
+              <th>Persona vinculada</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <!-- /Tarjeta -->
+
+  <!-- Modal formulario -->
+  <div class="modal" id="modalFormulario">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content">
+        <!-- Modal Header -->
+        <div class="modal-header">
+          <h4 class="modal-title" id="modalTitle"></h4>
+          <button type="button" class="close" data-dismiss="modal">&times;</button>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+          <input type="hidden" id="txtIdUsuario">
+
+          <div class="container-fluid">
+            <div class="row">
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label for="txtCiRuc">CI/RUC:</label>
+                  <input type="text" class="form-control" placeholder="Ingrese el CI/RUC" id="txtCiRuc">
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label for="txtCorreo">Correo:</label>
+                  <input type="email" class="form-control" placeholder="correo@ejemplo.com" id="txtCorreo">
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label for="txtPassword">Contraseña:</label>
+                  <input type="password" class="form-control" placeholder="Ingrese la contraseña" id="txtPassword" autocomplete="new-password">
+                  <small class="form-text text-muted" id="hintPassword" style="display:none;">
+                    Dejar en blanco para no cambiar la contraseña actual.
+                  </small>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label for="selRol">Rol:</label>
+                  <select class="form-control" id="selRol">
+                    <option value="">Seleccione un rol</option>
+                  </select>
+                </div>
+              </div>
+              <div class="col-md-12">
+                <div class="form-group">
+                  <label>Vincular a:</label>
+                  <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="tipoPersona" id="tipoFuncionario" value="funcionario" checked>
+                    <label class="form-check-label" for="tipoFuncionario">Funcionario</label>
+                  </div>
+                  <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="tipoPersona" id="tipoMedico" value="medico">
+                    <label class="form-check-label" for="tipoMedico">Médico</label>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-12">
+                <div class="form-group">
+                  <label for="selPersona">Persona:</label>
+                  <select class="form-control" id="selPersona">
+                    <option value="">Seleccione una persona</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary" id="btnGuardar">Guardar</button>
+          <button type="button" class="btn btn-danger" data-dismiss="modal">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+
+{% block js %}
+<script>
+
+  const cargarRoles = () => {
+    return fetch('/api/v1/roles')
+      .then(resp => resp.json())
+      .then(result => {
+        const sel = $('#selRol');
+        sel.find('option:not(:first)').remove();
+        if (result && result.success) {
+          result.data.forEach(rol => {
+            sel.append(`<option value="${rol.id_rol}">${rol.nombre_rol}</option>`);
+          });
+        }
+      });
+  };
+
+  const cargarPersonas = (tipo, idSeleccionado) => {
+    const idUsuario = Number($('#txtIdUsuario').val()) || 0;
+    const url = tipo === 'medico'
+      ? `/api/v1/usuarios/medicos-disponibles?excluir_usuario=${idUsuario}`
+      : `/api/v1/usuarios/funcionarios-disponibles?excluir_usuario=${idUsuario}`;
+
+    return fetch(url)
+      .then(resp => resp.json())
+      .then(result => {
+        const sel = $('#selPersona');
+        sel.find('option:not(:first)').remove();
+        if (result && result.success) {
+          result.data.forEach(p => {
+            const id = tipo === 'medico' ? p.id_medico : p.id_funcionario;
+            sel.append(`<option value="${id}">${p.nombre_completo}</option>`);
+          });
+        }
+        if (idSeleccionado) {
+          sel.val(idSeleccionado);
+        }
+      });
+  };
+
+  const tipoPersonaSeleccionado = () => $('input[name="tipoPersona"]:checked').val();
+
+  const initDatatable = () => {
+    $('#tbl').DataTable({
+      language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
+      ajax: { url: '/api/v1/usuarios', dataSrc: 'data' },
+      columns: [
+        { data: 'ci_ruc' },
+        { data: 'correo' },
+        { data: 'nombre_rol' },
+        { data: function(row) { return `${row.nombre_completo || ''} <small class="text-muted">(${row.tipo_persona})</small>`; } },
+        { data: function(row) {
+            return row.activo
+              ? '<span class="badge badge-success">Activo</span>'
+              : '<span class="badge badge-secondary">Inactivo</span>';
+          }
+        },
+        { data: function(row) {
+            const btnEditar = `<button type="button" name="btn_editar" class="btn btn-info" data-id="${row.id_usuario}" title="Editar"><i class="fas fa-edit"></i></button>`;
+            const btnEstado = row.activo
+              ? `<button type="button" name="btn_baja" class="btn btn-danger" data-id="${row.id_usuario}" title="Dar de baja"><i class="fas fa-user-slash"></i></button>`
+              : `<button type="button" name="btn_reactivar" class="btn btn-success" data-id="${row.id_usuario}" title="Reactivar"><i class="fas fa-user-check"></i></button>`;
+            return `${btnEditar} ${btnEstado}`;
+          }
+        }
+      ]
+    });
+  };
+
+  const limpiarFormulario = () => {
+    $('#txtIdUsuario').val('');
+    $('#txtCiRuc').val('');
+    $('#txtCorreo').val('');
+    $('#txtPassword').val('');
+    $('#selRol').val('');
+    $('#tipoFuncionario').prop('checked', true);
+    $('#selPersona').val('');
+  };
+
+  const agregar = () => {
+    $('#btnAgregar').on('click', function() {
+      $('#modalTitle').text('Agregar Usuario');
+      limpiarFormulario();
+      $('#txtPassword').attr('placeholder', 'Ingrese la contraseña');
+      $('#hintPassword').hide();
+      cargarPersonas('funcionario');
+      $('#modalFormulario').modal('show');
+    });
+  };
+
+  const guardar = () => {
+    $('#btnGuardar').on('click', function() {
+      const idUsuario = Number($('#txtIdUsuario').val()) || 0;
+      const ci_ruc = $('#txtCiRuc').val().trim();
+      const password = $('#txtPassword').val();
+      const correo = $('#txtCorreo').val().trim();
+      const id_rol = $('#selRol').val();
+      const idPersona = $('#selPersona').val();
+      const tipo = tipoPersonaSeleccionado();
+      const tabla = $('#tbl').DataTable();
+
+      if (!ci_ruc || !correo || !id_rol || !idPersona) {
+        Swal.fire('Error', 'CI/RUC, correo, rol y persona vinculada son obligatorios.', 'error');
+        return;
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(correo)) {
+        Swal.fire('Error', 'El correo electrónico no es válido.', 'error');
+        return;
+      }
+
+      if (!idUsuario && !password) {
+        Swal.fire('Error', 'La contraseña es obligatoria para un usuario nuevo.', 'error');
+        return;
+      }
+
+      const data = {
+        ci_ruc: ci_ruc,
+        correo: correo,
+        id_rol: parseInt(id_rol),
+        id_funcionario: tipo === 'funcionario' ? parseInt(idPersona) : null,
+        id_medico: tipo === 'medico' ? parseInt(idPersona) : null
+      };
+      if (password) {
+        data.password = password;
+      }
+
+      const peticion = idUsuario
+        ? fetch(`/api/v1/usuarios/${idUsuario}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
+        : fetch('/api/v1/usuarios', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+
+      peticion
+        .then(resp => resp.json())
+        .then(result => {
+          if (result && result.success) {
+            tabla.ajax.reload(null, false);
+            Swal.fire(idUsuario ? 'Actualizado' : 'Registrado', `El usuario ha sido ${idUsuario ? 'actualizado' : 'registrado'} correctamente.`, 'success')
+              .then(() => { $('#modalFormulario').modal('hide'); });
+          } else {
+            Swal.fire('Error', result.error || 'Ocurrió un error al guardar.', 'error');
+          }
+        })
+        .catch(err => {
+          console.error(err);
+          Swal.fire('Error', 'Ocurrió un error al guardar el usuario.', 'error');
+        });
+    });
+  };
+
+  const editar = () => {
+    $('#tbl').on('click', 'button[name="btn_editar"]', function() {
+      const idUsuario = $(this).data('id');
+
+      fetch(`/api/v1/usuarios/${idUsuario}`)
+        .then(resp => resp.json())
+        .then(result => {
+          if (!result || !result.success) {
+            Swal.fire('Error', (result && result.error) || 'No se pudo cargar el usuario.', 'error');
+            return;
+          }
+          const u = result.data;
+          $('#modalTitle').text('Editar Usuario');
+          $('#txtIdUsuario').val(u.id_usuario);
+          $('#txtCiRuc').val(u.ci_ruc);
+          $('#txtCorreo').val(u.correo);
+          $('#txtPassword').val('');
+          $('#txtPassword').attr('placeholder', 'Dejar en blanco para no cambiar');
+          $('#hintPassword').show();
+          $('#selRol').val(u.id_rol);
+
+          const tipo = u.id_medico ? 'medico' : 'funcionario';
+          $(`#tipo${tipo === 'medico' ? 'Medico' : 'Funcionario'}`).prop('checked', true);
+
+          cargarPersonas(tipo, tipo === 'medico' ? u.id_medico : u.id_funcionario).then(() => {
+            $('#modalFormulario').modal('show');
+          });
+        })
+        .catch(err => {
+          console.error(err);
+          Swal.fire('Error', 'Ocurrió un error al obtener los datos.', 'error');
+        });
+    });
+  };
+
+  const cambiarTipoPersona = () => {
+    $('input[name="tipoPersona"]').on('change', function() {
+      cargarPersonas($(this).val());
+    });
+  };
+
+  const darDeBaja = () => {
+    $('#tbl').on('click', 'button[name="btn_baja"]', function() {
+      const idUsuario = $(this).data('id');
+      const tabla = $('#tbl').DataTable();
+
+      Swal.fire({
+        title: '¿Dar de baja este usuario?',
+        text: 'El usuario no podrá iniciar sesión hasta que sea reactivado.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, dar de baja',
+        cancelButtonText: 'Cancelar'
+      }).then((result) => {
+        if (result.isConfirmed) {
+          fetch(`/api/v1/usuarios/${idUsuario}`, { method: 'DELETE' })
+            .then(resp => resp.json())
+            .then(data => {
+              if (data && data.success) {
+                tabla.ajax.reload(null, false);
+                Swal.fire('Listo', 'Usuario dado de baja correctamente.', 'success');
+              } else {
+                Swal.fire('Error', data.error || 'No se pudo dar de baja al usuario.', 'error');
+              }
+            })
+            .catch(err => {
+              console.error(err);
+              Swal.fire('Error', 'Ocurrió un error al dar de baja al usuario.', 'error');
+            });
+        }
+      });
+    });
+  };
+
+  const reactivar = () => {
+    $('#tbl').on('click', 'button[name="btn_reactivar"]', function() {
+      const idUsuario = $(this).data('id');
+      const tabla = $('#tbl').DataTable();
+
+      fetch(`/api/v1/usuarios/${idUsuario}/reactivar`, { method: 'PATCH' })
+        .then(resp => resp.json())
+        .then(data => {
+          if (data && data.success) {
+            tabla.ajax.reload(null, false);
+            Swal.fire('Listo', 'Usuario reactivado correctamente.', 'success');
+          } else {
+            Swal.fire('Error', data.error || 'No se pudo reactivar al usuario.', 'error');
+          }
+        })
+        .catch(err => {
+          console.error(err);
+          Swal.fire('Error', 'Ocurrió un error al reactivar al usuario.', 'error');
+        });
+    });
+  };
+
+  const addEvents = () => {
+    agregar();
+    guardar();
+    editar();
+    cambiarTipoPersona();
+    darDeBaja();
+    reactivar();
+  };
+
+  $(function() {
+    initDatatable();
+    cargarRoles();
+    addEvents();
+  });
+</script>
+{% endblock %}
