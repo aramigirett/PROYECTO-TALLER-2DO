@@ -104,6 +104,9 @@ from app.rutas.modulo_seguridad.auditoria_api import auditoriaapi
 #permiso (Módulo Seguridad)
 from app.rutas.modulo_seguridad.permiso_api import permisoapi
 
+#menu (Módulo Seguridad - buscador general)
+from app.rutas.modulo_seguridad.menu_api import menuapi
+
 #Agendamiento nuevo
 from app.rutas.modulo_agendamiento.medico.medico_api import medicoapi
 from app.rutas.modulo_agendamiento.funcionario.funcionario_api import funcionarioapi
@@ -156,6 +159,9 @@ app.register_blueprint(auditoriaapi, url_prefix=version1)
 
 version1 = '/api/v1'
 app.register_blueprint(permisoapi, url_prefix=version1)
+
+version1 = '/api/v1'
+app.register_blueprint(menuapi, url_prefix=version1)
 
 #Agendamiento nuevo
 version1 = '/api/v1'

@@ -25,3 +25,19 @@ def require_admin(view_func):
 
         return view_func(*args, **kwargs)
     return wrapper
+
+
+def require_login(view_func):
+    """
+    Exige solamente que haya una sesión iniciada (cualquier rol). Para rutas
+    de API (bajo /api/v1) responde JSON 401; para rutas de vista redirige al
+    login.
+    """
+    @wraps(view_func)
+    def wrapper(*args, **kwargs):
+        if not session.get('id_usuario'):
+            if request.path.startswith('/api/'):
+                return jsonify({'success': False, 'error': 'No autenticado.'}), 401
+            return redirect(url_for('seguridad.login'))
+        return view_func(*args, **kwargs)
+    return wrapper

@@ -65,15 +65,28 @@ Basado en el CUS "Mantener Acceso" ya documentado:
 - ✅ Tablero de Administrador (ver auditoria_acceso en pantalla): terminado y probado.
 - ✅ Mantener Roles y Permisos: terminado y probado (Roles de solo lectura,
   Permisos con CRUD completo, FK permisos→roles, baja física).
-- ⏳ Pendiente para más adelante: Mantener Menú (buscador general, control de
-  opciones visibles según permisos). Cuando se encare, revisar si el DELETE
-  físico de `permisos` sigue siendo seguro una vez que los ítems de menú
-  empiecen a referenciarlos — puede que haya que pasar a baja lógica en ese
-  momento.
+- ✅ Mantener Menú (buscador general del header, filtrado por rol/permisos):
+  terminado y probado (catálogo fijo `CATALOGO_MENU` en código, sin tabla
+  nueva; Administrador ve todo, el resto ve las pantallas abiertas más las
+  de Seguridad solo si tiene el permiso correspondiente en `permisos`).
 
 Con esto el Módulo Seguridad queda completo. Los próximos módulos a programar
 son los funcionales grandes: Agendamiento, Consultorio, Facturación — ya
 documentados en el análisis de la tesis.
+
+## Pendiente de decidir a futuro: control de acceso en módulos grandes
+Hoy Agendamiento, Referenciales y Consultorio NO tienen ninguna restricción
+de rol en el código — cualquier usuario logueado (sin importar su rol) puede
+entrar. Esto salió a la luz al programar Mantener Menú (buscar-only), que
+respeta esta realidad en vez de inventar restricciones nuevas. Cuando se
+encaren estos módulos a fondo, hay que definir con el análisis qué rol puede
+acceder a qué pantalla, y aplicar el mismo patrón de decorator que ya existe
+(`require_admin` en `app/rutas/modulo_seguridad/decorators.py`, más un
+`require_login` más liviano agregado para Mantener Menú).
+Ese `require_login` ya existe y está disponible para cuando se definan esas
+restricciones: solo exige que haya sesión iniciada (cualquier rol), sin
+restringir por rol — a diferencia de `require_admin`, que exige rol
+Administrador.
 
 ## Control de acceso por rol
 - Existe `app/rutas/modulo_seguridad/decorators.py` con `@require_admin`: primer

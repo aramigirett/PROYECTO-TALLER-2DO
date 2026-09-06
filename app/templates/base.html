@@ -136,6 +136,54 @@
             font-weight: 500;
         }
 
+        /* Buscador general (Mantener Menú) */
+        .navbar-search {
+            position: relative;
+        }
+
+        .menu-search-results {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            z-index: 1050;
+            max-height: 320px;
+            overflow-y: auto;
+            background-color: #fff;
+            border: 1px solid var(--border-color, #e2e8f0);
+            border-radius: 0.35rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            margin-top: 2px;
+        }
+
+        .menu-search-results .menu-search-item {
+            display: block;
+            padding: 0.5rem 1rem;
+            color: var(--secondary-color, #333);
+            text-decoration: none;
+            border-bottom: 1px solid #f1f1f1;
+        }
+
+        .menu-search-results .menu-search-item:last-child {
+            border-bottom: none;
+        }
+
+        .menu-search-results .menu-search-item:hover {
+            background-color: #e2e8f0;
+            color: var(--primary-color);
+        }
+
+        .menu-search-results .menu-search-item small {
+            display: block;
+            color: #858796;
+        }
+
+        .menu-search-results .menu-search-empty {
+            padding: 0.5rem 1rem;
+            color: #858796;
+        }
+
         /* Contenedor principal */
         .container-fluid {
             background-color: var(--light-bg);
@@ -430,16 +478,17 @@
                     </button>
 
                     <!-- Topbar Search -->
-                    <form class="d-none d-sm-inline-block form-inline mr-auto ml-md-3 my-2 my-md-0 mw-100 navbar-search">
+                    <form class="d-none d-sm-inline-block form-inline mr-auto ml-md-3 my-2 my-md-0 mw-100 navbar-search" onsubmit="return false;">
                         <div class="input-group">
-                            <input type="text" class="form-control bg-light border-1 small" placeholder="Buscar..."
-                                aria-label="Search" aria-describedby="basic-addon2">
+                            <input type="text" class="form-control bg-light border-1 small menu-search-input" placeholder="Buscar..."
+                                aria-label="Search" aria-describedby="basic-addon2" autocomplete="off">
                             <div class="input-group-append">
                                 <button class="btn btn-primary" type="button">
                                     <i class="fas fa-search fa-sm"></i>
                                 </button>
                             </div>
                         </div>
+                        <div class="menu-search-results"></div>
                     </form>
 
                     <!-- Topbar Navbar -->
@@ -454,17 +503,18 @@
                             <!-- Dropdown - Messages -->
                             <div class="dropdown-menu dropdown-menu-right p-3 shadow animated--grow-in"
                                 aria-labelledby="searchDropdown">
-                                <form class="form-inline mr-auto w-100 navbar-search">
+                                <form class="form-inline mr-auto w-100 navbar-search" onsubmit="return false;">
                                     <div class="input-group w-100">
-                                        <input type="text" class="form-control bg-light border-1 small"
-                                            placeholder="Search for..." aria-label="Search"
-                                            aria-describedby="basic-addon2">
+                                        <input type="text" class="form-control bg-light border-1 small menu-search-input"
+                                            placeholder="Buscar..." aria-label="Search"
+                                            aria-describedby="basic-addon2" autocomplete="off">
                                         <div class="input-group-append">
                                             <button class="btn btn-primary" type="button">
                                                 <i class="fas fa-search fa-sm"></i>
                                             </button>
                                         </div>
                                     </div>
+                                    <div class="menu-search-results"></div>
                                 </form>
                             </div>
                         </li>
@@ -646,6 +696,58 @@
 
     <!-- Libreria para mensajes emergentes -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <!-- Buscador general del menú (Mantener Menú) -->
+    <script>
+        $(function () {
+            let temporizadorBusqueda = null;
+
+            const renderizarResultados = ($contenedor, items) => {
+                if (!items.length) {
+                    $contenedor.html('<div class="menu-search-empty">Sin coincidencias</div>');
+                } else {
+                    const html = items.map(item => `
+                        <a class="menu-search-item" href="${item.url}">
+                            <i class="fas ${item.icono} mr-1"></i> ${item.etiqueta}
+                            <small>${item.modulo}</small>
+                        </a>
+                    `).join('');
+                    $contenedor.html(html);
+                }
+                $contenedor.show();
+            };
+
+            $('.menu-search-input').on('input', function () {
+                const $input = $(this);
+                const $contenedor = $input.closest('form').find('.menu-search-results');
+                const q = $input.val().trim();
+
+                clearTimeout(temporizadorBusqueda);
+
+                if (q.length < 2) {
+                    $contenedor.hide().empty();
+                    return;
+                }
+
+                temporizadorBusqueda = setTimeout(() => {
+                    fetch(`/api/v1/menu/buscar?q=${encodeURIComponent(q)}`)
+                        .then(resp => resp.json())
+                        .then(result => {
+                            if (result && result.success) {
+                                renderizarResultados($contenedor, result.data);
+                            }
+                        })
+                        .catch(err => console.error(err));
+                }, 250);
+            });
+
+            $(document).on('click', function (e) {
+                if (!$(e.target).closest('.navbar-search').length) {
+                    $('.menu-search-results').hide();
+                }
+            });
+        });
+    </script>
 
     {# Este bloque pertenece a nuestros scripts de js #}
     {% block js %}

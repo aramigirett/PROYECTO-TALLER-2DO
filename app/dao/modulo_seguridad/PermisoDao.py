@@ -131,6 +131,26 @@ class PermisoDao:
             cur.close()
             con.close()
 
+    def getNombresPermisosPorRol(self, id_rol):
+        """
+        Devuelve el conjunto de nombre_permiso que tiene asignado un rol.
+        Usado por el buscador general del menú para filtrar qué pantallas
+        restringidas puede ver cada rol (fuera de Administrador).
+        """
+        sql = "SELECT nombre_permiso FROM permisos WHERE id_rol = %s"
+        conexion = Conexion()
+        con = conexion.getConexion()
+        cur = con.cursor()
+        try:
+            cur.execute(sql, (id_rol,))
+            return {row[0] for row in cur.fetchall()}
+        except Exception as e:
+            app.logger.error(f"Error al obtener nombres de permisos por rol: {str(e)}")
+            return set()
+        finally:
+            cur.close()
+            con.close()
+
     def deletePermiso(self, id_permiso):
         sql = "DELETE FROM permisos WHERE id_permiso=%s"
         conexion = Conexion()
