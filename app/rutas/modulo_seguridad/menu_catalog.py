@@ -21,7 +21,6 @@ CATALOGO_MENU = [
     # Referenciales Agendamiento
     {"etiqueta": "Ciudad", "endpoint": "ciudad.ciudadIndex", "icono": "fa-map-marker-alt", "modulo": "Referenciales Agendamiento", "permiso_requerido": None},
     {"etiqueta": "Cargo", "endpoint": "cargo.cargoIndex", "icono": "fa-briefcase", "modulo": "Referenciales Agendamiento", "permiso_requerido": None},
-    {"etiqueta": "Estados", "endpoint": "estadocita.estadocitaIndex", "icono": "fa-list", "modulo": "Referenciales Agendamiento", "permiso_requerido": None},
     {"etiqueta": "Consultorio", "endpoint": "consultorio.consultorioIndex", "icono": "fa-clinic-medical", "modulo": "Referenciales Agendamiento", "permiso_requerido": None},
     {"etiqueta": "Disponibilidad Horaria", "endpoint": "disponibilidad.disponibilidadIndex", "icono": "fa-clock", "modulo": "Referenciales Agendamiento", "permiso_requerido": None},
     {"etiqueta": "Especialidad", "endpoint": "especialidad.especialidadIndex", "icono": "fa-certificate", "modulo": "Referenciales Agendamiento", "permiso_requerido": None},

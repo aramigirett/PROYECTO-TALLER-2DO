@@ -160,9 +160,11 @@ def deleteDisponibilidad(id_disponibilidad):
     dao = DisponibilidadDao()
     try:
         exito = dao.deleteDisponibilidad(id_disponibilidad)
+        if exito == "EN_USO":
+            return jsonify({'success': False, 'error': 'No se puede eliminar: esta disponibilidad ya fue publicada en una agenda.'}), 409
         if exito:
             return jsonify({'success': True, 'mensaje': f'Disponibilidad {id_disponibilidad} eliminada', 'error': None}), 200
-        return jsonify({'success': False, 'error': 'No se encontró la disponibilidad o no se pudo eliminar'}), 404
+        return jsonify({'success': False, 'error': 'No se encontró la disponibilidad'}), 404
     except Exception as e:
         app.logger.error(f"Error al eliminar disponibilidad: {str(e)}")
         return jsonify({'success': False, 'error': 'Error interno'}), 500

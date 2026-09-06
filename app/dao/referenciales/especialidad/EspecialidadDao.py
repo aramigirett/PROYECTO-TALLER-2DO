@@ -109,7 +109,32 @@ class EspecialidadDao:
             cur.close()
             con.close()
 
+    def estaEnUso(self, id_especialidad):
+        """Indica si la especialidad está asignada a algún médico o agenda."""
+        sql = """
+        SELECT
+            EXISTS(SELECT 1 FROM medico WHERE id_especialidad = %s) AS en_medico,
+            EXISTS(SELECT 1 FROM agenda_cabecera WHERE id_especialidad = %s) AS en_agenda
+        """
+        conexion = Conexion()
+        con = conexion.getConexion()
+        cur = con.cursor()
+        try:
+            cur.execute(sql, (id_especialidad, id_especialidad))
+            en_medico, en_agenda = cur.fetchone()
+            return bool(en_medico or en_agenda)
+        except Exception as e:
+            app.logger.error(f"Error al verificar uso de especialidad: {str(e)}")
+            return True  # Ante la duda, bloquear el borrado
+        finally:
+            cur.close()
+            con.close()
+
     def deleteEspecialidad(self, id_especialidad):
+        if self.estaEnUso(id_especialidad):
+            app.logger.warning(f"No se puede eliminar especialidad {id_especialidad}: está en uso")
+            return "EN_USO"
+
         deleteEspecialidadSQL = """
         DELETE FROM especialidades
         WHERE id_especialidad=%s

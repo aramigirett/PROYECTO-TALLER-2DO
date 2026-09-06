@@ -281,16 +281,40 @@ class ConsultorioDao:
             cur.close()
             con.close()
     
+    def estaEnUso(self, codigo):
+        """Indica si el consultorio tiene avisos, consultas o tratamientos asociados."""
+        sql = """
+        SELECT
+            EXISTS(SELECT 1 FROM avisos_recordatorios WHERE codigo = %s) AS en_avisos,
+            EXISTS(SELECT 1 FROM consultas_cab WHERE id_consultorio = %s) AS en_consultas,
+            EXISTS(SELECT 1 FROM tratamientos WHERE id_consultorio = %s) AS en_tratamientos
+        """
+        conexion = Conexion()
+        con = conexion.getConexion()
+        cur = con.cursor()
+        try:
+            cur.execute(sql, (codigo, codigo, codigo))
+            en_avisos, en_consultas, en_tratamientos = cur.fetchone()
+            return bool(en_avisos or en_consultas or en_tratamientos)
+        except Exception as e:
+            app.logger.error(f"Error al verificar uso de consultorio: {str(e)}")
+            return True  # Ante la duda, bloquear el borrado
+        finally:
+            cur.close()
+            con.close()
+
     def deleteConsultorio(self, codigo):
         """
-        Elimina un consultorio por su código
-        
-        Args:
-            codigo (int): Código del consultorio a eliminar
-        
+        Elimina un consultorio por su código, validando antes que no esté en uso.
+
         Returns:
-            bool: True si se eliminó correctamente
+            bool | str: True si se eliminó, False si no existía, "EN_USO" si está
+            en uso por avisos, consultas o tratamientos.
         """
+        if self.estaEnUso(codigo):
+            app.logger.warning(f"No se puede eliminar consultorio {codigo}: está en uso")
+            return "EN_USO"
+
         sql = "DELETE FROM consultorio WHERE codigo = %s"
         conexion = Conexion()
         con = conexion.getConexion()

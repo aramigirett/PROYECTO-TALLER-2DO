@@ -136,8 +136,13 @@ def deleteDia(dia_id):
     diadao = DiaDao()
 
     try:
-        # Usar el retorno de eliminarDia para determinar el éxito
-        if diadao.deleteDia(dia_id):
+        exito = diadao.deleteDia(dia_id)
+        if exito == "EN_USO":
+            return jsonify({
+                'success': False,
+                'error': 'No se puede eliminar: este día está en uso en horarios de agenda o disponibilidades.'
+            }), 409
+        if exito:
             return jsonify({
                 'success': True,
                 'mensaje': f'Día con ID {dia_id} eliminado correctamente.',
@@ -146,7 +151,7 @@ def deleteDia(dia_id):
         else:
             return jsonify({
                 'success': False,
-                'error': 'No se encontró el día con el ID proporcionado o no se pudo eliminar.'
+                'error': 'No se encontró el día con el ID proporcionado.'
             }), 404
 
     except Exception as e:

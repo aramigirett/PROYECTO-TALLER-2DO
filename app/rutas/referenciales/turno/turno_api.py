@@ -145,8 +145,13 @@ def deleteTurno(id_turno):
     turnodao = TurnoDao()
 
     try:
-        # Usar el retorno de eliminarTurno para determinar el éxito
-        if turnodao.deleteTurno(id_turno):
+        exito = turnodao.deleteTurno(id_turno)
+        if exito == "EN_USO":
+            return jsonify({
+                'success': False,
+                'error': 'No se puede eliminar: este turno está en uso en horarios de agenda o disponibilidades.'
+            }), 409
+        if exito:
             return jsonify({
                 'success': True,
                 'mensaje': f'Turno con ID {id_turno} eliminado correctamente.',
@@ -155,7 +160,7 @@ def deleteTurno(id_turno):
         else:
             return jsonify({
                 'success': False,
-                'error': 'No se encontró el turno con el ID proporcionado o no se pudo eliminar.'
+                'error': 'No se encontró el turno con el ID proporcionado.'
             }), 404
 
     except Exception as e:

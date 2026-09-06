@@ -113,7 +113,31 @@ class DiaDao:
             cur.close()
             con.close()
 
+    def estaEnUso(self, id_dia):
+        """Indica si el día está usado en algún horario de agenda o disponibilidad."""
+        sql = """
+        SELECT
+            EXISTS(SELECT 1 FROM agenda_detalle WHERE id_dia = %s) AS en_agenda_detalle,
+            EXISTS(SELECT 1 FROM disponibilidad_horaria WHERE id_dia = %s) AS en_disponibilidad
+        """
+        conexion = Conexion()
+        con = conexion.getConexion()
+        cur = con.cursor()
+        try:
+            cur.execute(sql, (id_dia, id_dia))
+            en_agenda_detalle, en_disponibilidad = cur.fetchone()
+            return bool(en_agenda_detalle or en_disponibilidad)
+        except Exception as e:
+            app.logger.error(f"Error al verificar uso de dia: {str(e)}")
+            return True  # Ante la duda, bloquear el borrado
+        finally:
+            cur.close()
+            con.close()
+
     def deleteDia(self, id_dia):
+        if self.estaEnUso(id_dia):
+            app.logger.warning(f"No se puede eliminar dia {id_dia}: está en uso")
+            return "EN_USO"
 
         updateDiaSQL = """
         DELETE FROM dias

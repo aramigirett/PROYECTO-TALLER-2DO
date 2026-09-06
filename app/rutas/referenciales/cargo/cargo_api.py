@@ -122,10 +122,13 @@ def updateCargo(cargo_id):
 def deleteCargo(cargo_id):
     cargodao = CargoDao()
     try:
-        if cargodao.deleteCargo(cargo_id):
+        exito = cargodao.deleteCargo(cargo_id)
+        if exito == "EN_USO":
+            return jsonify({'success': False, 'error': 'No se puede eliminar: este cargo está en uso por uno o más funcionarios.'}), 409
+        if exito:
             return jsonify({'success': True, 'mensaje': f'Cargo con ID {cargo_id} eliminado correctamente.', 'error': None}), 200
         else:
-            return jsonify({'success': False, 'error': 'No se encontró el cargo con el ID proporcionado o no se pudo eliminar.'}), 404
+            return jsonify({'success': False, 'error': 'No se encontró el cargo con el ID proporcionado.'}), 404
     except Exception as e:
         app.logger.error(f"Error al eliminar cargo: {str(e)}")
         return jsonify({'success': False, 'error': 'Ocurrió un error interno. Consulte con el administrador.'}), 500

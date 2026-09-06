@@ -115,10 +115,13 @@ def updateConsultorio(id_consultorio):
 def deleteConsultorio(id_consultorio):
     dao = ConsultorioDao()
     try:
-        if dao.deleteConsultorio(id_consultorio):
+        exito = dao.deleteConsultorio(id_consultorio)
+        if exito == "EN_USO":
+            return jsonify({'success': False, 'error': 'No se puede eliminar: este consultorio tiene avisos, consultas o tratamientos asociados.'}), 409
+        if exito:
             return jsonify({'success': True, 'mensaje': f'Consultorio con ID {id_consultorio} eliminado correctamente.', 'error': None}), 200
         else:
-            return jsonify({'success': False, 'error': 'No se encontró el consultorio con el ID proporcionado o no se pudo eliminar.'}), 404
+            return jsonify({'success': False, 'error': 'No se encontró el consultorio con el ID proporcionado.'}), 404
     except Exception as e:
         app.logger.error(f"Error al eliminar consultorio: {str(e)}")
         return jsonify({'success': False, 'error': 'Ocurrió un error interno. Consulte con el administrador.'}), 500

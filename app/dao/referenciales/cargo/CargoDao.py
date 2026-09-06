@@ -119,7 +119,27 @@ class CargoDao:
             cur.close()
             con.close()
 
+    def estaEnUso(self, id_cargo):
+        """Indica si el cargo está asignado a algún funcionario."""
+        sql = "SELECT EXISTS(SELECT 1 FROM funcionario WHERE id_cargo = %s)"
+        conexion = Conexion()
+        con = conexion.getConexion()
+        cur = con.cursor()
+        try:
+            cur.execute(sql, (id_cargo,))
+            return bool(cur.fetchone()[0])
+        except Exception as e:
+            app.logger.error(f"Error al verificar uso de cargo: {str(e)}")
+            return True  # Ante la duda, bloquear el borrado
+        finally:
+            cur.close()
+            con.close()
+
     def deleteCargo(self, id_cargo):
+        if self.estaEnUso(id_cargo):
+            app.logger.warning(f"No se puede eliminar cargo {id_cargo}: está en uso")
+            return "EN_USO"
+
         deleteCargoSQL = """
         DELETE FROM cargo
         WHERE id_cargo=%s

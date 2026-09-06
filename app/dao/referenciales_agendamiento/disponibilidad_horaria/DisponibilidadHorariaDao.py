@@ -165,7 +165,27 @@ class DisponibilidadDao:
             cur.close()
             con.close()
 
+    def estaEnUso(self, id_disponibilidad):
+        """Indica si la disponibilidad ya fue publicada como detalle de agenda."""
+        sql = "SELECT EXISTS(SELECT 1 FROM agenda_detalle WHERE id_disponibilidad_horaria = %s)"
+        conexion = Conexion()
+        con = conexion.getConexion()
+        cur = con.cursor()
+        try:
+            cur.execute(sql, (id_disponibilidad,))
+            return bool(cur.fetchone()[0])
+        except Exception as e:
+            app.logger.error(f"Error al verificar uso de disponibilidad: {str(e)}")
+            return True  # Ante la duda, bloquear el borrado
+        finally:
+            cur.close()
+            con.close()
+
     def deleteDisponibilidad(self, id_disponibilidad):
+        if self.estaEnUso(id_disponibilidad):
+            app.logger.warning(f"No se puede eliminar disponibilidad {id_disponibilidad}: está en uso")
+            return "EN_USO"
+
         sql = "DELETE FROM disponibilidad_horaria WHERE id_disponibilidad=%s"
         conexion = Conexion()
         con = conexion.getConexion()

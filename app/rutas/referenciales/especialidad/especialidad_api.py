@@ -112,7 +112,13 @@ def updateEspecialidad(id_especialidad):
 def deleteEspecialidad(id_especialidad):
     especialidaddao = EspecialidadDao()
     try:
-        if especialidaddao.deleteEspecialidad(id_especialidad):
+        exito = especialidaddao.deleteEspecialidad(id_especialidad)
+        if exito == "EN_USO":
+            return jsonify({
+                'success': False,
+                'error': 'No se puede eliminar: esta especialidad está en uso por uno o más médicos o agendas.'
+            }), 409
+        if exito:
             return jsonify({
                 'success': True,
                 'mensaje': f'Especialidad con ID {id_especialidad} eliminada correctamente.',
@@ -121,7 +127,7 @@ def deleteEspecialidad(id_especialidad):
         else:
             return jsonify({
                 'success': False,
-                'error': 'No se encontró la especialidad con el ID proporcionado o no se pudo eliminar.'
+                'error': 'No se encontró la especialidad con el ID proporcionado.'
             }), 404
     except Exception as e:
         app.logger.error(f"Error al eliminar especialidad: {str(e)}")
