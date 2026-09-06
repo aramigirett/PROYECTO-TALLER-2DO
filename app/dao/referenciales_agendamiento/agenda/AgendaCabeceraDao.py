@@ -1,5 +1,6 @@
 from flask import current_app as app
 from app.conexion.Conexion import Conexion
+from app.dao.referenciales_agendamiento.agenda.AgendaDetalleDao import AgendaDetalleDao
 
 class AgendaCabeceraDao:
 
@@ -20,6 +21,7 @@ class AgendaCabeceraDao:
         FROM agenda_cabecera ac
         JOIN medico m ON ac.id_medico = m.id_medico
         JOIN especialidades e ON ac.id_especialidad = e.id_especialidad
+        WHERE ac.estado <> 'Inactivo'
         ORDER BY ac.fecha_agenda DESC, ac.id_agenda_cabecera DESC
         """
         conexion = Conexion()
@@ -66,7 +68,7 @@ class AgendaCabeceraDao:
         FROM agenda_cabecera ac
         JOIN medico m ON ac.id_medico = m.id_medico
         JOIN especialidades e ON ac.id_especialidad = e.id_especialidad
-        WHERE ac.id_agenda_cabecera = %s
+        WHERE ac.id_agenda_cabecera = %s AND ac.estado <> 'Inactivo'
         """
         conexion = Conexion()
         con = conexion.getConexion()
@@ -103,7 +105,7 @@ class AgendaCabeceraDao:
         sql = """
         SELECT id_agenda_cabecera
         FROM agenda_cabecera
-        WHERE id_medico = %s AND fecha_agenda = %s
+        WHERE id_medico = %s AND fecha_agenda = %s AND estado <> 'Inactivo'
         """
         params = [id_medico, fecha_agenda]
         
@@ -184,10 +186,10 @@ class AgendaCabeceraDao:
 
     def deleteCabecera(self, id_agenda_cabecera):
         """
-        Elimina una cabecera.
-        Por CASCADE, también elimina los detalles asociados.
+        Anula (baja lógica) una cabecera de agenda y, en cascada, todos
+        sus detalles (agenda_detalle) asociados.
         """
-        sql = "DELETE FROM agenda_cabecera WHERE id_agenda_cabecera=%s"
+        sql = "UPDATE agenda_cabecera SET estado='Inactivo' WHERE id_agenda_cabecera=%s"
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
@@ -195,9 +197,11 @@ class AgendaCabeceraDao:
             cur.execute(sql, (id_agenda_cabecera,))
             filas = cur.rowcount
             con.commit()
+            if filas > 0:
+                AgendaDetalleDao().cancelarDetallesPorCabecera(id_agenda_cabecera)
             return filas > 0
         except Exception as e:
-            app.logger.error(f"Error al eliminar cabecera: {str(e)}")
+            app.logger.error(f"Error al anular cabecera: {str(e)}")
             con.rollback()
             return False
         finally:

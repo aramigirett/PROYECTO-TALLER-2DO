@@ -125,7 +125,7 @@ def updateCabecera(id_cabecera):
         return jsonify({'success': False, 'error': 'Error interno'}), 500
 
 
-# 🔹 Eliminar cabecera (elimina también sus detalles por CASCADE)
+# 🔹 Anular cabecera (baja lógica; en cascada anula también sus detalles)
 @agendaapi.route('/agenda/cabeceras/<int:id_cabecera>', methods=['DELETE'])
 def deleteCabecera(id_cabecera):
     dao = AgendaCabeceraDao()
@@ -259,11 +259,16 @@ def deleteDetalle(id_detalle):
     dao = AgendaDetalleDao()
     try:
         exito = dao.deleteDetalle(id_detalle)
+        if exito == "TIENE_CITAS_ACTIVAS":
+            return jsonify({
+                'success': False,
+                'error': 'No se puede anular: este horario tiene citas activas asociadas.'
+            }), 409
         if exito:
-            return jsonify({'success': True, 'mensaje': f'Detalle {id_detalle} eliminado', 'error': None}), 200
-        return jsonify({'success': False, 'error': 'No se encontró o no se pudo eliminar'}), 404
+            return jsonify({'success': True, 'mensaje': f'Detalle {id_detalle} anulado', 'error': None}), 200
+        return jsonify({'success': False, 'error': 'No se encontró o no se pudo anular'}), 404
     except Exception as e:
-        app.logger.error(f"Error al eliminar detalle: {str(e)}")
+        app.logger.error(f"Error al anular detalle: {str(e)}")
         return jsonify({'success': False, 'error': 'Error interno'}), 500
 
 

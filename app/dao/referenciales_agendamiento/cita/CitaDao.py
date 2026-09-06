@@ -134,6 +134,23 @@ class CitaDao:
             cur.close()
             con.close()
 
+    def getIdEstadoCancelado(self):
+        """Obtiene el id_estado_cita de 'Cancelado', usado al anular citas."""
+        sql = "SELECT id_estado_cita FROM estado_cita WHERE descripcion = 'Cancelado'"
+        conexion = Conexion()
+        con = conexion.getConexion()
+        cur = con.cursor()
+        try:
+            cur.execute(sql)
+            row = cur.fetchone()
+            return row[0] if row else None
+        except Exception as e:
+            app.logger.error(f"Error al obtener id de estado Cancelado: {str(e)}")
+            return None
+        finally:
+            cur.close()
+            con.close()
+
     # ========================================
     # GESTIÓN DE ESTADOS DE CITA
     # ========================================
@@ -191,6 +208,7 @@ class CitaDao:
         JOIN agenda_cabecera ac ON cc.id_agenda_cabecera = ac.id_agenda_cabecera
         JOIN medico m ON ac.id_medico = m.id_medico
         JOIN especialidades e ON ac.id_especialidad = e.id_especialidad
+        WHERE cc.estado <> 'Inactivo'
         ORDER BY cc.fecha_registro DESC
         """
         conexion = Conexion()
@@ -241,7 +259,7 @@ class CitaDao:
         JOIN agenda_cabecera ac ON cc.id_agenda_cabecera = ac.id_agenda_cabecera
         JOIN medico m ON ac.id_medico = m.id_medico
         JOIN especialidades e ON ac.id_especialidad = e.id_especialidad
-        WHERE cc.id_cita_cabecera = %s
+        WHERE cc.id_cita_cabecera = %s AND cc.estado <> 'Inactivo'
         """
         conexion = Conexion()
         con = conexion.getConexion()
@@ -323,32 +341,36 @@ class CitaDao:
 
     def deleteCitaCabecera(self, id_cita_cabecera):
         """
-        Elimina una cabecera de cita
-        NOTA: Por CASCADE también elimina los detalles
-        IMPORTANTE: Debe devolver cupos antes de eliminar
+        Anula (baja lógica) una cabecera de cita: marca como 'Cancelado'
+        todos sus detalles activos (devolviendo cupo si correspondía) y
+        pone la cabecera en estado 'Inactivo'.
         """
-        # Primero obtenemos todos los detalles para devolver cupos
         detalles = self.getDetallesPorCabecera(id_cita_cabecera)
-        
-        sql = "DELETE FROM cita_cabecera WHERE id_cita_cabecera=%s"
+        id_estado_cancelado = self.getIdEstadoCancelado()
+
+        sql = "UPDATE cita_cabecera SET estado='Inactivo' WHERE id_cita_cabecera=%s"
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            # Devolver cupos de todos los detalles que ocupaban cupo
+            # Cancelar todos los detalles activos, devolviendo cupo si ocupaban
             estados_ocupan = self.getEstadosQueOcupanCupo()
             for detalle in detalles:
                 if detalle['id_estado_cita'] in estados_ocupan:
                     self.sumarCupoAgendaDetalle(detalle['id_agenda_detalle'])
-            
-            # Eliminar cabecera
+                cur.execute(
+                    "UPDATE cita_detalle SET id_estado_cita=%s, fecha_cambio_estado=NOW() WHERE id_cita_detalle=%s",
+                    (id_estado_cancelado, detalle['id_cita_detalle'])
+                )
+
+            # Anular cabecera
             cur.execute(sql, (id_cita_cabecera,))
             filas = cur.rowcount
             con.commit()
-            app.logger.info(f"Cabecera de cita eliminada: {id_cita_cabecera}")
+            app.logger.info(f"Cabecera de cita anulada: {id_cita_cabecera}")
             return filas > 0
         except Exception as e:
-            app.logger.error(f"Error al eliminar cabecera: {str(e)}")
+            app.logger.error(f"Error al anular cabecera: {str(e)}")
             con.rollback()
             return False
         finally:
@@ -397,7 +419,7 @@ class CitaDao:
         FROM cita_detalle cd
         JOIN estado_cita ec ON cd.id_estado_cita = ec.id_estado_cita
         JOIN agenda_detalle ad ON cd.id_agenda_detalle = ad.id_agenda_detalle
-        WHERE cd.id_cita_cabecera = %s
+        WHERE cd.id_cita_cabecera = %s AND ec.descripcion <> 'Cancelado'
         ORDER BY cd.fecha_cita, cd.hora_cita
         """
         conexion = Conexion()
@@ -651,42 +673,47 @@ class CitaDao:
 
     def deleteCitaDetalle(self, id_cita_detalle):
         """
-        Elimina un detalle de cita
-        IMPORTANTE: Devuelve el cupo si el estado ocupaba cupo
+        Anula (baja lógica) un detalle de cita: lo pasa a estado 'Cancelado'
+        y devuelve el cupo a la agenda si el estado anterior lo ocupaba.
         """
         app.logger.info(f"=" * 60)
-        app.logger.info(f"🗑️ INICIANDO ELIMINACIÓN DE CITA DETALLE {id_cita_detalle}")
+        app.logger.info(f"🗑️ INICIANDO ANULACIÓN DE CITA DETALLE {id_cita_detalle}")
         app.logger.info(f"=" * 60)
-        
-        # Obtener datos antes de eliminar
+
+        # Obtener datos antes de anular
         detalle = self.getDetalleById(id_cita_detalle)
         if not detalle:
             app.logger.error(f"❌ No se encontró el detalle con ID: {id_cita_detalle}")
             return False
 
-        sql = "DELETE FROM cita_detalle WHERE id_cita_detalle=%s"
+        id_estado_cancelado = self.getIdEstadoCancelado()
+        if not id_estado_cancelado:
+            app.logger.error("❌ No existe un estado 'Cancelado' configurado en estado_cita")
+            return False
+
+        sql = "UPDATE cita_detalle SET id_estado_cita=%s, fecha_cambio_estado=NOW() WHERE id_cita_detalle=%s"
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
             # Si ocupaba cupo, devolverlo
             estados_ocupan = self.getEstadosQueOcupanCupo()
-            
+
             app.logger.info(f"🔍 Estado de la cita: {detalle['id_estado_cita']}")
             app.logger.info(f"🔍 ¿Ocupaba cupo?: {detalle['id_estado_cita'] in estados_ocupan}")
-            
+
             if detalle['id_estado_cita'] in estados_ocupan:
                 app.logger.info(f"➕ Devolviendo cupo a agenda {detalle['id_agenda_detalle']}")
                 self.sumarCupoAgendaDetalle(detalle['id_agenda_detalle'])
-            
-            cur.execute( sql, (id_cita_detalle,))
+
+            cur.execute(sql, (id_estado_cancelado, id_cita_detalle))
             filas = cur.rowcount
             con.commit()
-            app.logger.info(f"✅ COMMIT EXITOSO - Detalle de cita eliminado: {id_cita_detalle}")
+            app.logger.info(f"✅ COMMIT EXITOSO - Detalle de cita anulado: {id_cita_detalle}")
             app.logger.info(f"=" * 60)
             return filas > 0
         except Exception as e:
-            app.logger.error(f"❌ Error al eliminar detalle: {str(e)}")
+            app.logger.error(f"❌ Error al anular detalle: {str(e)}")
             con.rollback()
             return False
         finally:

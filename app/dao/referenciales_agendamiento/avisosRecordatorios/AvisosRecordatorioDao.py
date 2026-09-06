@@ -30,6 +30,7 @@ class AvisoRecordatorioDao:
         JOIN funcionario f ON a.id_funcionario = f.id_funcionario
         LEFT JOIN medico m ON a.id_medico = m.id_medico
         LEFT JOIN consultorio c ON a.codigo = c.codigo
+        WHERE a.estado <> 'Inactivo'
         ORDER BY a.fecha_cita DESC, a.hora_cita DESC;
         """
         conexion = Conexion()
@@ -101,7 +102,7 @@ class AvisoRecordatorioDao:
         JOIN funcionario f ON a.id_funcionario = f.id_funcionario
         LEFT JOIN medico m ON a.id_medico = m.id_medico
         LEFT JOIN consultorio c ON a.codigo = c.codigo
-        WHERE a.id_aviso = %s;
+        WHERE a.id_aviso = %s AND a.estado <> 'Inactivo';
         """
         conexion = Conexion()
         con = conexion.getConexion()
@@ -311,15 +312,16 @@ class AvisoRecordatorioDao:
     #   ELIMINAR AVISO
     # ==============================
     def deleteAviso(self, id_aviso):
-        sql = "DELETE FROM avisos_recordatorios WHERE id_aviso = %s;"
+        sql = "UPDATE avisos_recordatorios SET estado = 'Inactivo' WHERE id_aviso = %s;"
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
             cur.execute(sql, (id_aviso,))
+            filas = cur.rowcount
             con.commit()
-            app.logger.info(f"✅ Aviso {id_aviso} eliminado correctamente")
-            return True
+            app.logger.info(f"✅ Aviso {id_aviso} anulado correctamente")
+            return filas > 0
         except Exception as e:
             con.rollback()
             app.logger.error(f"❌ Error en AvisoRecordatorioDao.deleteAviso {id_aviso}: {e}")

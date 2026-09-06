@@ -22,7 +22,7 @@ class AgendaDetalleDao:
         FROM agenda_detalle ad
         JOIN dias dia ON ad.id_dia = dia.id_dia
         JOIN turnos t ON ad.id_turno = t.id_turno
-        WHERE ad.id_agenda_cabecera = %s
+        WHERE ad.id_agenda_cabecera = %s AND ad.estado_detalle <> 'Cancelado'
         ORDER BY ad.hora_inicio
         """
         conexion = Conexion()
@@ -73,7 +73,7 @@ class AgendaDetalleDao:
         FROM agenda_detalle ad
         JOIN dias dia ON ad.id_dia = dia.id_dia
         JOIN turnos t ON ad.id_turno = t.id_turno
-        WHERE ad.id_agenda_detalle = %s
+        WHERE ad.id_agenda_detalle = %s AND ad.estado_detalle <> 'Cancelado'
         """
         conexion = Conexion()
         con = conexion.getConexion()
@@ -110,6 +110,7 @@ class AgendaDetalleDao:
         SELECT id_agenda_detalle
         FROM agenda_detalle
         WHERE id_agenda_cabecera = %s AND id_disponibilidad_horaria = %s
+              AND estado_detalle <> 'Cancelado'
         """
         conexion = Conexion()
         con = conexion.getConexion()
@@ -194,9 +195,42 @@ class AgendaDetalleDao:
         
         return ids_creados if ids_creados else False
 
+    def tieneCitasActivas(self, id_agenda_detalle):
+        """
+        Indica si el detalle tiene cita_detalle en un estado que ocupa cupo
+        (Reservado/Confirmado/Realizado). Se usa para bloquear la anulación
+        de un horario que ya tiene pacientes agendados.
+        """
+        sql = """
+        SELECT 1
+        FROM cita_detalle cd
+        JOIN estado_cita ec ON cd.id_estado_cita = ec.id_estado_cita
+        WHERE cd.id_agenda_detalle = %s AND ec.ocupa_cupo = TRUE
+        LIMIT 1
+        """
+        conexion = Conexion()
+        con = conexion.getConexion()
+        cur = con.cursor()
+        try:
+            cur.execute(sql, (id_agenda_detalle,))
+            return cur.fetchone() is not None
+        except Exception as e:
+            app.logger.error(f"Error al verificar citas activas del detalle: {str(e)}")
+            return True  # Ante la duda, bloquear la anulación
+        finally:
+            cur.close()
+            con.close()
+
     def deleteDetalle(self, id_agenda_detalle):
-        """Elimina un detalle específico"""
-        sql = "DELETE FROM agenda_detalle WHERE id_agenda_detalle=%s"
+        """
+        Anula (baja lógica) un detalle específico, salvo que tenga citas
+        activas asociadas, en cuyo caso se bloquea la anulación.
+        """
+        if self.tieneCitasActivas(id_agenda_detalle):
+            app.logger.warning(f"No se puede anular detalle {id_agenda_detalle}: tiene citas activas")
+            return "TIENE_CITAS_ACTIVAS"
+
+        sql = "UPDATE agenda_detalle SET estado_detalle='Cancelado' WHERE id_agenda_detalle=%s"
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
@@ -206,9 +240,37 @@ class AgendaDetalleDao:
             con.commit()
             return filas > 0
         except Exception as e:
-            app.logger.error(f"Error al eliminar detalle: {str(e)}")
+            app.logger.error(f"Error al anular detalle: {str(e)}")
             con.rollback()
             return False
+        finally:
+            cur.close()
+            con.close()
+
+    def cancelarDetallesPorCabecera(self, id_agenda_cabecera):
+        """
+        Marca como 'Cancelado' todos los detalles activos de una cabecera.
+        Uso interno: cascada al anular la cabecera completa (no aplica el
+        bloqueo por citas activas de deleteDetalle, ya que anular el día
+        entero es una decisión ya tomada a nivel cabecera).
+        """
+        sql = """
+        UPDATE agenda_detalle
+        SET estado_detalle = 'Cancelado'
+        WHERE id_agenda_cabecera = %s AND estado_detalle <> 'Cancelado'
+        """
+        conexion = Conexion()
+        con = conexion.getConexion()
+        cur = con.cursor()
+        try:
+            cur.execute(sql, (id_agenda_cabecera,))
+            filas = cur.rowcount
+            con.commit()
+            return filas
+        except Exception as e:
+            app.logger.error(f"Error al anular detalles de la cabecera {id_agenda_cabecera}: {str(e)}")
+            con.rollback()
+            return 0
         finally:
             cur.close()
             con.close()
