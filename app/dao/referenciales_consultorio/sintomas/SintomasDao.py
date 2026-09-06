@@ -125,7 +125,34 @@ class SintomaDao:
             cur.close()
             con.close()
 
+    def estaEnUso(self, id_sintoma):
+        """Indica si el síntoma está referenciado en algún detalle de consulta."""
+        sql = "SELECT EXISTS(SELECT 1 FROM consultas_detalle WHERE id_sintoma = %s)"
+        conexion = Conexion()
+        con = conexion.getConexion()
+        cur = con.cursor()
+        try:
+            cur.execute(sql, (id_sintoma,))
+            return cur.fetchone()[0]
+        except Exception as e:
+            app.logger.error(f"Error al verificar uso del síntoma: {str(e)}")
+            return True  # Ante la duda, bloquear el borrado
+        finally:
+            cur.close()
+            con.close()
+
     def deleteSintoma(self, id_sintoma):
+        """
+        Elimina un síntoma por su ID, validando antes que no esté en uso.
+
+        Returns:
+            bool | str: True si se eliminó, False si no existía, "EN_USO" si está
+            en uso en algún detalle de consulta.
+        """
+        if self.estaEnUso(id_sintoma):
+            app.logger.warning(f"No se puede eliminar síntoma {id_sintoma}: está en uso")
+            return "EN_USO"
+
         sql = """
         DELETE FROM sintoma WHERE id_sintoma = %s
         """

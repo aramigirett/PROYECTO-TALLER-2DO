@@ -135,137 +135,166 @@ class ConsultaDao:
 
     def guardarConsulta(self, datos):
         """
-        Inserta una nueva consulta
+        Registra una nueva consulta médica a partir de una Cita ya Confirmada
+        (cita_detalle.id_estado_cita = 'Confirmado').
+
+        Paciente, Médico, Consultorio, Fecha y Hora NO se toman del formulario:
+        se derivan siempre de la cita (cita_detalle -> cita_cabecera -> agenda_cabecera),
+        para que no puedan quedar desincronizados de lo que realmente se reservó.
+
+        Al registrar la consulta, la cita pasa a estado 'Realizado' en la misma
+        transacción (todo o nada).
+
+        Retorna un dict:
+          {'id_consulta_cab': N}  en éxito
+          {'error': 'CITA_NO_ENCONTRADA' | 'CITA_NO_CONFIRMADA' | 'CITA_YA_TIENE_CONSULTA' | 'ERROR_INTERNO'}
         """
-        insertSQL = """
-        INSERT INTO consultas_cab(
-            id_cita,
-            id_paciente,
-            id_medico,
-            id_consultorio,
-            id_funcionario,
-            fecha_cita,
-            hora_cita,
-            duracion_minutos,
-            estado
-        ) VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s)
-        RETURNING id_consulta_cab
-        """
-        
+        id_cita = datos.get('id_cita')
+
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
-        
+
         try:
-            cur.execute(insertSQL, (
-                datos.get('id_cita'),
-                datos['id_paciente'],
-                datos['id_medico'],
-                datos['id_consultorio'],
+            cur.execute("""
+                SELECT cd.fecha_cita, cd.hora_cita, ec.descripcion,
+                       cc.id_paciente, ac.id_medico, ac.id_consultorio
+                FROM cita_detalle cd
+                JOIN estado_cita ec ON cd.id_estado_cita = ec.id_estado_cita
+                JOIN cita_cabecera cc ON cd.id_cita_cabecera = cc.id_cita_cabecera
+                JOIN agenda_cabecera ac ON cc.id_agenda_cabecera = ac.id_agenda_cabecera
+                WHERE cd.id_cita_detalle = %s
+            """, (id_cita,))
+            cita = cur.fetchone()
+
+            if not cita:
+                return {'error': 'CITA_NO_ENCONTRADA'}
+
+            fecha_cita, hora_cita, estado_descripcion, id_paciente, id_medico, id_consultorio = cita
+
+            if estado_descripcion != 'Confirmado':
+                return {'error': 'CITA_NO_CONFIRMADA'}
+
+            cur.execute("SELECT 1 FROM consultas_cab WHERE id_cita = %s", (id_cita,))
+            if cur.fetchone():
+                return {'error': 'CITA_YA_TIENE_CONSULTA'}
+
+            cur.execute("""
+                INSERT INTO consultas_cab(
+                    id_cita, id_paciente, id_medico, id_consultorio, id_funcionario,
+                    fecha_cita, hora_cita, duracion_minutos, estado
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id_consulta_cab
+            """, (
+                id_cita, id_paciente, id_medico, id_consultorio,
                 datos.get('id_funcionario'),
-                datos['fecha_cita'],
-                datos['hora_cita'],
+                fecha_cita, hora_cita,
                 datos.get('duracion_minutos'),
                 datos.get('estado', 'programada')
             ))
-            
             consulta_id = cur.fetchone()[0]
+
+            cur.execute("SELECT id_estado_cita FROM estado_cita WHERE descripcion = 'Realizado'")
+            row = cur.fetchone()
+            if not row:
+                raise Exception("No existe el estado 'Realizado' en estado_cita")
+            id_estado_realizado = row[0]
+
+            cur.execute(
+                "UPDATE cita_detalle SET id_estado_cita = %s, fecha_cambio_estado = NOW() WHERE id_cita_detalle = %s",
+                (id_estado_realizado, id_cita)
+            )
+
             con.commit()
-            return consulta_id
-            
+            return {'id_consulta_cab': consulta_id}
+
         except Exception as e:
             app.logger.error(f"Error al guardar consulta: {str(e)}")
             con.rollback()
-            return None
-            
+            return {'error': 'ERROR_INTERNO'}
+
         finally:
             cur.close()
             con.close()
 
     def updateConsulta(self, id_consulta_cab, datos):
         """
-        Actualiza una consulta existente
+        Actualiza una consulta existente.
+        Solo Duración y Estado (de la Consulta, no de la Cita) son editables:
+        Cita, Paciente, Médico, Consultorio, Fecha y Hora quedan fijos desde
+        el registro inicial (heredados de la Cita).
         """
         updateSQL = """
         UPDATE consultas_cab
-        SET 
-            id_paciente = %s,
-            id_medico = %s,
-            id_consultorio = %s,
-            id_funcionario = %s,
-            fecha_cita = %s,
-            hora_cita = %s,
+        SET
             duracion_minutos = %s,
             estado = %s
         WHERE id_consulta_cab = %s
         """
-        
+
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
-        
+
         try:
             cur.execute(updateSQL, (
-                datos['id_paciente'],
-                datos['id_medico'],
-                datos['id_consultorio'],
-                datos.get('id_funcionario'),
-                datos['fecha_cita'],
-                datos['hora_cita'],
                 datos.get('duracion_minutos'),
                 datos.get('estado', 'programada'),
                 id_consulta_cab
             ))
-            
+
             filas_afectadas = cur.rowcount
             con.commit()
             return filas_afectadas > 0
-            
+
         except Exception as e:
             app.logger.error(f"Error al actualizar consulta: {str(e)}")
             con.rollback()
             return False
-            
+
         finally:
             cur.close()
             con.close()
 
     def deleteConsulta(self, id_consulta_cab):
         """
-        Soft Delete: marca como inactivo en lugar de eliminar
+        Anula (baja lógica) una consulta, siempre que no tenga ya registrada
+        Ficha Médica, Diagnóstico o Tratamiento (en ese caso queda historial
+        clínico real y no se puede deshacer el registro).
+
+        Retorna True si anuló, False si no existía, "EN_USO" si está bloqueada.
         """
-        deleteSQL = """
-        UPDATE consultas_cab
-        SET activo = false
-        WHERE id_consulta_cab = %s
-        """
-        
-        deleteFichaSQL = """
-        UPDATE ficha_medica_consulta
-        SET activo = false
-        WHERE id_consulta_cab = %s
-        """
-        
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
-        
+
         try:
-            # Marcar ficha como inactiva
-            cur.execute(deleteFichaSQL, (id_consulta_cab,))
-            
-            # Marcar consulta como inactiva
-            cur.execute(deleteSQL, (id_consulta_cab,))
-            
+            cur.execute("""
+                SELECT
+                    EXISTS(SELECT 1 FROM ficha_medica_consulta WHERE id_consulta_cab = %s) AS tiene_ficha,
+                    EXISTS(
+                        SELECT 1 FROM diagnosticos d
+                        JOIN consultas_detalle cd ON d.id_consulta_detalle = cd.id_consulta_detalle
+                        WHERE cd.id_consulta_cab = %s
+                    ) AS tiene_diagnostico,
+                    EXISTS(SELECT 1 FROM tratamientos WHERE id_consulta_cab = %s) AS tiene_tratamiento
+            """, (id_consulta_cab, id_consulta_cab, id_consulta_cab))
+            tiene_ficha, tiene_diagnostico, tiene_tratamiento = cur.fetchone()
+
+            if tiene_ficha or tiene_diagnostico or tiene_tratamiento:
+                app.logger.warning(f"No se puede anular consulta {id_consulta_cab}: tiene historial clínico asociado")
+                return "EN_USO"
+
+            cur.execute("UPDATE consultas_cab SET activo = false WHERE id_consulta_cab = %s", (id_consulta_cab,))
             rows_affected = cur.rowcount
             con.commit()
             return rows_affected > 0
-            
+
         except Exception as e:
             app.logger.error(f"Error al eliminar consulta: {str(e)}")
             con.rollback()
             return False
-            
+
         finally:
             cur.close()
             con.close()

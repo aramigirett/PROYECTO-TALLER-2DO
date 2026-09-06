@@ -7,12 +7,14 @@ class AgendaCabeceraDao:
     def getCabeceras(self):
         """Obtiene todas las cabeceras de agenda con datos relacionados"""
         sql = """
-        SELECT 
+        SELECT
             ac.id_agenda_cabecera,
             ac.id_medico,
             (m.nombre || ' ' || m.apellido) AS medico_nombre,
             ac.id_especialidad,
             e.nombre_especialidad AS especialidad,
+            ac.id_consultorio,
+            co.nombre_consultorio,
             ac.fecha_agenda,
             ac.estado,
             ac.id_funcionario,
@@ -21,6 +23,7 @@ class AgendaCabeceraDao:
         FROM agenda_cabecera ac
         JOIN medico m ON ac.id_medico = m.id_medico
         JOIN especialidades e ON ac.id_especialidad = e.id_especialidad
+        JOIN consultorio co ON ac.id_consultorio = co.codigo
         WHERE ac.estado <> 'Inactivo'
         ORDER BY ac.fecha_agenda DESC, ac.id_agenda_cabecera DESC
         """
@@ -37,11 +40,13 @@ class AgendaCabeceraDao:
                     'medico_nombre': r[2],
                     'id_especialidad': r[3],
                     'especialidad': r[4],
-                    'fecha_agenda': str(r[5]),
-                    'estado': r[6],
-                    'id_funcionario': r[7],
-                    'fecha_registro': str(r[8]) if r[8] else None,
-                    'observaciones': r[9]
+                    'id_consultorio': r[5],
+                    'nombre_consultorio': r[6],
+                    'fecha_agenda': str(r[7]),
+                    'estado': r[8],
+                    'id_funcionario': r[9],
+                    'fecha_registro': str(r[10]) if r[10] else None,
+                    'observaciones': r[11]
                 } for r in rows
             ]
         except Exception as e:
@@ -54,12 +59,14 @@ class AgendaCabeceraDao:
     def getCabeceraById(self, id_agenda_cabecera):
         """Obtiene una cabecera por ID"""
         sql = """
-        SELECT 
+        SELECT
             ac.id_agenda_cabecera,
             ac.id_medico,
             (m.nombre || ' ' || m.apellido) AS medico_nombre,
             ac.id_especialidad,
             e.nombre_especialidad AS especialidad,
+            ac.id_consultorio,
+            co.nombre_consultorio,
             ac.fecha_agenda,
             ac.estado,
             ac.id_funcionario,
@@ -68,6 +75,7 @@ class AgendaCabeceraDao:
         FROM agenda_cabecera ac
         JOIN medico m ON ac.id_medico = m.id_medico
         JOIN especialidades e ON ac.id_especialidad = e.id_especialidad
+        JOIN consultorio co ON ac.id_consultorio = co.codigo
         WHERE ac.id_agenda_cabecera = %s AND ac.estado <> 'Inactivo'
         """
         conexion = Conexion()
@@ -83,11 +91,13 @@ class AgendaCabeceraDao:
                     'medico_nombre': r[2],
                     'id_especialidad': r[3],
                     'especialidad': r[4],
-                    'fecha_agenda': str(r[5]),
-                    'estado': r[6],
-                    'id_funcionario': r[7],
-                    'fecha_registro': str(r[8]) if r[8] else None,
-                    'observaciones': r[9]
+                    'id_consultorio': r[5],
+                    'nombre_consultorio': r[6],
+                    'fecha_agenda': str(r[7]),
+                    'estado': r[8],
+                    'id_funcionario': r[9],
+                    'fecha_registro': str(r[10]) if r[10] else None,
+                    'observaciones': r[11]
                 }
             return None
         except Exception as e:
@@ -126,7 +136,7 @@ class AgendaCabeceraDao:
             cur.close()
             con.close()
 
-    def guardarCabecera(self, id_medico, id_especialidad, fecha_agenda, estado, id_funcionario, observaciones=None):
+    def guardarCabecera(self, id_medico, id_especialidad, id_consultorio, fecha_agenda, estado, id_funcionario, observaciones=None):
         """Crea una nueva cabecera de agenda"""
         # Validar duplicado
         if self.existeCabecera(id_medico, fecha_agenda):
@@ -135,15 +145,15 @@ class AgendaCabeceraDao:
 
         sql = """
         INSERT INTO agenda_cabecera(
-            id_medico, id_especialidad, fecha_agenda, estado, id_funcionario, observaciones
-        ) VALUES (%s, %s, %s, %s, %s, %s)
+            id_medico, id_especialidad, id_consultorio, fecha_agenda, estado, id_funcionario, observaciones
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s)
         RETURNING id_agenda_cabecera
         """
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(sql, (id_medico, id_especialidad, fecha_agenda, estado, id_funcionario, observaciones))
+            cur.execute(sql, (id_medico, id_especialidad, id_consultorio, fecha_agenda, estado, id_funcionario, observaciones))
             new_id = cur.fetchone()[0]
             con.commit()
             return new_id
@@ -155,7 +165,7 @@ class AgendaCabeceraDao:
             cur.close()
             con.close()
 
-    def updateCabecera(self, id_agenda_cabecera, id_medico, id_especialidad, fecha_agenda, estado, id_funcionario, observaciones=None):
+    def updateCabecera(self, id_agenda_cabecera, id_medico, id_especialidad, id_consultorio, fecha_agenda, estado, id_funcionario, observaciones=None):
         """Actualiza una cabecera existente"""
         # Validar duplicado (excluyendo el registro actual)
         if self.existeCabecera(id_medico, fecha_agenda, excluir_id=id_agenda_cabecera):
@@ -164,7 +174,7 @@ class AgendaCabeceraDao:
 
         sql = """
         UPDATE agenda_cabecera
-        SET id_medico=%s, id_especialidad=%s, fecha_agenda=%s, 
+        SET id_medico=%s, id_especialidad=%s, id_consultorio=%s, fecha_agenda=%s,
             estado=%s, id_funcionario=%s, observaciones=%s
         WHERE id_agenda_cabecera=%s
         """
@@ -172,7 +182,7 @@ class AgendaCabeceraDao:
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(sql, (id_medico, id_especialidad, fecha_agenda, estado, id_funcionario, observaciones, id_agenda_cabecera))
+            cur.execute(sql, (id_medico, id_especialidad, id_consultorio, fecha_agenda, estado, id_funcionario, observaciones, id_agenda_cabecera))
             filas = cur.rowcount
             con.commit()
             return filas > 0

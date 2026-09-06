@@ -28,7 +28,7 @@ CATALOGO_MENU = [
     {"etiqueta": "Turno", "endpoint": "turno.turnoIndex", "icono": "fa-hourglass", "modulo": "Referenciales Agendamiento", "permiso_requerido": None},
 
     # Referenciales Consultorio
-    {"etiqueta": "Tipo diagnóstico", "endpoint": "diagnostico.diagnosticoIndex", "icono": "fa-microscope", "modulo": "Referenciales Consultorio", "permiso_requerido": None},
+    {"etiqueta": "Tipo diagnóstico", "endpoint": "tipodiagnostico.tipoDiagnosticoIndex", "icono": "fa-microscope", "modulo": "Referenciales Consultorio", "permiso_requerido": None},
     {"etiqueta": "Síntomas", "endpoint": "sintoma.sintomaIndex", "icono": "fa-heartbeat", "modulo": "Referenciales Consultorio", "permiso_requerido": None},
 
     # Módulo Consultorio

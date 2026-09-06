@@ -6,10 +6,10 @@ import re
 def texto_valido(texto):
     return re.fullmatch(r'[A-Za-zÁÉÍÓÚÑáéíóúñ\s/]+', texto) is not None  # letras, espacios y "/"
 
-diagnosticoapi = Blueprint('diagnosticoapi', __name__)
+tipodiagnosticoapi = Blueprint('tipodiagnosticoapi', __name__)
 
 # Obtener todos los diagnósticos
-@diagnosticoapi.route('/diagnosticos', methods=['GET'])
+@tipodiagnosticoapi.route('/diagnosticos', methods=['GET'])
 def getDiagnosticos():
     dao = TipoDiagnosticoDao()
     try:
@@ -21,7 +21,7 @@ def getDiagnosticos():
 
 
 # Obtener un diagnóstico por ID
-@diagnosticoapi.route('/diagnosticos/<int:id_tipo_diagnostico>', methods=['GET'])
+@tipodiagnosticoapi.route('/diagnosticos/<int:id_tipo_diagnostico>', methods=['GET'])
 def getDiagnostico(id_tipo_diagnostico):
     dao = TipoDiagnosticoDao()
     try:
@@ -36,7 +36,7 @@ def getDiagnostico(id_tipo_diagnostico):
 
 
 # Agregar un nuevo diagnóstico
-@diagnosticoapi.route('/diagnosticos', methods=['POST'])
+@tipodiagnosticoapi.route('/diagnosticos', methods=['POST'])
 def addDiagnostico():
     data = request.get_json()
     dao = TipoDiagnosticoDao()
@@ -74,7 +74,7 @@ def addDiagnostico():
 
 
 # Actualizar un diagnóstico
-@diagnosticoapi.route('/diagnosticos/<int:id_tipo_diagnostico>', methods=['PUT'])
+@tipodiagnosticoapi.route('/diagnosticos/<int:id_tipo_diagnostico>', methods=['PUT'])
 def updateDiagnostico(id_tipo_diagnostico):
     data = request.get_json()
     dao = TipoDiagnosticoDao()
@@ -108,12 +108,19 @@ def updateDiagnostico(id_tipo_diagnostico):
 
 
 # Eliminar un diagnóstico
-@diagnosticoapi.route('/diagnosticos/<int:id_tipo_diagnostico>', methods=['DELETE'])
+@tipodiagnosticoapi.route('/diagnosticos/<int:id_tipo_diagnostico>', methods=['DELETE'])
 def deleteDiagnostico(id_tipo_diagnostico):
     dao = TipoDiagnosticoDao()
     try:
-        eliminado = dao.deleteTipoDiagnostico(id_tipo_diagnostico)
-        if eliminado:
+        resultado = dao.deleteTipoDiagnostico(id_tipo_diagnostico)
+
+        if resultado == "EN_USO":
+            return jsonify({
+                'success': False,
+                'error': 'No se puede eliminar: este tipo de diagnóstico está en uso en consultas, diagnósticos o tratamientos.'
+            }), 409
+
+        if resultado:
             return jsonify({'success': True, 'mensaje': f'Diagnóstico con ID {id_tipo_diagnostico} eliminado correctamente.', 'error': None}), 200
         else:
             return jsonify({'success': False, 'error': 'No se encontró el diagnóstico o no se pudo eliminar.'}), 404

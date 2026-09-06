@@ -31,9 +31,9 @@ Agenda Médica
             <tr>
               <th><i class="fas fa-user-md"></i> Médico</th>
               <th><i class="fas fa-stethoscope"></i> Especialidad</th>
+              <th><i class="fas fa-door-open"></i> Consultorio</th>
               <th><i class="fas fa-calendar-day"></i> Fecha</th>
               <th><i class="fas fa-toggle-on"></i> Estado</th>
-              <th><i class="fas fa-calendar-check"></i> Registrada</th>
               <th><i class="fas fa-cogs"></i> Acciones</th>
             </tr>
           </thead>
@@ -93,6 +93,23 @@ Agenda Médica
                        placeholder="Click para seleccionar especialidad" readonly>
                 <div class="input-group-append">
                   <button class="btn btn-outline-info" type="button" id="btnBuscarEspecialidad">
+                    <i class="fas fa-search"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Consultorio -->
+            <div class="col-md-6 mb-3">
+              <label class="font-weight-bold">
+                <i class="fas fa-door-open text-success"></i> Consultorio *
+              </label>
+              <input type="hidden" id="id_consultorio">
+              <div class="input-group">
+                <input type="text" class="form-control" id="txtConsultorio"
+                       placeholder="Click para seleccionar consultorio" readonly>
+                <div class="input-group-append">
+                  <button class="btn btn-outline-success" type="button" id="btnBuscarConsultorio">
                     <i class="fas fa-search"></i>
                   </button>
                 </div>
@@ -333,6 +350,35 @@ Agenda Médica
     </div>
   </div>
 
+  <!-- Modal Buscar Consultorio -->
+  <div class="modal fade" id="modalBuscarConsultorio" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <div class="modal-header bg-success text-white">
+          <h5 class="modal-title">
+            <i class="fas fa-door-open"></i> Seleccionar Consultorio
+          </h5>
+          <button type="button" class="close text-white" data-dismiss="modal">
+            <span>&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="table-responsive">
+            <table class="table table-hover" id="tblConsultoriosAgenda">
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <!-- Estilos personalizados -->
@@ -418,7 +464,8 @@ const initDatatableCabeceras = () => {
     columns: [
       { data: 'medico_nombre' },
       { data: 'especialidad' },
-      { 
+      { data: 'nombre_consultorio' },
+      {
         data: 'fecha_agenda',
         render: (data) => formatearFecha(data)
       },
@@ -430,17 +477,9 @@ const initDatatableCabeceras = () => {
             : '<span class="badge-custom-inactivo"><i class="fas fa-times-circle"></i> Inactivo</span>';
         }
       },
-      { 
-        data: 'fecha_registro',
-        render: (data) => {
-          if (!data) return '-';
-          const fecha = new Date(data);
-          return fecha.toLocaleString('es-PY');
-        }
-      },
       {
         data: (row) => `
-          <button class="btn btn-info btn-sm-custom" name="btn_ver_detalles" 
+          <button class="btn btn-info btn-sm-custom" name="btn_ver_detalles"
                   data-id="${row.id_agenda_cabecera}" title="Ver Detalles">
             <i class="fas fa-eye"></i>
           </button>
@@ -522,6 +561,40 @@ const initDatatableEspecialidades = () => {
 };
 
 // ========================================
+// DATATABLE: CONSULTORIOS (para seleccionar)
+// ========================================
+const initDatatableConsultoriosAgenda = () => {
+  $('#tblConsultoriosAgenda').DataTable({
+    language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
+    ajax: {
+      url: '/api/v1/consultorios',
+      dataSrc: 'data'
+    },
+    columns: [
+      { data: 'nombre_consultorio' },
+      {
+        data: (row) => `
+          <button class="btn btn-success btn-sm" name="btn_seleccionar_consultorio"
+                  data-id="${row.codigo}"
+                  data-nombre="${row.nombre_consultorio}">
+            <i class="fas fa-check"></i> Seleccionar
+          </button>
+        `
+      }
+    ]
+  });
+
+  // Evento: Seleccionar consultorio
+  $('#tblConsultoriosAgenda').on('click', 'button[name="btn_seleccionar_consultorio"]', function() {
+    const id = $(this).data('id');
+    const nombre = $(this).data('nombre');
+    $('#id_consultorio').val(id);
+    $('#txtConsultorio').val(nombre);
+    $('#modalBuscarConsultorio').modal('hide');
+  });
+};
+
+// ========================================
 // FUNCIÓN: Agregar nueva cabecera
 // ========================================
 const agregar = () => {
@@ -532,6 +605,8 @@ const agregar = () => {
     $('#txtMedico').val('');
     $('#id_especialidad').val('');
     $('#txtEspecialidad').val('');
+    $('#id_consultorio').val('');
+    $('#txtConsultorio').val('');
     $('#fecha_agenda').val('');
     $('#estado').val('Activo');
     $('#observaciones').val('');
@@ -548,6 +623,7 @@ const guardarCabecera = () => {
     const payload = {
       id_medico: $('#id_medico').val(),
       id_especialidad: $('#id_especialidad').val(),
+      id_consultorio: $('#id_consultorio').val(),
       fecha_agenda: $('#fecha_agenda').val(),
       estado: $('#estado').val(),
       id_funcionario: $('#id_funcionario').val(),
@@ -555,7 +631,7 @@ const guardarCabecera = () => {
     };
 
     // Validar campos obligatorios
-    if (!payload.id_medico || !payload.id_especialidad || !payload.fecha_agenda) {
+    if (!payload.id_medico || !payload.id_especialidad || !payload.id_consultorio || !payload.fecha_agenda) {
       Swal.fire('Error', 'Complete todos los campos obligatorios', 'error');
       return;
     }
@@ -603,6 +679,8 @@ const editar = () => {
         $('#txtMedico').val(cab.medico_nombre);
         $('#id_especialidad').val(cab.id_especialidad);
         $('#txtEspecialidad').val(cab.especialidad);
+        $('#id_consultorio').val(cab.id_consultorio);
+        $('#txtConsultorio').val(cab.nombre_consultorio);
         $('#fecha_agenda').val(cab.fecha_agenda);
         $('#estado').val(cab.estado);
         $('#observaciones').val(cab.observaciones || '');
@@ -864,6 +942,10 @@ const abrirModalesBusqueda = () => {
     $('#modalBuscarEspecialidad').modal('show');
   });
 
+  $('#btnBuscarConsultorio').on('click', () => {
+    $('#modalBuscarConsultorio').modal('show');
+  });
+
   // También permitir click en el input
   $('#txtMedico').on('click', () => {
     $('#modalBuscarMedico').modal('show');
@@ -871,6 +953,10 @@ const abrirModalesBusqueda = () => {
 
   $('#txtEspecialidad').on('click', () => {
     $('#modalBuscarEspecialidad').modal('show');
+  });
+
+  $('#txtConsultorio').on('click', () => {
+    $('#modalBuscarConsultorio').modal('show');
   });
 };
 
@@ -894,6 +980,7 @@ $(function() {
   initDatatableCabeceras();
   initDatatableMedicos();
   initDatatableEspecialidades();
+  initDatatableConsultoriosAgenda();
 
   // Registrar eventos
   agregar();

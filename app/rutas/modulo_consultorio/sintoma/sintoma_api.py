@@ -157,7 +157,15 @@ def updateSintoma(id_sintoma):
 def deleteSintoma(id_sintoma):
     sdao = SintomaDao()
     try:
-        if sdao.deleteSintoma(id_sintoma):
+        resultado = sdao.deleteSintoma(id_sintoma)
+
+        if resultado == "EN_USO":
+            return jsonify({
+                'success': False,
+                'error': 'No se puede eliminar: este síntoma está en uso en una o más consultas.'
+            }), 409
+
+        if resultado:
             return jsonify({
                 'success': True,
                 'mensaje': f'Síntoma con ID {id_sintoma} eliminado correctamente.',

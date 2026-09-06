@@ -35,7 +35,6 @@ Gestión de Citas
               <th><i class="fas fa-user-md"></i> Médico</th>
               <th><i class="fas fa-stethoscope"></i> Especialidad</th>
               <th><i class="fas fa-calendar-day"></i> Fecha Agenda</th>
-              <th><i class="fas fa-clock"></i> Registrada</th>
               <th><i class="fas fa-toggle-on"></i> Estado</th>
               <th><i class="fas fa-cogs"></i> Acciones</th>
             </tr>
@@ -574,11 +573,7 @@ const initDatatableCitasCabecera = () => {
         data: 'fecha_agenda',
         render: (data) => formatearFecha(data)
       },
-      { 
-        data: 'fecha_registro',
-        render: (data) => formatearFechaHora(data)
-      },
-      { 
+      {
         data: 'estado',
         render: (data) => {
           return data === 'Activo' 

@@ -43,7 +43,7 @@ def addCabecera():
     dao = AgendaCabeceraDao()
 
     # Validar campos requeridos
-    campos_requeridos = ['id_medico', 'id_especialidad', 'fecha_agenda', 'estado', 'id_funcionario']
+    campos_requeridos = ['id_medico', 'id_especialidad', 'id_consultorio', 'fecha_agenda', 'estado', 'id_funcionario']
     for campo in campos_requeridos:
         if campo not in data or not data[campo]:
             return jsonify({'success': False, 'error': f'El campo {campo} es obligatorio'}), 400
@@ -60,6 +60,7 @@ def addCabecera():
         new_id = dao.guardarCabecera(
             data['id_medico'],
             data['id_especialidad'],
+            data['id_consultorio'],
             fecha_agenda,
             data['estado'],
             data['id_funcionario'],
@@ -92,7 +93,7 @@ def updateCabecera(id_cabecera):
     data = request.get_json()
     dao = AgendaCabeceraDao()
 
-    campos_requeridos = ['id_medico', 'id_especialidad', 'fecha_agenda', 'estado', 'id_funcionario']
+    campos_requeridos = ['id_medico', 'id_especialidad', 'id_consultorio', 'fecha_agenda', 'estado', 'id_funcionario']
     for campo in campos_requeridos:
         if campo not in data or not data[campo]:
             return jsonify({'success': False, 'error': f'El campo {campo} es obligatorio'}), 400
@@ -107,6 +108,7 @@ def updateCabecera(id_cabecera):
             id_cabecera,
             data['id_medico'],
             data['id_especialidad'],
+            data['id_consultorio'],
             fecha_agenda,
             data['estado'],
             data['id_funcionario'],

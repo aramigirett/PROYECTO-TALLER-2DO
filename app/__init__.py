@@ -35,7 +35,7 @@ from app.rutas.modulo_agendamiento.avisosRecordatorios.avisos_routes import avis
 
 #Consultorio TODOO
 from app.rutas.modulo_agendamiento.consultorio.consultorio_routes import consulmod
-from app.rutas.modulo_consultorio.tipo_diagnostico.tipo_diagnostico_routes import diagnosticomod
+from app.rutas.modulo_consultorio.tipo_diagnostico.tipo_diagnostico_routes import tipodiagnosticomod
 from app.rutas.modulo_consultorio.sintoma.sintoma_routes import sintomod
 
 
@@ -71,7 +71,7 @@ app.register_blueprint(consulmod, url_prefix=f'{modulo0}/consultorio')
 
 
 #Cosnultorio TODOO
-app.register_blueprint(diagnosticomod, url_prefix=f'{modulo0}/diagnostico')
+app.register_blueprint(tipodiagnosticomod, url_prefix=f'{modulo0}/tipo-diagnostico')
 app.register_blueprint(sintomod, url_prefix=f'{modulo0}/sintoma')
 
 
@@ -115,7 +115,7 @@ from app.rutas.modulo_agendamiento.avisosRecordatorios.avisos_api import avisoap
 from app.rutas.modulo_agendamiento.consultorio.consultorio_api import consultorioapi
 
 #Consulrorio TODOOO
-from app.rutas.modulo_consultorio.tipo_diagnostico.tipo_diagnostico_api import diagnosticoapi
+from app.rutas.modulo_consultorio.tipo_diagnostico.tipo_diagnostico_api import tipodiagnosticoapi
 from app.rutas.modulo_consultorio.sintoma.sintoma_api import sintomaapi
 
 
@@ -184,7 +184,7 @@ app.register_blueprint(consultorioapi, url_prefix=version1)
 
 #Consultorio TODOOO
 version1 = '/api/v1'
-app.register_blueprint(diagnosticoapi, url_prefix=version1)
+app.register_blueprint(tipodiagnosticoapi, url_prefix=version1)
 app.register_blueprint(sintomaapi, url_prefix=version1)
 
 

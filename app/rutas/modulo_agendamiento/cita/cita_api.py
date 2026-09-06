@@ -465,3 +465,21 @@ def obtener_citas_paciente(id_paciente):
             success=False,
             error=str(e)
         ), 500
+
+# ========================================
+# NUEVO ENDPOINT: Citas Confirmadas sin Consulta registrada
+# (fuente del selector de 'Nueva Consulta' en Consultorio)
+# ========================================
+
+@citaapi.route('/citas-detalle/confirmadas-sin-consulta', methods=['GET'])
+def getCitasConfirmadasSinConsulta():
+    citadao = CitaDao()
+    try:
+        citas = citadao.getCitasConfirmadasSinConsulta()
+        return jsonify({'success': True, 'data': citas, 'error': None}), 200
+    except Exception as e:
+        app.logger.error(f"Error al obtener citas confirmadas sin consulta: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Ocurrió un error interno. Consulte con el administrador.'
+        }), 500

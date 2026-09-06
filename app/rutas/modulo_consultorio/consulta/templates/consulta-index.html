@@ -154,70 +154,80 @@ Gestión de Consultas Médicas
       <div class="modal-body bg-medical-light p-4">
         <input type="hidden" id="txtIdConsulta">
 
-        <!-- SECCIÓN: INFORMACIÓN DEL PACIENTE -->
+        <!-- SECCIÓN: CITA RESERVADA (punto de partida obligatorio) -->
         <div class="section-medical mb-4">
           <div class="section-header-medical">
-            <i class="fas fa-user-circle"></i> Información del Paciente
+            <i class="fas fa-calendar-check"></i> Cita Reservada
           </div>
           <div class="section-body-medical">
             <div class="row">
-              <div class="col-md-6 mb-3">
-                <input type="hidden" id="id_paciente">
-                <label class="label-medical">Paciente <span class="text-danger">*</span></label>
+              <div class="col-md-12 mb-3">
+                <input type="hidden" id="id_cita">
+                <label class="label-medical">Cita Confirmada <span class="text-danger">*</span></label>
                 <div class="input-group input-group-medical">
-                  <input type="text" id="txtPaciente" class="form-control form-control-medical" 
-                         placeholder="Click para seleccionar" readonly required>
+                  <input type="text" id="txtCita" class="form-control form-control-medical"
+                         placeholder="Click para seleccionar una cita confirmada" readonly required>
                   <div class="input-group-append">
                     <span class="input-group-text input-group-text-medical">
                       <i class="fas fa-search"></i>
                     </span>
                   </div>
                 </div>
+                <small class="text-muted">Solo se listan citas en estado <strong>Confirmado</strong> que todavía no tienen una consulta registrada.</small>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- SECCIÓN: ASIGNACIÓN MÉDICA -->
+        <!-- SECCIÓN: INFORMACIÓN DE LA CITA (heredada, solo lectura) -->
         <div class="section-medical mb-4">
           <div class="section-header-medical">
-            <i class="fas fa-user-md"></i> Asignación Médica
+            <i class="fas fa-info-circle"></i> Datos de la Cita (no editables)
           </div>
           <div class="section-body-medical">
             <div class="row">
               <div class="col-md-6 mb-3">
+                <input type="hidden" id="id_paciente">
+                <label class="label-medical">Paciente</label>
+                <input type="text" id="txtPaciente" class="form-control form-control-medical" readonly>
+              </div>
+
+              <div class="col-md-6 mb-3">
                 <input type="hidden" id="id_medico">
-                <label class="label-medical">Médico <span class="text-danger">*</span></label>
-                <div class="input-group input-group-medical">
-                  <input type="text" id="txtMedico" class="form-control form-control-medical" 
-                         placeholder="Click para seleccionar" readonly required>
-                  <div class="input-group-append">
-                    <span class="input-group-text input-group-text-medical">
-                      <i class="fas fa-search"></i>
-                    </span>
-                  </div>
-                </div>
+                <label class="label-medical">Médico</label>
+                <input type="text" id="txtMedico" class="form-control form-control-medical" readonly>
               </div>
 
               <div class="col-md-6 mb-3">
                 <input type="hidden" id="id_consultorio">
-                <label class="label-medical">Consultorio <span class="text-danger">*</span></label>
-                <div class="input-group input-group-medical">
-                  <input type="text" id="txtConsultorio" class="form-control form-control-medical" 
-                         placeholder="Click para seleccionar" readonly required>
-                  <div class="input-group-append">
-                    <span class="input-group-text input-group-text-medical">
-                      <i class="fas fa-search"></i>
-                    </span>
-                  </div>
-                </div>
+                <label class="label-medical">Consultorio</label>
+                <input type="text" id="txtConsultorio" class="form-control form-control-medical" readonly>
               </div>
 
+              <div class="col-md-3 mb-3">
+                <label class="label-medical">Fecha</label>
+                <input type="date" id="fecha_cita" class="form-control form-control-medical" readonly>
+              </div>
+
+              <div class="col-md-3 mb-3">
+                <label class="label-medical">Hora</label>
+                <input type="time" id="hora_cita" class="form-control form-control-medical" readonly>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SECCIÓN: ASIGNACIÓN (lo único que se elige a mano) -->
+        <div class="section-medical mb-4">
+          <div class="section-header-medical">
+            <i class="fas fa-user-tie"></i> Funcionario que Atiende (Opcional)
+          </div>
+          <div class="section-body-medical">
+            <div class="row">
               <div class="col-md-6 mb-3">
                 <input type="hidden" id="id_funcionario">
-                <label class="label-medical">Funcionario (Opcional)</label>
                 <div class="input-group input-group-medical">
-                  <input type="text" id="txtFuncionario" class="form-control form-control-medical" 
+                  <input type="text" id="txtFuncionario" class="form-control form-control-medical"
                          placeholder="Click para seleccionar" readonly>
                   <div class="input-group-append">
                     <span class="input-group-text input-group-text-medical">
@@ -237,19 +247,9 @@ Gestión de Consultas Médicas
           </div>
           <div class="section-body-medical">
             <div class="row">
-              <div class="col-md-4 mb-3">
-                <label class="label-medical">Fecha <span class="text-danger">*</span></label>
-                <input type="date" id="fecha_cita" class="form-control form-control-medical" required>
-              </div>
-
-              <div class="col-md-4 mb-3">
-                <label class="label-medical">Hora <span class="text-danger">*</span></label>
-                <input type="time" id="hora_cita" class="form-control form-control-medical" required>
-              </div>
-
-              <div class="col-md-4 mb-3">
+              <div class="col-md-6 mb-3">
                 <label class="label-medical">Duración (min)</label>
-                <input type="number" id="duracion_minutos" class="form-control form-control-medical" 
+                <input type="number" id="duracion_minutos" class="form-control form-control-medical"
                        placeholder="30" min="1">
               </div>
 
@@ -631,13 +631,13 @@ Gestión de Consultas Médicas
 <!-- MODALES DE SELECCIÓN (Igual que antes) -->
 <!-- ============================================ -->
 
-<!-- Modal Paciente -->
-<div class="modal fade" id="modalBuscarPaciente" tabindex="-1" role="dialog">
-  <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+<!-- Modal Buscar Cita (Confirmada, sin consulta registrada) -->
+<div class="modal fade" id="modalBuscarCita" tabindex="-1" role="dialog">
+  <div class="modal-dialog modal-xl modal-dialog-centered" role="document">
     <div class="modal-content modal-medical">
       <div class="modal-header modal-header-medical">
         <h5 class="modal-title font-weight-bold text-white">
-          <i class="fas fa-user mr-2"></i> Seleccionar Paciente
+          <i class="fas fa-calendar-check mr-2"></i> Seleccionar Cita Confirmada
         </h5>
         <button type="button" class="close text-white" data-dismiss="modal">
           <span>&times;</span>
@@ -645,72 +645,15 @@ Gestión de Consultas Médicas
       </div>
       <div class="modal-body">
         <div class="table-responsive">
-          <table class="table table-medical table-hover w-100" id="tblPaciente">
+          <table class="table table-medical table-hover w-100" id="tblCitaConfirmada">
             <thead>
               <tr>
-                <th>Nombre</th>
-                <th>Apellido</th>
-                <th>Cédula</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Modal Médico -->
-<div class="modal fade" id="modalBuscarMedico" tabindex="-1" role="dialog">
-  <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
-    <div class="modal-content modal-medical">
-      <div class="modal-header modal-header-medical">
-        <h5 class="modal-title font-weight-bold text-white">
-          <i class="fas fa-user-md mr-2"></i> Seleccionar Médico
-        </h5>
-        <button type="button" class="close text-white" data-dismiss="modal">
-          <span>&times;</span>
-        </button>
-      </div>
-      <div class="modal-body">
-        <div class="table-responsive">
-          <table class="table table-medical table-hover w-100" id="tblMedico">
-            <thead>
-              <tr>
-                <th>Nombre</th>
-                <th>Apellido</th>
-                <th>Especialidad</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Modal Consultorio -->
-<div class="modal fade" id="modalBuscarConsultorio" tabindex="-1" role="dialog">
-  <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
-    <div class="modal-content modal-medical">
-      <div class="modal-header modal-header-medical">
-        <h5 class="modal-title font-weight-bold text-white">
-          <i class="fas fa-door-open mr-2"></i> Seleccionar Consultorio
-        </h5>
-        <button type="button" class="close text-white" data-dismiss="modal">
-          <span>&times;</span>
-        </button>
-      </div>
-      <div class="modal-body">
-        <div class="table-responsive">
-          <table class="table table-medical table-hover w-100" id="tblConsultorio">
-            <thead>
-              <tr>
-                <th>Nombre</th>
+                <th>Fecha</th>
+                <th>Hora</th>
+                <th>Paciente</th>
+                <th>Médico</th>
+                <th>Consultorio</th>
+                <th>Motivo</th>
                 <th>Acciones</th>
               </tr>
             </thead>
@@ -1534,110 +1477,39 @@ function initDatatableConsultas() {
 }
 
 // ============================================
-// DATATABLE: PACIENTES
+// DATATABLE: CITAS CONFIRMADAS SIN CONSULTA
 // ============================================
-function initDatatablePaciente() {
-  if ($.fn.DataTable.isDataTable('#tblPaciente')) {
-    $('#tblPaciente').DataTable().destroy();
+function initDatatableCitaConfirmada() {
+  if ($.fn.DataTable.isDataTable('#tblCitaConfirmada')) {
+    $('#tblCitaConfirmada').DataTable().destroy();
   }
 
-  $('#tblPaciente').DataTable({
+  $('#tblCitaConfirmada').DataTable({
     language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
-    ajax: { 
-      url: '/api/v1/pacientes',
+    ajax: {
+      url: '/api/v1/citas-detalle/confirmadas-sin-consulta',
       dataSrc: 'data'
     },
     columns: [
-      { data: 'nombre' },
-      { data: 'apellido' },
-      { data: 'cedula_entidad' },
-      { 
-        data: null,
-        render: row => `
-          <button class="btn btn-primary btn-sm" name="btn_seleccionar_paciente"
-                  data-id="${row.id_paciente}"
-                  data-nombre="${row.nombre}"
-                  data-apellido="${row.apellido}">
-            Seleccionar
-          </button>
-        `
-      }
-    ]
-  });
-
-  // Evento seleccionar paciente
-  $('#tblPaciente').on('click', 'button[name="btn_seleccionar_paciente"]', function() {
-    const btn = $(this);
-    $('#id_paciente').val(btn.data('id'));
-    $('#txtPaciente').val(`${btn.data('nombre')} ${btn.data('apellido')}`);
-    $('#modalBuscarPaciente').modal('hide');
-  });
-}
-
-// ============================================
-// DATATABLE: MÉDICOS
-// ============================================
-function initDatatableMedico() {
-  if ($.fn.DataTable.isDataTable('#tblMedico')) {
-    $('#tblMedico').DataTable().destroy();
-  }
-
-  $('#tblMedico').DataTable({
-    language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
-    ajax: { 
-      url: '/api/v1/medico',
-      dataSrc: 'data'
-    },
-    columns: [
-      { data: 'nombre' },
-      { data: 'apellido' },
-      { data: 'especialidades' },
-      { 
-        data: null,
-        render: row => `
-          <button class="btn btn-primary btn-sm" name="btn_seleccionar_medico"
-                  data-id="${row.id_medico}"
-                  data-nombre="${row.nombre}"
-                  data-apellido="${row.apellido}"
-                  data-especialidad="${row.especialidades || 'N/A'}"> 
-            Seleccionar
-          </button>
-        `
-      }
-    ]
-  });
-
-  // Evento seleccionar médico
-  $('#tblMedico').on('click', 'button[name="btn_seleccionar_medico"]', function() {
-    const btn = $(this);
-    $('#id_medico').val(btn.data('id'));
-    $('#txtMedico').val(`${btn.data('nombre')} ${btn.data('apellido')} - ${btn.data('especialidad')}`);
-    $('#modalBuscarMedico').modal('hide');
-  });
-}
-
-// ============================================
-// DATATABLE: CONSULTORIOS
-// ============================================
-function initDatatableConsultorio() {
-  if ($.fn.DataTable.isDataTable('#tblConsultorio')) {
-    $('#tblConsultorio').DataTable().destroy();
-  }
-
-  $('#tblConsultorio').DataTable({
-    language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
-    ajax: { 
-      url: '/api/v1/consultorios',
-      dataSrc: 'data'
-    },
-    columns: [
+      { data: 'fecha_cita', render: d => formatDateForDisplay(d) },
+      { data: 'hora_cita' },
+      { data: 'paciente_nombre' },
+      { data: 'medico_nombre' },
       { data: 'nombre_consultorio' },
-      { 
+      { data: 'motivo_consulta' },
+      {
         data: null,
         render: row => `
-          <button class="btn btn-primary btn-sm" name="btn_seleccionar_consultorio"
-                  data-id="${row.codigo}"
-                  data-nombre="${row.nombre_consultorio}">
+          <button class="btn btn-primary btn-sm" name="btn_seleccionar_cita"
+                  data-id="${row.id_cita_detalle}"
+                  data-fecha="${row.fecha_cita}"
+                  data-hora="${row.hora_cita}"
+                  data-id-paciente="${row.id_paciente}"
+                  data-paciente="${row.paciente_nombre}"
+                  data-id-medico="${row.id_medico}"
+                  data-medico="${row.medico_nombre}"
+                  data-id-consultorio="${row.id_consultorio}"
+                  data-consultorio="${row.nombre_consultorio}">
             Seleccionar
           </button>
         `
@@ -1645,12 +1517,20 @@ function initDatatableConsultorio() {
     ]
   });
 
-  // Evento seleccionar consultorio
-  $('#tblConsultorio').on('click', 'button[name="btn_seleccionar_consultorio"]', function() {
+  // Evento seleccionar cita: precarga Paciente/Médico/Consultorio/Fecha/Hora
+  $('#tblCitaConfirmada').on('click', 'button[name="btn_seleccionar_cita"]', function() {
     const btn = $(this);
-    $('#id_consultorio').val(btn.data('id'));
-    $('#txtConsultorio').val(btn.data('nombre'));
-    $('#modalBuscarConsultorio').modal('hide');
+    $('#id_cita').val(btn.data('id'));
+    $('#txtCita').val(`${formatDateForDisplay(btn.data('fecha'))} ${btn.data('hora')} - ${btn.data('paciente')}`);
+    $('#id_paciente').val(btn.data('id-paciente'));
+    $('#txtPaciente').val(btn.data('paciente'));
+    $('#id_medico').val(btn.data('id-medico'));
+    $('#txtMedico').val(btn.data('medico'));
+    $('#id_consultorio').val(btn.data('id-consultorio'));
+    $('#txtConsultorio').val(btn.data('consultorio'));
+    $('#fecha_cita').val(btn.data('fecha'));
+    $('#hora_cita').val(btn.data('hora'));
+    $('#modalBuscarCita').modal('hide');
   });
 }
 
@@ -1736,10 +1616,18 @@ function initDatatableSintoma() {
 // ============================================
 // ABRIR MODALES DE SELECCIÓN
 // ============================================
-$('#txtPaciente').click(() => $('#modalBuscarPaciente').modal('show'));
-$('#txtMedico').click(() => $('#modalBuscarMedico').modal('show'));
-$('#txtConsultorio').click(() => $('#modalBuscarConsultorio').modal('show'));
-$('#txtFuncionario').click(() => $('#modalBuscarFuncionario').modal('show'));
+$('#txtCita').click(() => {
+  // La cita solo se elige al crear una consulta nueva, no al editar
+  if (!$('#txtIdConsulta').val()) {
+    $('#modalBuscarCita').modal('show');
+  }
+});
+$('#txtFuncionario').click(() => {
+  // El funcionario solo se asigna al crear la consulta, no se puede reasignar al editar
+  if (!$('#txtIdConsulta').val()) {
+    $('#modalBuscarFuncionario').modal('show');
+  }
+});
 $('#txtSintoma').click(() => $('#modalBuscarSintoma').modal('show'));
 
 // ============================================
@@ -1747,6 +1635,8 @@ $('#txtSintoma').click(() => $('#modalBuscarSintoma').modal('show'));
 // ============================================
 function limpiarModal() {
   $('#txtIdConsulta').val('');
+  $('#id_cita').val('');
+  $('#txtCita').val('').attr('placeholder', 'Click para seleccionar una cita confirmada');
   $('#id_paciente').val('');
   $('#txtPaciente').val('');
   $('#id_medico').val('');
@@ -1776,31 +1666,26 @@ $('#btnAgregar').on('click', function() {
 // ============================================
 $('#btnGuardar').on('click', function() {
   const idConsulta = $('#txtIdConsulta').val();
-  
-  // Preparar datos
-  const payload = {
-    id_paciente: parseInt($('#id_paciente').val()),
-    id_medico: parseInt($('#id_medico').val()),
-    id_consultorio: parseInt($('#id_consultorio').val()),
-    id_funcionario: $('#id_funcionario').val() ? parseInt($('#id_funcionario').val()) : null,
-    fecha_cita: $('#fecha_cita').val(),
-    hora_cita: $('#hora_cita').val(),
-    duracion_minutos: $('#duracion_minutos').val() ? parseInt($('#duracion_minutos').val()) : null,
-    estado: $('#estado').val()
-  };
+
+  // Preparar datos: en alta, la Cita determina Paciente/Médico/Consultorio/Fecha/Hora;
+  // en edición, solo Duración y Estado son editables.
+  const payload = idConsulta
+    ? {
+        duracion_minutos: $('#duracion_minutos').val() ? parseInt($('#duracion_minutos').val()) : null,
+        estado: $('#estado').val()
+      }
+    : {
+        id_cita: $('#id_cita').val() ? parseInt($('#id_cita').val()) : null,
+        id_funcionario: $('#id_funcionario').val() ? parseInt($('#id_funcionario').val()) : null,
+        duracion_minutos: $('#duracion_minutos').val() ? parseInt($('#duracion_minutos').val()) : null,
+        estado: $('#estado').val()
+      };
 
   // Validaciones
-  let valido = true;
   $('.text-danger.small').hide();
-  
-  if (!payload.id_paciente) { $('#error_txtPaciente').show(); valido = false; }
-  if (!payload.id_medico) { $('#error_txtMedico').show(); valido = false; }
-  if (!payload.id_consultorio) { $('#error_txtConsultorio').show(); valido = false; }
-  if (!payload.fecha_cita) { $('#error_fecha_cita').show(); valido = false; }
-  if (!payload.hora_cita) { $('#error_hora_cita').show(); valido = false; }
 
-  if (!valido) {
-    Swal.fire('Campos incompletos', 'Complete todos los campos obligatorios', 'warning');
+  if (!idConsulta && !payload.id_cita) {
+    Swal.fire('Falta seleccionar la Cita', 'Debe elegir una Cita Confirmada para registrar la consulta', 'warning');
     return;
   }
 
@@ -1892,6 +1777,9 @@ $('#tblConsultas').on('click', 'button[name="btn_editar"]', function() {
       if (d.success) {
         const c = d.data;
         $('#txtIdConsulta').val(c.id_consulta_cab);
+        $('#id_cita').val(c.id_cita);
+        $('#txtCita').val(`${formatDateForDisplay(c.fecha_cita)} ${c.hora_cita} - ${c.nombre_paciente}`)
+          .attr('placeholder', '');
         $('#id_paciente').val(c.id_paciente);
         $('#txtPaciente').val(c.nombre_paciente);
         $('#id_medico').val(c.id_medico);
@@ -2383,9 +2271,7 @@ $('#btnRegistrarTratamientos').on('click', function() {
 $(document).ready(function() {
   // Inicializar todas las tablas
   initDatatableConsultas();
-  initDatatablePaciente();
-  initDatatableMedico();
-  initDatatableConsultorio();
+  initDatatableCitaConfirmada();
   initDatatableFuncionario();
   initDatatableSintoma();
   

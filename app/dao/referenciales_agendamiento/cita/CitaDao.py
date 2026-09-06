@@ -191,7 +191,7 @@ class CitaDao:
         Obtiene todas las cabeceras de citas con información relacionada
         """
         sql = """
-        SELECT 
+        SELECT
             cc.id_cita_cabecera,
             cc.id_paciente,
             (p.nombre || ' ' || p.apellido) AS paciente_nombre,
@@ -199,6 +199,7 @@ class CitaDao:
             ac.fecha_agenda,
             (m.nombre || ' ' || m.apellido) AS medico_nombre,
             e.nombre_especialidad AS especialidad,
+            co.nombre_consultorio,
             cc.fecha_registro,
             cc.observaciones,
             cc.estado,
@@ -208,6 +209,7 @@ class CitaDao:
         JOIN agenda_cabecera ac ON cc.id_agenda_cabecera = ac.id_agenda_cabecera
         JOIN medico m ON ac.id_medico = m.id_medico
         JOIN especialidades e ON ac.id_especialidad = e.id_especialidad
+        JOIN consultorio co ON ac.id_consultorio = co.codigo
         WHERE cc.estado <> 'Inactivo'
         ORDER BY cc.fecha_registro DESC
         """
@@ -226,10 +228,11 @@ class CitaDao:
                     'fecha_agenda': str(r[4]) if r[4] else None,
                     'medico_nombre': r[5],
                     'especialidad': r[6],
-                    'fecha_registro': str(r[7]) if r[7] else None,
-                    'observaciones': r[8],
-                    'estado': r[9],
-                    'id_funcionario': r[10]
+                    'nombre_consultorio': r[7],
+                    'fecha_registro': str(r[8]) if r[8] else None,
+                    'observaciones': r[9],
+                    'estado': r[10],
+                    'id_funcionario': r[11]
                 } for r in rows
             ]
         except Exception as e:
@@ -242,7 +245,7 @@ class CitaDao:
     def getCitaCabeceraById(self, id_cita_cabecera):
         """Obtiene una cabecera específica por ID"""
         sql = """
-        SELECT 
+        SELECT
             cc.id_cita_cabecera,
             cc.id_paciente,
             (p.nombre || ' ' || p.apellido) AS paciente_nombre,
@@ -250,6 +253,7 @@ class CitaDao:
             ac.fecha_agenda,
             (m.nombre || ' ' || m.apellido) AS medico_nombre,
             e.nombre_especialidad AS especialidad,
+            co.nombre_consultorio,
             cc.fecha_registro,
             cc.observaciones,
             cc.estado,
@@ -259,6 +263,7 @@ class CitaDao:
         JOIN agenda_cabecera ac ON cc.id_agenda_cabecera = ac.id_agenda_cabecera
         JOIN medico m ON ac.id_medico = m.id_medico
         JOIN especialidades e ON ac.id_especialidad = e.id_especialidad
+        JOIN consultorio co ON ac.id_consultorio = co.codigo
         WHERE cc.id_cita_cabecera = %s AND cc.estado <> 'Inactivo'
         """
         conexion = Conexion()
@@ -276,10 +281,11 @@ class CitaDao:
                     'fecha_agenda': str(r[4]) if r[4] else None,
                     'medico_nombre': r[5],
                     'especialidad': r[6],
-                    'fecha_registro': str(r[7]) if r[7] else None,
-                    'observaciones': r[8],
-                    'estado': r[9],
-                    'id_funcionario': r[10]
+                    'nombre_consultorio': r[7],
+                    'fecha_registro': str(r[8]) if r[8] else None,
+                    'observaciones': r[9],
+                    'estado': r[10],
+                    'id_funcionario': r[11]
                 }
             return None
         except Exception as e:
@@ -403,7 +409,7 @@ class CitaDao:
     def getDetallesPorCabecera(self, id_cita_cabecera):
         """Obtiene todos los detalles de una cabecera específica"""
         sql = """
-        SELECT 
+        SELECT
             cd.id_cita_detalle,
             cd.id_cita_cabecera,
             cd.id_agenda_detalle,
@@ -415,10 +421,13 @@ class CitaDao:
             cd.fecha_cambio_estado,
             ad.hora_inicio,
             ad.hora_fin,
-            ad.cupos_disponibles
+            ad.cupos_disponibles,
+            co.nombre_consultorio
         FROM cita_detalle cd
         JOIN estado_cita ec ON cd.id_estado_cita = ec.id_estado_cita
         JOIN agenda_detalle ad ON cd.id_agenda_detalle = ad.id_agenda_detalle
+        JOIN agenda_cabecera ac ON ad.id_agenda_cabecera = ac.id_agenda_cabecera
+        JOIN consultorio co ON ac.id_consultorio = co.codigo
         WHERE cd.id_cita_cabecera = %s AND ec.descripcion <> 'Cancelado'
         ORDER BY cd.fecha_cita, cd.hora_cita
         """
@@ -441,7 +450,8 @@ class CitaDao:
                     'fecha_cambio_estado': str(r[8]) if r[8] else None,
                     'hora_inicio': str(r[9]),
                     'hora_fin': str(r[10]),
-                    'cupos_disponibles': r[11]
+                    'cupos_disponibles': r[11],
+                    'nombre_consultorio': r[12]
                 } for r in rows
             ]
         except Exception as e:
@@ -454,7 +464,7 @@ class CitaDao:
     def getDetalleById(self, id_cita_detalle):
         """Obtiene un detalle específico por ID"""
         sql = """
-        SELECT 
+        SELECT
             cd.id_cita_detalle,
             cd.id_cita_cabecera,
             cd.id_agenda_detalle,
@@ -463,9 +473,17 @@ class CitaDao:
             cd.motivo_consulta,
             cd.id_estado_cita,
             ec.descripcion AS estado_descripcion,
-            cd.fecha_cambio_estado
+            cd.fecha_cambio_estado,
+            ac.id_medico,
+            ac.id_consultorio,
+            co.nombre_consultorio,
+            cc.id_paciente
         FROM cita_detalle cd
         JOIN estado_cita ec ON cd.id_estado_cita = ec.id_estado_cita
+        JOIN agenda_detalle ad ON cd.id_agenda_detalle = ad.id_agenda_detalle
+        JOIN agenda_cabecera ac ON ad.id_agenda_cabecera = ac.id_agenda_cabecera
+        JOIN consultorio co ON ac.id_consultorio = co.codigo
+        JOIN cita_cabecera cc ON cd.id_cita_cabecera = cc.id_cita_cabecera
         WHERE cd.id_cita_detalle = %s
         """
         conexion = Conexion()
@@ -484,7 +502,11 @@ class CitaDao:
                     'motivo_consulta': r[5],
                     'id_estado_cita': r[6],
                     'estado_descripcion': r[7],
-                    'fecha_cambio_estado': str(r[8]) if r[8] else None
+                    'fecha_cambio_estado': str(r[8]) if r[8] else None,
+                    'id_medico': r[9],
+                    'id_consultorio': r[10],
+                    'nombre_consultorio': r[11],
+                    'id_paciente': r[12]
                 }
             return None
         except Exception as e:
@@ -493,7 +515,7 @@ class CitaDao:
         finally:
             cur.close()
             con.close()
- 
+
     def guardarCitaDetalle(self, id_cita_cabecera, id_agenda_detalle, fecha_cita, 
                           hora_cita, motivo_consulta, id_estado_cita):
         """
@@ -730,7 +752,7 @@ class CitaDao:
             cd.hora_cita,
             COALESCE(m.nombre || ' ' || m.apellido, 'Sin médico') AS medico,
             COALESCE(e.nombre_especialidad, 'Sin especialidad') AS especialidad,
-            'Sin consultorio' AS consultorio,
+            COALESCE(co.nombre_consultorio, 'Sin consultorio') AS consultorio,
             NULL AS codigo,
             ec.descripcion AS estado_cita,
             cd.motivo_consulta,
@@ -742,6 +764,7 @@ class CitaDao:
         INNER JOIN agenda_cabecera ac ON cc.id_agenda_cabecera = ac.id_agenda_cabecera
         LEFT JOIN medico m ON ac.id_medico = m.id_medico
         LEFT JOIN especialidades e ON ac.id_especialidad = e.id_especialidad
+        LEFT JOIN consultorio co ON ac.id_consultorio = co.codigo
         WHERE cc.id_paciente = %s
         ORDER BY cd.fecha_cita DESC
         LIMIT 10;
@@ -780,11 +803,74 @@ class CitaDao:
                 }
                 citas.append(cita)
                 app.logger.info(f"✅ Cita: {fecha_str} {hora_str}")
-    
+
             return citas
-    
+
         except Exception as e:
             app.logger.error(f"❌ Error: {str(e)}")
+            return []
+        finally:
+            cur.close()
+            con.close()
+
+    # ========================================
+    # CITAS CONFIRMADAS DISPONIBLES PARA REGISTRAR CONSULTA
+    # ========================================
+
+    def getCitasConfirmadasSinConsulta(self):
+        """
+        Obtiene las cita_detalle en estado 'Confirmado' que todavía no
+        tienen una consulta médica registrada (consultas_cab.id_cita).
+        Es la fuente para el selector de 'Nueva Consulta' en Consultorio.
+        """
+        sql = """
+        SELECT
+            cd.id_cita_detalle,
+            cd.fecha_cita,
+            cd.hora_cita,
+            cd.motivo_consulta,
+            cc.id_paciente,
+            (p.nombre || ' ' || p.apellido) AS paciente_nombre,
+            ac.id_medico,
+            (m.nombre || ' ' || m.apellido) AS medico_nombre,
+            ac.id_consultorio,
+            co.nombre_consultorio
+        FROM cita_detalle cd
+        JOIN cita_cabecera cc ON cd.id_cita_cabecera = cc.id_cita_cabecera
+        JOIN agenda_cabecera ac ON cc.id_agenda_cabecera = ac.id_agenda_cabecera
+        JOIN paciente p ON cc.id_paciente = p.id_paciente
+        JOIN medico m ON ac.id_medico = m.id_medico
+        JOIN consultorio co ON ac.id_consultorio = co.codigo
+        JOIN estado_cita ec ON cd.id_estado_cita = ec.id_estado_cita
+        WHERE ec.descripcion = 'Confirmado'
+          AND cc.estado <> 'Inactivo'
+          AND NOT EXISTS (
+              SELECT 1 FROM consultas_cab con WHERE con.id_cita = cd.id_cita_detalle
+          )
+        ORDER BY cd.fecha_cita, cd.hora_cita
+        """
+        conexion = Conexion()
+        con = conexion.getConexion()
+        cur = con.cursor()
+        try:
+            cur.execute(sql)
+            rows = cur.fetchall()
+            return [
+                {
+                    'id_cita_detalle': r[0],
+                    'fecha_cita': str(r[1]),
+                    'hora_cita': str(r[2]),
+                    'motivo_consulta': r[3],
+                    'id_paciente': r[4],
+                    'paciente_nombre': r[5],
+                    'id_medico': r[6],
+                    'medico_nombre': r[7],
+                    'id_consultorio': r[8],
+                    'nombre_consultorio': r[9]
+                } for r in rows
+            ]
+        except Exception as e:
+            app.logger.error(f"Error al obtener citas confirmadas sin consulta: {str(e)}")
             return []
         finally:
             cur.close()

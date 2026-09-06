@@ -81,19 +81,16 @@ def getConsulta(consulta_id):
 @consultaapi.route('/consultas', methods=['POST'])
 def addConsulta():
     """
-    Crea una nueva consulta médica
-    
+    Crea una nueva consulta médica a partir de una Cita ya Confirmada.
+    Paciente, Médico, Consultorio, Fecha y Hora se derivan de la cita en el
+    backend (no se toman del body); al guardar, la cita pasa a 'Realizado'.
+
     URL: POST /api/v1/consultas
-    
+
     Body JSON:
     {
         "id_cita": 1,
-        "id_paciente": 5,
-        "id_medico": 3,
-        "id_consultorio": 2,
         "id_funcionario": 1,
-        "fecha_cita": "2025-10-15",
-        "hora_cita": "10:30",
         "duracion_minutos": 30,
         "estado": "programada"
     }
@@ -101,34 +98,34 @@ def addConsulta():
     data = request.get_json()
     consultaDao = ConsultaDao()
 
-    # ========== VALIDACIONES ==========
-    campos_requeridos = ['id_paciente', 'id_medico', 'id_consultorio', 'fecha_cita', 'hora_cita']
+    if not data or not data.get('id_cita'):
+        return jsonify({
+            'success': False,
+            'error': 'El campo id_cita es obligatorio: la consulta debe partir de una Cita Confirmada.'
+        }), 400
 
-    for campo in campos_requeridos:
-        if campo not in data or data[campo] is None:
-            return jsonify({
-                'success': False,
-                'error': f'El campo {campo} es obligatorio y no puede estar vacío.'
-            }), 400
+    ERRORES = {
+        'CITA_NO_ENCONTRADA': (404, 'No se encontró la cita seleccionada.'),
+        'CITA_NO_CONFIRMADA': (409, 'La cita no está en estado Confirmado.'),
+        'CITA_YA_TIENE_CONSULTA': (409, 'Esta cita ya tiene una consulta registrada.'),
+        'ERROR_INTERNO': (500, 'Ocurrió un error interno. Consulte con el administrador.'),
+    }
 
     try:
-        # Guardar consulta
-        consulta_id = consultaDao.guardarConsulta(data)
-        
-        if consulta_id is not None:
+        resultado = consultaDao.guardarConsulta(data)
+
+        if 'id_consulta_cab' in resultado:
             return jsonify({
                 'success': True,
                 'data': {
-                    'id_consulta_cab': consulta_id,
+                    'id_consulta_cab': resultado['id_consulta_cab'],
                     'mensaje': 'Consulta registrada correctamente'
                 },
                 'error': None
             }), 201
-        else:
-            return jsonify({
-                'success': False,
-                'error': 'No se pudo guardar la consulta. Consulte con el administrador.'
-            }), 500
+
+        codigo, mensaje = ERRORES.get(resultado.get('error'), ERRORES['ERROR_INTERNO'])
+        return jsonify({'success': False, 'error': mensaje}), codigo
 
     except Exception as e:
         app.logger.error(f"Error al agregar consulta: {str(e)}")
@@ -144,22 +141,20 @@ def addConsulta():
 @consultaapi.route('/consultas/<int:consulta_id>', methods=['PUT'])
 def updateConsulta(consulta_id):
     """
-    Actualiza una consulta existente
-    
+    Actualiza una consulta existente.
+    Solo Duración y Estado (de la Consulta) son editables; Cita, Paciente,
+    Médico, Consultorio, Fecha y Hora quedan fijos desde el registro inicial.
+
     URL: PUT /api/v1/consultas/5
+
+    Body JSON:
+    {
+        "duracion_minutos": 30,
+        "estado": "en_proceso"
+    }
     """
     data = request.get_json()
     consultaDao = ConsultaDao()
-
-    # ========== VALIDACIONES ==========
-    campos_requeridos = ['id_paciente', 'id_medico', 'id_consultorio', 'fecha_cita', 'hora_cita']
-
-    for campo in campos_requeridos:
-        if campo not in data or data[campo] is None:
-            return jsonify({
-                'success': False,
-                'error': f'El campo {campo} es obligatorio y no puede estar vacío.'
-            }), 400
 
     try:
         # Actualizar consulta
@@ -192,23 +187,32 @@ def updateConsulta(consulta_id):
 @consultaapi.route('/consultas/<int:consulta_id>', methods=['DELETE'])
 def deleteConsulta(consulta_id):
     """
-    Elimina una consulta (y sus detalles automáticamente por CASCADE)
-    
+    Anula (baja lógica) una consulta. Se bloquea si ya tiene Ficha Médica,
+    Diagnóstico o Tratamiento asociados.
+
     URL: DELETE /api/v1/consultas/5
     """
     consultaDao = ConsultaDao()
 
     try:
-        if consultaDao.deleteConsulta(consulta_id):
+        resultado = consultaDao.deleteConsulta(consulta_id)
+
+        if resultado == "EN_USO":
+            return jsonify({
+                'success': False,
+                'error': 'No se puede anular: esta consulta ya tiene Ficha Médica, Diagnóstico o Tratamiento registrados.'
+            }), 409
+
+        if resultado:
             return jsonify({
                 'success': True,
-                'mensaje': f'Consulta con ID {consulta_id} eliminada correctamente.',
+                'mensaje': f'Consulta con ID {consulta_id} anulada correctamente.',
                 'error': None
             }), 200
         else:
             return jsonify({
                 'success': False,
-                'error': 'No se encontró la consulta con el ID proporcionado o no se pudo eliminar.'
+                'error': 'No se encontró la consulta con el ID proporcionado o no se pudo anular.'
             }), 404
 
     except Exception as e:
