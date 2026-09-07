@@ -29,7 +29,6 @@ from app.rutas.modulo_agendamiento.funcionario.funcionario_routes import funcion
 from app.rutas.modulo_agendamiento.agenda.agenda_routes import agenda_bp
 from app.rutas.modulo_agendamiento.paciente.paciente_routes import pacientemod
 from app.rutas.modulo_agendamiento.cita.cita_routes import citamod
-from app.rutas.modulo_agendamiento.odontograma.odontograma_routes import odontogramamod
 from app.rutas.modulo_agendamiento.historial.historial_routes import historialmod
 from app.rutas.modulo_agendamiento.avisosRecordatorios.avisos_routes import avisos_bp
 
@@ -37,6 +36,13 @@ from app.rutas.modulo_agendamiento.avisosRecordatorios.avisos_routes import avis
 from app.rutas.modulo_agendamiento.consultorio.consultorio_routes import consulmod
 from app.rutas.modulo_consultorio.tipo_diagnostico.tipo_diagnostico_routes import tipodiagnosticomod
 from app.rutas.modulo_consultorio.sintoma.sintoma_routes import sintomod
+from app.rutas.modulo_consultorio.odontograma.odontograma_routes import odontogramamod
+from app.rutas.modulo_consultorio.tipo_tratamiento.tipo_tratamiento_routes import tipotratamientomod
+from app.rutas.modulo_consultorio.tipo_insumo.tipo_insumo_routes import tipoinsumomod
+from app.rutas.modulo_consultorio.tipo_procedimiento_medico.tipo_procedimiento_medico_routes import tipoprocedimientomedicomod
+from app.rutas.modulo_consultorio.medicamento.medicamento_routes import medicamentomod
+from app.rutas.modulo_consultorio.tipo_estudio.tipo_estudio_routes import tipoestudiomod
+from app.rutas.modulo_consultorio.tipo_analisis.tipo_analisis_routes import tipoanalisismod
 
 
 
@@ -64,7 +70,6 @@ app.register_blueprint(funcionariomod, url_prefix=f'{modulo0}/funcionario') #fun
 app.register_blueprint(agenda_bp, url_prefix=f'{modulo0}/agenda')
 app.register_blueprint(pacientemod, url_prefix=f'{modulo0}/paciente')
 app.register_blueprint(citamod, url_prefix=f'{modulo0}/cita')
-app.register_blueprint(odontogramamod, url_prefix=f'{modulo0}/odontograma')
 app.register_blueprint(historialmod, url_prefix=f'{modulo0}/historial')
 app.register_blueprint(avisos_bp, url_prefix=f'{modulo0}/avisos-recordatorios')
 app.register_blueprint(consulmod, url_prefix=f'{modulo0}/consultorio')
@@ -73,6 +78,13 @@ app.register_blueprint(consulmod, url_prefix=f'{modulo0}/consultorio')
 #Cosnultorio TODOO
 app.register_blueprint(tipodiagnosticomod, url_prefix=f'{modulo0}/tipo-diagnostico')
 app.register_blueprint(sintomod, url_prefix=f'{modulo0}/sintoma')
+app.register_blueprint(odontogramamod, url_prefix=f'{modulo0}/odontograma')
+app.register_blueprint(tipotratamientomod, url_prefix=f'{modulo0}/tipo-tratamiento')
+app.register_blueprint(tipoinsumomod, url_prefix=f'{modulo0}/tipo-insumo')
+app.register_blueprint(tipoprocedimientomedicomod, url_prefix=f'{modulo0}/tipo-procedimiento-medico')
+app.register_blueprint(medicamentomod, url_prefix=f'{modulo0}/medicamento')
+app.register_blueprint(tipoestudiomod, url_prefix=f'{modulo0}/tipo-estudio')
+app.register_blueprint(tipoanalisismod, url_prefix=f'{modulo0}/tipo-analisis')
 
 
 #ciudad
@@ -109,7 +121,6 @@ from app.rutas.modulo_agendamiento.funcionario.funcionario_api import funcionari
 from app.rutas.modulo_agendamiento.agenda.agenda_api import agendaapi
 from app.rutas.modulo_agendamiento.paciente.paciente_api import pacienteapi
 from app.rutas.modulo_agendamiento.cita.cita_api import citaapi
-from app.rutas.modulo_agendamiento.odontograma.odontograma_api import odontogramaapi
 from app.rutas.modulo_agendamiento.historial.historial_api import historialapi
 from app.rutas.modulo_agendamiento.avisosRecordatorios.avisos_api import avisoapi
 from app.rutas.modulo_agendamiento.consultorio.consultorio_api import consultorioapi
@@ -117,6 +128,13 @@ from app.rutas.modulo_agendamiento.consultorio.consultorio_api import consultori
 #Consulrorio TODOOO
 from app.rutas.modulo_consultorio.tipo_diagnostico.tipo_diagnostico_api import tipodiagnosticoapi
 from app.rutas.modulo_consultorio.sintoma.sintoma_api import sintomaapi
+from app.rutas.modulo_consultorio.odontograma.odontograma_api import odontogramaapi
+from app.rutas.modulo_consultorio.tipo_tratamiento.tipo_tratamiento_api import tipotratamientoapi
+from app.rutas.modulo_consultorio.tipo_insumo.tipo_insumo_api import tipoinsumoapi
+from app.rutas.modulo_consultorio.tipo_procedimiento_medico.tipo_procedimiento_medico_api import tipoprocedimientomedicoapi
+from app.rutas.modulo_consultorio.medicamento.medicamento_api import medicamentoapi
+from app.rutas.modulo_consultorio.tipo_estudio.tipo_estudio_api import tipoestudioapi
+from app.rutas.modulo_consultorio.tipo_analisis.tipo_analisis_api import tipoanalisisapi
 
 
 # APIS v1
@@ -172,9 +190,6 @@ app.register_blueprint(pacienteapi, url_prefix=version1)
 version1 = '/api/v1'
 app.register_blueprint(citaapi, url_prefix=version1)
 
-version1 = '/api/v1'
-app.register_blueprint(odontogramaapi, url_prefix=version1)
-
 app.register_blueprint(historialapi, url_prefix=version1)
 
 app.register_blueprint(avisoapi, url_prefix=version1)
@@ -186,6 +201,13 @@ app.register_blueprint(consultorioapi, url_prefix=version1)
 version1 = '/api/v1'
 app.register_blueprint(tipodiagnosticoapi, url_prefix=version1)
 app.register_blueprint(sintomaapi, url_prefix=version1)
+app.register_blueprint(odontogramaapi, url_prefix=version1)
+app.register_blueprint(tipotratamientoapi, url_prefix=version1)
+app.register_blueprint(tipoinsumoapi, url_prefix=version1)
+app.register_blueprint(tipoprocedimientomedicoapi, url_prefix=version1)
+app.register_blueprint(medicamentoapi, url_prefix=version1)
+app.register_blueprint(tipoestudioapi, url_prefix=version1)
+app.register_blueprint(tipoanalisisapi, url_prefix=version1)
 
 
 ##REGISTRAR CONSULTA Y FICHA MEDICA

@@ -109,6 +109,7 @@ class OdontogramaDao:
         FROM odontograma o
         JOIN paciente p ON o.id_paciente = p.id_paciente
         JOIN medico m ON o.id_medico = m.id_medico
+        WHERE o.estado <> 'Inactivo'
         ORDER BY o.fecha_registro DESC, o.id_odontograma DESC
         """
         conexion = Conexion()
@@ -205,7 +206,7 @@ class OdontogramaDao:
             o.id_odontograma,
             o.id_paciente,
             (p.nombre || ' ' || p.apellido) AS paciente_nombre,
-            p.ci AS paciente_cedula,
+            p.cedula_entidad AS paciente_cedula,
             EXTRACT(YEAR FROM AGE(p.fecha_nacimiento)) AS paciente_edad,
             o.id_medico,
             (m.nombre || ' ' || m.apellido) AS medico_nombre,
@@ -216,7 +217,7 @@ class OdontogramaDao:
         FROM odontograma o
         JOIN paciente p ON o.id_paciente = p.id_paciente
         JOIN medico m ON o.id_medico = m.id_medico
-        WHERE o.id_paciente = %s
+        WHERE o.id_paciente = %s AND o.estado <> 'Inactivo'
         ORDER BY o.fecha_registro DESC
         """
         conexion = Conexion()
@@ -330,32 +331,10 @@ class OdontogramaDao:
 
     def deleteOdontograma(self, id_odontograma):
         """
-        Elimina un odontograma y sus detalles (CASCADE automático)
+        Anula (baja lógica) un odontograma: lo pasa a estado 'Inactivo'
+        en vez de borrarlo físicamente, para no perder el historial clínico.
         """
-        sql = "DELETE FROM odontograma WHERE id_odontograma = %s"
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-        try:
-            app.logger.info(f"🗑️ Eliminando odontograma {id_odontograma}")
-            
-            cur.execute(sql, (id_odontograma,))
-            filas = cur.rowcount
-            con.commit()
-            
-            if filas > 0:
-                app.logger.info(f"✅ Odontograma {id_odontograma} eliminado")
-            else:
-                app.logger.warning(f"⚠️ Odontograma {id_odontograma} no encontrado")
-            
-            return filas > 0
-        except Exception as e:
-            app.logger.error(f"❌ Error al eliminar odontograma: {str(e)}")
-            con.rollback()
-            return False
-        finally:
-            cur.close()
-            con.close()
+        return self.cambiarEstadoOdontograma(id_odontograma, 'Inactivo')
 
     def cambiarEstadoOdontograma(self, id_odontograma, nuevo_estado):
         """

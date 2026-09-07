@@ -138,6 +138,94 @@ Con esto, el **Módulo Agendamiento queda completo**: los 4 movimientos con
 baja lógica correcta, y las 6 referenciales con DELETE físico protegido.
 Próximo módulo grande: Consultorio.
 
+## Estado real del Módulo Consultorio (en desarrollo)
+
+Análisis confirmado (10 movimientos + 8 referenciales documentados con el
+profesor). Decisión clave resuelta: **Registrar Consulta parte de una Cita
+ya reservada en Agendamiento** (estado "Confirmado"), no es un registro
+independiente.
+
+### Registrar Consulta — reconstruido para partir de la Cita
+- `agenda_cabecera.id_consultorio` (NOT NULL, FK a `consultorio`, RESTRICT):
+  el Consultorio ahora se asigna al crear la Agenda del médico, para poder
+  heredarse automáticamente en toda la cadena Agenda→Cita→Consulta (esto
+  resolvió un hueco del análisis: el CUS asumía que Consultorio se precargaba
+  solo, pero nunca se había definido dónde se capturaba por primera vez).
+- `consultas_cab.id_cita`: NOT NULL, FK a `cita_detalle.id_cita_detalle`,
+  UNIQUE (una cita = una sola consulta).
+- Al guardar una Consulta: el backend valida que la cita exista, esté
+  "Confirmado", y no tenga consulta previa — todo en una transacción. Paciente
+  /Médico/Consultorio/Fecha/Hora se derivan de la cita (el backend nunca
+  confía en lo que mande el formulario para esos campos, evita falsificación).
+  Al guardar, la cita pasa a "Realizado" automáticamente.
+- Campos editables en la Consulta una vez vinculada a la Cita: Fecha y Hora
+  son de solo lectura; Duración y Estado (el estado propio de la Consulta:
+  programada/en proceso/finalizada — NO el estado de la Cita) sí son editables.
+- ANULAR (baja lógica) bloquea con "EN_USO" si la consulta ya tiene Ficha
+  Médica, Diagnóstico o Tratamiento asociado.
+- Pendiente marcado, no resuelto: `PacienteDao.deletePaciente` es DELETE
+  físico y `cita_cabecera.id_paciente` es CASCADE — borrar un paciente con
+  citas confirmadas perdería ese historial en cascada. No se tocó (pertenece
+  a entidades de Agendamiento ya cerrado), queda anotado para cuando se
+  revise Paciente/Médico a fondo.
+
+### Otros hallazgos ya resueltos
+- Ficha Médica: **no había duplicación real** — el modal embebido en
+  Consulta (carga clínica de 1 ficha) y la pantalla standalone
+  `ficha-medica-index` (listado/auditoría transversal con estadísticas) son
+  dos usos legítimos y distintos del mismo DAO. No se tocó nada.
+- Renombrado interno: la carpeta que servía `TipoDiagnosticoDao` tenía
+  nombres internos (blueprint, endpoint, template) que decían literalmente
+  "diagnostico", chocando con el módulo real de Diagnósticos Médicos. Se
+  renombró todo a `tipodiagnostico`/`tipo-diagnostico-index` — cero cambio
+  de comportamiento, solo claridad. La URL del API JSON
+  (`/api/v1/diagnosticos...`) NO se tocó a propósito, porque también la
+  consume la pantalla de Diagnósticos Médicos.
+- `Sintoma` y `TipoDiagnostico`: quedan con DELETE físico (catálogos base),
+  pero ahora validan uso antes de borrar (`estaEnUso()` → 409 "EN_USO"),
+  mismo patrón que Agendamiento. Se agregó además una FK real
+  `consultas_detalle.id_sintoma → sintoma(id_sintoma) ON DELETE RESTRICT`
+  (antes solo protegido a nivel de aplicación).
+
+### Odontograma — corregido (3 problemas)
+- Estaba mal ubicado en `modulo_agendamiento/` — movido a
+  `modulo_consultorio/odontograma/` (solo la carpeta física; blueprint,
+  endpoint y prefijo de URL quedaron iguales a propósito, para no romper un
+  botón "Ver Odontograma" con URL hardcodeada en
+  `diagnosticos-medicos-index.html`).
+- ANULAR era DELETE físico pese a que ya existía `cambiarEstadoOdontograma()`
+  (baja lógica, con columna `estado` y CHECK Activo/Finalizado/Inactivo) sin
+  usar. Corregido para usar baja lógica, y se agregó el filtro
+  `estado <> 'Inactivo'` en los listados (si no, la baja lógica se vería
+  como que "Eliminar" no hace nada).
+- Bug real corregido: `getOdontogramasByPaciente()` usaba una columna
+  inexistente (`p.ci` en vez de `p.cedula_entidad`) — tiraba error de SQL en
+  cualquier llamada real a `GET /api/v1/odontogramas/paciente/<id>`.
+- Pendiente igual que Consulta: `odontograma.id_paciente` es CASCADE, mismo
+  riesgo latente que `cita_cabecera.id_paciente` (no resuelto, anotado).
+
+### El resto del módulo: 12 de 13 CUS restantes están SIN PROGRAMAR
+Auditado y confirmado — de los movimientos/referenciales que faltaban
+revisar, solo Odontograma tenía código. El resto:
+- **Ya tienen tabla en la base, pero CERO código de aplicación (sin
+  DAO/API/routes/pantalla):** `tratamientos` (bien foreada, ya usada para
+  bloquear el ANULAR de Consulta), `insumos` (catálogo simple, huérfana, sin
+  FK que la referencie todavía), `tipos_tratamiento` (Tipo Tratamiento).
+- **No existen ni como tabla, hay que diseñarlas de cero:** Gestionar
+  Procedimientos e Insumos Utilizados (incluye `consultas_detalle.id_tipo_procedimiento`,
+  columna fantasma sin tabla ni FK detrás — mismo patrón que tenía
+  `id_sintoma` antes de corregirlo), Generar Recetas e Indicaciones, Generar
+  Orden de Estudios, Generar Orden de Análisis, Generar Justificativo
+  Médico, Tipo Insumo Utilizado, Tipo Procedimiento Médico, Medicamentos
+  (hoy solo existe como texto libre `nombre_medicamento` dentro de
+  `historial_medico_paciente` de Agendamiento, no es un catálogo
+  reutilizable), Tipo Análisis, Tipo Estudio.
+- Decisión de orden: programar primero las **referenciales/catálogos**
+  (Tipo Tratamiento, Tipo Insumo Utilizado, Tipo Procedimiento Médico,
+  Medicamentos, Tipo Análisis, Tipo Estudio), porque los movimientos
+  grandes (Gestionar Tratamientos, Generar Recetas, etc.) dependen de que
+  esos catálogos ya existan y tengan datos cargados.
+
 ## Pendiente de decidir a futuro: control de acceso en módulos grandes
 Hoy Agendamiento, Referenciales y Consultorio NO tienen ninguna restricción
 de rol en el código — cualquier usuario logueado (sin importar su rol) puede

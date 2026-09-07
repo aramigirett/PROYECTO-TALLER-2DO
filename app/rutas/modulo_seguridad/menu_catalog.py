@@ -16,7 +16,6 @@ CATALOGO_MENU = [
     {"etiqueta": "Registrar Pacientes", "endpoint": "paciente.pacienteIndex", "icono": "fa-user-injured", "modulo": "Agendamiento", "permiso_requerido": None},
     {"etiqueta": "Registrar Funcionario", "endpoint": "funcionario.funcionarioIndex", "icono": "fa-users", "modulo": "Agendamiento", "permiso_requerido": None},
     {"etiqueta": "Registrar Médicos", "endpoint": "medico.medicoIndex", "icono": "fa-stethoscope", "modulo": "Agendamiento", "permiso_requerido": None},
-    {"etiqueta": "Registrar Odontograma", "endpoint": "odontograma.odontogramaIndex", "icono": "fa-teeth", "modulo": "Agendamiento", "permiso_requerido": None},
 
     # Referenciales Agendamiento
     {"etiqueta": "Ciudad", "endpoint": "ciudad.ciudadIndex", "icono": "fa-map-marker-alt", "modulo": "Referenciales Agendamiento", "permiso_requerido": None},
@@ -30,12 +29,19 @@ CATALOGO_MENU = [
     # Referenciales Consultorio
     {"etiqueta": "Tipo diagnóstico", "endpoint": "tipodiagnostico.tipoDiagnosticoIndex", "icono": "fa-microscope", "modulo": "Referenciales Consultorio", "permiso_requerido": None},
     {"etiqueta": "Síntomas", "endpoint": "sintoma.sintomaIndex", "icono": "fa-heartbeat", "modulo": "Referenciales Consultorio", "permiso_requerido": None},
+    {"etiqueta": "Tipo Tratamiento", "endpoint": "tipotratamiento.tipoTratamientoIndex", "icono": "fa-notes-medical", "modulo": "Referenciales Consultorio", "permiso_requerido": None},
+    {"etiqueta": "Tipo Insumo Utilizado", "endpoint": "tipoinsumo.tipoInsumoIndex", "icono": "fa-box-open", "modulo": "Referenciales Consultorio", "permiso_requerido": None},
+    {"etiqueta": "Tipo Procedimiento Médico", "endpoint": "tipoprocedimientomedico.tipoProcedimientoMedicoIndex", "icono": "fa-syringe", "modulo": "Referenciales Consultorio", "permiso_requerido": None},
+    {"etiqueta": "Medicamentos", "endpoint": "medicamento.medicamentoIndex", "icono": "fa-pills", "modulo": "Referenciales Consultorio", "permiso_requerido": None},
+    {"etiqueta": "Tipo Estudio", "endpoint": "tipoestudio.tipoEstudioIndex", "icono": "fa-x-ray", "modulo": "Referenciales Consultorio", "permiso_requerido": None},
+    {"etiqueta": "Tipo Análisis", "endpoint": "tipoanalisis.tipoAnalisisIndex", "icono": "fa-vial", "modulo": "Referenciales Consultorio", "permiso_requerido": None},
 
     # Módulo Consultorio
     {"etiqueta": "Registrar Consulta", "endpoint": "consulta.consultaIndex", "icono": "fa-stethoscope", "modulo": "Módulo Consultorio", "permiso_requerido": None},
     {"etiqueta": "Gestión Fichas Médicas", "endpoint": "fichamedica.fichaMedicaIndex", "icono": "fa-file-medical-alt", "modulo": "Módulo Consultorio", "permiso_requerido": None},
     {"etiqueta": "Gestión Diagnósticos", "endpoint": "diagnostico_medico.diagnosticoIndex", "icono": "fa-diagnoses", "modulo": "Módulo Consultorio", "permiso_requerido": None},
     {"etiqueta": "Historial Médico", "endpoint": "historial.historialIndex", "icono": "fa-history", "modulo": "Módulo Consultorio", "permiso_requerido": None},
+    {"etiqueta": "Registrar Odontograma", "endpoint": "odontograma.odontogramaIndex", "icono": "fa-teeth", "modulo": "Módulo Consultorio", "permiso_requerido": None},
 
     # Módulo Seguridad (restringidas por permiso, salvo Administrador)
     {"etiqueta": "Gestión de Usuarios", "endpoint": "usuario.usuarioIndex", "icono": "fa-users-cog", "modulo": "Módulo Seguridad", "permiso_requerido": "gestionar_usuarios"},

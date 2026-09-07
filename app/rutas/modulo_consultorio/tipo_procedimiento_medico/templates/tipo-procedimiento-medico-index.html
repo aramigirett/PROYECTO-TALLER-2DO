@@ -1,0 +1,249 @@
+{% extends 'base.html' %}
+
+{% block titulo %}
+Tipos de Procedimiento Médico
+{% endblock %}
+
+{% block contenido %}
+<div class="container mt-10">
+  <h3>Listar Tipos de Procedimiento Médico</h3>
+
+  <!-- Tarjeta -->
+  <div class="card">
+    <div class="card-header">
+      <button type="button" class="btn btn-outline-primary" id="btnAgregar">Agregar</button>
+    </div>
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-striped" id="tbl">
+          <thead>
+            <tr>
+              <th>Código</th>
+              <th>Descripción</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <!-- /Tarjeta -->
+
+  <!-- Modal formulario -->
+  <div class="modal" id="modalFormulario">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content">
+        <!-- Modal Header -->
+        <div class="modal-header">
+          <h4 class="modal-title" id="modalTitle"></h4>
+          <button type="button" class="close" data-dismiss="modal">&times;</button>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+          <input type="hidden" id="txtIdTipoProcedimiento">
+
+          <div class="container-fluid">
+            <div class="row">
+              <div class="col-md-4">
+                <div class="form-group">
+                  <label for="txtCodigo">Código:</label>
+                  <input type="text" class="form-control" placeholder="Ej: EXO" maxlength="10" id="txtCodigo">
+                </div>
+              </div>
+              <div class="col-md-8">
+                <div class="form-group">
+                  <label for="txtDescripcion">Descripción:</label>
+                  <input type="text" class="form-control" placeholder="Ingrese la descripción" id="txtDescripcion">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary" id="btnGuardar">Guardar</button>
+          <button type="button" class="btn btn-danger" data-dismiss="modal">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+
+{% block js %}
+<script>
+
+  const initDatatable = () => {
+    $('#tbl').DataTable({
+      language: {
+        url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}",
+      },
+      ajax: '/api/v1/tipos-procedimiento-medico',
+      columns: [
+        { data: 'codigo' },
+        { data: 'descripcion' },
+        { data: function(row) {
+            return `<button type="button" name="btn_editar" class="btn btn-info" data-id="${row.id_tipo_procedimiento}" title="Editar"><i class="fas fa-edit"></i></button>
+                    <button type="button" name="btn_eliminar" class="btn btn-danger" data-id="${row.id_tipo_procedimiento}" title="Eliminar"><i class="fas fa-trash-alt"></i></button>`
+          }
+        }
+      ]
+    });
+  }
+
+  const agregar = () => {
+    $('#btnAgregar').on('click', function(){
+      $('#modalTitle').text("Agregar Tipo de Procedimiento Médico");
+      $('#txtIdTipoProcedimiento').val("");
+      $('#txtCodigo').val("");
+      $('#txtDescripcion').val("");
+      $('#modalFormulario').modal();
+    });
+  }
+
+  const guardar = () => {
+    $('#btnGuardar').on('click', function() {
+      const id = $('#txtIdTipoProcedimiento').val();
+      const codigo = $('#txtCodigo').val();
+      const descripcion = $('#txtDescripcion').val();
+      const tabla = $('#tbl').DataTable();
+
+      if(!codigo.trim()) {
+        Swal.fire("Error", "El campo Código no puede estar vacío.", "error");
+        return;
+      }
+      if(!descripcion.trim()) {
+        Swal.fire("Error", "El campo Descripción no puede estar vacío.", "error");
+        return;
+      }
+
+      const payload = { codigo, descripcion };
+
+      if(id) {
+        // update
+        fetch(`/api/v1/tipos-procedimiento-medico/${id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          }, body: JSON.stringify(payload)
+        })
+        .then(resp => resp.json())
+        .then(data => {
+          if(data && !data.error && data.success) {
+            tabla.ajax.reload();
+            Swal.fire("Actualizado", "El tipo de procedimiento médico ha sido actualizado correctamente.", "success");
+          } else {
+            Swal.fire("Error", data.error, "error");
+          }
+        }).catch(err => {
+          console.error(err);
+          Swal.fire("Error", "Ocurrió un error al actualizar el tipo de procedimiento médico.", "error");
+        });
+      } else {
+        // insert
+        fetch(`/api/v1/tipos-procedimiento-medico`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          }, body: JSON.stringify(payload)
+        })
+        .then(resp => resp.json())
+        .then(data => {
+          if(data && !data.error && data.success) {
+            tabla.ajax.reload();
+            Swal.fire("Agregado", "El tipo de procedimiento médico ha sido agregado correctamente.", "success");
+          } else {
+            Swal.fire("Error", data.error, "error");
+          }
+        }).catch(err => {
+          console.error(err);
+          Swal.fire("Error", "Ocurrió un error al guardar el tipo de procedimiento médico.", "error");
+        });
+      }
+      $('#modalFormulario').modal("hide");
+    });
+  }
+
+  const editar = () => {
+    $('#tbl').on('click', 'button[name="btn_editar"]',function(){
+      const btn = $(this);
+      Swal.fire({
+        title: "¿Deseas editar este registro?",
+        showCancelButton: true,
+        confirmButtonText: "Si",
+        cancelButtonText: `No`
+      }).then((result) => {
+        if (result.isConfirmed) {
+          $('#modalTitle').text("Editar Tipo de Procedimiento Médico");
+
+          const id = btn.data('id');
+
+          fetch(`/api/v1/tipos-procedimiento-medico/${id}`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          })
+          .then(resp => resp.json())
+          .then(data => {
+            $('#txtIdTipoProcedimiento').val(data.data.id_tipo_procedimiento);
+            $('#txtCodigo').val(data.data.codigo);
+            $('#txtDescripcion').val(data.data.descripcion);
+            $('#modalFormulario').modal();
+          });
+        }
+      });
+    });
+  }
+
+  const eliminar = () => {
+    $('#tbl').on('click', 'button[name="btn_eliminar"]',function(){
+      const id = $(this).data('id');
+      Swal.fire({
+        title: "¿Deseas eliminar este registro?",
+        showCancelButton: true,
+        confirmButtonText: "Si",
+        cancelButtonText: `No`
+      }).then((result) => {
+        if (result.isConfirmed) {
+          fetch(`/api/v1/tipos-procedimiento-medico/${id}`, {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+            }
+          })
+          .then(resp => resp.json())
+          .then(data => {
+            if(data && !data.error && data.success) {
+              $('#tbl').DataTable().ajax.reload();
+              Swal.fire("Eliminado", data.mensaje, "success");
+            } else {
+              Swal.fire("Error", data.error, "error");
+            }
+          }).catch(err => {
+            Swal.fire("Error", "Ocurrió un error al eliminar el tipo de procedimiento médico.", "error");
+          });
+        }
+      });
+
+    });
+  }
+
+  const addEvents = () => {
+    agregar();
+    guardar();
+    editar();
+    eliminar();
+  }
+
+  $(function() {
+    initDatatable();
+    addEvents();
+  });
+</script>
+{% endblock %}
