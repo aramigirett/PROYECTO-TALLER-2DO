@@ -223,6 +223,7 @@ def deleteConsulta(consulta_id):
     consultaDao = ConsultaDao()
 
     try:
+        registro = consultaDao.getConsultaById(consulta_id)
         resultado = consultaDao.deleteConsulta(consulta_id)
 
         if resultado == "EN_USO":
@@ -232,9 +233,10 @@ def deleteConsulta(consulta_id):
             }), 409
 
         if resultado:
+            descripcion = f"del {registro['fecha_cita']} de {registro['nombre_paciente']}" if registro else 'seleccionada'
             return jsonify({
                 'success': True,
-                'mensaje': f'Consulta con ID {consulta_id} anulada correctamente.',
+                'mensaje': f'Consulta {descripcion} anulada correctamente.',
                 'error': None
             }), 200
         else:

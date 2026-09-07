@@ -619,6 +619,9 @@ Gestión de Consultas Médicas
         <button type="button" class="btn btn-medical-success" id="btnGuardarFichaMedica">
           <i class="fas fa-save mr-1"></i> Guardar Ficha Médica
         </button>
+        <button type="button" class="btn btn-danger" id="btnAnularFichaMedica" style="display:none;">
+          <i class="fas fa-ban mr-1"></i> Anular Ficha Médica
+        </button>
         <button type="button" class="btn btn-medical-secondary" data-dismiss="modal">
           <i class="fas fa-times mr-1"></i> Cerrar
         </button>
@@ -2108,10 +2111,13 @@ $('#btnVerEditarFichaMedica').on('click', function() {
         $('#examen_fisico_general').val(ficha.examen_fisico_general || '');
         $('#examen_bucal').val(ficha.examen_bucal || '');
         $('#observaciones_medico').val(ficha.observaciones_medico || '');
-        
+
+        // Ya existe: mostrar botón Anular
+        $('#btnAnularFichaMedica').show();
+
         // Abrir modal
         $('#modalFichaMedica').modal('show');
-        
+
       } else {
         // ❌ LA CONSULTA NO TIENE FICHA - Preguntar si desea crear
         Swal.fire({
@@ -2135,7 +2141,10 @@ $('#btnVerEditarFichaMedica').on('click', function() {
             
             // Limpiar todos los campos
             $('#presion_arterial, #temperatura, #frecuencia_cardiaca, #frecuencia_respiratoria, #peso, #talla, #imc, #examen_fisico_general, #examen_bucal, #observaciones_medico').val('');
-            
+
+            // Todavía no existe: ocultar botón Anular
+            $('#btnAnularFichaMedica').hide();
+
             // Abrir modal
             $('#modalFichaMedica').modal('show');
           }
@@ -2208,6 +2217,46 @@ $('#btnGuardarFichaMedica').on('click', function() {
   .catch(err => {
     console.error('Error:', err);
     Swal.fire('Error', 'No se pudo guardar la ficha médica', 'error');
+  });
+});
+
+// ============================================
+// ANULAR FICHA MÉDICA
+// ============================================
+$('#btnAnularFichaMedica').on('click', function() {
+  const idFichaExistente = $('#idFichaMedicaExistente').val();
+
+  if (!idFichaExistente) {
+    return;
+  }
+
+  Swal.fire({
+    title: '¿Anular esta ficha médica?',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#d33',
+    cancelButtonColor: '#3085d6',
+    confirmButtonText: 'Sí, anular',
+    cancelButtonText: 'Cancelar'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      fetch(`/api/v1/ficha-medica/${idFichaExistente}`, {
+        method: 'DELETE'
+      })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) {
+          $('#modalFichaMedica').modal('hide');
+          Swal.fire('Anulada', d.mensaje, 'success');
+        } else {
+          Swal.fire('Error', d.error, 'error');
+        }
+      })
+      .catch(err => {
+        console.error('Error:', err);
+        Swal.fire('Error', 'No se pudo anular la ficha médica', 'error');
+      });
+    }
   });
 });
 

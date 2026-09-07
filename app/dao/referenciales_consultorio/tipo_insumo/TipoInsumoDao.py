@@ -5,16 +5,10 @@ from app.conexion.Conexion import Conexion
 class TipoInsumoDao:
     """
     DAO para la referencial 'Tipo Insumo Utilizado'.
-    Usa la tabla `insumos` (codigo, descripcion, presentacion), ya existente
-    en la base pero sin código de aplicación hasta ahora.
+    Usa la tabla `insumos` (descripcion, presentacion).
 
-    NOTA: a diferencia de TipoTratamientoDao, esta referencial todavía NO
-    valida "en uso" antes de anular. La validación real depende de
-    `sesion_insumos` (tabla de "Gestionar Procedimientos e Insumos
-    Utilizados"), que no existe en la base todavía. Cuando se programe ese
-    movimiento, agregar acá un estaEnUso() que chequee
-    `sesion_insumos.id_insumo` antes de permitir la baja, igual que se hizo
-    con TipoTratamientoDao contra `tratamientos`.
+    `estaEnUso()` valida contra `sesion_insumos` (Gestionar Procedimientos
+    e Insumos Utilizados).
     """
 
     def getTiposInsumo(self):
@@ -141,16 +135,38 @@ class TipoInsumoDao:
             cur.close()
             con.close()
 
+    def estaEnUso(self, id_insumo):
+        """
+        Indica si el insumo está utilizado en alguna sesión de tratamiento
+        activa (`sesion_insumos`).
+        """
+        sql = "SELECT EXISTS(SELECT 1 FROM sesion_insumos WHERE id_insumo = %s AND activo = true)"
+        conexion = Conexion()
+        con = conexion.getConexion()
+        cur = con.cursor()
+        try:
+            cur.execute(sql, (id_insumo,))
+            return bool(cur.fetchone()[0])
+        except Exception as e:
+            app.logger.error(f"Error al verificar uso de insumo: {str(e)}")
+            return True  # Ante la duda, bloquear el borrado
+        finally:
+            cur.close()
+            con.close()
+
     def deleteTipoInsumo(self, id_insumo):
         """
-        Anula (baja lógica) un tipo de insumo.
-
-        NOTA: no valida "en uso" (ver docstring de la clase) porque
-        `sesion_insumos` todavía no existe.
+        Anula (baja lógica) un tipo de insumo, validando antes que no esté
+        en uso en ninguna sesión de tratamiento activa.
 
         Returns:
-            bool: True si se anuló, False si no existía.
+            bool | str: True si se anuló, False si no existía, "EN_USO" si
+            está en uso.
         """
+        if self.estaEnUso(id_insumo):
+            app.logger.warning(f"No se puede eliminar insumo {id_insumo}: está en uso")
+            return "EN_USO"
+
         sql = """
         UPDATE insumos
         SET activo = false

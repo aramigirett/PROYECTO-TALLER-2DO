@@ -110,7 +110,6 @@ Gestión de Diagnósticos
     </div>
 
     <div class="clinical-form-body">
-      <input type="hidden" id="txtIdDiagnostico">
       <input type="hidden" id="id_consulta_detalle">
 
       <div class="row">
@@ -224,17 +223,8 @@ Gestión de Diagnósticos
                 <i class="fas fa-heartbeat text-danger mr-1"></i>
                 Síntomas
               </label>
-              <textarea id="sintomas" class="form-control-medical-textarea" rows="3" 
+              <textarea id="sintomas" class="form-control-medical-textarea" rows="3"
                         placeholder="Describa los síntomas del paciente..."></textarea>
-            </div>
-
-            <!-- Código (Solo lectura si está editando) -->
-            <div class="form-group mb-0" id="divCodigo" style="display:none;">
-              <label class="label-medical-new">
-                <i class="fas fa-barcode text-secondary mr-1"></i>
-                Código
-              </label>
-              <input type="text" id="codigo" class="form-control-medical-new" readonly>
             </div>
           </div>
         </div>
@@ -815,17 +805,13 @@ function initDatatableDiagnosticos() {
       { 
         data: null,
         render: row => `
-          <button class="btn btn-success btn-sm" name="btn_ver" 
+          <button class="btn btn-success btn-sm" name="btn_ver"
                   data-id="${row.id_diagnostico}" title="Ver">
             <i class="fas fa-eye"></i>
           </button>
-          <button class="btn btn-info btn-sm" name="btn_editar" 
-                  data-id="${row.id_diagnostico}" title="Editar">
-            <i class="fas fa-edit"></i>
-          </button>
-          <button class="btn btn-danger btn-sm" name="btn_eliminar" 
-                  data-id="${row.id_diagnostico}" title="Eliminar">
-            <i class="fas fa-trash-alt"></i>
+          <button class="btn btn-danger btn-sm" name="btn_anular"
+                  data-id="${row.id_diagnostico}" title="Anular">
+            <i class="fas fa-ban"></i>
           </button>
         `
       }
@@ -929,7 +915,6 @@ $('#txtMedico').click(() => $('#modalBuscarMedico').modal('show'));
 // LIMPIAR FORMULARIO
 // ============================================
 function limpiarFormulario() {
-  $('#txtIdDiagnostico').val('');
   $('#id_consulta_detalle').val('');
   $('#id_paciente').val('');
   $('#txtPaciente').val('');
@@ -941,8 +926,6 @@ function limpiarFormulario() {
   $('#sintomas').val('');
   $('#descripcion_diagnostico').val('');
   $('#observaciones').val('');
-  $('#codigo').val('');
-  $('#divCodigo').hide();
   $('.text-danger.small').hide();
   
   // Scroll al inicio del formulario
@@ -965,8 +948,6 @@ $('#btnLimpiarFormulario').on('click', function() {
 // GUARDAR DIAGNÓSTICO
 // ============================================
 $('#btnGuardarDiagnostico').on('click', function() {
-  const idDiagnostico = $('#txtIdDiagnostico').val();
-  
   // Preparar datos
   const payload = {
     id_consulta_detalle: $('#id_consulta_detalle').val() || null,
@@ -995,14 +976,10 @@ $('#btnGuardarDiagnostico').on('click', function() {
     return;
   }
 
-  // Determinar URL y método
-  const url = idDiagnostico ? `/api/v1/diagnosticos-medicos/${idDiagnostico}` : '/api/v1/diagnosticos-medicos';
-  const method = idDiagnostico ? 'PUT' : 'POST';
-
-  // Enviar petición
-  fetch(url, {
-    method: method,
-    headers: { 
+  // Enviar petición (siempre alta nueva: no hay Modificar en este CUS)
+  fetch('/api/v1/diagnosticos-medicos', {
+    method: 'POST',
+    headers: {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify(payload)
@@ -1054,57 +1031,18 @@ $('#tblDiagnosticos').on('click', 'button[name="btn_ver"]', function() {
 });
 
 // ============================================
-// EDITAR DIAGNÓSTICO
+// ANULAR DIAGNÓSTICO (baja lógica)
 // ============================================
-$('#tblDiagnosticos').on('click', 'button[name="btn_editar"]', function() {
+$('#tblDiagnosticos').on('click', 'button[name="btn_anular"]', function() {
   const id = $(this).data('id');
-  
-  fetch(`/api/v1/diagnosticos-medicos/${id}`)
-    .then(r => r.json())
-    .then(d => {
-      if (d.success) {
-        const diag = d.data;
-        $('#txtIdDiagnostico').val(diag.id_diagnostico);
-        $('#id_consulta_detalle').val(diag.id_consulta_detalle || '');
-        $('#id_paciente').val(diag.id_paciente);
-        $('#txtPaciente').val(diag.nombre_paciente);
-        $('#id_medico').val(diag.id_medico);
-        $('#txtMedico').val(diag.nombre_medico);
-        $('#id_tipo_diagnostico').val(diag.id_tipo_diagnostico);
-        $('#pieza_dental').val(diag.pieza_dental || '');
-        $('#fecha_diagnostico').val(diag.fecha_diagnostico);
-        $('#sintomas').val(diag.sintomas || '');
-        $('#descripcion_diagnostico').val(diag.descripcion_diagnostico);
-        $('#observaciones').val(diag.observaciones || '');
-        $('#codigo').val(diag.codigo);
-        $('#divCodigo').show();
 
-        // Scroll al formulario
-        $('html, body').animate({
-          scrollTop: $('.clinical-form-container').offset().top - 100
-        }, 500);
-      }
-    })
-    .catch(err => {
-      console.error('Error:', err);
-      Swal.fire('Error', 'No se pudo cargar el diagnóstico', 'error');
-    });
-});
-
-// ============================================
-// ELIMINAR DIAGNÓSTICO
-// ============================================
-$('#tblDiagnosticos').on('click', 'button[name="btn_eliminar"]', function() {
-  const id = $(this).data('id');
-  
   Swal.fire({
-    title: '¿Eliminar diagnóstico?',
-    text: 'Esta acción no se puede deshacer',
+    title: '¿Anular este diagnóstico?',
     icon: 'warning',
     showCancelButton: true,
     confirmButtonColor: '#d33',
     cancelButtonColor: '#3085d6',
-    confirmButtonText: 'Sí, eliminar',
+    confirmButtonText: 'Sí, anular',
     cancelButtonText: 'Cancelar'
   }).then((result) => {
     if (result.isConfirmed) {
@@ -1115,14 +1053,14 @@ $('#tblDiagnosticos').on('click', 'button[name="btn_eliminar"]', function() {
       .then(d => {
         if (d.success) {
           $('#tblDiagnosticos').DataTable().ajax.reload();
-          Swal.fire('Eliminado', 'Diagnóstico eliminado correctamente', 'success');
+          Swal.fire('Anulado', 'Diagnóstico anulado correctamente', 'success');
         } else {
           Swal.fire('Error', d.error, 'error');
         }
       })
       .catch(err => {
         console.error('Error:', err);
-        Swal.fire('Error', 'No se pudo eliminar el diagnóstico', 'error');
+        Swal.fire('Error', 'No se pudo anular el diagnóstico', 'error');
       });
     }
   });

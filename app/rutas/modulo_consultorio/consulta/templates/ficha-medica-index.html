@@ -505,9 +505,13 @@ function initDatatableFichas() {
                   data-id="${row.id_ficha_medica}" title="Ver Ficha">
             <i class="fas fa-eye"></i>
           </button>
-          <button class="btn btn-warning btn-sm" name="btn_editar_ficha" 
+          <button class="btn btn-warning btn-sm" name="btn_editar_ficha"
                   data-id="${row.id_ficha_medica}" title="Editar">
             <i class="fas fa-edit"></i>
+          </button>
+          <button class="btn btn-danger btn-sm" name="btn_anular_ficha"
+                  data-id="${row.id_ficha_medica}" title="Anular">
+            <i class="fas fa-ban"></i>
           </button>
         `
       }
@@ -673,6 +677,42 @@ $('#tblFichasMedicas').on('click', 'button[name="btn_editar_ficha"]', function()
       console.error('Error:', err);
       Swal.fire('Error', 'No se pudo cargar la ficha médica', 'error');
     });
+});
+
+// ============================================
+// ANULAR FICHA
+// ============================================
+$('#tblFichasMedicas').on('click', 'button[name="btn_anular_ficha"]', function() {
+  const id = $(this).data('id');
+
+  Swal.fire({
+    title: '¿Anular esta ficha médica?',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#d33',
+    cancelButtonColor: '#3085d6',
+    confirmButtonText: 'Sí, anular',
+    cancelButtonText: 'Cancelar'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      fetch(`/api/v1/ficha-medica/${id}`, {
+        method: 'DELETE'
+      })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) {
+          $('#tblFichasMedicas').DataTable().ajax.reload();
+          Swal.fire('Anulada', d.mensaje, 'success');
+        } else {
+          Swal.fire('Error', d.error, 'error');
+        }
+      })
+      .catch(err => {
+        console.error('Error:', err);
+        Swal.fire('Error', 'No se pudo anular la ficha médica', 'error');
+      });
+    }
+  });
 });
 
 // ============================================

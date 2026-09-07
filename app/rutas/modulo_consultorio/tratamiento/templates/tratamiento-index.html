@@ -142,6 +142,57 @@ Gestionar Tratamientos
     </div>
   </div>
 
+  <!-- Modal Ver Tratamiento -->
+  <div class="modal fade" id="modalVerTratamiento" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable" role="document">
+      <div class="modal-content">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title"><i class="fas fa-notes-medical"></i> Tratamiento Completo</h5>
+          <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <strong><i class="fas fa-user text-primary mr-1"></i> Paciente:</strong>
+              <p id="verPaciente" class="text-muted">-</p>
+            </div>
+            <div class="col-md-6">
+              <strong><i class="fas fa-user-md text-success mr-1"></i> Médico:</strong>
+              <p id="verMedico" class="text-muted">-</p>
+            </div>
+          </div>
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <strong><i class="fas fa-door-open text-info mr-1"></i> Consultorio:</strong>
+              <p id="verConsultorio" class="text-muted">-</p>
+            </div>
+            <div class="col-md-6">
+              <strong><i class="fas fa-calendar text-warning mr-1"></i> Fecha de Tratamiento:</strong>
+              <p id="verFecha" class="text-muted">-</p>
+            </div>
+          </div>
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <strong><i class="fas fa-notes-medical text-primary mr-1"></i> Tipo de Tratamiento:</strong>
+              <p id="verTipoTratamiento" class="text-muted">-</p>
+            </div>
+            <div class="col-md-6">
+              <strong><i class="fas fa-flag text-secondary mr-1"></i> Estado:</strong>
+              <p id="verEstado" class="text-muted">-</p>
+            </div>
+          </div>
+
+          <hr>
+          <h5 class="text-primary"><i class="fas fa-file-medical-alt mr-2"></i>Descripción</h5>
+          <p id="verDescripcion" class="text-muted">-</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <!-- Librerías -->
@@ -189,6 +240,12 @@ function initDatatableTratamientos() {
       {
         data: null,
         render: row => `
+          <button class="btn btn-success btn-sm" name="btn_ver" data-id="${row.id_tratamiento}" title="Ver">
+            <i class="fas fa-eye"></i>
+          </button>
+          <button class="btn btn-info btn-sm" name="btn_sesiones" data-id="${row.id_tratamiento}" title="Procedimientos e Insumos">
+            <i class="fas fa-syringe"></i>
+          </button>
           <button class="btn btn-danger btn-sm" name="btn_anular" data-id="${row.id_tratamiento}" title="Anular">
             <i class="fas fa-ban"></i>
           </button>
@@ -393,6 +450,38 @@ $('#btnGuardar').on('click', function() {
     console.error(err);
     Swal.fire('Error', 'Ocurrió un error al guardar el tratamiento.', 'error');
   });
+});
+
+$('#tbl').on('click', 'button[name="btn_ver"]', function() {
+  const id = $(this).data('id');
+
+  fetch(`/api/v1/tratamientos/${id}`)
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        const t = d.data;
+        $('#verPaciente').text(t.nombre_paciente);
+        $('#verMedico').text(t.nombre_medico);
+        $('#verConsultorio').text(t.nombre_consultorio || '-');
+        $('#verFecha').text(formatDateForDisplay(t.fecha_tratamiento));
+        $('#verTipoTratamiento').text(t.tipo_tratamiento);
+        $('#verEstado').text(t.estado);
+        $('#verDescripcion').text(t.descripcion_tratamiento);
+
+        $('#modalVerTratamiento').modal('show');
+      } else {
+        Swal.fire('Error', d.error || 'No se pudo cargar el tratamiento', 'error');
+      }
+    })
+    .catch(err => {
+      console.error('Error:', err);
+      Swal.fire('Error', 'No se pudo cargar el tratamiento', 'error');
+    });
+});
+
+$('#tbl').on('click', 'button[name="btn_sesiones"]', function() {
+  const id = $(this).data('id');
+  window.location.href = `{{ url_for('sesiontratamiento.sesionTratamientoIndex') }}?id_tratamiento=${id}`;
 });
 
 $('#tbl').on('click', 'button[name="btn_anular"]', function() {

@@ -125,9 +125,15 @@ def updateTipoInsumo(id_insumo):
 def deleteTipoInsumo(id_insumo):
     dao = TipoInsumoDao()
     try:
+        registro = dao.getTipoInsumoById(id_insumo)
         resultado = dao.deleteTipoInsumo(id_insumo)
+
+        if resultado == "EN_USO":
+            return jsonify({'success': False, 'error': 'No se puede anular: este insumo está utilizado en alguna sesión de tratamiento activa.'}), 409
+
         if resultado:
-            return jsonify({'success': True, 'mensaje': f'Tipo de insumo con ID {id_insumo} eliminado correctamente.', 'error': None}), 200
+            descripcion = registro['descripcion'] if registro else 'seleccionado'
+            return jsonify({'success': True, 'mensaje': f'Tipo de insumo "{descripcion}" eliminado correctamente.', 'error': None}), 200
         else:
             return jsonify({'success': False, 'error': 'No se encontró el tipo de insumo con el ID proporcionado.'}), 404
     except Exception as e:

@@ -31,7 +31,7 @@ class FichaMedicaDao:
             observaciones_medico,
             fecha_registro
         FROM ficha_medica_consulta
-        WHERE id_consulta_cab = %s
+        WHERE id_consulta_cab = %s AND activo = true
         """
         
         conexion = Conexion()
@@ -89,7 +89,7 @@ class FichaMedicaDao:
             observaciones_medico,
             fecha_registro
         FROM ficha_medica_consulta
-        WHERE id_ficha_medica = %s
+        WHERE id_ficha_medica = %s AND activo = true
         """
         
         conexion = Conexion()
@@ -234,28 +234,44 @@ class FichaMedicaDao:
 
     def deleteFicha(self, id_ficha_medica):
         """
-        Elimina una ficha médica
+        Anula (baja lógica) una ficha médica, bloqueando si la consulta a la
+        que pertenece ya está finalizada.
+
+        Returns:
+            bool | str: True si se anuló, False si no existía,
+            "CONSULTA_FINALIZADA" si la consulta asociada ya está finalizada.
         """
-        deleteSQL = """
-        DELETE FROM ficha_medica_consulta
-        WHERE id_ficha_medica = %s
-        """
-        
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
-        
+
         try:
-            cur.execute(deleteSQL, (id_ficha_medica,))
+            cur.execute("""
+                SELECT EXISTS(
+                    SELECT 1 FROM ficha_medica_consulta fm
+                    JOIN consultas_cab cc ON fm.id_consulta_cab = cc.id_consulta_cab
+                    WHERE fm.id_ficha_medica = %s AND cc.estado = 'finalizada'
+                )
+            """, (id_ficha_medica,))
+            consulta_finalizada = cur.fetchone()[0]
+
+            if consulta_finalizada:
+                app.logger.warning(f"No se puede anular ficha médica {id_ficha_medica}: la consulta asociada está finalizada")
+                return "CONSULTA_FINALIZADA"
+
+            cur.execute(
+                "UPDATE ficha_medica_consulta SET activo = false WHERE id_ficha_medica = %s AND activo = true",
+                (id_ficha_medica,)
+            )
             rows_affected = cur.rowcount
             con.commit()
             return rows_affected > 0
-            
+
         except Exception as e:
-            app.logger.error(f"Error al eliminar ficha médica: {str(e)}")
+            app.logger.error(f"Error al anular ficha médica: {str(e)}")
             con.rollback()
             return False
-            
+
         finally:
             cur.close()
             con.close()

@@ -119,11 +119,13 @@ def updateTipoProcedimientoMedico(id_tipo_procedimiento):
 def deleteTipoProcedimientoMedico(id_tipo_procedimiento):
     dao = TipoProcedimientoMedicoDao()
     try:
+        registro = dao.getTipoProcedimientoMedicoById(id_tipo_procedimiento)
         resultado = dao.deleteTipoProcedimientoMedico(id_tipo_procedimiento)
         if resultado == "EN_USO":
-            return jsonify({'success': False, 'error': 'No se puede eliminar: este tipo de procedimiento médico está en uso en uno o más detalles de consulta.'}), 409
+            return jsonify({'success': False, 'error': 'No se puede eliminar: este tipo de procedimiento médico está en uso en algún detalle de consulta o sesión de tratamiento.'}), 409
         if resultado:
-            return jsonify({'success': True, 'mensaje': f'Tipo de procedimiento médico con ID {id_tipo_procedimiento} eliminado correctamente.', 'error': None}), 200
+            descripcion = registro['descripcion'] if registro else 'seleccionado'
+            return jsonify({'success': True, 'mensaje': f'Tipo de procedimiento médico "{descripcion}" eliminado correctamente.', 'error': None}), 200
         else:
             return jsonify({'success': False, 'error': 'No se encontró el tipo de procedimiento médico con el ID proporcionado.'}), 404
     except Exception as e:

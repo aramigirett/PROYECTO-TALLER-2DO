@@ -79,9 +79,9 @@ def getOdontogramaById(id_odontograma):
         if not odontograma:
             return jsonify({
                 'success': False,
-                'error': f'No se encontró el odontograma con ID {id_odontograma}.'
+                'error': 'No se encontró el odontograma indicado.'
             }), 404
-        
+
         # Obtener detalles
         detalles = odontograma_dao.getDetallesPorOdontograma(id_odontograma)
         odontograma['detalles'] = detalles
@@ -342,7 +342,7 @@ def cambiarEstadoOdontograma(id_odontograma):
         else:
             return jsonify({
                 'success': False,
-                'error': f'No se encontró el odontograma con ID {id_odontograma}.'
+                'error': 'No se encontró el odontograma indicado.'
             }), 404
     except Exception as e:
         app.logger.error(f"Error al cambiar estado: {str(e)}")

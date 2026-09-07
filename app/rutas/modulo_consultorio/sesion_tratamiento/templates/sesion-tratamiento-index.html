@@ -1,0 +1,518 @@
+{% extends 'base.html' %}
+
+{% block titulo %}
+Procedimientos e Insumos Utilizados
+{% endblock %}
+
+{% block contenido %}
+<div class="container-fluid mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3>Procedimientos e Insumos Utilizados</h3>
+    <a href="{{ url_for('tratamiento.tratamientoIndex') }}" class="btn btn-outline-secondary">
+      <i class="fas fa-arrow-left"></i> Volver a Tratamientos
+    </a>
+  </div>
+
+  <!-- Cabecera del Tratamiento (solo lectura) -->
+  <div class="card shadow-sm mb-3">
+    <div class="card-body">
+      <div class="row mb-2">
+        <div class="col-md-3">
+          <strong><i class="fas fa-user text-primary mr-1"></i> Paciente:</strong>
+          <p id="hdrPaciente" class="text-muted mb-0">-</p>
+        </div>
+        <div class="col-md-3">
+          <strong><i class="fas fa-user-md text-success mr-1"></i> Médico:</strong>
+          <p id="hdrMedico" class="text-muted mb-0">-</p>
+        </div>
+        <div class="col-md-3">
+          <strong><i class="fas fa-notes-medical text-primary mr-1"></i> Tipo Tratamiento:</strong>
+          <p id="hdrTipoTratamiento" class="text-muted mb-0">-</p>
+        </div>
+        <div class="col-md-3">
+          <strong><i class="fas fa-flag text-secondary mr-1"></i> Estado:</strong>
+          <p id="hdrEstado" class="text-muted mb-0">-</p>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-md-12">
+          <strong><i class="fas fa-file-medical-alt text-primary mr-1"></i> Descripción:</strong>
+          <p id="hdrDescripcion" class="text-muted mb-0">-</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="mb-0">Sesiones</h5>
+    <div>
+      <button type="button" class="btn btn-success" id="btnFinalizarTratamiento">
+        <i class="fas fa-check-circle"></i> Finalizar Tratamiento
+      </button>
+      <button type="button" class="btn btn-primary" id="btnAgregarSesion">
+        <i class="fas fa-plus-circle"></i> Registrar Sesión
+      </button>
+    </div>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-hover table-striped" id="tblSesiones">
+          <thead class="table-light">
+            <tr>
+              <th>N° Sesión</th>
+              <th>Tipo de Procedimiento</th>
+              <th>Fecha</th>
+              <th>Descripción</th>
+              <th>Insumos</th>
+              <th>Próxima Cita</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tblSesionesBody">
+            <tr><td colspan="7" class="text-center text-muted">Sin sesiones registradas.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Registrar Sesión -->
+  <div class="modal fade" id="modalSesion" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title">Registrar Sesión</h5>
+          <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="font-weight-bold">Tipo de Procedimiento *</label>
+              <select class="form-control" id="id_tipo_procedimiento">
+                <option value="">Seleccione...</option>
+              </select>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="font-weight-bold">Fecha *</label>
+              <input type="date" class="form-control" id="fecha_sesion">
+            </div>
+            <div class="col-md-12 mb-3">
+              <label class="font-weight-bold">Descripción *</label>
+              <textarea class="form-control" id="descripcion_procedimiento" rows="3"
+                        placeholder="Describa el procedimiento realizado..."></textarea>
+            </div>
+          </div>
+
+          <hr>
+          <label class="font-weight-bold">Insumos Utilizados *</label>
+          <div id="filasInsumos"></div>
+          <button type="button" class="btn btn-outline-primary btn-sm mt-1" id="btnAgregarInsumo">
+            <i class="fas fa-plus"></i> Agregar Insumo
+          </button>
+
+          <hr>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="font-weight-bold">Observaciones</label>
+              <textarea class="form-control" id="observaciones" rows="2"></textarea>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="font-weight-bold">Próxima Cita</label>
+              <input type="date" class="form-control" id="proxima_cita">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary" id="btnGuardarSesion">Guardar</button>
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Ver Sesión -->
+  <div class="modal fade" id="modalVerSesion" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable" role="document">
+      <div class="modal-content">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title"><i class="fas fa-syringe"></i> Sesión Completa</h5>
+          <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <strong>N° Sesión:</strong>
+              <p id="verNumeroSesion" class="text-muted">-</p>
+            </div>
+            <div class="col-md-6">
+              <strong>Tipo de Procedimiento:</strong>
+              <p id="verTipoProcedimiento" class="text-muted">-</p>
+            </div>
+          </div>
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <strong>Fecha:</strong>
+              <p id="verFechaSesion" class="text-muted">-</p>
+            </div>
+            <div class="col-md-6">
+              <strong>Próxima Cita:</strong>
+              <p id="verProximaCita" class="text-muted">-</p>
+            </div>
+          </div>
+          <hr>
+          <strong>Descripción:</strong>
+          <p id="verDescripcionSesion" class="text-muted">-</p>
+          <strong>Observaciones:</strong>
+          <p id="verObservaciones" class="text-muted">-</p>
+          <hr>
+          <strong>Insumos Utilizados:</strong>
+          <ul id="verInsumos" class="text-muted"></ul>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Librerías -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+{% endblock %}
+
+
+{% block js %}
+<script>
+
+const urlParams = new URLSearchParams(window.location.search);
+const idTratamiento = parseInt(urlParams.get('id_tratamiento'));
+
+let listaInsumos = []; // cache de insumos disponibles para los selects dinámicos
+
+if (!idTratamiento) {
+  Swal.fire('Falta el Tratamiento', 'No se indicó un tratamiento. Volviendo al listado.', 'warning')
+    .then(() => { window.location.href = "{{ url_for('tratamiento.tratamientoIndex') }}"; });
+}
+
+function formatDateForDisplay(fecha) {
+  if (!fecha) return '';
+  const d = new Date(fecha);
+  if (isNaN(d)) return '';
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const year = d.getUTCFullYear();
+  return `${day}/${month}/${year}`;
+}
+
+// ============================================
+// CARGAR CABECERA DEL TRATAMIENTO
+// ============================================
+function cargarTratamiento() {
+  fetch(`/api/v1/tratamientos/${idTratamiento}`)
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        const t = d.data;
+        $('#hdrPaciente').text(t.nombre_paciente);
+        $('#hdrMedico').text(t.nombre_medico);
+        $('#hdrTipoTratamiento').text(t.tipo_tratamiento);
+        $('#hdrEstado').text(t.estado);
+        $('#hdrDescripcion').text(t.descripcion_tratamiento);
+      } else {
+        Swal.fire('Error', d.error || 'No se pudo cargar el tratamiento', 'error');
+      }
+    })
+    .catch(err => console.error(err));
+}
+
+// ============================================
+// CARGAR TIPOS DE PROCEDIMIENTO (combo)
+// ============================================
+function cargarTiposProcedimiento() {
+  fetch('/api/v1/tipos-procedimiento-medico')
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        const select = $('#id_tipo_procedimiento');
+        select.html('<option value="">Seleccione...</option>');
+        d.data.forEach(t => {
+          select.append(`<option value="${t.id_tipo_procedimiento}">${t.descripcion}</option>`);
+        });
+      }
+    });
+}
+
+// ============================================
+// CARGAR INSUMOS DISPONIBLES (cache para los selects dinámicos)
+// ============================================
+function cargarInsumos() {
+  return fetch('/api/v1/tipos-insumo')
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        listaInsumos = d.data;
+      }
+    });
+}
+
+function opcionesInsumos(seleccionado) {
+  let html = '<option value="">Seleccione...</option>';
+  listaInsumos.forEach(i => {
+    const sel = (seleccionado && seleccionado == i.id_insumo) ? 'selected' : '';
+    html += `<option value="${i.id_insumo}" ${sel}>${i.descripcion}</option>`;
+  });
+  return html;
+}
+
+function agregarFilaInsumo() {
+  const fila = $(`
+    <div class="row filaInsumo mb-2">
+      <div class="col-md-7">
+        <select class="form-control selInsumo">${opcionesInsumos()}</select>
+      </div>
+      <div class="col-md-3">
+        <input type="number" class="form-control txtCantidad" min="1" placeholder="Cantidad">
+      </div>
+      <div class="col-md-2">
+        <button type="button" class="btn btn-outline-danger btn-block btnQuitarInsumo"><i class="fas fa-trash"></i></button>
+      </div>
+    </div>
+  `);
+  $('#filasInsumos').append(fila);
+}
+
+$(document).on('click', '.btnQuitarInsumo', function() {
+  $(this).closest('.filaInsumo').remove();
+});
+
+$('#btnAgregarInsumo').on('click', function() {
+  agregarFilaInsumo();
+});
+
+// ============================================
+// RENDER SESIONES
+// ============================================
+function cargarSesiones() {
+  fetch(`/api/v1/sesiones-tratamiento/tratamiento/${idTratamiento}`)
+    .then(r => r.json())
+    .then(d => {
+      if (!d.success) {
+        Swal.fire('Error', d.error || 'No se pudieron cargar las sesiones', 'error');
+        return;
+      }
+      const sesiones = d.data;
+      const tbody = $('#tblSesionesBody');
+      tbody.empty();
+
+      if (sesiones.length === 0) {
+        tbody.append('<tr><td colspan="7" class="text-center text-muted">Sin sesiones registradas.</td></tr>');
+        return;
+      }
+
+      const maxNumero = Math.max(...sesiones.map(s => s.numero_sesion));
+
+      sesiones.forEach(s => {
+        const insumosTxt = s.insumos.map(i => `${i.descripcion_insumo} x${i.cantidad}`).join(', ');
+        const esUltima = s.numero_sesion === maxNumero;
+        const btnAnular = esUltima
+          ? `<button class="btn btn-danger btn-sm" name="btn_anular_sesion" data-id="${s.id_sesion}" title="Anular"><i class="fas fa-ban"></i></button>`
+          : '';
+        tbody.append(`
+          <tr>
+            <td>${s.numero_sesion}</td>
+            <td>${s.tipo_procedimiento}</td>
+            <td>${formatDateForDisplay(s.fecha_sesion)}</td>
+            <td>${s.descripcion_procedimiento}</td>
+            <td>${insumosTxt}</td>
+            <td>${s.proxima_cita ? formatDateForDisplay(s.proxima_cita) : '-'}</td>
+            <td>
+              <button class="btn btn-success btn-sm" name="btn_ver_sesion" data-id="${s.id_sesion}" title="Ver"><i class="fas fa-eye"></i></button>
+              ${btnAnular}
+            </td>
+          </tr>
+        `);
+      });
+    })
+    .catch(err => {
+      console.error(err);
+      Swal.fire('Error', 'No se pudieron cargar las sesiones', 'error');
+    });
+}
+
+// ============================================
+// LIMPIAR MODAL NUEVA SESIÓN
+// ============================================
+function limpiarModalSesion() {
+  $('#id_tipo_procedimiento').val('');
+  $('#fecha_sesion').val(new Date().toISOString().split('T')[0]);
+  $('#descripcion_procedimiento').val('');
+  $('#observaciones').val('');
+  $('#proxima_cita').val('');
+  $('#filasInsumos').empty();
+  agregarFilaInsumo();
+}
+
+// ============================================
+// EVENTOS
+// ============================================
+$('#btnAgregarSesion').on('click', function() {
+  limpiarModalSesion();
+  $('#modalSesion').modal('show');
+});
+
+$('#btnGuardarSesion').on('click', function() {
+  const insumos = [];
+  $('.filaInsumo').each(function() {
+    const idInsumo = $(this).find('.selInsumo').val();
+    const cantidad = parseInt($(this).find('.txtCantidad').val());
+    if (idInsumo && cantidad > 0) {
+      insumos.push({ id_insumo: parseInt(idInsumo), cantidad: cantidad });
+    }
+  });
+
+  const payload = {
+    id_tratamiento: idTratamiento,
+    id_tipo_procedimiento: $('#id_tipo_procedimiento').val() ? parseInt($('#id_tipo_procedimiento').val()) : null,
+    fecha_sesion: $('#fecha_sesion').val(),
+    descripcion_procedimiento: $('#descripcion_procedimiento').val(),
+    observaciones: $('#observaciones').val() || null,
+    proxima_cita: $('#proxima_cita').val() || null,
+    insumos: insumos
+  };
+
+  if (!payload.id_tipo_procedimiento) {
+    Swal.fire('Campo incompleto', 'Debe seleccionar el Tipo de Procedimiento.', 'warning');
+    return;
+  }
+  if (!payload.descripcion_procedimiento || !payload.descripcion_procedimiento.trim()) {
+    Swal.fire('Campo incompleto', 'La Descripción es obligatoria.', 'warning');
+    return;
+  }
+  if (insumos.length === 0) {
+    Swal.fire('Falta un Insumo', 'Debe registrar al menos un insumo con cantidad válida.', 'warning');
+    return;
+  }
+
+  fetch('/api/v1/sesiones-tratamiento', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (d.success) {
+      $('#modalSesion').modal('hide');
+      cargarSesiones();
+      cargarTratamiento();
+      Swal.fire('Éxito', 'Sesión registrada correctamente', 'success');
+    } else {
+      Swal.fire('Error', d.error, 'error');
+    }
+  })
+  .catch(err => {
+    console.error(err);
+    Swal.fire('Error', 'Ocurrió un error al guardar la sesión.', 'error');
+  });
+});
+
+$('#tblSesionesBody').on('click', 'button[name="btn_ver_sesion"]', function() {
+  const id = $(this).data('id');
+  fetch(`/api/v1/sesiones-tratamiento/${id}`)
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        const s = d.data;
+        $('#verNumeroSesion').text(s.numero_sesion);
+        $('#verTipoProcedimiento').text(s.tipo_procedimiento);
+        $('#verFechaSesion').text(formatDateForDisplay(s.fecha_sesion));
+        $('#verProximaCita').text(s.proxima_cita ? formatDateForDisplay(s.proxima_cita) : '-');
+        $('#verDescripcionSesion').text(s.descripcion_procedimiento);
+        $('#verObservaciones').text(s.observaciones || '-');
+        $('#verInsumos').empty();
+        s.insumos.forEach(i => {
+          $('#verInsumos').append(`<li>${i.descripcion_insumo} - Cantidad: ${i.cantidad}</li>`);
+        });
+        $('#modalVerSesion').modal('show');
+      } else {
+        Swal.fire('Error', d.error || 'No se pudo cargar la sesión', 'error');
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      Swal.fire('Error', 'No se pudo cargar la sesión', 'error');
+    });
+});
+
+$('#tblSesionesBody').on('click', 'button[name="btn_anular_sesion"]', function() {
+  const id = $(this).data('id');
+  Swal.fire({
+    title: '¿Anular esta sesión?',
+    text: 'Se anulará la sesión y los insumos registrados en ella.',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#d33',
+    cancelButtonColor: '#3085d6',
+    confirmButtonText: 'Sí, anular',
+    cancelButtonText: 'Cancelar'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      fetch(`/api/v1/sesiones-tratamiento/${id}`, { method: 'DELETE' })
+        .then(r => r.json())
+        .then(d => {
+          if (d.success) {
+            cargarSesiones();
+            cargarTratamiento();
+            Swal.fire('Anulada', d.mensaje, 'success');
+          } else {
+            Swal.fire('Error', d.error, 'error');
+          }
+        })
+        .catch(err => {
+          console.error(err);
+          Swal.fire('Error', 'No se pudo anular la sesión', 'error');
+        });
+    }
+  });
+});
+
+$('#btnFinalizarTratamiento').on('click', function() {
+  Swal.fire({
+    title: '¿Finalizar este tratamiento?',
+    text: 'No se podrán registrar más sesiones una vez finalizado.',
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'Sí, finalizar',
+    cancelButtonText: 'Cancelar'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      fetch(`/api/v1/tratamientos/${idTratamiento}/finalizar`, { method: 'PUT' })
+        .then(r => r.json())
+        .then(d => {
+          if (d.success) {
+            cargarTratamiento();
+            Swal.fire('Finalizado', d.mensaje, 'success');
+          } else {
+            Swal.fire('Error', d.error, 'error');
+          }
+        })
+        .catch(err => {
+          console.error(err);
+          Swal.fire('Error', 'No se pudo finalizar el tratamiento', 'error');
+        });
+    }
+  });
+});
+
+$(function() {
+  if (idTratamiento) {
+    cargarTratamiento();
+    cargarTiposProcedimiento();
+    cargarInsumos().then(() => cargarSesiones());
+  }
+});
+</script>
+{% endblock %}

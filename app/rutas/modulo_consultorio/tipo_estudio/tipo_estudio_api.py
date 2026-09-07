@@ -119,11 +119,13 @@ def updateTipoEstudio(id_tipo_estudio):
 def deleteTipoEstudio(id_tipo_estudio):
     dao = TipoEstudioDao()
     try:
+        registro = dao.getTipoEstudioById(id_tipo_estudio)
         resultado = dao.deleteTipoEstudio(id_tipo_estudio)
         if resultado == "EN_USO":
             return jsonify({'success': False, 'error': 'No se puede eliminar: este tipo de estudio está en uso en una o más órdenes de estudio.'}), 409
         if resultado:
-            return jsonify({'success': True, 'mensaje': f'Tipo de estudio con ID {id_tipo_estudio} eliminado correctamente.', 'error': None}), 200
+            descripcion = registro['descripcion'] if registro else 'seleccionado'
+            return jsonify({'success': True, 'mensaje': f'Tipo de estudio "{descripcion}" eliminado correctamente.', 'error': None}), 200
         else:
             return jsonify({'success': False, 'error': 'No se encontró el tipo de estudio con el ID proporcionado.'}), 404
     except Exception as e:

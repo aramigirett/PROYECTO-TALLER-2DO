@@ -119,11 +119,13 @@ def updateTipoTratamiento(id_tipo_tratamiento):
 def deleteTipoTratamiento(id_tipo_tratamiento):
     dao = TipoTratamientoDao()
     try:
+        registro = dao.getTipoTratamientoById(id_tipo_tratamiento)
         resultado = dao.deleteTipoTratamiento(id_tipo_tratamiento)
         if resultado == "EN_USO":
             return jsonify({'success': False, 'error': 'No se puede eliminar: este tipo de tratamiento está en uso en uno o más tratamientos registrados.'}), 409
         if resultado:
-            return jsonify({'success': True, 'mensaje': f'Tipo de tratamiento con ID {id_tipo_tratamiento} eliminado correctamente.', 'error': None}), 200
+            descripcion = registro['descripcion'] if registro else 'seleccionado'
+            return jsonify({'success': True, 'mensaje': f'Tipo de tratamiento "{descripcion}" eliminado correctamente.', 'error': None}), 200
         else:
             return jsonify({'success': False, 'error': 'No se encontró el tipo de tratamiento con el ID proporcionado.'}), 404
     except Exception as e:

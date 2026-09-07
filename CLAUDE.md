@@ -240,31 +240,128 @@ Dependencias pendientes documentadas en cada DAO (`estaEnUso()` devuelve
 - Tipo Análisis: depende de `orden_analisis` ("Generar Orden de Análisis",
   sin programar).
 
-### Movimientos grandes que faltan (dependen de las referenciales, ya listas)
-Gestionar Tratamientos (en curso), Gestionar Procedimientos e Insumos
-Utilizados, Generar Recetas e Indicaciones, Generar Orden de Estudios,
-Generar Orden de Análisis, Generar Justificativo Médico.
+### Movimientos grandes — estado real (actualizado)
 
-**Gestionar Tratamientos** — jerarquía: parte de una Consulta activa
-(programada/en_proceso), vinculación OPCIONAL a un Diagnóstico de esa misma
-consulta, Paciente/Médico heredados. Campos propios: Tipo de Tratamiento
-(catálogo), Descripción, Fecha de Tratamiento. Estados:
-`pendiente → en_seguimiento → finalizado`, más `cancelado` (para ANULAR).
-Es la CABECERA de la que van a colgar las sesiones de "Gestionar
-Procedimientos e Insumos Utilizados" (movimiento aparte, todavía sin
-construir) — la transición automática a `en_seguimiento` ocurre cuando se
-registra la primera sesión, lógica que vive en ESE movimiento, no en este.
-Auditado y confirmado en su momento — solo Odontograma tenía código, el
-resto no existía. Estado actualizado:
-- **Referenciales:** las 6 ya están completas (ver sección arriba).
-- **Movimientos que faltan:** Gestionar Tratamientos (en curso), Gestionar
-  Procedimientos e Insumos Utilizados, Generar Recetas e Indicaciones,
-  Generar Orden de Estudios, Generar Orden de Análisis, Generar
-  Justificativo Médico. `tratamientos` ya tiene tabla (bien foreada, ya
-  usada para bloquear el ANULAR de Consulta); el resto de las tablas de
-  estos movimientos no existen todavía, hay que crearlas al programar cada
-  uno (incluye `consultas_detalle.id_tipo_procedimiento`, ya con FK real
-  conectada a `tipo_procedimiento_medico`).
+**5 movimientos auditados y cerrados de punta a punta:** Registrar Consulta,
+Gestionar Diagnóstico, Gestión Ficha Médica, Gestionar Odontograma,
+Gestionar Tratamientos. Cada uno respeta ahora su CUS real (no lo que se
+asumía por "parecido" a otro módulo):
+
+- **Registrar Consulta**: reconstruido para partir de una Cita Confirmada
+  (ver sección de arriba). Editable solo Duración/Estado una vez vinculada.
+- **Gestionar Diagnóstico**: solo Ver/Anular (se sacó un botón "Modificar"
+  que no correspondía a su CUS). Anular ahora es baja lógica real
+  (`activo`, antes DELETE físico), con las 2 validaciones que pide el CUS
+  (bloquea si tiene Tratamiento asociado, bloquea si la consulta está
+  "finalizada"). Bug aparte corregido: `generarCodigo()` (DX-000N) contaba
+  mal por año contra un código único global — corregido para no chocar.
+- **Gestión Ficha Médica**: Ver/Editar/Anular (Editar SÍ es legítimo acá —
+  corrige la misma ficha mientras la consulta sigue abierta, no crea una
+  nueva; distinto criterio a Diagnóstico/Tratamiento a propósito). No tenía
+  ningún botón Anular conectado — se agregó, con baja lógica real y bloqueo
+  si la consulta está "finalizada".
+- **Gestionar Odontograma**: Ver/Anular. Reubicado a `modulo_consultorio/`
+  (estaba mal puesto en Agendamiento). Baja lógica real (antes DELETE
+  físico pese a tener el mecanismo ya construido). Bug de columna
+  inexistente (`p.ci`→`p.cedula_entidad`) corregido.
+- **Gestionar Tratamientos**: Ver/Anular. Construido de cero ya alineado al
+  CUS desde el arranque (parte de Consulta activa, vinculación opcional a
+  Diagnóstico, hereda Paciente/Médico/Consultorio, estados
+  `pendiente→en_seguimiento→finalizado`+`cancelado`).
+
+**Regla de acciones por movimiento (para los que faltan):** por defecto,
+un movimiento clínico es **Nuevo + Anular únicamente** (nunca "Modificar" a
+menos que el CUS lo diga explícitamente, como el caso especial de Ficha
+Médica). Un botón **"Ver"** de solo lectura es válido agregar siempre, no
+es una acción del CUS. El botón de baja SIEMPRE se llama **"Anular"**, no
+"Eliminar" — y si el CUS dice "actualiza el estado a inactivo", es baja
+lógica real, nunca DELETE físico.
+
+**Regla nueva, aprendida a los golpes — índices únicos parciales:**
+cualquier tabla que tenga una restricción `UNIQUE` (a nivel BD o por
+`existeDuplicado()` en la app) y a la que se le agregue baja lógica, TIENE
+que convertir ese `UNIQUE` en un índice único parcial
+(`WHERE activo = true` o equivalente) en el mismo momento — si no, un
+registro anulado sigue "ocupando" el valor único para siempre y bloquea
+crear uno nuevo en su lugar (pasó con `agenda_cabecera`, las 6 referenciales
+de Consultorio, y `ficha_medica_consulta`). Chequear esto SIEMPRE que se
+agregue baja lógica a algo nuevo.
+
+**Regla nueva — dependencias cruzadas al agregar baja lógica:** cuando una
+tabla A referencia a una tabla B y B pasa a tener baja lógica, hay que
+revisar TODOS los `EXISTS`/bloqueos que A hace contra B para que filtren
+`activo = true` — si no, un registro de B ya anulado sigue bloqueando a A
+para siempre (pasó 3 veces: Consulta bloqueada por Diagnóstico anulado,
+Tratamiento pudiendo engancharse a Diagnóstico anulado, Consulta bloqueada
+por Ficha Médica anulada). Y al revés: si el JOIN de un listado no filtra
+`activo = true` contra una tabla que ahora admite múltiples filas
+históricas (activas + anuladas), el listado puede MULTIPLICAR filas
+visualmente (pasó con `ConsultaDao.getConsultas()` contra
+`ficha_medica_consulta`) — revisar todos los JOIN, no solo los WHERE.
+
+**6 movimientos ya cerrados (auditados de punta a punta):** Registrar
+Consulta, Gestionar Diagnóstico, Gestión Ficha Médica, Gestionar
+Odontograma, Gestionar Tratamientos, **Gestionar Procedimientos e Insumos
+Utilizados**.
+
+- **Gestionar Procedimientos e Insumos Utilizados**: construido de cero.
+  Tablas nuevas `sesiones_tratamiento` (cabecera, cuelga de `tratamientos`)
+  y `sesion_insumos` (detalle). Se entra SIEMPRE desde el detalle de un
+  Tratamiento (botón nuevo en su listado) — sin entrada propia en el
+  sidebar/buscador, a propósito, porque el CUS nunca lo contempla como
+  acceso independiente. `numero_sesion` correlativo por tratamiento, único
+  parcial `WHERE activo=true` (se puede reutilizar tras anular). Registrar
+  la primera sesión pasa el tratamiento de `pendiente` a `en_seguimiento`
+  automáticamente. ANULAR solo permite la sesión más reciente activa
+  (bloquea las demás), con baja lógica en cascada a sus insumos.
+  "Finalizar Tratamiento" vive en este mismo movimiento (no en Gestionar
+  Tratamientos) — bloquea si el tratamiento está `pendiente` (sin
+  sesiones) o si ya está `finalizado`/`cancelado`.
+  Dependencias cruzadas conectadas: `TratamientoDao.deleteTratamiento()`
+  ahora bloquea si hay sesiones activas (pendiente documentado desde que se
+  construyó Tratamientos); `TipoInsumoDao` no tenía `estaEnUso()` y se le
+  agregó (antes de esto, CUALQUIER insumo se podía anular aunque estuviera
+  en uso — bug real de integridad, no solo un pendiente); se completó
+  `TipoProcedimientoMedicoDao.estaEnUso()` para sumar `sesiones_tratamiento`
+  además de `consultas_detalle`.
+  Bug de seguridad aparte corregido: `tipo_insumo_api.py` chequeaba
+  `if resultado:` en vez de comparar contra `"EN_USO"` — como cualquier
+  string no vacío es "truthy" en Python, esto permitía anular un insumo en
+  uso sin bloquear nada. Ahora corregido.
+
+**Mejora de UX aplicada a los 6 movimientos + las 6 referenciales:** los
+mensajes de éxito/error que arma el backend (`f-strings` mostrados vía
+SweetAlert) mostraban el ID crudo del registro (ej. "registro id 12
+anulado"). Se reemplazó por un dato descriptivo real en cada pantalla
+(código para Diagnóstico, número+fecha para Sesiones, descripción/nombre
+para las referenciales, etc.) — revisar este mismo detalle al construir
+los movimientos que faltan, no repetir el error de mostrar IDs crudos al
+usuario.
+
+**Movimientos que faltan (dependen de las referenciales, ya listas):**
+Generar Recetas e Indicaciones (siguiente), Generar Orden de Estudios,
+Generar Orden de Análisis, Generar Justificativo Médico. Ninguno tiene
+tabla propia todavía, hay que crearlas al programar cada uno.
+
+**Checklist a aplicar en cada uno de los que faltan, antes de darlo por
+cerrado** (todo lo aprendido hasta ahora):
+1. Revisar el CUS real (Ara lo confirma) antes de asumir que se parece a
+   otro módulo — campos, si tiene Modificar o no, qué bloquea el Anular.
+2. Nuevo + Anular (+ Ver de regalo), nombre de botón correcto, baja lógica
+   si el CUS lo pide.
+3. Índices únicos parciales si hay algo `UNIQUE` + baja lógica — aplicarlo
+   DESDE EL ARRANQUE si se sabe que va a hacer falta, no esperar a que
+   falle.
+4. Dependencias cruzadas: qué otras tablas/movimientos referencian a este,
+   y si sus validaciones/JOINs necesitan filtrar `activo`. Revisar también
+   si algún DAO ya construido dejó un `estaEnUso()` pendiente documentado
+   "esperando a que exista X" — conectarlo apenas X exista.
+5. Revisar si hay botones "Acción Rápida"/cruces con otras pantallas
+   (como Diagnóstico→Odontograma, Consulta→Tratamientos) que haya que
+   cablear, en vez de dejarlos como placeholder.
+6. Mensajes de éxito/error con datos descriptivos reales, nunca IDs crudos.
+7. Probar en el navegador vos misma, no solo confiar en los tests por
+   script de Claude Code.
 
 ## Pendiente de decidir a futuro: control de acceso en módulos grandes
 Hoy Agendamiento, Referenciales y Consultorio NO tienen ninguna restricción

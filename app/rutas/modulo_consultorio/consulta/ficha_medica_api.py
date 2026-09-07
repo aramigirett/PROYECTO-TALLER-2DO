@@ -189,32 +189,43 @@ def updateFicha(ficha_id):
 
 
 # =====================================================
-# ENDPOINT: ELIMINAR FICHA MÉDICA
+# ENDPOINT: ANULAR FICHA MÉDICA (baja lógica)
 # =====================================================
 @fichamedicaapi.route('/ficha-medica/<int:ficha_id>', methods=['DELETE'])
 def deleteFicha(ficha_id):
     """
-    Elimina una ficha médica
-    
+    Anula (baja lógica) una ficha médica. Se bloquea si la consulta a la
+    que pertenece ya está finalizada.
+
     URL: DELETE /api/v1/ficha-medica/10
     """
     fichaDao = FichaMedicaDao()
 
     try:
-        if fichaDao.deleteFicha(ficha_id):
+        registro = fichaDao.getFichaById(ficha_id)
+        resultado = fichaDao.deleteFicha(ficha_id)
+
+        if resultado == "CONSULTA_FINALIZADA":
+            return jsonify({
+                'success': False,
+                'error': 'No se puede anular: la consulta asociada ya está finalizada.'
+            }), 409
+
+        if resultado:
+            fecha = registro['fecha_registro'][:10] if registro and registro.get('fecha_registro') else 'seleccionada'
             return jsonify({
                 'success': True,
-                'mensaje': f'Ficha médica con ID {ficha_id} eliminada correctamente.',
+                'mensaje': f'Ficha médica del {fecha} anulada correctamente.',
                 'error': None
             }), 200
         else:
             return jsonify({
                 'success': False,
-                'error': 'No se encontró la ficha médica o no se pudo eliminar.'
+                'error': 'No se encontró la ficha médica con el ID proporcionado.'
             }), 404
 
     except Exception as e:
-        app.logger.error(f"Error al eliminar ficha médica: {str(e)}")
+        app.logger.error(f"Error al anular ficha médica: {str(e)}")
         return jsonify({
             'success': False,
             'error': 'Ocurrió un error interno. Consulte con el administrador.'

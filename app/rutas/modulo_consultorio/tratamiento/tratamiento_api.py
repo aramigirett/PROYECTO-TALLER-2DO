@@ -18,6 +18,13 @@ ERRORES = {
 }
 
 
+def _descripcionCorta(texto, largo=40):
+    """Recorta una descripción larga para usarla en mensajes de interfaz amigables."""
+    if not texto:
+        return 'seleccionado'
+    return texto if len(texto) <= largo else texto[:largo].rstrip() + '...'
+
+
 # =====================================================
 # ENDPOINT: OBTENER TODOS LOS TRATAMIENTOS
 # =====================================================
@@ -107,14 +114,67 @@ def addTratamiento():
 def deleteTratamiento(id_tratamiento):
     dao = TratamientoDao()
     try:
-        if dao.deleteTratamiento(id_tratamiento):
+        registro = dao.getTratamientoById(id_tratamiento)
+        resultado = dao.deleteTratamiento(id_tratamiento)
+
+        if resultado == "EN_USO":
+            return jsonify({
+                'success': False,
+                'error': 'No se puede anular: el tratamiento tiene sesiones activas registradas.'
+            }), 409
+
+        if resultado:
+            descripcion = _descripcionCorta(registro['descripcion_tratamiento']) if registro else 'seleccionado'
             return jsonify({
                 'success': True,
-                'mensaje': f'Tratamiento con ID {id_tratamiento} anulado correctamente.',
+                'mensaje': f'Tratamiento "{descripcion}" anulado correctamente.',
                 'error': None
             }), 200
         else:
             return jsonify({'success': False, 'error': 'No se encontró el tratamiento con el ID proporcionado, o ya estaba anulado.'}), 404
     except Exception as e:
         app.logger.error(f"Error al anular tratamiento: {str(e)}")
+        return jsonify({'success': False, 'error': 'Ocurrió un error interno. Consulte con el administrador.'}), 500
+
+
+# =====================================================
+# ENDPOINT: FINALIZAR TRATAMIENTO
+# =====================================================
+@tratamientoapi.route('/tratamientos/<int:id_tratamiento>/finalizar', methods=['PUT'])
+def finalizarTratamiento(id_tratamiento):
+    """
+    Marca un tratamiento como 'finalizado'. Bloquea si está 'pendiente'
+    (sin sesiones) o si ya está 'finalizado'/'cancelado'.
+
+    URL: PUT /api/v1/tratamientos/5/finalizar
+    """
+    dao = TratamientoDao()
+    try:
+        registro = dao.getTratamientoById(id_tratamiento)
+        resultado = dao.finalizarTratamiento(id_tratamiento)
+
+        if resultado == "PENDIENTE_SIN_SESIONES":
+            return jsonify({
+                'success': False,
+                'error': 'No se puede finalizar: el tratamiento está pendiente y no tiene sesiones registradas. Considere anular el tratamiento en su lugar.'
+            }), 409
+
+        if resultado == "YA_CERRADO":
+            return jsonify({
+                'success': False,
+                'error': 'El tratamiento ya está finalizado o cancelado.'
+            }), 409
+
+        if resultado:
+            descripcion = _descripcionCorta(registro['descripcion_tratamiento']) if registro else 'seleccionado'
+            return jsonify({
+                'success': True,
+                'mensaje': f'Tratamiento "{descripcion}" finalizado correctamente.',
+                'error': None
+            }), 200
+        else:
+            return jsonify({'success': False, 'error': 'No se encontró el tratamiento con el ID proporcionado.'}), 404
+
+    except Exception as e:
+        app.logger.error(f"Error al finalizar tratamiento: {str(e)}")
         return jsonify({'success': False, 'error': 'Ocurrió un error interno. Consulte con el administrador.'}), 500

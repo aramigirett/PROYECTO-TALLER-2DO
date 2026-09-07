@@ -11,12 +11,9 @@ NOTA - columnas fantasma de `tratamientos` (sin tocar a propósito, documentadas
   el mismo criterio usado en el resto del proyecto (RESTRICT).
 - `codigo`: varchar(10) UNIQUE, nullable. No se usa ni se popula acá.
 
-NOTA - `estaEnUso()` todavía no existe: la validación real de si un
-tratamiento tiene sesiones/procedimientos asociados depende de
-`sesion_insumos` (tabla de "Gestionar Procedimientos e Insumos Utilizados"),
-que no existe en la base todavía. Cuando se programe ese movimiento, agregar
-esa validación antes de permitir ANULAR, igual que se hizo en las
-referenciales (TipoInsumoDao, TipoProcedimientoMedicoDao, etc.).
+NOTA - `estaEnUso()`: ya conectada (ver deleteTratamiento) contra
+`sesiones_tratamiento`, tabla de "Gestionar Procedimientos e Insumos
+Utilizados".
 """
 from flask import current_app as app
 from app.conexion.Conexion import Conexion
@@ -188,7 +185,7 @@ class TratamientoDao:
                     SELECT 1
                     FROM diagnosticos d
                     JOIN consultas_detalle cd ON d.id_consulta_detalle = cd.id_consulta_detalle
-                    WHERE d.id_diagnostico = %s AND cd.id_consulta_cab = %s
+                    WHERE d.id_diagnostico = %s AND cd.id_consulta_cab = %s AND d.activo = true
                 """, (id_diagnostico, id_consulta_cab))
                 if not cur.fetchone():
                     return {'error': 'DIAGNOSTICO_INVALIDO'}
@@ -221,20 +218,34 @@ class TratamientoDao:
     def deleteTratamiento(self, id_tratamiento):
         """
         Anula (baja lógica) un tratamiento: pasa su estado a 'cancelado'.
+        Bloquea si el tratamiento tiene sesiones activas (Gestionar
+        Procedimientos e Insumos Utilizados).
 
         Returns:
-            bool: True si se anuló, False si no existía o ya estaba cancelado.
-        """
-        sql = """
-        UPDATE tratamientos
-        SET estado = 'cancelado'
-        WHERE id_tratamiento = %s AND estado <> 'cancelado'
+            bool | str: True si se anuló, False si no existía o ya estaba
+            cancelado, "EN_USO" si tiene sesiones activas.
         """
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(sql, (id_tratamiento,))
+            cur.execute("""
+                SELECT EXISTS(
+                    SELECT 1 FROM sesiones_tratamiento
+                    WHERE id_tratamiento = %s AND activo = true
+                )
+            """, (id_tratamiento,))
+            tiene_sesiones = cur.fetchone()[0]
+
+            if tiene_sesiones:
+                app.logger.warning(f"No se puede anular tratamiento {id_tratamiento}: tiene sesiones activas")
+                return "EN_USO"
+
+            cur.execute("""
+                UPDATE tratamientos
+                SET estado = 'cancelado'
+                WHERE id_tratamiento = %s AND estado <> 'cancelado'
+            """, (id_tratamiento,))
             filas_afectadas = cur.rowcount
             con.commit()
             return filas_afectadas > 0
@@ -242,6 +253,47 @@ class TratamientoDao:
             app.logger.error(f"Error al anular tratamiento: {str(e)}")
             con.rollback()
             return False
+        finally:
+            cur.close()
+            con.close()
+
+    def finalizarTratamiento(self, id_tratamiento):
+        """
+        Marca un tratamiento como 'finalizado'. Bloquea si está 'pendiente'
+        (sin sesiones registradas todavía; sugiere anular el tratamiento en
+        su lugar) o si ya está 'finalizado'/'cancelado'.
+
+        Returns:
+            bool | str: True si se finalizó, False si no existía,
+            "PENDIENTE_SIN_SESIONES" o "YA_CERRADO" según corresponda.
+        """
+        conexion = Conexion()
+        con = conexion.getConexion()
+        cur = con.cursor()
+        try:
+            cur.execute("SELECT estado FROM tratamientos WHERE id_tratamiento = %s", (id_tratamiento,))
+            row = cur.fetchone()
+
+            if not row:
+                return False
+
+            estado = row[0]
+
+            if estado == 'pendiente':
+                return "PENDIENTE_SIN_SESIONES"
+
+            if estado in ('finalizado', 'cancelado'):
+                return "YA_CERRADO"
+
+            cur.execute("UPDATE tratamientos SET estado = 'finalizado' WHERE id_tratamiento = %s", (id_tratamiento,))
+            con.commit()
+            return True
+
+        except Exception as e:
+            app.logger.error(f"Error al finalizar tratamiento: {str(e)}")
+            con.rollback()
+            return False
+
         finally:
             cur.close()
             con.close()

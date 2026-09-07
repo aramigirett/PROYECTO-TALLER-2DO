@@ -7,11 +7,8 @@ class TipoProcedimientoMedicoDao:
     DAO para la referencial 'Tipo Procedimiento Médico' (tabla
     `tipo_procedimiento_medico`).
 
-    NOTA: `estaEnUso()` hoy solo valida contra `consultas_detalle`. Todavía
-    falta sumar la validación contra `sesion_insumos`/`sesiones_tratamiento`
-    (tablas de "Gestionar Procedimientos e Insumos Utilizados"), que no
-    existen en la base todavía. Cuando se programe ese movimiento, agregar
-    acá esa validación, igual que se documentó en TipoInsumoDao.
+    `estaEnUso()` valida contra `consultas_detalle` y contra
+    `sesiones_tratamiento` (Gestionar Procedimientos e Insumos Utilizados).
     """
 
     def getTiposProcedimientoMedico(self):
@@ -139,18 +136,17 @@ class TipoProcedimientoMedicoDao:
     def estaEnUso(self, id_tipo_procedimiento):
         """
         Indica si el tipo de procedimiento médico está referenciado en algún
-        detalle de consulta.
-
-        Pendiente: sumar acá el chequeo contra `sesion_insumos`/
-        `sesiones_tratamiento` cuando esas tablas existan (ver docstring de
-        la clase).
+        detalle de consulta o en alguna sesión de tratamiento activa.
         """
-        sql = "SELECT EXISTS(SELECT 1 FROM consultas_detalle WHERE id_tipo_procedimiento = %s)"
+        sql = """
+            SELECT EXISTS(SELECT 1 FROM consultas_detalle WHERE id_tipo_procedimiento = %s)
+                OR EXISTS(SELECT 1 FROM sesiones_tratamiento WHERE id_tipo_procedimiento = %s AND activo = true)
+        """
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(sql, (id_tipo_procedimiento,))
+            cur.execute(sql, (id_tipo_procedimiento, id_tipo_procedimiento))
             return bool(cur.fetchone()[0])
         except Exception as e:
             app.logger.error(f"Error al verificar uso de tipo de procedimiento médico: {str(e)}")

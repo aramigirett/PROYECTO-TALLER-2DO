@@ -33,7 +33,7 @@ class ConsultaDao:
         LEFT JOIN paciente p ON cc.id_paciente = p.id_paciente
         LEFT JOIN medico m ON cc.id_medico = m.id_medico
         LEFT JOIN consultorio co ON cc.id_consultorio = co.codigo
-        LEFT JOIN ficha_medica_consulta fm ON cc.id_consulta_cab = fm.id_consulta_cab
+        LEFT JOIN ficha_medica_consulta fm ON cc.id_consulta_cab = fm.id_consulta_cab AND fm.activo = true
         WHERE cc.activo = true
         ORDER BY cc.fecha_cita DESC, cc.hora_cita DESC
         """
@@ -321,11 +321,11 @@ class ConsultaDao:
         try:
             cur.execute("""
                 SELECT
-                    EXISTS(SELECT 1 FROM ficha_medica_consulta WHERE id_consulta_cab = %s) AS tiene_ficha,
+                    EXISTS(SELECT 1 FROM ficha_medica_consulta WHERE id_consulta_cab = %s AND activo = true) AS tiene_ficha,
                     EXISTS(
                         SELECT 1 FROM diagnosticos d
                         JOIN consultas_detalle cd ON d.id_consulta_detalle = cd.id_consulta_detalle
-                        WHERE cd.id_consulta_cab = %s
+                        WHERE cd.id_consulta_cab = %s AND d.activo = true
                     ) AS tiene_diagnostico,
                     EXISTS(SELECT 1 FROM tratamientos WHERE id_consulta_cab = %s) AS tiene_tratamiento
             """, (id_consulta_cab, id_consulta_cab, id_consulta_cab))

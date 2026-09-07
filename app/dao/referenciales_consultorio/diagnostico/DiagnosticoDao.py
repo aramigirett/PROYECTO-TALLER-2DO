@@ -35,6 +35,7 @@ class DiagnosticoDao:
         INNER JOIN paciente p ON d.id_paciente = p.id_paciente
         INNER JOIN medico m ON d.id_medico = m.id_medico
         INNER JOIN tipo_diagnostico td ON d.id_tipo_diagnostico = td.id_tipo_diagnostico
+        WHERE d.activo = true
         ORDER BY d.fecha_diagnostico DESC, d.fecha_registro DESC
         """
         
@@ -97,7 +98,7 @@ class DiagnosticoDao:
         INNER JOIN paciente p ON d.id_paciente = p.id_paciente
         INNER JOIN medico m ON d.id_medico = m.id_medico
         INNER JOIN tipo_diagnostico td ON d.id_tipo_diagnostico = td.id_tipo_diagnostico
-        WHERE d.id_diagnostico = %s
+        WHERE d.id_diagnostico = %s AND d.activo = true
         """
         
         conexion = Conexion()
@@ -153,7 +154,7 @@ class DiagnosticoDao:
         FROM diagnosticos d
         INNER JOIN tipo_diagnostico td ON d.id_tipo_diagnostico = td.id_tipo_diagnostico
         INNER JOIN medico m ON d.id_medico = m.id_medico
-        WHERE d.id_paciente = %s
+        WHERE d.id_paciente = %s AND d.activo = true
         ORDER BY d.fecha_diagnostico DESC
         """
         
@@ -185,10 +186,8 @@ class DiagnosticoDao:
 
     def getDiagnosticosByConsulta(self, id_consulta_cab):
         """
-        Obtiene los diagnósticos vinculados a una consulta específica (vía
-        consultas_detalle). `diagnosticos` no tiene columna de estado/activo,
-        así que esto trae todos los diagnósticos de la consulta, sin filtro
-        adicional.
+        Obtiene los diagnósticos activos vinculados a una consulta específica
+        (vía consultas_detalle).
         """
         diagnosticoSQL = """
         SELECT
@@ -199,7 +198,7 @@ class DiagnosticoDao:
         FROM diagnosticos d
         JOIN consultas_detalle cd ON d.id_consulta_detalle = cd.id_consulta_detalle
         JOIN tipo_diagnostico td ON d.id_tipo_diagnostico = td.id_tipo_diagnostico
-        WHERE cd.id_consulta_cab = %s
+        WHERE cd.id_consulta_cab = %s AND d.activo = true
         ORDER BY d.fecha_registro DESC
         """
         conexion = Conexion()
@@ -223,34 +222,38 @@ class DiagnosticoDao:
 
     def generarCodigo(self):
         """
-        Genera un código único para el diagnóstico (DX-NNNN)
+        Genera un código único para el diagnóstico (DX-NNNN).
+
+        `codigo` es único a nivel de TODA la tabla, no por año, así que el
+        siguiente número se calcula a partir del máximo ya usado en toda la
+        tabla (no solo los registrados este año — eso chocaba con códigos
+        de años anteriores, ej. DX-0001 de 2025 vs. el DX-0001 recién
+        calculado para 2026).
         """
-        import datetime
-        
-        codigoSQL = """
-        SELECT COUNT(*) + 1 as siguiente
+        codigoSQL = r"""
+        SELECT COALESCE(MAX(CAST(SUBSTRING(codigo FROM 'DX-(\d+)') AS INTEGER)), 0) + 1 AS siguiente
         FROM diagnosticos
-        WHERE EXTRACT(YEAR FROM fecha_registro) = EXTRACT(YEAR FROM CURRENT_DATE)
+        WHERE codigo LIKE 'DX-%'
         """
-        
+
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
-        
+
         try:
             cur.execute(codigoSQL)
             resultado = cur.fetchone()
             numero = resultado[0] if resultado else 1
-            
+
             # Código más corto: DX-0001 (7 caracteres)
             codigo = f"DX-{str(numero).zfill(4)}"
-            
+
             return codigo
-            
+
         except Exception as e:
             app.logger.error(f"Error al generar código: {str(e)}")
             return None
-            
+
         finally:
             cur.close()
             con.close()
@@ -309,74 +312,56 @@ class DiagnosticoDao:
             cur.close()
             con.close()
 
-    def updateDiagnostico(self, id_diagnostico, datos):
-        """
-        Actualiza un diagnóstico existente
-        """
-        updateSQL = """
-        UPDATE diagnosticos
-        SET 
-            id_tipo_diagnostico = %s,
-            descripcion_diagnostico = %s,
-            pieza_dental = %s,
-            fecha_diagnostico = %s,
-            sintomas = %s,
-            observaciones = %s
-        WHERE id_diagnostico = %s
-        """
-        
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-        
-        try:
-            cur.execute(updateSQL, (
-                datos['id_tipo_diagnostico'],
-                datos['descripcion_diagnostico'],
-                datos.get('pieza_dental'),
-                datos['fecha_diagnostico'],
-                datos.get('sintomas'),
-                datos.get('observaciones'),
-                id_diagnostico
-            ))
-            
-            filas_afectadas = cur.rowcount
-            con.commit()
-            return filas_afectadas > 0
-            
-        except Exception as e:
-            app.logger.error(f"Error al actualizar diagnóstico: {str(e)}")
-            con.rollback()
-            return False
-            
-        finally:
-            cur.close()
-            con.close()
-
     def deleteDiagnostico(self, id_diagnostico):
         """
-        Elimina un diagnóstico
+        Anula (baja lógica) un diagnóstico, validando antes que:
+          1) no tenga un Tratamiento asociado, y
+          2) la Consulta a la que pertenece (si tiene una vinculada) no esté
+             'finalizada'.
+
+        Returns:
+            bool | str: True si se anuló, False si no existía, "EN_USO" si
+            tiene un tratamiento asociado, "CONSULTA_FINALIZADA" si la
+            consulta asociada ya está finalizada.
         """
-        deleteSQL = """
-        DELETE FROM diagnosticos
-        WHERE id_diagnostico = %s
-        """
-        
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
-        
+
         try:
-            cur.execute(deleteSQL, (id_diagnostico,))
+            cur.execute("""
+                SELECT
+                    EXISTS(SELECT 1 FROM tratamientos WHERE id_diagnostico = %s) AS tiene_tratamiento,
+                    EXISTS(
+                        SELECT 1 FROM diagnosticos d
+                        JOIN consultas_detalle cd ON d.id_consulta_detalle = cd.id_consulta_detalle
+                        JOIN consultas_cab cc ON cd.id_consulta_cab = cc.id_consulta_cab
+                        WHERE d.id_diagnostico = %s AND cc.estado = 'finalizada'
+                    ) AS consulta_finalizada
+            """, (id_diagnostico, id_diagnostico))
+            tiene_tratamiento, consulta_finalizada = cur.fetchone()
+
+            if tiene_tratamiento:
+                app.logger.warning(f"No se puede anular diagnóstico {id_diagnostico}: tiene un tratamiento asociado")
+                return "EN_USO"
+
+            if consulta_finalizada:
+                app.logger.warning(f"No se puede anular diagnóstico {id_diagnostico}: la consulta asociada está finalizada")
+                return "CONSULTA_FINALIZADA"
+
+            cur.execute(
+                "UPDATE diagnosticos SET activo = false WHERE id_diagnostico = %s AND activo = true",
+                (id_diagnostico,)
+            )
             rows_affected = cur.rowcount
             con.commit()
             return rows_affected > 0
-            
+
         except Exception as e:
-            app.logger.error(f"Error al eliminar diagnóstico: {str(e)}")
+            app.logger.error(f"Error al anular diagnóstico: {str(e)}")
             con.rollback()
             return False
-            
+
         finally:
             cur.close()
             con.close()

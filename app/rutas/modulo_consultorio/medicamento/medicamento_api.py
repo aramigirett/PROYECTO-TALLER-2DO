@@ -125,11 +125,13 @@ def updateMedicamento(id_medicamento):
 def deleteMedicamento(id_medicamento):
     dao = MedicamentoDao()
     try:
+        registro = dao.getMedicamentoById(id_medicamento)
         resultado = dao.deleteMedicamento(id_medicamento)
         if resultado == "EN_USO":
             return jsonify({'success': False, 'error': 'No se puede eliminar: este medicamento está en uso en una o más recetas.'}), 409
         if resultado:
-            return jsonify({'success': True, 'mensaje': f'Medicamento con ID {id_medicamento} eliminado correctamente.', 'error': None}), 200
+            nombre = registro['nombre_comercial'] if registro else 'seleccionado'
+            return jsonify({'success': True, 'mensaje': f'Medicamento "{nombre}" eliminado correctamente.', 'error': None}), 200
         else:
             return jsonify({'success': False, 'error': 'No se encontró el medicamento con el ID proporcionado.'}), 404
     except Exception as e:

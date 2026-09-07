@@ -195,80 +195,49 @@ def addDiagnosticoMedico():
 
 
 # =====================================================
-# ENDPOINT: ACTUALIZAR DIAGNÓSTICO
-# =====================================================
-@diagnostico_medico_api.route('/diagnosticos-medicos/<int:diagnostico_id>', methods=['PUT'])
-def updateDiagnosticoMedico(diagnostico_id):
-    """
-    Actualiza un diagnóstico existente
-    
-    URL: PUT /api/v1/diagnosticos-medicos/5
-    """
-    data = request.get_json()
-    diagnosticoDao = DiagnosticoDao()
-
-    # ========== VALIDACIONES ==========
-    campos_requeridos = ['id_tipo_diagnostico', 'descripcion_diagnostico', 'fecha_diagnostico']
-
-    for campo in campos_requeridos:
-        if campo not in data or data[campo] is None:
-            return jsonify({
-                'success': False,
-                'error': f'El campo {campo} es obligatorio y no puede estar vacío.'
-            }), 400
-
-    try:
-        # Actualizar diagnóstico
-        if diagnosticoDao.updateDiagnostico(diagnostico_id, data):
-            return jsonify({
-                'success': True,
-                'data': {
-                    'id_diagnostico': diagnostico_id,
-                    'mensaje': 'Diagnóstico actualizado correctamente'
-                },
-                'error': None
-            }), 200
-        else:
-            return jsonify({
-                'success': False,
-                'error': 'No se encontró el diagnóstico con el ID proporcionado o no se pudo actualizar.'
-            }), 404
-
-    except Exception as e:
-        app.logger.error(f"Error al actualizar diagnóstico: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': 'Ocurrió un error interno. Consulte con el administrador.'
-        }), 500
-
-
-# =====================================================
-# ENDPOINT: ELIMINAR DIAGNÓSTICO
+# ENDPOINT: ANULAR DIAGNÓSTICO (baja lógica)
 # =====================================================
 @diagnostico_medico_api.route('/diagnosticos-medicos/<int:diagnostico_id>', methods=['DELETE'])
 def deleteDiagnosticoMedico(diagnostico_id):
     """
-    Elimina un diagnóstico
-    
+    Anula (baja lógica) un diagnóstico. Se bloquea si tiene un Tratamiento
+    asociado, o si la consulta a la que pertenece ya está finalizada.
+
     URL: DELETE /api/v1/diagnosticos-medicos/5
     """
     diagnosticoDao = DiagnosticoDao()
 
     try:
-        if diagnosticoDao.deleteDiagnostico(diagnostico_id):
+        registro = diagnosticoDao.getDiagnosticoById(diagnostico_id)
+        resultado = diagnosticoDao.deleteDiagnostico(diagnostico_id)
+
+        if resultado == "EN_USO":
+            return jsonify({
+                'success': False,
+                'error': 'No se puede anular: este diagnóstico tiene un tratamiento asociado.'
+            }), 409
+
+        if resultado == "CONSULTA_FINALIZADA":
+            return jsonify({
+                'success': False,
+                'error': 'No se puede anular: la consulta asociada ya está finalizada.'
+            }), 409
+
+        if resultado:
+            codigo = registro['codigo'] if registro else 'seleccionado'
             return jsonify({
                 'success': True,
-                'mensaje': f'Diagnóstico con ID {diagnostico_id} eliminado correctamente.',
+                'mensaje': f'Diagnóstico {codigo} anulado correctamente.',
                 'error': None
             }), 200
         else:
             return jsonify({
                 'success': False,
-                'error': 'No se encontró el diagnóstico con el ID proporcionado o no se pudo eliminar.'
+                'error': 'No se encontró el diagnóstico con el ID proporcionado.'
             }), 404
 
     except Exception as e:
-        app.logger.error(f"Error al eliminar diagnóstico: {str(e)}")
+        app.logger.error(f"Error al anular diagnóstico: {str(e)}")
         return jsonify({
             'success': False,
             'error': 'Ocurrió un error interno. Consulte con el administrador.'

@@ -119,11 +119,13 @@ def updateTipoAnalisis(id_tipo_analisis):
 def deleteTipoAnalisis(id_tipo_analisis):
     dao = TipoAnalisisDao()
     try:
+        registro = dao.getTipoAnalisisById(id_tipo_analisis)
         resultado = dao.deleteTipoAnalisis(id_tipo_analisis)
         if resultado == "EN_USO":
             return jsonify({'success': False, 'error': 'No se puede eliminar: este tipo de análisis está en uso en una o más órdenes de análisis.'}), 409
         if resultado:
-            return jsonify({'success': True, 'mensaje': f'Tipo de análisis con ID {id_tipo_analisis} eliminado correctamente.', 'error': None}), 200
+            descripcion = registro['descripcion'] if registro else 'seleccionado'
+            return jsonify({'success': True, 'mensaje': f'Tipo de análisis "{descripcion}" eliminado correctamente.', 'error': None}), 200
         else:
             return jsonify({'success': False, 'error': 'No se encontró el tipo de análisis con el ID proporcionado.'}), 404
     except Exception as e:

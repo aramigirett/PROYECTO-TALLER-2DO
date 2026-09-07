@@ -184,10 +184,13 @@ def deleteDetalle(detalle_id):
     detalleDao = ConsultaDetalleDao()
 
     try:
+        registro = detalleDao.getDetalleById(detalle_id)
         if detalleDao.deleteDetalle(detalle_id):
+            diagnostico = registro['diagnostico'] if registro and registro.get('diagnostico') else 'seleccionado'
+            diagnostico = diagnostico if len(diagnostico) <= 40 else diagnostico[:40].rstrip() + '...'
             return jsonify({
                 'success': True,
-                'mensaje': f'Detalle con ID {detalle_id} eliminado correctamente.',
+                'mensaje': f'Detalle "{diagnostico}" eliminado correctamente.',
                 'error': None
             }), 200
         else:
