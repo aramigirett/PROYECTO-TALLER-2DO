@@ -70,6 +70,56 @@ class ConsultaDao:
             cur.close()
             con.close()
 
+    def getConsultasActivas(self):
+        """
+        Obtiene las consultas activas (activo=true) en estado 'programada'
+        o 'en_proceso' — son las únicas desde las que se puede partir para
+        registrar un Tratamiento (Gestionar Tratamientos).
+        """
+        consultaSQL = """
+        SELECT
+            cc.id_consulta_cab,
+            cc.id_paciente,
+            CONCAT(p.nombre, ' ', p.apellido) as nombre_paciente,
+            cc.id_medico,
+            CONCAT(m.nombre, ' ', m.apellido) as nombre_medico,
+            cc.id_consultorio,
+            co.nombre_consultorio,
+            cc.fecha_cita,
+            cc.hora_cita,
+            cc.estado
+        FROM consultas_cab cc
+        JOIN paciente p ON cc.id_paciente = p.id_paciente
+        JOIN medico m ON cc.id_medico = m.id_medico
+        JOIN consultorio co ON cc.id_consultorio = co.codigo
+        WHERE cc.activo = true AND cc.estado IN ('programada', 'en_proceso')
+        ORDER BY cc.fecha_cita DESC, cc.hora_cita DESC
+        """
+        conexion = Conexion()
+        con = conexion.getConexion()
+        cur = con.cursor()
+        try:
+            cur.execute(consultaSQL)
+            consultas = cur.fetchall()
+            return [{
+                'id_consulta_cab': c[0],
+                'id_paciente': c[1],
+                'nombre_paciente': c[2],
+                'id_medico': c[3],
+                'nombre_medico': c[4],
+                'id_consultorio': c[5],
+                'nombre_consultorio': c[6],
+                'fecha_cita': c[7].isoformat() if c[7] else None,
+                'hora_cita': str(c[8]) if c[8] else None,
+                'estado': c[9]
+            } for c in consultas]
+        except Exception as e:
+            app.logger.error(f"Error al obtener consultas activas: {str(e)}")
+            return []
+        finally:
+            cur.close()
+            con.close()
+
     def getConsultaById(self, id_consulta_cab):
         """
         Obtiene UNA consulta específica por ID

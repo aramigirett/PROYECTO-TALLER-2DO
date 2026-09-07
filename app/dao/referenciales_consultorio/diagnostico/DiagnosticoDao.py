@@ -178,7 +178,45 @@ class DiagnosticoDao:
         except Exception as e:
             app.logger.error(f"Error al obtener diagnósticos del paciente: {str(e)}")
             return []
-            
+
+        finally:
+            cur.close()
+            con.close()
+
+    def getDiagnosticosByConsulta(self, id_consulta_cab):
+        """
+        Obtiene los diagnósticos vinculados a una consulta específica (vía
+        consultas_detalle). `diagnosticos` no tiene columna de estado/activo,
+        así que esto trae todos los diagnósticos de la consulta, sin filtro
+        adicional.
+        """
+        diagnosticoSQL = """
+        SELECT
+            d.id_diagnostico,
+            d.codigo,
+            d.descripcion_diagnostico,
+            td.descripcion_diagnostico as tipo_diagnostico
+        FROM diagnosticos d
+        JOIN consultas_detalle cd ON d.id_consulta_detalle = cd.id_consulta_detalle
+        JOIN tipo_diagnostico td ON d.id_tipo_diagnostico = td.id_tipo_diagnostico
+        WHERE cd.id_consulta_cab = %s
+        ORDER BY d.fecha_registro DESC
+        """
+        conexion = Conexion()
+        con = conexion.getConexion()
+        cur = con.cursor()
+        try:
+            cur.execute(diagnosticoSQL, (id_consulta_cab,))
+            diagnosticos = cur.fetchall()
+            return [{
+                'id_diagnostico': d[0],
+                'codigo': d[1],
+                'descripcion_diagnostico': d[2],
+                'tipo_diagnostico': d[3]
+            } for d in diagnosticos]
+        except Exception as e:
+            app.logger.error(f"Error al obtener diagnósticos de la consulta: {str(e)}")
+            return []
         finally:
             cur.close()
             con.close()

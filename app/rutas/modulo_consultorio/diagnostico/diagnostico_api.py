@@ -105,6 +105,33 @@ def getDiagnosticosByPaciente(paciente_id):
 
 
 # =====================================================
+# ENDPOINT: OBTENER DIAGNÓSTICOS DE UNA CONSULTA (para Gestionar Tratamientos)
+# =====================================================
+@diagnostico_medico_api.route('/diagnosticos-medicos/consulta/<int:id_consulta_cab>', methods=['GET'])
+def getDiagnosticosByConsulta(id_consulta_cab):
+    """
+    Obtiene los diagnósticos vinculados a una consulta específica.
+
+    URL: GET /api/v1/diagnosticos-medicos/consulta/5
+    """
+    diagnosticoDao = DiagnosticoDao()
+
+    try:
+        diagnosticos = diagnosticoDao.getDiagnosticosByConsulta(id_consulta_cab)
+        return jsonify({
+            'success': True,
+            'data': diagnosticos,
+            'error': None
+        }), 200
+    except Exception as e:
+        app.logger.error(f"Error al obtener diagnósticos de la consulta: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Ocurrió un error interno. Consulte con el administrador.'
+        }), 500
+
+
+# =====================================================
 # ENDPOINT: AGREGAR NUEVO DIAGNÓSTICO
 # =====================================================
 @diagnostico_medico_api.route('/diagnosticos-medicos', methods=['POST'])

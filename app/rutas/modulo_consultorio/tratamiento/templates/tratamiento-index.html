@@ -1,0 +1,432 @@
+{% extends 'base.html' %}
+
+{% block titulo %}
+Gestionar Tratamientos
+{% endblock %}
+
+{% block contenido %}
+<div class="container-fluid mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3>Gestionar Tratamientos</h3>
+    <button type="button" class="btn btn-primary" id="btnAgregar">
+      <i class="fas fa-plus-circle"></i> Nuevo Tratamiento
+    </button>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-hover table-striped" id="tbl">
+          <thead class="table-light">
+            <tr>
+              <th>Paciente</th>
+              <th>Médico</th>
+              <th>Tipo de Tratamiento</th>
+              <th>Descripción</th>
+              <th>Fecha</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Nuevo Tratamiento -->
+  <div class="modal fade" id="modalFormulario" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title">Nuevo Tratamiento</h5>
+          <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+        </div>
+        <div class="modal-body">
+
+          <!-- Consulta -->
+          <div class="form-group">
+            <label class="font-weight-bold">Consulta Activa *</label>
+            <div class="input-group">
+              <input type="hidden" id="id_consulta_cab">
+              <input type="text" class="form-control" id="txtConsulta" readonly
+                     placeholder="Click para seleccionar una consulta activa">
+              <div class="input-group-append">
+                <button class="btn btn-outline-primary" type="button" id="btnBuscarConsulta">
+                  <i class="fas fa-search"></i>
+                </button>
+              </div>
+            </div>
+            <small class="text-muted">Solo se listan consultas activas en estado Programada o En Proceso.</small>
+          </div>
+
+          <!-- Datos heredados -->
+          <div class="row">
+            <div class="col-md-4 mb-3">
+              <label class="font-weight-bold">Paciente</label>
+              <input type="text" class="form-control" id="txtPaciente" readonly>
+            </div>
+            <div class="col-md-4 mb-3">
+              <label class="font-weight-bold">Médico</label>
+              <input type="text" class="form-control" id="txtMedico" readonly>
+            </div>
+            <div class="col-md-4 mb-3">
+              <label class="font-weight-bold">Consultorio</label>
+              <input type="text" class="form-control" id="txtConsultorio" readonly>
+            </div>
+          </div>
+
+          <hr>
+
+          <!-- Diagnóstico (opcional) -->
+          <div class="form-group">
+            <label class="font-weight-bold">Diagnóstico (opcional)</label>
+            <select class="form-control" id="id_diagnostico">
+              <option value="">Sin diagnóstico</option>
+            </select>
+          </div>
+
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="font-weight-bold">Tipo de Tratamiento *</label>
+              <select class="form-control" id="id_tipo_tratamiento">
+                <option value="">Seleccione...</option>
+              </select>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="font-weight-bold">Fecha de Tratamiento *</label>
+              <input type="date" class="form-control" id="fecha_tratamiento">
+            </div>
+            <div class="col-md-12 mb-3">
+              <label class="font-weight-bold">Descripción *</label>
+              <textarea class="form-control" id="descripcion_tratamiento" rows="3"
+                        placeholder="Describa el tratamiento indicado..."></textarea>
+            </div>
+          </div>
+
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary" id="btnGuardar">Guardar</button>
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Buscar Consulta -->
+  <div class="modal fade" id="modalBuscarConsulta" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title">Seleccionar Consulta Activa</h5>
+          <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="table-responsive">
+            <table class="table table-hover" id="tblConsultas">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Hora</th>
+                  <th>Paciente</th>
+                  <th>Médico</th>
+                  <th>Estado</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Librerías -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.10.21/css/dataTables.bootstrap4.min.css">
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+{% endblock %}
+
+
+{% block js %}
+<script>
+
+// Parámetro de URL (cuando viene desde el botón "Tratamientos" de Consulta)
+const urlParams = new URLSearchParams(window.location.search);
+const idConsultaParam = urlParams.get('consulta');
+
+function formatDateForDisplay(fecha) {
+  if (!fecha) return '';
+  const d = new Date(fecha);
+  if (isNaN(d)) return '';
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const year = d.getUTCFullYear();
+  return `${day}/${month}/${year}`;
+}
+
+// ============================================
+// DATATABLE: TRATAMIENTOS
+// ============================================
+function initDatatableTratamientos() {
+  if ($.fn.DataTable.isDataTable('#tbl')) {
+    $('#tbl').DataTable().destroy();
+  }
+  $('#tbl').DataTable({
+    language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
+    ajax: { url: '/api/v1/tratamientos', dataSrc: 'data' },
+    columns: [
+      { data: 'nombre_paciente' },
+      { data: 'nombre_medico' },
+      { data: 'tipo_tratamiento' },
+      { data: 'descripcion_tratamiento' },
+      { data: 'fecha_tratamiento', render: d => formatDateForDisplay(d) },
+      { data: 'estado' },
+      {
+        data: null,
+        render: row => `
+          <button class="btn btn-danger btn-sm" name="btn_anular" data-id="${row.id_tratamiento}" title="Anular">
+            <i class="fas fa-ban"></i>
+          </button>
+        `
+      }
+    ]
+  });
+}
+
+// ============================================
+// DATATABLE: CONSULTAS ACTIVAS
+// ============================================
+function initDatatableConsultas() {
+  if ($.fn.DataTable.isDataTable('#tblConsultas')) {
+    $('#tblConsultas').DataTable().destroy();
+  }
+  $('#tblConsultas').DataTable({
+    language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
+    ajax: { url: '/api/v1/consultas/activas', dataSrc: 'data' },
+    columns: [
+      { data: 'fecha_cita', render: d => formatDateForDisplay(d) },
+      { data: 'hora_cita' },
+      { data: 'nombre_paciente' },
+      { data: 'nombre_medico' },
+      { data: 'estado' },
+      {
+        data: null,
+        render: row => `
+          <button class="btn btn-primary btn-sm" name="btn_seleccionar_consulta"
+                  data-id="${row.id_consulta_cab}"
+                  data-paciente="${row.nombre_paciente}"
+                  data-medico="${row.nombre_medico}"
+                  data-consultorio="${row.nombre_consultorio}"
+                  data-fecha="${row.fecha_cita}"
+                  data-hora="${row.hora_cita}">
+            Seleccionar
+          </button>
+        `
+      }
+    ]
+  });
+
+  $('#tblConsultas').on('click', 'button[name="btn_seleccionar_consulta"]', function() {
+    const btn = $(this);
+    const idConsulta = btn.data('id');
+
+    $('#id_consulta_cab').val(idConsulta);
+    $('#txtConsulta').val(`${formatDateForDisplay(btn.data('fecha'))} ${btn.data('hora')} - ${btn.data('paciente')}`);
+    $('#txtPaciente').val(btn.data('paciente'));
+    $('#txtMedico').val(btn.data('medico'));
+    $('#txtConsultorio').val(btn.data('consultorio'));
+
+    // Cargar diagnósticos de esta consulta
+    $('#id_diagnostico').html('<option value="">Sin diagnóstico</option>');
+    fetch(`/api/v1/diagnosticos-medicos/consulta/${idConsulta}`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) {
+          d.data.forEach(diag => {
+            $('#id_diagnostico').append(
+              `<option value="${diag.id_diagnostico}">${diag.descripcion_diagnostico} (${diag.tipo_diagnostico})</option>`
+            );
+          });
+        }
+      });
+
+    $('#modalBuscarConsulta').modal('hide');
+  });
+}
+
+// ============================================
+// CARGAR TIPOS DE TRATAMIENTO (combo)
+// ============================================
+function cargarTiposTratamiento() {
+  fetch('/api/v1/tipos-tratamiento')
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        const select = $('#id_tipo_tratamiento');
+        select.html('<option value="">Seleccione...</option>');
+        d.data.forEach(t => {
+          select.append(`<option value="${t.id_tipo_tratamiento}">${t.descripcion}</option>`);
+        });
+      }
+    });
+}
+
+// ============================================
+// PRESELECCIONAR CONSULTA (cuando viene desde el botón
+// "Tratamientos" del panel de Consulta) y abrir el modal Nuevo
+// ============================================
+function preseleccionarConsultaDesdeQuery() {
+  if (!idConsultaParam) return;
+  const idConsulta = parseInt(idConsultaParam);
+
+  limpiarModal();
+
+  fetch(`/api/v1/consultas/${idConsulta}`)
+    .then(r => r.json())
+    .then(d => {
+      if (!d.success) {
+        Swal.fire('Error', 'No se pudo cargar la consulta indicada.', 'error');
+        return;
+      }
+      const c = d.data;
+
+      $('#id_consulta_cab').val(idConsulta);
+      $('#txtConsulta').val(`${formatDateForDisplay(c.fecha_cita)} ${c.hora_cita} - ${c.nombre_paciente}`);
+      $('#txtPaciente').val(c.nombre_paciente);
+      $('#txtMedico').val(c.nombre_medico);
+      $('#txtConsultorio').val(c.nombre_consultorio);
+
+      fetch(`/api/v1/diagnosticos-medicos/consulta/${idConsulta}`)
+        .then(r => r.json())
+        .then(dd => {
+          if (dd.success) {
+            dd.data.forEach(diag => {
+              $('#id_diagnostico').append(
+                `<option value="${diag.id_diagnostico}">${diag.descripcion_diagnostico} (${diag.tipo_diagnostico})</option>`
+              );
+            });
+          }
+        });
+
+      $('#modalFormulario').modal('show');
+    })
+    .catch(err => {
+      console.error(err);
+      Swal.fire('Error', 'No se pudo cargar la consulta indicada.', 'error');
+    });
+}
+
+// ============================================
+// LIMPIAR MODAL
+// ============================================
+function limpiarModal() {
+  $('#id_consulta_cab').val('');
+  $('#txtConsulta').val('');
+  $('#txtPaciente').val('');
+  $('#txtMedico').val('');
+  $('#txtConsultorio').val('');
+  $('#id_diagnostico').html('<option value="">Sin diagnóstico</option>');
+  $('#id_tipo_tratamiento').val('');
+  $('#descripcion_tratamiento').val('');
+  $('#fecha_tratamiento').val(new Date().toISOString().split('T')[0]);
+}
+
+// ============================================
+// EVENTOS
+// ============================================
+$('#btnAgregar').on('click', function() {
+  limpiarModal();
+  $('#modalFormulario').modal('show');
+});
+
+$('#btnBuscarConsulta').on('click', function() {
+  $('#modalBuscarConsulta').modal('show');
+});
+
+$('#btnGuardar').on('click', function() {
+  const payload = {
+    id_consulta_cab: $('#id_consulta_cab').val() ? parseInt($('#id_consulta_cab').val()) : null,
+    id_diagnostico: $('#id_diagnostico').val() ? parseInt($('#id_diagnostico').val()) : null,
+    id_tipo_tratamiento: $('#id_tipo_tratamiento').val() ? parseInt($('#id_tipo_tratamiento').val()) : null,
+    descripcion_tratamiento: $('#descripcion_tratamiento').val(),
+    fecha_tratamiento: $('#fecha_tratamiento').val()
+  };
+
+  if (!payload.id_consulta_cab) {
+    Swal.fire('Falta la Consulta', 'Debe seleccionar una Consulta activa.', 'warning');
+    return;
+  }
+  if (!payload.id_tipo_tratamiento) {
+    Swal.fire('Campo incompleto', 'Debe seleccionar el Tipo de Tratamiento.', 'warning');
+    return;
+  }
+  if (!payload.descripcion_tratamiento || !payload.descripcion_tratamiento.trim()) {
+    Swal.fire('Campo incompleto', 'La Descripción es obligatoria.', 'warning');
+    return;
+  }
+  if (!payload.fecha_tratamiento) {
+    Swal.fire('Campo incompleto', 'La Fecha de Tratamiento es obligatoria.', 'warning');
+    return;
+  }
+
+  fetch('/api/v1/tratamientos', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (d.success) {
+      $('#modalFormulario').modal('hide');
+      $('#tbl').DataTable().ajax.reload();
+      Swal.fire('Éxito', 'Tratamiento registrado correctamente', 'success');
+    } else {
+      Swal.fire('Error', d.error, 'error');
+    }
+  })
+  .catch(err => {
+    console.error(err);
+    Swal.fire('Error', 'Ocurrió un error al guardar el tratamiento.', 'error');
+  });
+});
+
+$('#tbl').on('click', 'button[name="btn_anular"]', function() {
+  const id = $(this).data('id');
+  Swal.fire({
+    title: '¿Anular este tratamiento?',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Sí, anular',
+    cancelButtonText: 'Cancelar'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      fetch(`/api/v1/tratamientos/${id}`, { method: 'DELETE' })
+        .then(r => r.json())
+        .then(d => {
+          if (d.success) {
+            $('#tbl').DataTable().ajax.reload();
+            Swal.fire('Anulado', d.mensaje, 'success');
+          } else {
+            Swal.fire('Error', d.error, 'error');
+          }
+        })
+        .catch(err => {
+          Swal.fire('Error', 'Ocurrió un error al anular el tratamiento.', 'error');
+        });
+    }
+  });
+});
+
+$(function() {
+  initDatatableTratamientos();
+  initDatatableConsultas();
+  cargarTiposTratamiento();
+  preseleccionarConsultaDesdeQuery();
+});
+</script>
+{% endblock %}

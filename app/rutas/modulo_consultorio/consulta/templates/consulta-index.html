@@ -2251,18 +2251,14 @@ $('#btnGestionarDiagnosticos').on('click', function() {
 // BOTÓN: REGISTRAR TRATAMIENTOS
 // ============================================
 $('#btnRegistrarTratamientos').on('click', function() {
-  Swal.fire({
-    title: 'Registrar Tratamientos',
-    html: `
-      <p>Esta funcionalidad abrirá el módulo completo de <strong>Registrar Tratamientos</strong>.</p>
-      <p class="text-muted">Se implementará en el siguiente paso.</p>
-    `,
-    icon: 'info',
-    confirmButtonText: 'Entendido'
-  });
-  
-  // TODO: Implementar navegación al módulo de Registrar Tratamientos
-  // window.location.href = '/referenciales/tratamiento/tratamiento-index?consulta=' + consultaActualId;
+  const idConsulta = consultaActualId;
+
+  if (!idConsulta) {
+    Swal.fire('Error', 'No se ha seleccionado una consulta', 'error');
+    return;
+  }
+
+  window.location.href = `/referenciales/tratamiento/tratamiento-index?consulta=${idConsulta}`;
 });
 
 // ============================================

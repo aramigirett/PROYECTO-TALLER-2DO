@@ -41,6 +41,34 @@ def getConsultas():
 
 
 # =====================================================
+# ENDPOINT: OBTENER CONSULTAS ACTIVAS (para Gestionar Tratamientos)
+# =====================================================
+@consultaapi.route('/consultas/activas', methods=['GET'])
+def getConsultasActivas():
+    """
+    Obtiene las consultas activas (programada/en_proceso) desde las que se
+    puede partir para registrar un Tratamiento.
+
+    URL: GET /api/v1/consultas/activas
+    """
+    consultaDao = ConsultaDao()
+
+    try:
+        consultas = consultaDao.getConsultasActivas()
+        return jsonify({
+            'success': True,
+            'data': consultas,
+            'error': None
+        }), 200
+    except Exception as e:
+        app.logger.error(f"Error al obtener consultas activas: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Ocurrió un error interno. Consulte con el administrador.'
+        }), 500
+
+
+# =====================================================
 # ENDPOINT: OBTENER UNA CONSULTA POR ID
 # =====================================================
 @consultaapi.route('/consultas/<int:consulta_id>', methods=['GET'])

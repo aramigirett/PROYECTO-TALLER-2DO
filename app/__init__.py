@@ -43,6 +43,7 @@ from app.rutas.modulo_consultorio.tipo_procedimiento_medico.tipo_procedimiento_m
 from app.rutas.modulo_consultorio.medicamento.medicamento_routes import medicamentomod
 from app.rutas.modulo_consultorio.tipo_estudio.tipo_estudio_routes import tipoestudiomod
 from app.rutas.modulo_consultorio.tipo_analisis.tipo_analisis_routes import tipoanalisismod
+from app.rutas.modulo_consultorio.tratamiento.tratamiento_routes import tratamientomod
 
 
 
@@ -85,6 +86,7 @@ app.register_blueprint(tipoprocedimientomedicomod, url_prefix=f'{modulo0}/tipo-p
 app.register_blueprint(medicamentomod, url_prefix=f'{modulo0}/medicamento')
 app.register_blueprint(tipoestudiomod, url_prefix=f'{modulo0}/tipo-estudio')
 app.register_blueprint(tipoanalisismod, url_prefix=f'{modulo0}/tipo-analisis')
+app.register_blueprint(tratamientomod, url_prefix=f'{modulo0}/tratamiento')
 
 
 #ciudad
@@ -135,6 +137,7 @@ from app.rutas.modulo_consultorio.tipo_procedimiento_medico.tipo_procedimiento_m
 from app.rutas.modulo_consultorio.medicamento.medicamento_api import medicamentoapi
 from app.rutas.modulo_consultorio.tipo_estudio.tipo_estudio_api import tipoestudioapi
 from app.rutas.modulo_consultorio.tipo_analisis.tipo_analisis_api import tipoanalisisapi
+from app.rutas.modulo_consultorio.tratamiento.tratamiento_api import tratamientoapi
 
 
 # APIS v1
@@ -208,6 +211,7 @@ app.register_blueprint(tipoprocedimientomedicoapi, url_prefix=version1)
 app.register_blueprint(medicamentoapi, url_prefix=version1)
 app.register_blueprint(tipoestudioapi, url_prefix=version1)
 app.register_blueprint(tipoanalisisapi, url_prefix=version1)
+app.register_blueprint(tratamientoapi, url_prefix=version1)
 
 
 ##REGISTRAR CONSULTA Y FICHA MEDICA
