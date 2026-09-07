@@ -204,27 +204,67 @@ independiente.
 - Pendiente igual que Consulta: `odontograma.id_paciente` es CASCADE, mismo
   riesgo latente que `cita_cabecera.id_paciente` (no resuelto, anotado).
 
-### El resto del módulo: 12 de 13 CUS restantes están SIN PROGRAMAR
-Auditado y confirmado — de los movimientos/referenciales que faltaban
-revisar, solo Odontograma tenía código. El resto:
-- **Ya tienen tabla en la base, pero CERO código de aplicación (sin
-  DAO/API/routes/pantalla):** `tratamientos` (bien foreada, ya usada para
-  bloquear el ANULAR de Consulta), `insumos` (catálogo simple, huérfana, sin
-  FK que la referencie todavía), `tipos_tratamiento` (Tipo Tratamiento).
-- **No existen ni como tabla, hay que diseñarlas de cero:** Gestionar
-  Procedimientos e Insumos Utilizados (incluye `consultas_detalle.id_tipo_procedimiento`,
-  columna fantasma sin tabla ni FK detrás — mismo patrón que tenía
-  `id_sintoma` antes de corregirlo), Generar Recetas e Indicaciones, Generar
-  Orden de Estudios, Generar Orden de Análisis, Generar Justificativo
-  Médico, Tipo Insumo Utilizado, Tipo Procedimiento Médico, Medicamentos
-  (hoy solo existe como texto libre `nombre_medicamento` dentro de
-  `historial_medico_paciente` de Agendamiento, no es un catálogo
-  reutilizable), Tipo Análisis, Tipo Estudio.
-- Decisión de orden: programar primero las **referenciales/catálogos**
-  (Tipo Tratamiento, Tipo Insumo Utilizado, Tipo Procedimiento Médico,
-  Medicamentos, Tipo Análisis, Tipo Estudio), porque los movimientos
-  grandes (Gestionar Tratamientos, Generar Recetas, etc.) dependen de que
-  esos catálogos ya existan y tengan datos cargados.
+### Las 6 referenciales de Consultorio — todas programadas y probadas
+Tipo Tratamiento, Tipo Insumo Utilizado, Tipo Procedimiento Médico,
+Medicamentos, Tipo Estudio, Tipo Análisis. Todas usan **baja lógica**
+(`activo`), a diferencia de las referenciales de Agendamiento — decisión
+confirmada en cada CUS original, no es inconsistencia.
+
+**Corrección importante aplicada después de programarlas:** el campo
+`codigo` que pedían los CUS originales (Alta con Código + Descripción) fue
+sacado por decisión posterior de Ara — **ya no existe** en ninguna de las 6.
+Quedan solo con su ID interno autonumérico como identificador, igual que
+las referenciales de Agendamiento (Especialidad/Cargo). La validación de
+duplicados pasa a hacerse por `descripcion` (o `nombre_comercial` en el
+caso de Medicamentos, que nunca tuvo campo Descripción). Se agregó también
+un índice único parcial en `insumos.descripcion`, que antes no lo tenía
+(solo `codigo` estaba protegido).
+
+⚠️ **Pendiente, no de código:** los CUS documentados en el Word de la tesis
+todavía dicen "el encargado de consultorio ingresa el Código y la
+Descripción" — hay que corregir esos 6 documentos para que coincidan con
+esta decisión, si no queda la misma inconsistencia análisis-vs-código que
+venimos evitando, pero al revés.
+
+Dependencias pendientes documentadas en cada DAO (`estaEnUso()` devuelve
+`False` por ahora, sin fingir una validación imposible):
+- Tipo Insumo Utilizado y Tipo Procedimiento Médico: dependen de
+  `sesion_insumos`/`sesiones_tratamiento` (parte de "Gestionar Procedimientos
+  e Insumos Utilizados", sin programar). Tipo Procedimiento Médico sí valida
+  parcialmente hoy contra `consultas_detalle.id_tipo_procedimiento` (FK real
+  ya conectada).
+- Medicamentos: depende de `receta_medicamento` ("Generar Recetas e
+  Indicaciones", sin programar).
+- Tipo Estudio: depende de `orden_estudios` ("Generar Orden de Estudios",
+  sin programar).
+- Tipo Análisis: depende de `orden_analisis` ("Generar Orden de Análisis",
+  sin programar).
+
+### Movimientos grandes que faltan (dependen de las referenciales, ya listas)
+Gestionar Tratamientos (en curso), Gestionar Procedimientos e Insumos
+Utilizados, Generar Recetas e Indicaciones, Generar Orden de Estudios,
+Generar Orden de Análisis, Generar Justificativo Médico.
+
+**Gestionar Tratamientos** — jerarquía: parte de una Consulta activa
+(programada/en_proceso), vinculación OPCIONAL a un Diagnóstico de esa misma
+consulta, Paciente/Médico heredados. Campos propios: Tipo de Tratamiento
+(catálogo), Descripción, Fecha de Tratamiento. Estados:
+`pendiente → en_seguimiento → finalizado`, más `cancelado` (para ANULAR).
+Es la CABECERA de la que van a colgar las sesiones de "Gestionar
+Procedimientos e Insumos Utilizados" (movimiento aparte, todavía sin
+construir) — la transición automática a `en_seguimiento` ocurre cuando se
+registra la primera sesión, lógica que vive en ESE movimiento, no en este.
+Auditado y confirmado en su momento — solo Odontograma tenía código, el
+resto no existía. Estado actualizado:
+- **Referenciales:** las 6 ya están completas (ver sección arriba).
+- **Movimientos que faltan:** Gestionar Tratamientos (en curso), Gestionar
+  Procedimientos e Insumos Utilizados, Generar Recetas e Indicaciones,
+  Generar Orden de Estudios, Generar Orden de Análisis, Generar
+  Justificativo Médico. `tratamientos` ya tiene tabla (bien foreada, ya
+  usada para bloquear el ANULAR de Consulta); el resto de las tablas de
+  estos movimientos no existen todavía, hay que crearlas al programar cada
+  uno (incluye `consultas_detalle.id_tipo_procedimiento`, ya con FK real
+  conectada a `tipo_procedimiento_medico`).
 
 ## Pendiente de decidir a futuro: control de acceso en módulos grandes
 Hoy Agendamiento, Referenciales y Consultorio NO tienen ninguna restricción
@@ -250,6 +290,16 @@ acceder a qué pantalla, y aplicar el mismo patrón de decorator que ya existe
   quién puede verla (todos los roles logueados, o solo Administrador) y
   aplicar el control correspondiente desde el principio, no como parche
   después.
+
+## Módulo Facturación (sin empezar)
+Cuando se llegue a este módulo: **revisar específicamente si sus 8
+referenciales (Mantener Forma de Cobro, Marca de Tarjeta, Entidad Adherida,
+Entidad Emisora, Caja, Tipo Ítems, Depósito, Cliente) tienen el mismo error
+del campo "Código" manual que tuvo Consultorio.** No asumir que aplica el
+mismo criterio sin chequear el CUS real de cada una primero — a diferencia
+de Consultorio, algunas de estas (ej. Marca de Tarjeta, Entidad Emisora)
+podrían tener una razón de negocio real para un código corto (interoperabilidad
+con sistemas de pago), no necesariamente un error de análisis.
 
 ## Convenciones de código
 - SQL crudo con psycopg2, sin ORM.
