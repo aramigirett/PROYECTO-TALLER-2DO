@@ -14,12 +14,6 @@ def descripcion_valida(texto):
     return re.match(patron, texto) is not None
 
 
-def codigo_valido(texto):
-    # Letras y números, sin espacios ni caracteres especiales, hasta 10 caracteres
-    patron = r'^[A-Za-z0-9]{1,10}$'
-    return re.match(patron, texto) is not None
-
-
 # -------------------------
 # Trae todos los tipos de insumo
 # -------------------------
@@ -59,31 +53,26 @@ def addTipoInsumo():
     data = request.get_json()
     dao = TipoInsumoDao()
 
-    if not data or 'codigo' not in data or not data['codigo'].strip():
-        return jsonify({'success': False, 'error': 'El campo código es obligatorio y no puede estar vacío.'}), 400
-    if 'descripcion' not in data or not data['descripcion'].strip():
+    if not data or 'descripcion' not in data or not data['descripcion'].strip():
         return jsonify({'success': False, 'error': 'El campo descripción es obligatorio y no puede estar vacío.'}), 400
 
-    codigo = data['codigo'].strip().upper()
     descripcion = data['descripcion'].strip().upper()
     presentacion = data.get('presentacion', '').strip().upper() or None
 
-    if not codigo_valido(codigo):
-        return jsonify({'success': False, 'error': 'El código solo puede contener letras y números, sin espacios, hasta 10 caracteres.'}), 400
     if not descripcion_valida(descripcion):
         return jsonify({'success': False, 'error': 'La descripción solo puede contener letras, números y espacios, sin caracteres especiales.'}), 400
     if presentacion and not descripcion_valida(presentacion):
         return jsonify({'success': False, 'error': 'La presentación solo puede contener letras, números y espacios, sin caracteres especiales.'}), 400
 
     try:
-        if dao.existeDuplicado(descripcion, codigo):
-            return jsonify({'success': False, 'error': 'Ya existe un tipo de insumo con ese código o descripción.'}), 400
+        if dao.existeDuplicado(descripcion):
+            return jsonify({'success': False, 'error': 'Ya existe un tipo de insumo con esa descripción.'}), 400
 
-        nuevo_id = dao.guardarTipoInsumo(codigo, descripcion, presentacion)
+        nuevo_id = dao.guardarTipoInsumo(descripcion, presentacion)
         if nuevo_id:
             return jsonify({
                 'success': True,
-                'data': {'id_insumo': nuevo_id, 'codigo': codigo, 'descripcion': descripcion, 'presentacion': presentacion},
+                'data': {'id_insumo': nuevo_id, 'descripcion': descripcion, 'presentacion': presentacion},
                 'error': None
             }), 201
         else:
@@ -101,30 +90,25 @@ def updateTipoInsumo(id_insumo):
     data = request.get_json()
     dao = TipoInsumoDao()
 
-    if not data or 'codigo' not in data or not data['codigo'].strip():
-        return jsonify({'success': False, 'error': 'El campo código es obligatorio y no puede estar vacío.'}), 400
-    if 'descripcion' not in data or not data['descripcion'].strip():
+    if not data or 'descripcion' not in data or not data['descripcion'].strip():
         return jsonify({'success': False, 'error': 'El campo descripción es obligatorio y no puede estar vacío.'}), 400
 
-    codigo = data['codigo'].strip().upper()
     descripcion = data['descripcion'].strip().upper()
     presentacion = data.get('presentacion', '').strip().upper() or None
 
-    if not codigo_valido(codigo):
-        return jsonify({'success': False, 'error': 'El código solo puede contener letras y números, sin espacios, hasta 10 caracteres.'}), 400
     if not descripcion_valida(descripcion):
         return jsonify({'success': False, 'error': 'La descripción solo puede contener letras, números y espacios, sin caracteres especiales.'}), 400
     if presentacion and not descripcion_valida(presentacion):
         return jsonify({'success': False, 'error': 'La presentación solo puede contener letras, números y espacios, sin caracteres especiales.'}), 400
 
     try:
-        if dao.existeDuplicado(descripcion, codigo, excluir_id=id_insumo):
-            return jsonify({'success': False, 'error': 'Ya existe otro tipo de insumo con ese código o descripción.'}), 400
+        if dao.existeDuplicado(descripcion, excluir_id=id_insumo):
+            return jsonify({'success': False, 'error': 'Ya existe otro tipo de insumo con esa descripción.'}), 400
 
-        if dao.updateTipoInsumo(id_insumo, codigo, descripcion, presentacion):
+        if dao.updateTipoInsumo(id_insumo, descripcion, presentacion):
             return jsonify({
                 'success': True,
-                'data': {'id_insumo': id_insumo, 'codigo': codigo, 'descripcion': descripcion, 'presentacion': presentacion},
+                'data': {'id_insumo': id_insumo, 'descripcion': descripcion, 'presentacion': presentacion},
                 'error': None
             }), 200
         else:

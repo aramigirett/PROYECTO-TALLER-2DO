@@ -14,12 +14,6 @@ def descripcion_valida(texto):
     return re.match(patron, texto) is not None
 
 
-def codigo_valido(texto):
-    # Letras y números, sin espacios ni caracteres especiales, hasta 10 caracteres
-    patron = r'^[A-Za-z0-9]{1,10}$'
-    return re.match(patron, texto) is not None
-
-
 # -------------------------
 # Trae todos los tipos de análisis
 # -------------------------
@@ -59,28 +53,23 @@ def addTipoAnalisis():
     data = request.get_json()
     dao = TipoAnalisisDao()
 
-    if not data or 'codigo' not in data or not data['codigo'].strip():
-        return jsonify({'success': False, 'error': 'El campo código es obligatorio y no puede estar vacío.'}), 400
-    if 'descripcion' not in data or not data['descripcion'].strip():
+    if not data or 'descripcion' not in data or not data['descripcion'].strip():
         return jsonify({'success': False, 'error': 'El campo descripción es obligatorio y no puede estar vacío.'}), 400
 
-    codigo = data['codigo'].strip().upper()
     descripcion = data['descripcion'].strip().upper()
 
-    if not codigo_valido(codigo):
-        return jsonify({'success': False, 'error': 'El código solo puede contener letras y números, sin espacios, hasta 10 caracteres.'}), 400
     if not descripcion_valida(descripcion):
         return jsonify({'success': False, 'error': 'La descripción solo puede contener letras y espacios, sin números ni caracteres especiales.'}), 400
 
     try:
-        if dao.existeDuplicado(descripcion, codigo):
-            return jsonify({'success': False, 'error': 'Ya existe un tipo de análisis con ese código o descripción.'}), 400
+        if dao.existeDuplicado(descripcion):
+            return jsonify({'success': False, 'error': 'Ya existe un tipo de análisis con esa descripción.'}), 400
 
-        nuevo_id = dao.guardarTipoAnalisis(codigo, descripcion)
+        nuevo_id = dao.guardarTipoAnalisis(descripcion)
         if nuevo_id:
             return jsonify({
                 'success': True,
-                'data': {'id_tipo_analisis': nuevo_id, 'codigo': codigo, 'descripcion': descripcion},
+                'data': {'id_tipo_analisis': nuevo_id, 'descripcion': descripcion},
                 'error': None
             }), 201
         else:
@@ -98,27 +87,22 @@ def updateTipoAnalisis(id_tipo_analisis):
     data = request.get_json()
     dao = TipoAnalisisDao()
 
-    if not data or 'codigo' not in data or not data['codigo'].strip():
-        return jsonify({'success': False, 'error': 'El campo código es obligatorio y no puede estar vacío.'}), 400
-    if 'descripcion' not in data or not data['descripcion'].strip():
+    if not data or 'descripcion' not in data or not data['descripcion'].strip():
         return jsonify({'success': False, 'error': 'El campo descripción es obligatorio y no puede estar vacío.'}), 400
 
-    codigo = data['codigo'].strip().upper()
     descripcion = data['descripcion'].strip().upper()
 
-    if not codigo_valido(codigo):
-        return jsonify({'success': False, 'error': 'El código solo puede contener letras y números, sin espacios, hasta 10 caracteres.'}), 400
     if not descripcion_valida(descripcion):
         return jsonify({'success': False, 'error': 'La descripción solo puede contener letras y espacios, sin números ni caracteres especiales.'}), 400
 
     try:
-        if dao.existeDuplicado(descripcion, codigo, excluir_id=id_tipo_analisis):
-            return jsonify({'success': False, 'error': 'Ya existe otro tipo de análisis con ese código o descripción.'}), 400
+        if dao.existeDuplicado(descripcion, excluir_id=id_tipo_analisis):
+            return jsonify({'success': False, 'error': 'Ya existe otro tipo de análisis con esa descripción.'}), 400
 
-        if dao.updateTipoAnalisis(id_tipo_analisis, codigo, descripcion):
+        if dao.updateTipoAnalisis(id_tipo_analisis, descripcion):
             return jsonify({
                 'success': True,
-                'data': {'id_tipo_analisis': id_tipo_analisis, 'codigo': codigo, 'descripcion': descripcion},
+                'data': {'id_tipo_analisis': id_tipo_analisis, 'descripcion': descripcion},
                 'error': None
             }), 200
         else:

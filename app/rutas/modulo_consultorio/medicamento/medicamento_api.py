@@ -14,12 +14,6 @@ def nombre_valido(texto):
     return re.match(patron, texto) is not None
 
 
-def codigo_valido(texto):
-    # Letras y números, sin espacios ni caracteres especiales, hasta 10 caracteres
-    patron = r'^[A-Za-z0-9]{1,10}$'
-    return re.match(patron, texto) is not None
-
-
 # -------------------------
 # Trae todos los medicamentos
 # -------------------------
@@ -59,31 +53,26 @@ def addMedicamento():
     data = request.get_json()
     dao = MedicamentoDao()
 
-    if not data or 'codigo' not in data or not data['codigo'].strip():
-        return jsonify({'success': False, 'error': 'El campo código es obligatorio y no puede estar vacío.'}), 400
-    if 'nombre_comercial' not in data or not data['nombre_comercial'].strip():
+    if not data or 'nombre_comercial' not in data or not data['nombre_comercial'].strip():
         return jsonify({'success': False, 'error': 'El campo nombre comercial es obligatorio y no puede estar vacío.'}), 400
 
-    codigo = data['codigo'].strip().upper()
     nombre_comercial = data['nombre_comercial'].strip().upper()
     presentacion = data.get('presentacion', '').strip().upper() or None
 
-    if not codigo_valido(codigo):
-        return jsonify({'success': False, 'error': 'El código solo puede contener letras y números, sin espacios, hasta 10 caracteres.'}), 400
     if not nombre_valido(nombre_comercial):
         return jsonify({'success': False, 'error': 'El nombre comercial solo puede contener letras, números y espacios, sin caracteres especiales.'}), 400
     if presentacion and not nombre_valido(presentacion):
         return jsonify({'success': False, 'error': 'La presentación solo puede contener letras, números y espacios, sin caracteres especiales.'}), 400
 
     try:
-        if dao.existeDuplicado(codigo):
-            return jsonify({'success': False, 'error': 'Ya existe un medicamento con ese código.'}), 400
+        if dao.existeDuplicado(nombre_comercial):
+            return jsonify({'success': False, 'error': 'Ya existe un medicamento con ese nombre comercial.'}), 400
 
-        nuevo_id = dao.guardarMedicamento(codigo, nombre_comercial, presentacion)
+        nuevo_id = dao.guardarMedicamento(nombre_comercial, presentacion)
         if nuevo_id:
             return jsonify({
                 'success': True,
-                'data': {'id_medicamento': nuevo_id, 'codigo': codigo, 'nombre_comercial': nombre_comercial, 'presentacion': presentacion},
+                'data': {'id_medicamento': nuevo_id, 'nombre_comercial': nombre_comercial, 'presentacion': presentacion},
                 'error': None
             }), 201
         else:
@@ -101,30 +90,25 @@ def updateMedicamento(id_medicamento):
     data = request.get_json()
     dao = MedicamentoDao()
 
-    if not data or 'codigo' not in data or not data['codigo'].strip():
-        return jsonify({'success': False, 'error': 'El campo código es obligatorio y no puede estar vacío.'}), 400
-    if 'nombre_comercial' not in data or not data['nombre_comercial'].strip():
+    if not data or 'nombre_comercial' not in data or not data['nombre_comercial'].strip():
         return jsonify({'success': False, 'error': 'El campo nombre comercial es obligatorio y no puede estar vacío.'}), 400
 
-    codigo = data['codigo'].strip().upper()
     nombre_comercial = data['nombre_comercial'].strip().upper()
     presentacion = data.get('presentacion', '').strip().upper() or None
 
-    if not codigo_valido(codigo):
-        return jsonify({'success': False, 'error': 'El código solo puede contener letras y números, sin espacios, hasta 10 caracteres.'}), 400
     if not nombre_valido(nombre_comercial):
         return jsonify({'success': False, 'error': 'El nombre comercial solo puede contener letras, números y espacios, sin caracteres especiales.'}), 400
     if presentacion and not nombre_valido(presentacion):
         return jsonify({'success': False, 'error': 'La presentación solo puede contener letras, números y espacios, sin caracteres especiales.'}), 400
 
     try:
-        if dao.existeDuplicado(codigo, excluir_id=id_medicamento):
-            return jsonify({'success': False, 'error': 'Ya existe otro medicamento con ese código.'}), 400
+        if dao.existeDuplicado(nombre_comercial, excluir_id=id_medicamento):
+            return jsonify({'success': False, 'error': 'Ya existe otro medicamento con ese nombre comercial.'}), 400
 
-        if dao.updateMedicamento(id_medicamento, codigo, nombre_comercial, presentacion):
+        if dao.updateMedicamento(id_medicamento, nombre_comercial, presentacion):
             return jsonify({
                 'success': True,
-                'data': {'id_medicamento': id_medicamento, 'codigo': codigo, 'nombre_comercial': nombre_comercial, 'presentacion': presentacion},
+                'data': {'id_medicamento': id_medicamento, 'nombre_comercial': nombre_comercial, 'presentacion': presentacion},
                 'error': None
             }), 200
         else:

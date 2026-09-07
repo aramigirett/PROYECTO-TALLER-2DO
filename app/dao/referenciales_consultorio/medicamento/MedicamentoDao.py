@@ -6,10 +6,8 @@ class MedicamentoDao:
     """
     DAO para la referencial 'Medicamentos' (tabla `medicamentos`).
 
-    A diferencia de las demás referenciales de Consultorio, acá solo se
-    valida duplicado de Código (no de Nombre Comercial): dos medicamentos
-    distintos pueden compartir nombre comercial (ej. mismo principio activo
-    en presentaciones distintas).
+    Nombre Comercial es el único campo descriptivo (no hay campo Código) y
+    es el identificador de negocio: se valida duplicado sobre él.
 
     NOTA: `estaEnUso()` todavía no valida nada real: depende de
     `receta_medicamento` (tabla de "Generar Recetas e Indicaciones"), que no
@@ -20,7 +18,7 @@ class MedicamentoDao:
 
     def getMedicamentos(self):
         sql = """
-        SELECT id_medicamento, codigo, nombre_comercial, presentacion, fecha_registro
+        SELECT id_medicamento, nombre_comercial, presentacion, fecha_registro
         FROM medicamentos
         WHERE activo = true
         ORDER BY nombre_comercial
@@ -34,10 +32,9 @@ class MedicamentoDao:
             return [
                 {
                     'id_medicamento': m[0],
-                    'codigo': m[1],
-                    'nombre_comercial': m[2],
-                    'presentacion': m[3],
-                    'fecha_registro': str(m[4]) if m[4] else None
+                    'nombre_comercial': m[1],
+                    'presentacion': m[2],
+                    'fecha_registro': str(m[3]) if m[3] else None
                 }
                 for m in medicamentos
             ]
@@ -50,7 +47,7 @@ class MedicamentoDao:
 
     def getMedicamentoById(self, id_medicamento):
         sql = """
-        SELECT id_medicamento, codigo, nombre_comercial, presentacion, fecha_registro
+        SELECT id_medicamento, nombre_comercial, presentacion, fecha_registro
         FROM medicamentos
         WHERE id_medicamento = %s AND activo = true
         """
@@ -63,10 +60,9 @@ class MedicamentoDao:
             if m:
                 return {
                     'id_medicamento': m[0],
-                    'codigo': m[1],
-                    'nombre_comercial': m[2],
-                    'presentacion': m[3],
-                    'fecha_registro': str(m[4]) if m[4] else None
+                    'nombre_comercial': m[1],
+                    'presentacion': m[2],
+                    'fecha_registro': str(m[3]) if m[3] else None
                 }
             return None
         except Exception as e:
@@ -76,14 +72,13 @@ class MedicamentoDao:
             cur.close()
             con.close()
 
-    def existeDuplicado(self, codigo, excluir_id=None):
+    def existeDuplicado(self, nombre_comercial, excluir_id=None):
         """
         Verifica si ya existe (entre los activos) un medicamento con el
-        mismo código (ignorando mayúsculas/minúsculas). No valida
-        Nombre Comercial: puede repetirse.
+        mismo nombre comercial (ignorando mayúsculas/minúsculas).
         """
-        sql = "SELECT 1 FROM medicamentos WHERE activo = true AND UPPER(codigo) = UPPER(%s)"
-        params = [codigo]
+        sql = "SELECT 1 FROM medicamentos WHERE activo = true AND UPPER(nombre_comercial) = UPPER(%s)"
+        params = [nombre_comercial]
 
         if excluir_id:
             sql += " AND id_medicamento != %s"
@@ -102,16 +97,16 @@ class MedicamentoDao:
             cur.close()
             con.close()
 
-    def guardarMedicamento(self, codigo, nombre_comercial, presentacion=None):
+    def guardarMedicamento(self, nombre_comercial, presentacion=None):
         sql = """
-        INSERT INTO medicamentos(codigo, nombre_comercial, presentacion)
-        VALUES(%s, %s, %s) RETURNING id_medicamento
+        INSERT INTO medicamentos(nombre_comercial, presentacion)
+        VALUES(%s, %s) RETURNING id_medicamento
         """
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(sql, (codigo, nombre_comercial, presentacion))
+            cur.execute(sql, (nombre_comercial, presentacion))
             nuevo_id = cur.fetchone()[0]
             con.commit()
             return nuevo_id
@@ -123,17 +118,17 @@ class MedicamentoDao:
             cur.close()
             con.close()
 
-    def updateMedicamento(self, id_medicamento, codigo, nombre_comercial, presentacion=None):
+    def updateMedicamento(self, id_medicamento, nombre_comercial, presentacion=None):
         sql = """
         UPDATE medicamentos
-        SET codigo = %s, nombre_comercial = %s, presentacion = %s
+        SET nombre_comercial = %s, presentacion = %s
         WHERE id_medicamento = %s
         """
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(sql, (codigo, nombre_comercial, presentacion, id_medicamento))
+            cur.execute(sql, (nombre_comercial, presentacion, id_medicamento))
             filas_afectadas = cur.rowcount
             con.commit()
             return filas_afectadas > 0

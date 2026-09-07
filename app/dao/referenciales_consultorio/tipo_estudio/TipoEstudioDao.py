@@ -15,7 +15,7 @@ class TipoEstudioDao:
 
     def getTiposEstudio(self):
         sql = """
-        SELECT id_tipo_estudio, codigo, descripcion, fecha_registro
+        SELECT id_tipo_estudio, descripcion, fecha_registro
         FROM tipo_estudio
         WHERE activo = true
         ORDER BY descripcion
@@ -29,9 +29,8 @@ class TipoEstudioDao:
             return [
                 {
                     'id_tipo_estudio': t[0],
-                    'codigo': t[1],
-                    'descripcion': t[2],
-                    'fecha_registro': str(t[3]) if t[3] else None
+                    'descripcion': t[1],
+                    'fecha_registro': str(t[2]) if t[2] else None
                 }
                 for t in tipos
             ]
@@ -44,7 +43,7 @@ class TipoEstudioDao:
 
     def getTipoEstudioById(self, id_tipo_estudio):
         sql = """
-        SELECT id_tipo_estudio, codigo, descripcion, fecha_registro
+        SELECT id_tipo_estudio, descripcion, fecha_registro
         FROM tipo_estudio
         WHERE id_tipo_estudio = %s AND activo = true
         """
@@ -57,9 +56,8 @@ class TipoEstudioDao:
             if t:
                 return {
                     'id_tipo_estudio': t[0],
-                    'codigo': t[1],
-                    'descripcion': t[2],
-                    'fecha_registro': str(t[3]) if t[3] else None
+                    'descripcion': t[1],
+                    'fecha_registro': str(t[2]) if t[2] else None
                 }
             return None
         except Exception as e:
@@ -69,17 +67,13 @@ class TipoEstudioDao:
             cur.close()
             con.close()
 
-    def existeDuplicado(self, descripcion, codigo, excluir_id=None):
+    def existeDuplicado(self, descripcion, excluir_id=None):
         """
-        Verifica si ya existe (entre los activos) un tipo de estudio con el
-        mismo código o la misma descripción (ignorando mayúsculas/minúsculas).
+        Verifica si ya existe (entre los activos) un tipo de estudio con la
+        misma descripción (ignorando mayúsculas/minúsculas).
         """
-        sql = """
-        SELECT 1 FROM tipo_estudio
-        WHERE activo = true
-          AND (UPPER(descripcion) = UPPER(%s) OR UPPER(codigo) = UPPER(%s))
-        """
-        params = [descripcion, codigo]
+        sql = "SELECT 1 FROM tipo_estudio WHERE activo = true AND UPPER(descripcion) = UPPER(%s)"
+        params = [descripcion]
 
         if excluir_id:
             sql += " AND id_tipo_estudio != %s"
@@ -98,16 +92,16 @@ class TipoEstudioDao:
             cur.close()
             con.close()
 
-    def guardarTipoEstudio(self, codigo, descripcion):
+    def guardarTipoEstudio(self, descripcion):
         sql = """
-        INSERT INTO tipo_estudio(codigo, descripcion)
-        VALUES(%s, %s) RETURNING id_tipo_estudio
+        INSERT INTO tipo_estudio(descripcion)
+        VALUES(%s) RETURNING id_tipo_estudio
         """
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(sql, (codigo, descripcion))
+            cur.execute(sql, (descripcion,))
             nuevo_id = cur.fetchone()[0]
             con.commit()
             return nuevo_id
@@ -119,17 +113,17 @@ class TipoEstudioDao:
             cur.close()
             con.close()
 
-    def updateTipoEstudio(self, id_tipo_estudio, codigo, descripcion):
+    def updateTipoEstudio(self, id_tipo_estudio, descripcion):
         sql = """
         UPDATE tipo_estudio
-        SET codigo = %s, descripcion = %s
+        SET descripcion = %s
         WHERE id_tipo_estudio = %s
         """
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(sql, (codigo, descripcion, id_tipo_estudio))
+            cur.execute(sql, (descripcion, id_tipo_estudio))
             filas_afectadas = cur.rowcount
             con.commit()
             return filas_afectadas > 0

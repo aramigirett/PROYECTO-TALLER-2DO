@@ -18,7 +18,6 @@ Medicamentos
         <table class="table table-striped" id="tbl">
           <thead>
             <tr>
-              <th>Código</th>
               <th>Nombre Comercial</th>
               <th>Presentación</th>
               <th>Acciones</th>
@@ -47,13 +46,7 @@ Medicamentos
 
           <div class="container-fluid">
             <div class="row">
-              <div class="col-md-4">
-                <div class="form-group">
-                  <label for="txtCodigo">Código:</label>
-                  <input type="text" class="form-control" placeholder="Ej: IBU400" maxlength="10" id="txtCodigo">
-                </div>
-              </div>
-              <div class="col-md-8">
+              <div class="col-md-12">
                 <div class="form-group">
                   <label for="txtNombreComercial">Nombre Comercial:</label>
                   <input type="text" class="form-control" placeholder="Ingrese el nombre comercial" id="txtNombreComercial">
@@ -92,7 +85,6 @@ Medicamentos
       },
       ajax: '/api/v1/medicamentos',
       columns: [
-        { data: 'codigo' },
         { data: 'nombre_comercial' },
         { data: d => d.presentacion || '-' },
         { data: function(row) {
@@ -108,7 +100,6 @@ Medicamentos
     $('#btnAgregar').on('click', function(){
       $('#modalTitle').text("Agregar Medicamento");
       $('#txtIdMedicamento').val("");
-      $('#txtCodigo').val("");
       $('#txtNombreComercial').val("");
       $('#txtPresentacion').val("");
       $('#modalFormulario').modal();
@@ -118,21 +109,16 @@ Medicamentos
   const guardar = () => {
     $('#btnGuardar').on('click', function() {
       const id = $('#txtIdMedicamento').val();
-      const codigo = $('#txtCodigo').val();
       const nombre_comercial = $('#txtNombreComercial').val();
       const presentacion = $('#txtPresentacion').val();
       const tabla = $('#tbl').DataTable();
 
-      if(!codigo.trim()) {
-        Swal.fire("Error", "El campo Código no puede estar vacío.", "error");
-        return;
-      }
       if(!nombre_comercial.trim()) {
         Swal.fire("Error", "El campo Nombre Comercial no puede estar vacío.", "error");
         return;
       }
 
-      const payload = { codigo, nombre_comercial, presentacion };
+      const payload = { nombre_comercial, presentacion };
 
       if(id) {
         // update
@@ -202,7 +188,6 @@ Medicamentos
           .then(resp => resp.json())
           .then(data => {
             $('#txtIdMedicamento').val(data.data.id_medicamento);
-            $('#txtCodigo').val(data.data.codigo);
             $('#txtNombreComercial').val(data.data.nombre_comercial);
             $('#txtPresentacion').val(data.data.presentacion || '');
             $('#modalFormulario').modal();

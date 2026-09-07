@@ -15,7 +15,7 @@ class TipoAnalisisDao:
 
     def getTiposAnalisis(self):
         sql = """
-        SELECT id_tipo_analisis, codigo, descripcion, fecha_registro
+        SELECT id_tipo_analisis, descripcion, fecha_registro
         FROM tipo_analisis
         WHERE activo = true
         ORDER BY descripcion
@@ -29,9 +29,8 @@ class TipoAnalisisDao:
             return [
                 {
                     'id_tipo_analisis': t[0],
-                    'codigo': t[1],
-                    'descripcion': t[2],
-                    'fecha_registro': str(t[3]) if t[3] else None
+                    'descripcion': t[1],
+                    'fecha_registro': str(t[2]) if t[2] else None
                 }
                 for t in tipos
             ]
@@ -44,7 +43,7 @@ class TipoAnalisisDao:
 
     def getTipoAnalisisById(self, id_tipo_analisis):
         sql = """
-        SELECT id_tipo_analisis, codigo, descripcion, fecha_registro
+        SELECT id_tipo_analisis, descripcion, fecha_registro
         FROM tipo_analisis
         WHERE id_tipo_analisis = %s AND activo = true
         """
@@ -57,9 +56,8 @@ class TipoAnalisisDao:
             if t:
                 return {
                     'id_tipo_analisis': t[0],
-                    'codigo': t[1],
-                    'descripcion': t[2],
-                    'fecha_registro': str(t[3]) if t[3] else None
+                    'descripcion': t[1],
+                    'fecha_registro': str(t[2]) if t[2] else None
                 }
             return None
         except Exception as e:
@@ -69,17 +67,13 @@ class TipoAnalisisDao:
             cur.close()
             con.close()
 
-    def existeDuplicado(self, descripcion, codigo, excluir_id=None):
+    def existeDuplicado(self, descripcion, excluir_id=None):
         """
-        Verifica si ya existe (entre los activos) un tipo de análisis con el
-        mismo código o la misma descripción (ignorando mayúsculas/minúsculas).
+        Verifica si ya existe (entre los activos) un tipo de análisis con la
+        misma descripción (ignorando mayúsculas/minúsculas).
         """
-        sql = """
-        SELECT 1 FROM tipo_analisis
-        WHERE activo = true
-          AND (UPPER(descripcion) = UPPER(%s) OR UPPER(codigo) = UPPER(%s))
-        """
-        params = [descripcion, codigo]
+        sql = "SELECT 1 FROM tipo_analisis WHERE activo = true AND UPPER(descripcion) = UPPER(%s)"
+        params = [descripcion]
 
         if excluir_id:
             sql += " AND id_tipo_analisis != %s"
@@ -98,16 +92,16 @@ class TipoAnalisisDao:
             cur.close()
             con.close()
 
-    def guardarTipoAnalisis(self, codigo, descripcion):
+    def guardarTipoAnalisis(self, descripcion):
         sql = """
-        INSERT INTO tipo_analisis(codigo, descripcion)
-        VALUES(%s, %s) RETURNING id_tipo_analisis
+        INSERT INTO tipo_analisis(descripcion)
+        VALUES(%s) RETURNING id_tipo_analisis
         """
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(sql, (codigo, descripcion))
+            cur.execute(sql, (descripcion,))
             nuevo_id = cur.fetchone()[0]
             con.commit()
             return nuevo_id
@@ -119,17 +113,17 @@ class TipoAnalisisDao:
             cur.close()
             con.close()
 
-    def updateTipoAnalisis(self, id_tipo_analisis, codigo, descripcion):
+    def updateTipoAnalisis(self, id_tipo_analisis, descripcion):
         sql = """
         UPDATE tipo_analisis
-        SET codigo = %s, descripcion = %s
+        SET descripcion = %s
         WHERE id_tipo_analisis = %s
         """
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(sql, (codigo, descripcion, id_tipo_analisis))
+            cur.execute(sql, (descripcion, id_tipo_analisis))
             filas_afectadas = cur.rowcount
             con.commit()
             return filas_afectadas > 0

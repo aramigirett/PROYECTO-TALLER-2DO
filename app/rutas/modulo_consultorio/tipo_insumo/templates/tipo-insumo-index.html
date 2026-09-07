@@ -18,7 +18,6 @@ Tipos de Insumo Utilizado
         <table class="table table-striped" id="tbl">
           <thead>
             <tr>
-              <th>Código</th>
               <th>Descripción</th>
               <th>Presentación</th>
               <th>Acciones</th>
@@ -47,13 +46,7 @@ Tipos de Insumo Utilizado
 
           <div class="container-fluid">
             <div class="row">
-              <div class="col-md-4">
-                <div class="form-group">
-                  <label for="txtCodigo">Código:</label>
-                  <input type="text" class="form-control" placeholder="Ej: GTE01" maxlength="10" id="txtCodigo">
-                </div>
-              </div>
-              <div class="col-md-8">
+              <div class="col-md-12">
                 <div class="form-group">
                   <label for="txtDescripcion">Descripción:</label>
                   <input type="text" class="form-control" placeholder="Ingrese la descripción" id="txtDescripcion">
@@ -92,7 +85,6 @@ Tipos de Insumo Utilizado
       },
       ajax: '/api/v1/tipos-insumo',
       columns: [
-        { data: 'codigo' },
         { data: 'descripcion' },
         { data: d => d.presentacion || '-' },
         { data: function(row) {
@@ -108,7 +100,6 @@ Tipos de Insumo Utilizado
     $('#btnAgregar').on('click', function(){
       $('#modalTitle').text("Agregar Tipo de Insumo");
       $('#txtIdTipoInsumo').val("");
-      $('#txtCodigo').val("");
       $('#txtDescripcion').val("");
       $('#txtPresentacion').val("");
       $('#modalFormulario').modal();
@@ -118,21 +109,16 @@ Tipos de Insumo Utilizado
   const guardar = () => {
     $('#btnGuardar').on('click', function() {
       const id = $('#txtIdTipoInsumo').val();
-      const codigo = $('#txtCodigo').val();
       const descripcion = $('#txtDescripcion').val();
       const presentacion = $('#txtPresentacion').val();
       const tabla = $('#tbl').DataTable();
 
-      if(!codigo.trim()) {
-        Swal.fire("Error", "El campo Código no puede estar vacío.", "error");
-        return;
-      }
       if(!descripcion.trim()) {
         Swal.fire("Error", "El campo Descripción no puede estar vacío.", "error");
         return;
       }
 
-      const payload = { codigo, descripcion, presentacion };
+      const payload = { descripcion, presentacion };
 
       if(id) {
         // update
@@ -202,7 +188,6 @@ Tipos de Insumo Utilizado
           .then(resp => resp.json())
           .then(data => {
             $('#txtIdTipoInsumo').val(data.data.id_insumo);
-            $('#txtCodigo').val(data.data.codigo);
             $('#txtDescripcion').val(data.data.descripcion);
             $('#txtPresentacion').val(data.data.presentacion || '');
             $('#modalFormulario').modal();

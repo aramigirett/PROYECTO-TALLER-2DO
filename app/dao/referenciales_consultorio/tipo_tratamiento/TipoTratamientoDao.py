@@ -6,7 +6,7 @@ class TipoTratamientoDao:
 
     def getTiposTratamiento(self):
         sql = """
-        SELECT id_tipo_tratamiento, codigo, descripcion, fecha_registro
+        SELECT id_tipo_tratamiento, descripcion, fecha_registro
         FROM tipos_tratamiento
         WHERE activo = true
         ORDER BY descripcion
@@ -20,9 +20,8 @@ class TipoTratamientoDao:
             return [
                 {
                     'id_tipo_tratamiento': t[0],
-                    'codigo': t[1],
-                    'descripcion': t[2],
-                    'fecha_registro': str(t[3]) if t[3] else None
+                    'descripcion': t[1],
+                    'fecha_registro': str(t[2]) if t[2] else None
                 }
                 for t in tipos
             ]
@@ -35,7 +34,7 @@ class TipoTratamientoDao:
 
     def getTipoTratamientoById(self, id_tipo_tratamiento):
         sql = """
-        SELECT id_tipo_tratamiento, codigo, descripcion, fecha_registro
+        SELECT id_tipo_tratamiento, descripcion, fecha_registro
         FROM tipos_tratamiento
         WHERE id_tipo_tratamiento = %s AND activo = true
         """
@@ -48,9 +47,8 @@ class TipoTratamientoDao:
             if t:
                 return {
                     'id_tipo_tratamiento': t[0],
-                    'codigo': t[1],
-                    'descripcion': t[2],
-                    'fecha_registro': str(t[3]) if t[3] else None
+                    'descripcion': t[1],
+                    'fecha_registro': str(t[2]) if t[2] else None
                 }
             return None
         except Exception as e:
@@ -60,17 +58,13 @@ class TipoTratamientoDao:
             cur.close()
             con.close()
 
-    def existeDuplicado(self, descripcion, codigo, excluir_id=None):
+    def existeDuplicado(self, descripcion, excluir_id=None):
         """
         Verifica si ya existe (entre los activos) un tipo de tratamiento con
-        el mismo código o la misma descripción (ignorando mayúsculas/minúsculas).
+        la misma descripción (ignorando mayúsculas/minúsculas).
         """
-        sql = """
-        SELECT 1 FROM tipos_tratamiento
-        WHERE activo = true
-          AND (UPPER(descripcion) = UPPER(%s) OR UPPER(codigo) = UPPER(%s))
-        """
-        params = [descripcion, codigo]
+        sql = "SELECT 1 FROM tipos_tratamiento WHERE activo = true AND UPPER(descripcion) = UPPER(%s)"
+        params = [descripcion]
 
         if excluir_id:
             sql += " AND id_tipo_tratamiento != %s"
@@ -89,16 +83,16 @@ class TipoTratamientoDao:
             cur.close()
             con.close()
 
-    def guardarTipoTratamiento(self, codigo, descripcion):
+    def guardarTipoTratamiento(self, descripcion):
         sql = """
-        INSERT INTO tipos_tratamiento(codigo, descripcion)
-        VALUES(%s, %s) RETURNING id_tipo_tratamiento
+        INSERT INTO tipos_tratamiento(descripcion)
+        VALUES(%s) RETURNING id_tipo_tratamiento
         """
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(sql, (codigo, descripcion))
+            cur.execute(sql, (descripcion,))
             nuevo_id = cur.fetchone()[0]
             con.commit()
             return nuevo_id
@@ -110,17 +104,17 @@ class TipoTratamientoDao:
             cur.close()
             con.close()
 
-    def updateTipoTratamiento(self, id_tipo_tratamiento, codigo, descripcion):
+    def updateTipoTratamiento(self, id_tipo_tratamiento, descripcion):
         sql = """
         UPDATE tipos_tratamiento
-        SET codigo = %s, descripcion = %s
+        SET descripcion = %s
         WHERE id_tipo_tratamiento = %s
         """
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(sql, (codigo, descripcion, id_tipo_tratamiento))
+            cur.execute(sql, (descripcion, id_tipo_tratamiento))
             filas_afectadas = cur.rowcount
             con.commit()
             return filas_afectadas > 0

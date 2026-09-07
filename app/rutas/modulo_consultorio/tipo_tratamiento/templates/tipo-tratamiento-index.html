@@ -18,7 +18,6 @@ Tipos de Tratamiento
         <table class="table table-striped" id="tbl">
           <thead>
             <tr>
-              <th>Código</th>
               <th>Descripción</th>
               <th>Acciones</th>
             </tr>
@@ -46,13 +45,7 @@ Tipos de Tratamiento
 
           <div class="container-fluid">
             <div class="row">
-              <div class="col-md-4">
-                <div class="form-group">
-                  <label for="txtCodigo">Código:</label>
-                  <input type="text" class="form-control" placeholder="Ej: ORTO" maxlength="10" id="txtCodigo">
-                </div>
-              </div>
-              <div class="col-md-8">
+              <div class="col-md-12">
                 <div class="form-group">
                   <label for="txtDescripcion">Descripción:</label>
                   <input type="text" class="form-control" placeholder="Ingrese la descripción" id="txtDescripcion">
@@ -85,7 +78,6 @@ Tipos de Tratamiento
       },
       ajax: '/api/v1/tipos-tratamiento',
       columns: [
-        { data: 'codigo' },
         { data: 'descripcion' },
         { data: function(row) {
             return `<button type="button" name="btn_editar" class="btn btn-info" data-id="${row.id_tipo_tratamiento}" title="Editar"><i class="fas fa-edit"></i></button>
@@ -100,7 +92,6 @@ Tipos de Tratamiento
     $('#btnAgregar').on('click', function(){
       $('#modalTitle').text("Agregar Tipo de Tratamiento");
       $('#txtIdTipoTratamiento').val("");
-      $('#txtCodigo').val("");
       $('#txtDescripcion').val("");
       $('#modalFormulario').modal();
     });
@@ -109,20 +100,15 @@ Tipos de Tratamiento
   const guardar = () => {
     $('#btnGuardar').on('click', function() {
       const id = $('#txtIdTipoTratamiento').val();
-      const codigo = $('#txtCodigo').val();
       const descripcion = $('#txtDescripcion').val();
       const tabla = $('#tbl').DataTable();
 
-      if(!codigo.trim()) {
-        Swal.fire("Error", "El campo Código no puede estar vacío.", "error");
-        return;
-      }
       if(!descripcion.trim()) {
         Swal.fire("Error", "El campo Descripción no puede estar vacío.", "error");
         return;
       }
 
-      const payload = { codigo, descripcion };
+      const payload = { descripcion };
 
       if(id) {
         // update
@@ -192,7 +178,6 @@ Tipos de Tratamiento
           .then(resp => resp.json())
           .then(data => {
             $('#txtIdTipoTratamiento').val(data.data.id_tipo_tratamiento);
-            $('#txtCodigo').val(data.data.codigo);
             $('#txtDescripcion').val(data.data.descripcion);
             $('#modalFormulario').modal();
           });

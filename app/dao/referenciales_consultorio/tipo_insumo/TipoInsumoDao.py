@@ -19,7 +19,7 @@ class TipoInsumoDao:
 
     def getTiposInsumo(self):
         sql = """
-        SELECT id_insumo, codigo, descripcion, presentacion, fecha_registro
+        SELECT id_insumo, descripcion, presentacion, fecha_registro
         FROM insumos
         WHERE activo = true
         ORDER BY descripcion
@@ -33,10 +33,9 @@ class TipoInsumoDao:
             return [
                 {
                     'id_insumo': t[0],
-                    'codigo': t[1],
-                    'descripcion': t[2],
-                    'presentacion': t[3],
-                    'fecha_registro': str(t[4]) if t[4] else None
+                    'descripcion': t[1],
+                    'presentacion': t[2],
+                    'fecha_registro': str(t[3]) if t[3] else None
                 }
                 for t in tipos
             ]
@@ -49,7 +48,7 @@ class TipoInsumoDao:
 
     def getTipoInsumoById(self, id_insumo):
         sql = """
-        SELECT id_insumo, codigo, descripcion, presentacion, fecha_registro
+        SELECT id_insumo, descripcion, presentacion, fecha_registro
         FROM insumos
         WHERE id_insumo = %s AND activo = true
         """
@@ -62,10 +61,9 @@ class TipoInsumoDao:
             if t:
                 return {
                     'id_insumo': t[0],
-                    'codigo': t[1],
-                    'descripcion': t[2],
-                    'presentacion': t[3],
-                    'fecha_registro': str(t[4]) if t[4] else None
+                    'descripcion': t[1],
+                    'presentacion': t[2],
+                    'fecha_registro': str(t[3]) if t[3] else None
                 }
             return None
         except Exception as e:
@@ -75,17 +73,13 @@ class TipoInsumoDao:
             cur.close()
             con.close()
 
-    def existeDuplicado(self, descripcion, codigo, excluir_id=None):
+    def existeDuplicado(self, descripcion, excluir_id=None):
         """
-        Verifica si ya existe (entre los activos) un tipo de insumo con el
-        mismo código o la misma descripción (ignorando mayúsculas/minúsculas).
+        Verifica si ya existe (entre los activos) un tipo de insumo con la
+        misma descripción (ignorando mayúsculas/minúsculas).
         """
-        sql = """
-        SELECT 1 FROM insumos
-        WHERE activo = true
-          AND (UPPER(descripcion) = UPPER(%s) OR UPPER(codigo) = UPPER(%s))
-        """
-        params = [descripcion, codigo]
+        sql = "SELECT 1 FROM insumos WHERE activo = true AND UPPER(descripcion) = UPPER(%s)"
+        params = [descripcion]
 
         if excluir_id:
             sql += " AND id_insumo != %s"
@@ -104,16 +98,16 @@ class TipoInsumoDao:
             cur.close()
             con.close()
 
-    def guardarTipoInsumo(self, codigo, descripcion, presentacion=None):
+    def guardarTipoInsumo(self, descripcion, presentacion=None):
         sql = """
-        INSERT INTO insumos(codigo, descripcion, presentacion)
-        VALUES(%s, %s, %s) RETURNING id_insumo
+        INSERT INTO insumos(descripcion, presentacion)
+        VALUES(%s, %s) RETURNING id_insumo
         """
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(sql, (codigo, descripcion, presentacion))
+            cur.execute(sql, (descripcion, presentacion))
             nuevo_id = cur.fetchone()[0]
             con.commit()
             return nuevo_id
@@ -125,17 +119,17 @@ class TipoInsumoDao:
             cur.close()
             con.close()
 
-    def updateTipoInsumo(self, id_insumo, codigo, descripcion, presentacion=None):
+    def updateTipoInsumo(self, id_insumo, descripcion, presentacion=None):
         sql = """
         UPDATE insumos
-        SET codigo = %s, descripcion = %s, presentacion = %s
+        SET descripcion = %s, presentacion = %s
         WHERE id_insumo = %s
         """
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(sql, (codigo, descripcion, presentacion, id_insumo))
+            cur.execute(sql, (descripcion, presentacion, id_insumo))
             filas_afectadas = cur.rowcount
             con.commit()
             return filas_afectadas > 0

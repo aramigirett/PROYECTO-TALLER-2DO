@@ -16,7 +16,7 @@ class TipoProcedimientoMedicoDao:
 
     def getTiposProcedimientoMedico(self):
         sql = """
-        SELECT id_tipo_procedimiento, codigo, descripcion, fecha_registro
+        SELECT id_tipo_procedimiento, descripcion, fecha_registro
         FROM tipo_procedimiento_medico
         WHERE activo = true
         ORDER BY descripcion
@@ -30,9 +30,8 @@ class TipoProcedimientoMedicoDao:
             return [
                 {
                     'id_tipo_procedimiento': t[0],
-                    'codigo': t[1],
-                    'descripcion': t[2],
-                    'fecha_registro': str(t[3]) if t[3] else None
+                    'descripcion': t[1],
+                    'fecha_registro': str(t[2]) if t[2] else None
                 }
                 for t in tipos
             ]
@@ -45,7 +44,7 @@ class TipoProcedimientoMedicoDao:
 
     def getTipoProcedimientoMedicoById(self, id_tipo_procedimiento):
         sql = """
-        SELECT id_tipo_procedimiento, codigo, descripcion, fecha_registro
+        SELECT id_tipo_procedimiento, descripcion, fecha_registro
         FROM tipo_procedimiento_medico
         WHERE id_tipo_procedimiento = %s AND activo = true
         """
@@ -58,9 +57,8 @@ class TipoProcedimientoMedicoDao:
             if t:
                 return {
                     'id_tipo_procedimiento': t[0],
-                    'codigo': t[1],
-                    'descripcion': t[2],
-                    'fecha_registro': str(t[3]) if t[3] else None
+                    'descripcion': t[1],
+                    'fecha_registro': str(t[2]) if t[2] else None
                 }
             return None
         except Exception as e:
@@ -70,18 +68,13 @@ class TipoProcedimientoMedicoDao:
             cur.close()
             con.close()
 
-    def existeDuplicado(self, descripcion, codigo, excluir_id=None):
+    def existeDuplicado(self, descripcion, excluir_id=None):
         """
         Verifica si ya existe (entre los activos) un tipo de procedimiento
-        médico con el mismo código o la misma descripción (ignorando
-        mayúsculas/minúsculas).
+        médico con la misma descripción (ignorando mayúsculas/minúsculas).
         """
-        sql = """
-        SELECT 1 FROM tipo_procedimiento_medico
-        WHERE activo = true
-          AND (UPPER(descripcion) = UPPER(%s) OR UPPER(codigo) = UPPER(%s))
-        """
-        params = [descripcion, codigo]
+        sql = "SELECT 1 FROM tipo_procedimiento_medico WHERE activo = true AND UPPER(descripcion) = UPPER(%s)"
+        params = [descripcion]
 
         if excluir_id:
             sql += " AND id_tipo_procedimiento != %s"
@@ -100,16 +93,16 @@ class TipoProcedimientoMedicoDao:
             cur.close()
             con.close()
 
-    def guardarTipoProcedimientoMedico(self, codigo, descripcion):
+    def guardarTipoProcedimientoMedico(self, descripcion):
         sql = """
-        INSERT INTO tipo_procedimiento_medico(codigo, descripcion)
-        VALUES(%s, %s) RETURNING id_tipo_procedimiento
+        INSERT INTO tipo_procedimiento_medico(descripcion)
+        VALUES(%s) RETURNING id_tipo_procedimiento
         """
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(sql, (codigo, descripcion))
+            cur.execute(sql, (descripcion,))
             nuevo_id = cur.fetchone()[0]
             con.commit()
             return nuevo_id
@@ -121,17 +114,17 @@ class TipoProcedimientoMedicoDao:
             cur.close()
             con.close()
 
-    def updateTipoProcedimientoMedico(self, id_tipo_procedimiento, codigo, descripcion):
+    def updateTipoProcedimientoMedico(self, id_tipo_procedimiento, descripcion):
         sql = """
         UPDATE tipo_procedimiento_medico
-        SET codigo = %s, descripcion = %s
+        SET descripcion = %s
         WHERE id_tipo_procedimiento = %s
         """
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(sql, (codigo, descripcion, id_tipo_procedimiento))
+            cur.execute(sql, (descripcion, id_tipo_procedimiento))
             filas_afectadas = cur.rowcount
             con.commit()
             return filas_afectadas > 0
