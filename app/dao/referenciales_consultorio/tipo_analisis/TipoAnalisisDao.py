@@ -6,11 +6,8 @@ class TipoAnalisisDao:
     """
     DAO para la referencial 'Tipo Análisis' (tabla `tipo_analisis`).
 
-    NOTA: `estaEnUso()` todavía no valida nada real: depende de
-    `orden_analisis` (tabla de "Generar Orden de Análisis"), que no existe
-    en la base todavía. Cuando se programe ese movimiento, agregar acá el
-    chequeo contra esa tabla, igual que se documentó en
-    TipoInsumoDao/TipoProcedimientoMedicoDao/TipoEstudioDao.
+    `estaEnUso()` valida contra `orden_analisis` (Generar Orden de
+    Análisis) — una orden cancelada no cuenta como "en uso".
     """
 
     def getTiposAnalisis(self):
@@ -137,17 +134,27 @@ class TipoAnalisisDao:
 
     def estaEnUso(self, id_tipo_analisis):
         """
-        Pendiente: todavía no hay tabla `orden_analisis` para chequear.
-        Cuando se programe "Generar Orden de Análisis", reemplazar este
-        método por un chequeo real contra esa tabla.
+        Indica si el tipo de análisis está utilizado en alguna orden de
+        análisis no cancelada.
         """
-        return False
+        sql = "SELECT EXISTS(SELECT 1 FROM orden_analisis WHERE id_tipo_analisis = %s AND estado <> 'cancelado')"
+        conexion = Conexion()
+        con = conexion.getConexion()
+        cur = con.cursor()
+        try:
+            cur.execute(sql, (id_tipo_analisis,))
+            return bool(cur.fetchone()[0])
+        except Exception as e:
+            app.logger.error(f"Error al verificar uso de tipo de análisis: {str(e)}")
+            return True  # Ante la duda, bloquear el borrado
+        finally:
+            cur.close()
+            con.close()
 
     def deleteTipoAnalisis(self, id_tipo_analisis):
         """
         Anula (baja lógica) un tipo de análisis, validando antes que no esté
-        en uso (ver nota de `estaEnUso()`: hoy esa validación no chequea
-        nada real todavía).
+        en uso en ninguna orden de análisis activa.
 
         Returns:
             bool | str: True si se anuló, False si no existía, "EN_USO" si

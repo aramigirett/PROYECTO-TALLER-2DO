@@ -6,11 +6,8 @@ class TipoEstudioDao:
     """
     DAO para la referencial 'Tipo Estudio' (tabla `tipo_estudio`).
 
-    NOTA: `estaEnUso()` todavía no valida nada real: depende de
-    `orden_estudios` (tabla de "Generar Orden de Estudios"), que no existe
-    en la base todavía. Cuando se programe ese movimiento, agregar acá el
-    chequeo contra esa tabla, igual que se documentó en
-    TipoInsumoDao/TipoProcedimientoMedicoDao.
+    `estaEnUso()` valida contra `orden_estudios` (Generar Orden de
+    Estudios) — una orden cancelada no cuenta como "en uso".
     """
 
     def getTiposEstudio(self):
@@ -137,17 +134,27 @@ class TipoEstudioDao:
 
     def estaEnUso(self, id_tipo_estudio):
         """
-        Pendiente: todavía no hay tabla `orden_estudios` para chequear.
-        Cuando se programe "Generar Orden de Estudios", reemplazar este
-        método por un chequeo real contra esa tabla.
+        Indica si el tipo de estudio está utilizado en alguna orden de
+        estudio no cancelada.
         """
-        return False
+        sql = "SELECT EXISTS(SELECT 1 FROM orden_estudios WHERE id_tipo_estudio = %s AND estado <> 'cancelado')"
+        conexion = Conexion()
+        con = conexion.getConexion()
+        cur = con.cursor()
+        try:
+            cur.execute(sql, (id_tipo_estudio,))
+            return bool(cur.fetchone()[0])
+        except Exception as e:
+            app.logger.error(f"Error al verificar uso de tipo de estudio: {str(e)}")
+            return True  # Ante la duda, bloquear el borrado
+        finally:
+            cur.close()
+            con.close()
 
     def deleteTipoEstudio(self, id_tipo_estudio):
         """
         Anula (baja lógica) un tipo de estudio, validando antes que no esté
-        en uso (ver nota de `estaEnUso()`: hoy esa validación no chequea
-        nada real todavía).
+        en uso en ninguna orden de estudio activa.
 
         Returns:
             bool | str: True si se anuló, False si no existía, "EN_USO" si

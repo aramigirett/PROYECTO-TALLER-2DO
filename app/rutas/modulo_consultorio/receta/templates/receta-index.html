@@ -1,0 +1,537 @@
+{% extends 'base.html' %}
+
+{% block titulo %}
+Generar Recetas e Indicaciones
+{% endblock %}
+
+{% block contenido %}
+<div class="container-fluid mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3>Generar Recetas e Indicaciones</h3>
+    <button type="button" class="btn btn-primary" id="btnAgregar">
+      <i class="fas fa-plus-circle"></i> Nueva Receta
+    </button>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-hover table-striped" id="tbl">
+          <thead class="table-light">
+            <tr>
+              <th>Paciente</th>
+              <th>Médico</th>
+              <th>Fecha</th>
+              <th>Indicaciones Generales</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Nueva Receta -->
+  <div class="modal fade" id="modalFormulario" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title">Nueva Receta</h5>
+          <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+        </div>
+        <div class="modal-body">
+
+          <!-- Consulta -->
+          <div class="form-group">
+            <label class="font-weight-bold">Consulta Activa *</label>
+            <div class="input-group">
+              <input type="hidden" id="id_consulta_cab">
+              <input type="text" class="form-control" id="txtConsulta" readonly
+                     placeholder="Click para seleccionar una consulta activa">
+              <div class="input-group-append">
+                <button class="btn btn-outline-primary" type="button" id="btnBuscarConsulta">
+                  <i class="fas fa-search"></i>
+                </button>
+              </div>
+            </div>
+            <small class="text-muted">Solo se listan consultas activas en estado Programada o En Proceso.</small>
+          </div>
+
+          <!-- Datos heredados -->
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="font-weight-bold">Paciente</label>
+              <input type="text" class="form-control" id="txtPaciente" readonly>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="font-weight-bold">Médico</label>
+              <input type="text" class="form-control" id="txtMedico" readonly>
+            </div>
+          </div>
+
+          <hr>
+
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="font-weight-bold">Diagnóstico (opcional)</label>
+              <select class="form-control" id="id_diagnostico">
+                <option value="">Sin diagnóstico</option>
+              </select>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="font-weight-bold">Tratamiento (opcional)</label>
+              <select class="form-control" id="id_tratamiento">
+                <option value="">Sin tratamiento</option>
+              </select>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="font-weight-bold">Fecha *</label>
+              <input type="date" class="form-control" id="fecha_receta">
+            </div>
+            <div class="col-md-12 mb-3">
+              <label class="font-weight-bold">Indicaciones Generales *</label>
+              <textarea class="form-control" id="indicaciones_generales" rows="3"
+                        placeholder="Indicaciones generales de la receta..."></textarea>
+            </div>
+          </div>
+
+          <hr>
+          <label class="font-weight-bold">Medicamentos *</label>
+          <div id="filasMedicamentos"></div>
+          <button type="button" class="btn btn-outline-primary btn-sm mt-1" id="btnAgregarMedicamento">
+            <i class="fas fa-plus"></i> Agregar Medicamento
+          </button>
+
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary" id="btnGuardar">Guardar</button>
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Buscar Consulta -->
+  <div class="modal fade" id="modalBuscarConsulta" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title">Seleccionar Consulta Activa</h5>
+          <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="table-responsive">
+            <table class="table table-hover" id="tblConsultas">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Hora</th>
+                  <th>Paciente</th>
+                  <th>Médico</th>
+                  <th>Estado</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Ver Receta -->
+  <div class="modal fade" id="modalVerReceta" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable" role="document">
+      <div class="modal-content">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title"><i class="fas fa-prescription"></i> Receta Completa</h5>
+          <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <strong><i class="fas fa-user text-primary mr-1"></i> Paciente:</strong>
+              <p id="verPaciente" class="text-muted">-</p>
+            </div>
+            <div class="col-md-6">
+              <strong><i class="fas fa-user-md text-success mr-1"></i> Médico:</strong>
+              <p id="verMedico" class="text-muted">-</p>
+            </div>
+          </div>
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <strong><i class="fas fa-calendar text-warning mr-1"></i> Fecha:</strong>
+              <p id="verFecha" class="text-muted">-</p>
+            </div>
+          </div>
+          <hr>
+          <strong>Indicaciones Generales:</strong>
+          <p id="verIndicaciones" class="text-muted">-</p>
+          <hr>
+          <strong>Medicamentos:</strong>
+          <ul id="verMedicamentos" class="text-muted"></ul>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Librerías -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.10.21/css/dataTables.bootstrap4.min.css">
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+{% endblock %}
+
+
+{% block js %}
+<script>
+
+const urlParams = new URLSearchParams(window.location.search);
+const idConsultaParam = urlParams.get('consulta');
+
+let listaMedicamentos = [];
+
+function formatDateForDisplay(fecha) {
+  if (!fecha) return '';
+  const d = new Date(fecha);
+  if (isNaN(d)) return '';
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const year = d.getUTCFullYear();
+  return `${day}/${month}/${year}`;
+}
+
+// ============================================
+// DATATABLE: RECETAS
+// ============================================
+function initDatatableRecetas() {
+  if ($.fn.DataTable.isDataTable('#tbl')) {
+    $('#tbl').DataTable().destroy();
+  }
+  $('#tbl').DataTable({
+    language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
+    ajax: { url: '/api/v1/recetas', dataSrc: 'data' },
+    columns: [
+      { data: 'nombre_paciente' },
+      { data: 'nombre_medico' },
+      { data: 'fecha_receta', render: d => formatDateForDisplay(d) },
+      { data: 'indicaciones_generales' },
+      {
+        data: null,
+        render: row => `
+          <button class="btn btn-success btn-sm" name="btn_ver" data-id="${row.id_receta}" title="Ver">
+            <i class="fas fa-eye"></i>
+          </button>
+          <button class="btn btn-danger btn-sm" name="btn_anular" data-id="${row.id_receta}" title="Anular">
+            <i class="fas fa-ban"></i>
+          </button>
+        `
+      }
+    ]
+  });
+}
+
+// ============================================
+// DATATABLE: CONSULTAS ACTIVAS
+// ============================================
+function initDatatableConsultas() {
+  if ($.fn.DataTable.isDataTable('#tblConsultas')) {
+    $('#tblConsultas').DataTable().destroy();
+  }
+  $('#tblConsultas').DataTable({
+    language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
+    ajax: { url: '/api/v1/consultas/activas', dataSrc: 'data' },
+    columns: [
+      { data: 'fecha_cita', render: d => formatDateForDisplay(d) },
+      { data: 'hora_cita' },
+      { data: 'nombre_paciente' },
+      { data: 'nombre_medico' },
+      { data: 'estado' },
+      {
+        data: null,
+        render: row => `
+          <button class="btn btn-primary btn-sm" name="btn_seleccionar_consulta"
+                  data-id="${row.id_consulta_cab}"
+                  data-paciente="${row.nombre_paciente}"
+                  data-medico="${row.nombre_medico}"
+                  data-fecha="${row.fecha_cita}"
+                  data-hora="${row.hora_cita}">
+            Seleccionar
+          </button>
+        `
+      }
+    ]
+  });
+
+  $('#tblConsultas').on('click', 'button[name="btn_seleccionar_consulta"]', function() {
+    const btn = $(this);
+    seleccionarConsulta(btn.data('id'), btn.data('paciente'), btn.data('medico'), btn.data('fecha'), btn.data('hora'));
+    $('#modalBuscarConsulta').modal('hide');
+  });
+}
+
+function seleccionarConsulta(idConsulta, paciente, medico, fecha, hora) {
+  $('#id_consulta_cab').val(idConsulta);
+  $('#txtConsulta').val(`${formatDateForDisplay(fecha)} ${hora || ''} - ${paciente}`);
+  $('#txtPaciente').val(paciente);
+  $('#txtMedico').val(medico);
+
+  $('#id_diagnostico').html('<option value="">Sin diagnóstico</option>');
+  fetch(`/api/v1/diagnosticos-medicos/consulta/${idConsulta}`)
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        d.data.forEach(diag => {
+          $('#id_diagnostico').append(
+            `<option value="${diag.id_diagnostico}">${diag.descripcion_diagnostico} (${diag.tipo_diagnostico})</option>`
+          );
+        });
+      }
+    });
+
+  $('#id_tratamiento').html('<option value="">Sin tratamiento</option>');
+  fetch(`/api/v1/tratamientos/consulta/${idConsulta}`)
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        d.data.forEach(t => {
+          $('#id_tratamiento').append(
+            `<option value="${t.id_tratamiento}">${t.descripcion_tratamiento} (${t.estado})</option>`
+          );
+        });
+      }
+    });
+}
+
+// ============================================
+// CARGAR MEDICAMENTOS DISPONIBLES (cache para filas dinamicas)
+// ============================================
+function cargarMedicamentos() {
+  return fetch('/api/v1/medicamentos')
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        listaMedicamentos = d.data;
+      }
+    });
+}
+
+function opcionesMedicamentos() {
+  let html = '<option value="">Seleccione...</option>';
+  listaMedicamentos.forEach(m => {
+    html += `<option value="${m.id_medicamento}">${m.nombre_comercial}</option>`;
+  });
+  return html;
+}
+
+function agregarFilaMedicamento() {
+  const fila = $(`
+    <div class="row filaMedicamento mb-2">
+      <div class="col-md-4">
+        <select class="form-control selMedicamento">${opcionesMedicamentos()}</select>
+      </div>
+      <div class="col-md-2">
+        <input type="text" class="form-control txtDosis" placeholder="Dosis">
+      </div>
+      <div class="col-md-2">
+        <input type="text" class="form-control txtFrecuencia" placeholder="Frecuencia">
+      </div>
+      <div class="col-md-3">
+        <input type="text" class="form-control txtDuracion" placeholder="Duración">
+      </div>
+      <div class="col-md-1">
+        <button type="button" class="btn btn-outline-danger btn-block btnQuitarMedicamento"><i class="fas fa-trash"></i></button>
+      </div>
+    </div>
+  `);
+  $('#filasMedicamentos').append(fila);
+}
+
+$(document).on('click', '.btnQuitarMedicamento', function() {
+  $(this).closest('.filaMedicamento').remove();
+});
+
+$('#btnAgregarMedicamento').on('click', function() {
+  agregarFilaMedicamento();
+});
+
+// ============================================
+// LIMPIAR MODAL
+// ============================================
+function limpiarModal() {
+  $('#id_consulta_cab').val('');
+  $('#txtConsulta').val('');
+  $('#txtPaciente').val('');
+  $('#txtMedico').val('');
+  $('#id_diagnostico').html('<option value="">Sin diagnóstico</option>');
+  $('#id_tratamiento').html('<option value="">Sin tratamiento</option>');
+  $('#indicaciones_generales').val('');
+  $('#fecha_receta').val(new Date().toISOString().split('T')[0]);
+  $('#filasMedicamentos').empty();
+  agregarFilaMedicamento();
+}
+
+// ============================================
+// PRESELECCIONAR CONSULTA (cuando viene desde el botón
+// "Recetas" del panel de Consulta) y abrir el modal Nuevo
+// ============================================
+function preseleccionarConsultaDesdeQuery() {
+  if (!idConsultaParam) return;
+  const idConsulta = parseInt(idConsultaParam);
+
+  limpiarModal();
+
+  fetch(`/api/v1/consultas/${idConsulta}`)
+    .then(r => r.json())
+    .then(d => {
+      if (!d.success) {
+        Swal.fire('Error', 'No se pudo cargar la consulta indicada.', 'error');
+        return;
+      }
+      const c = d.data;
+      seleccionarConsulta(idConsulta, c.nombre_paciente, c.nombre_medico, c.fecha_cita, c.hora_cita);
+      $('#modalFormulario').modal('show');
+    })
+    .catch(err => {
+      console.error(err);
+      Swal.fire('Error', 'No se pudo cargar la consulta indicada.', 'error');
+    });
+}
+
+// ============================================
+// EVENTOS
+// ============================================
+$('#btnAgregar').on('click', function() {
+  limpiarModal();
+  $('#modalFormulario').modal('show');
+});
+
+$('#btnBuscarConsulta').on('click', function() {
+  $('#modalBuscarConsulta').modal('show');
+});
+
+$('#btnGuardar').on('click', function() {
+  const medicamentos = [];
+  $('.filaMedicamento').each(function() {
+    const idMedicamento = $(this).find('.selMedicamento').val();
+    const dosis = $(this).find('.txtDosis').val().trim();
+    const frecuencia = $(this).find('.txtFrecuencia').val().trim();
+    const duracion = $(this).find('.txtDuracion').val().trim();
+    if (idMedicamento && dosis && frecuencia && duracion) {
+      medicamentos.push({ id_medicamento: parseInt(idMedicamento), dosis, frecuencia, duracion });
+    }
+  });
+
+  const payload = {
+    id_consulta_cab: $('#id_consulta_cab').val() ? parseInt($('#id_consulta_cab').val()) : null,
+    id_diagnostico: $('#id_diagnostico').val() ? parseInt($('#id_diagnostico').val()) : null,
+    id_tratamiento: $('#id_tratamiento').val() ? parseInt($('#id_tratamiento').val()) : null,
+    indicaciones_generales: $('#indicaciones_generales').val(),
+    fecha_receta: $('#fecha_receta').val(),
+    medicamentos: medicamentos
+  };
+
+  if (!payload.id_consulta_cab) {
+    Swal.fire('Falta la Consulta', 'Debe seleccionar una Consulta activa.', 'warning');
+    return;
+  }
+  if (!payload.indicaciones_generales || !payload.indicaciones_generales.trim()) {
+    Swal.fire('Campo incompleto', 'Las Indicaciones Generales son obligatorias.', 'warning');
+    return;
+  }
+  if (medicamentos.length === 0) {
+    Swal.fire('Falta un Medicamento', 'Debe registrar al menos un medicamento completo (medicamento, dosis, frecuencia y duración).', 'warning');
+    return;
+  }
+
+  fetch('/api/v1/recetas', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (d.success) {
+      $('#modalFormulario').modal('hide');
+      $('#tbl').DataTable().ajax.reload();
+      Swal.fire('Éxito', 'Receta registrada correctamente', 'success');
+    } else {
+      Swal.fire('Error', d.error, 'error');
+    }
+  })
+  .catch(err => {
+    console.error(err);
+    Swal.fire('Error', 'Ocurrió un error al guardar la receta.', 'error');
+  });
+});
+
+$('#tbl').on('click', 'button[name="btn_ver"]', function() {
+  const id = $(this).data('id');
+
+  fetch(`/api/v1/recetas/${id}`)
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        const r = d.data;
+        $('#verPaciente').text(r.nombre_paciente);
+        $('#verMedico').text(r.nombre_medico);
+        $('#verFecha').text(formatDateForDisplay(r.fecha_receta));
+        $('#verIndicaciones').text(r.indicaciones_generales);
+        $('#verMedicamentos').empty();
+        r.medicamentos.forEach(m => {
+          $('#verMedicamentos').append(`<li>${m.nombre_comercial} - Dosis: ${m.dosis}, Frecuencia: ${m.frecuencia}, Duración: ${m.duracion}</li>`);
+        });
+        $('#modalVerReceta').modal('show');
+      } else {
+        Swal.fire('Error', d.error || 'No se pudo cargar la receta', 'error');
+      }
+    })
+    .catch(err => {
+      console.error('Error:', err);
+      Swal.fire('Error', 'No se pudo cargar la receta', 'error');
+    });
+});
+
+$('#tbl').on('click', 'button[name="btn_anular"]', function() {
+  const id = $(this).data('id');
+  Swal.fire({
+    title: '¿Anular esta receta?',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#d33',
+    cancelButtonColor: '#3085d6',
+    confirmButtonText: 'Sí, anular',
+    cancelButtonText: 'Cancelar'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      fetch(`/api/v1/recetas/${id}`, { method: 'DELETE' })
+        .then(r => r.json())
+        .then(d => {
+          if (d.success) {
+            $('#tbl').DataTable().ajax.reload();
+            Swal.fire('Anulada', d.mensaje, 'success');
+          } else {
+            Swal.fire('Error', d.error, 'error');
+          }
+        })
+        .catch(err => {
+          Swal.fire('Error', 'Ocurrió un error al anular la receta.', 'error');
+        });
+    }
+  });
+});
+
+$(function() {
+  initDatatableRecetas();
+  initDatatableConsultas();
+  cargarMedicamentos().then(() => preseleccionarConsultaDesdeQuery());
+});
+</script>
+{% endblock %}

@@ -1,0 +1,547 @@
+{% extends 'base.html' %}
+
+{% block titulo %}
+Generar Orden de Estudios
+{% endblock %}
+
+{% block contenido %}
+<div class="container-fluid mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3>Generar Orden de Estudios</h3>
+    <button type="button" class="btn btn-primary" id="btnAgregar">
+      <i class="fas fa-plus-circle"></i> Nueva Orden
+    </button>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-hover table-striped" id="tbl">
+          <thead class="table-light">
+            <tr>
+              <th>Paciente</th>
+              <th>Médico</th>
+              <th>Tipo de Estudio</th>
+              <th>Fecha</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Nueva Orden -->
+  <div class="modal fade" id="modalFormulario" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title">Nueva Orden de Estudio</h5>
+          <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+        </div>
+        <div class="modal-body">
+
+          <!-- Consulta -->
+          <div class="form-group">
+            <label class="font-weight-bold">Consulta Activa *</label>
+            <div class="input-group">
+              <input type="hidden" id="id_consulta_cab">
+              <input type="text" class="form-control" id="txtConsulta" readonly
+                     placeholder="Click para seleccionar una consulta activa">
+              <div class="input-group-append">
+                <button class="btn btn-outline-primary" type="button" id="btnBuscarConsulta">
+                  <i class="fas fa-search"></i>
+                </button>
+              </div>
+            </div>
+            <small class="text-muted">Solo se listan consultas activas en estado Programada o En Proceso.</small>
+          </div>
+
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="font-weight-bold">Paciente</label>
+              <input type="text" class="form-control" id="txtPaciente" readonly>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="font-weight-bold">Médico</label>
+              <input type="text" class="form-control" id="txtMedico" readonly>
+            </div>
+          </div>
+
+          <hr>
+
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="font-weight-bold">Diagnóstico (opcional)</label>
+              <select class="form-control" id="id_diagnostico">
+                <option value="">Sin diagnóstico</option>
+              </select>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="font-weight-bold">Tratamiento (opcional)</label>
+              <select class="form-control" id="id_tratamiento">
+                <option value="">Sin tratamiento</option>
+              </select>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="font-weight-bold">Tipo de Estudio *</label>
+              <select class="form-control" id="id_tipo_estudio">
+                <option value="">Seleccione...</option>
+              </select>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="font-weight-bold">Fecha *</label>
+              <input type="date" class="form-control" id="fecha_orden">
+            </div>
+            <div class="col-md-12 mb-3">
+              <label class="font-weight-bold">Motivo de Orden *</label>
+              <textarea class="form-control" id="motivo_orden" rows="2"
+                        placeholder="Motivo por el cual se solicita el estudio..."></textarea>
+            </div>
+            <div class="col-md-12 mb-3">
+              <label class="font-weight-bold">Indicaciones</label>
+              <textarea class="form-control" id="indicaciones" rows="2"
+                        placeholder="Indicaciones adicionales (opcional)..."></textarea>
+            </div>
+          </div>
+
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary" id="btnGuardar">Guardar</button>
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Buscar Consulta -->
+  <div class="modal fade" id="modalBuscarConsulta" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title">Seleccionar Consulta Activa</h5>
+          <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="table-responsive">
+            <table class="table table-hover" id="tblConsultas">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Hora</th>
+                  <th>Paciente</th>
+                  <th>Médico</th>
+                  <th>Estado</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Ver Orden -->
+  <div class="modal fade" id="modalVerOrden" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable" role="document">
+      <div class="modal-content">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title"><i class="fas fa-file-medical"></i> Orden de Estudio Completa</h5>
+          <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <strong><i class="fas fa-user text-primary mr-1"></i> Paciente:</strong>
+              <p id="verPaciente" class="text-muted">-</p>
+            </div>
+            <div class="col-md-6">
+              <strong><i class="fas fa-user-md text-success mr-1"></i> Médico:</strong>
+              <p id="verMedico" class="text-muted">-</p>
+            </div>
+          </div>
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <strong><i class="fas fa-vial text-info mr-1"></i> Tipo de Estudio:</strong>
+              <p id="verTipoEstudio" class="text-muted">-</p>
+            </div>
+            <div class="col-md-6">
+              <strong><i class="fas fa-calendar text-warning mr-1"></i> Fecha:</strong>
+              <p id="verFecha" class="text-muted">-</p>
+            </div>
+          </div>
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <strong><i class="fas fa-flag text-secondary mr-1"></i> Estado:</strong>
+              <p id="verEstado" class="text-muted">-</p>
+            </div>
+          </div>
+          <hr>
+          <strong>Motivo de Orden:</strong>
+          <p id="verMotivo" class="text-muted">-</p>
+          <strong>Indicaciones:</strong>
+          <p id="verIndicaciones" class="text-muted">-</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Librerías -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.10.21/css/dataTables.bootstrap4.min.css">
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+{% endblock %}
+
+
+{% block js %}
+<script>
+
+const urlParams = new URLSearchParams(window.location.search);
+const idConsultaParam = urlParams.get('consulta');
+
+const SIGUIENTE_ESTADO = { 'pendiente': 'enviado', 'enviado': 'en_proceso', 'en_proceso': 'completado' };
+
+function formatDateForDisplay(fecha) {
+  if (!fecha) return '';
+  const d = new Date(fecha);
+  if (isNaN(d)) return '';
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const year = d.getUTCFullYear();
+  return `${day}/${month}/${year}`;
+}
+
+// ============================================
+// DATATABLE: ORDENES DE ESTUDIO
+// ============================================
+function initDatatableOrdenes() {
+  if ($.fn.DataTable.isDataTable('#tbl')) {
+    $('#tbl').DataTable().destroy();
+  }
+  $('#tbl').DataTable({
+    language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
+    ajax: { url: '/api/v1/orden-estudios', dataSrc: 'data' },
+    columns: [
+      { data: 'nombre_paciente' },
+      { data: 'nombre_medico' },
+      { data: 'tipo_estudio' },
+      { data: 'fecha_orden', render: d => formatDateForDisplay(d) },
+      { data: 'estado' },
+      {
+        data: null,
+        render: row => {
+          const esTerminal = row.estado === 'completado' || row.estado === 'cancelado';
+          const btnActualizar = esTerminal ? '' : `
+            <button class="btn btn-warning btn-sm" name="btn_actualizar_estado" data-id="${row.id_orden_estudio}" title="Actualizar Estado">
+              <i class="fas fa-arrow-circle-right"></i>
+            </button>`;
+          const btnAnular = esTerminal ? '' : `
+            <button class="btn btn-danger btn-sm" name="btn_anular" data-id="${row.id_orden_estudio}" title="Anular">
+              <i class="fas fa-ban"></i>
+            </button>`;
+          return `
+            <button class="btn btn-success btn-sm" name="btn_ver" data-id="${row.id_orden_estudio}" title="Ver">
+              <i class="fas fa-eye"></i>
+            </button>
+            ${btnActualizar}
+            ${btnAnular}
+          `;
+        }
+      }
+    ]
+  });
+}
+
+// ============================================
+// DATATABLE: CONSULTAS ACTIVAS
+// ============================================
+function initDatatableConsultas() {
+  if ($.fn.DataTable.isDataTable('#tblConsultas')) {
+    $('#tblConsultas').DataTable().destroy();
+  }
+  $('#tblConsultas').DataTable({
+    language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
+    ajax: { url: '/api/v1/consultas/activas', dataSrc: 'data' },
+    columns: [
+      { data: 'fecha_cita', render: d => formatDateForDisplay(d) },
+      { data: 'hora_cita' },
+      { data: 'nombre_paciente' },
+      { data: 'nombre_medico' },
+      { data: 'estado' },
+      {
+        data: null,
+        render: row => `
+          <button class="btn btn-primary btn-sm" name="btn_seleccionar_consulta"
+                  data-id="${row.id_consulta_cab}"
+                  data-paciente="${row.nombre_paciente}"
+                  data-medico="${row.nombre_medico}"
+                  data-fecha="${row.fecha_cita}"
+                  data-hora="${row.hora_cita}">
+            Seleccionar
+          </button>
+        `
+      }
+    ]
+  });
+
+  $('#tblConsultas').on('click', 'button[name="btn_seleccionar_consulta"]', function() {
+    const btn = $(this);
+    seleccionarConsulta(btn.data('id'), btn.data('paciente'), btn.data('medico'), btn.data('fecha'), btn.data('hora'));
+    $('#modalBuscarConsulta').modal('hide');
+  });
+}
+
+function seleccionarConsulta(idConsulta, paciente, medico, fecha, hora) {
+  $('#id_consulta_cab').val(idConsulta);
+  $('#txtConsulta').val(`${formatDateForDisplay(fecha)} ${hora || ''} - ${paciente}`);
+  $('#txtPaciente').val(paciente);
+  $('#txtMedico').val(medico);
+
+  $('#id_diagnostico').html('<option value="">Sin diagnóstico</option>');
+  fetch(`/api/v1/diagnosticos-medicos/consulta/${idConsulta}`)
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        d.data.forEach(diag => {
+          $('#id_diagnostico').append(
+            `<option value="${diag.id_diagnostico}">${diag.descripcion_diagnostico} (${diag.tipo_diagnostico})</option>`
+          );
+        });
+      }
+    });
+
+  $('#id_tratamiento').html('<option value="">Sin tratamiento</option>');
+  fetch(`/api/v1/tratamientos/consulta/${idConsulta}`)
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        d.data.forEach(t => {
+          $('#id_tratamiento').append(
+            `<option value="${t.id_tratamiento}">${t.descripcion_tratamiento} (${t.estado})</option>`
+          );
+        });
+      }
+    });
+}
+
+// ============================================
+// CARGAR TIPOS DE ESTUDIO (combo)
+// ============================================
+function cargarTiposEstudio() {
+  fetch('/api/v1/tipos-estudio')
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        const select = $('#id_tipo_estudio');
+        select.html('<option value="">Seleccione...</option>');
+        d.data.forEach(t => {
+          select.append(`<option value="${t.id_tipo_estudio}">${t.descripcion}</option>`);
+        });
+      }
+    });
+}
+
+// ============================================
+// LIMPIAR MODAL
+// ============================================
+function limpiarModal() {
+  $('#id_consulta_cab').val('');
+  $('#txtConsulta').val('');
+  $('#txtPaciente').val('');
+  $('#txtMedico').val('');
+  $('#id_diagnostico').html('<option value="">Sin diagnóstico</option>');
+  $('#id_tratamiento').html('<option value="">Sin tratamiento</option>');
+  $('#id_tipo_estudio').val('');
+  $('#motivo_orden').val('');
+  $('#indicaciones').val('');
+  $('#fecha_orden').val(new Date().toISOString().split('T')[0]);
+}
+
+// ============================================
+// PRESELECCIONAR CONSULTA (cuando viene desde el botón
+// "Orden de Estudios" del panel de Consulta) y abrir el modal Nuevo
+// ============================================
+function preseleccionarConsultaDesdeQuery() {
+  if (!idConsultaParam) return;
+  const idConsulta = parseInt(idConsultaParam);
+
+  limpiarModal();
+
+  fetch(`/api/v1/consultas/${idConsulta}`)
+    .then(r => r.json())
+    .then(d => {
+      if (!d.success) {
+        Swal.fire('Error', 'No se pudo cargar la consulta indicada.', 'error');
+        return;
+      }
+      const c = d.data;
+      seleccionarConsulta(idConsulta, c.nombre_paciente, c.nombre_medico, c.fecha_cita, c.hora_cita);
+      $('#modalFormulario').modal('show');
+    })
+    .catch(err => {
+      console.error(err);
+      Swal.fire('Error', 'No se pudo cargar la consulta indicada.', 'error');
+    });
+}
+
+// ============================================
+// EVENTOS
+// ============================================
+$('#btnAgregar').on('click', function() {
+  limpiarModal();
+  $('#modalFormulario').modal('show');
+});
+
+$('#btnBuscarConsulta').on('click', function() {
+  $('#modalBuscarConsulta').modal('show');
+});
+
+$('#btnGuardar').on('click', function() {
+  const payload = {
+    id_consulta_cab: $('#id_consulta_cab').val() ? parseInt($('#id_consulta_cab').val()) : null,
+    id_diagnostico: $('#id_diagnostico').val() ? parseInt($('#id_diagnostico').val()) : null,
+    id_tratamiento: $('#id_tratamiento').val() ? parseInt($('#id_tratamiento').val()) : null,
+    id_tipo_estudio: $('#id_tipo_estudio').val() ? parseInt($('#id_tipo_estudio').val()) : null,
+    motivo_orden: $('#motivo_orden').val(),
+    indicaciones: $('#indicaciones').val() || null,
+    fecha_orden: $('#fecha_orden').val()
+  };
+
+  if (!payload.id_consulta_cab) {
+    Swal.fire('Falta la Consulta', 'Debe seleccionar una Consulta activa.', 'warning');
+    return;
+  }
+  if (!payload.id_tipo_estudio) {
+    Swal.fire('Campo incompleto', 'Debe seleccionar el Tipo de Estudio.', 'warning');
+    return;
+  }
+  if (!payload.motivo_orden || !payload.motivo_orden.trim()) {
+    Swal.fire('Campo incompleto', 'El Motivo de Orden es obligatorio.', 'warning');
+    return;
+  }
+
+  fetch('/api/v1/orden-estudios', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (d.success) {
+      $('#modalFormulario').modal('hide');
+      $('#tbl').DataTable().ajax.reload();
+      Swal.fire('Éxito', 'Orden de estudio registrada correctamente', 'success');
+    } else {
+      Swal.fire('Error', d.error, 'error');
+    }
+  })
+  .catch(err => {
+    console.error(err);
+    Swal.fire('Error', 'Ocurrió un error al guardar la orden de estudio.', 'error');
+  });
+});
+
+$('#tbl').on('click', 'button[name="btn_ver"]', function() {
+  const id = $(this).data('id');
+
+  fetch(`/api/v1/orden-estudios/${id}`)
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        const o = d.data;
+        $('#verPaciente').text(o.nombre_paciente);
+        $('#verMedico').text(o.nombre_medico);
+        $('#verTipoEstudio').text(o.tipo_estudio);
+        $('#verFecha').text(formatDateForDisplay(o.fecha_orden));
+        $('#verEstado').text(o.estado);
+        $('#verMotivo').text(o.motivo_orden);
+        $('#verIndicaciones').text(o.indicaciones || '-');
+        $('#modalVerOrden').modal('show');
+      } else {
+        Swal.fire('Error', d.error || 'No se pudo cargar la orden de estudio', 'error');
+      }
+    })
+    .catch(err => {
+      console.error('Error:', err);
+      Swal.fire('Error', 'No se pudo cargar la orden de estudio', 'error');
+    });
+});
+
+$('#tbl').on('click', 'button[name="btn_actualizar_estado"]', function() {
+  const id = $(this).data('id');
+  const fila = $(this).closest('tr');
+  const estadoActual = $('#tbl').DataTable().row(fila).data().estado;
+  const siguiente = SIGUIENTE_ESTADO[estadoActual] || '?';
+
+  Swal.fire({
+    title: `¿Avanzar esta orden a "${siguiente}"?`,
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'Sí, avanzar',
+    cancelButtonText: 'Cancelar'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      fetch(`/api/v1/orden-estudios/${id}/estado`, { method: 'PUT' })
+        .then(r => r.json())
+        .then(d => {
+          if (d.success) {
+            $('#tbl').DataTable().ajax.reload();
+            Swal.fire('Actualizada', d.mensaje, 'success');
+          } else {
+            Swal.fire('Error', d.error, 'error');
+          }
+        })
+        .catch(err => {
+          Swal.fire('Error', 'Ocurrió un error al actualizar el estado.', 'error');
+        });
+    }
+  });
+});
+
+$('#tbl').on('click', 'button[name="btn_anular"]', function() {
+  const id = $(this).data('id');
+  Swal.fire({
+    title: '¿Anular esta orden de estudio?',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#d33',
+    cancelButtonColor: '#3085d6',
+    confirmButtonText: 'Sí, anular',
+    cancelButtonText: 'Cancelar'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      fetch(`/api/v1/orden-estudios/${id}`, { method: 'DELETE' })
+        .then(r => r.json())
+        .then(d => {
+          if (d.success) {
+            $('#tbl').DataTable().ajax.reload();
+            Swal.fire('Anulada', d.mensaje, 'success');
+          } else {
+            Swal.fire('Error', d.error, 'error');
+          }
+        })
+        .catch(err => {
+          Swal.fire('Error', 'Ocurrió un error al anular la orden de estudio.', 'error');
+        });
+    }
+  });
+});
+
+$(function() {
+  initDatatableOrdenes();
+  initDatatableConsultas();
+  cargarTiposEstudio();
+  preseleccionarConsultaDesdeQuery();
+});
+</script>
+{% endblock %}

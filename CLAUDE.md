@@ -138,7 +138,7 @@ Con esto, el **Módulo Agendamiento queda completo**: los 4 movimientos con
 baja lógica correcta, y las 6 referenciales con DELETE físico protegido.
 Próximo módulo grande: Consultorio.
 
-## Estado real del Módulo Consultorio (en desarrollo)
+## Estado real del Módulo Consultorio (actualizado — COMPLETO)
 
 Análisis confirmado (10 movimientos + 8 referenciales documentados con el
 profesor). Decisión clave resuelta: **Registrar Consulta parte de una Cita
@@ -268,100 +268,127 @@ asumía por "parecido" a otro módulo):
   CUS desde el arranque (parte de Consulta activa, vinculación opcional a
   Diagnóstico, hereda Paciente/Médico/Consultorio, estados
   `pendiente→en_seguimiento→finalizado`+`cancelado`).
+- **Generar Recetas e Indicaciones**: Ver/Anular. Cuelga directo de
+  Consulta (no de Tratamiento), con vinculación OPCIONAL a Diagnóstico
+  y/o Tratamiento de esa misma consulta. Cabecera `recetas`
+  (indicaciones_generales) + detalle `receta_medicamento` (dosis,
+  frecuencia, duración por medicamento — mínimo 1). Anular bloqueado si
+  la consulta está "finalizada" (sin regla de "solo la última", a
+  diferencia de Sesiones). Con entrada propia en sidebar (mismo criterio
+  que Tratamiento) + 4ª tarjeta de Acción Rápida en Consulta.
+  Dependencia cruzada conectada: `MedicamentoDao.estaEnUso()` dejó de ser
+  un stub que devolvía `False` fijo — ahora valida contra
+  `receta_medicamento` de verdad.
+- **Generar Orden de Estudios**: Ver/Anular. Cuelga directo de Consulta,
+  vinculación OPCIONAL a Diagnóstico/Tratamiento (igual que Recetas).
+  Tabla ÚNICA `orden_estudios` (un solo Tipo de Estudio por orden, sin
+  cabecera+detalle) — **sin columna `activo`**, el propio `estado`
+  (CHECK: pendiente/enviado/en_proceso/completado/cancelado) hace de baja
+  lógica (`cancelado` = anulado). Dos acciones desde la misma pantalla:
+  "Actualizar Estado" (avanza UN paso a la vez en la secuencia fija —
+  el sistema calcula el siguiente estado, el usuario no elige a cuál
+  saltar) y "Anular" (bloqueado si ya está completado/cancelado). Con
+  entrada propia en sidebar + 5ª tarjeta de Acción Rápida en Consulta.
+  Dependencia cruzada conectada: `TipoEstudioDao.estaEnUso()` valida
+  contra `orden_estudios` con `estado <> 'cancelado'`.
 
-**Regla de acciones por movimiento (para los que faltan):** por defecto,
-un movimiento clínico es **Nuevo + Anular únicamente** (nunca "Modificar" a
-menos que el CUS lo diga explícitamente, como el caso especial de Ficha
-Médica). Un botón **"Ver"** de solo lectura es válido agregar siempre, no
-es una acción del CUS. El botón de baja SIEMPRE se llama **"Anular"**, no
-"Eliminar" — y si el CUS dice "actualiza el estado a inactivo", es baja
-lógica real, nunca DELETE físico.
+**✅ MÓDULO CONSULTORIO COMPLETO — 10 movimientos + 8 referenciales,
+todos auditados contra su CUS real y probados de punta a punta:**
 
-**Regla nueva, aprendida a los golpes — índices únicos parciales:**
-cualquier tabla que tenga una restricción `UNIQUE` (a nivel BD o por
-`existeDuplicado()` en la app) y a la que se le agregue baja lógica, TIENE
-que convertir ese `UNIQUE` en un índice único parcial
-(`WHERE activo = true` o equivalente) en el mismo momento — si no, un
-registro anulado sigue "ocupando" el valor único para siempre y bloquea
-crear uno nuevo en su lugar (pasó con `agenda_cabecera`, las 6 referenciales
-de Consultorio, y `ficha_medica_consulta`). Chequear esto SIEMPRE que se
-agregue baja lógica a algo nuevo.
+Movimientos: Registrar Consulta, Gestionar Diagnóstico, Gestión Ficha
+Médica, Gestionar Odontograma, Gestionar Tratamientos, Gestionar
+Procedimientos e Insumos Utilizados, Generar Recetas e Indicaciones,
+Generar Orden de Estudios, Generar Orden de Análisis, Generar
+Justificativo Médico.
 
-**Regla nueva — dependencias cruzadas al agregar baja lógica:** cuando una
-tabla A referencia a una tabla B y B pasa a tener baja lógica, hay que
-revisar TODOS los `EXISTS`/bloqueos que A hace contra B para que filtren
-`activo = true` — si no, un registro de B ya anulado sigue bloqueando a A
-para siempre (pasó 3 veces: Consulta bloqueada por Diagnóstico anulado,
-Tratamiento pudiendo engancharse a Diagnóstico anulado, Consulta bloqueada
-por Ficha Médica anulada). Y al revés: si el JOIN de un listado no filtra
-`activo = true` contra una tabla que ahora admite múltiples filas
-históricas (activas + anuladas), el listado puede MULTIPLICAR filas
-visualmente (pasó con `ConsultaDao.getConsultas()` contra
-`ficha_medica_consulta`) — revisar todos los JOIN, no solo los WHERE.
+Referenciales: Tipo Tratamiento, Tipo Insumo Utilizado, Tipo
+Procedimiento Médico, Medicamentos, Tipo Estudio, Tipo Análisis (todas
+baja lógica), Especialidad/Día/Turno/Cargo/Consultorio/Disponibilidad
+Horaria (de Agendamiento, DELETE físico — ver sección de Agendamiento).
 
-**6 movimientos ya cerrados (auditados de punta a punta):** Registrar
-Consulta, Gestionar Diagnóstico, Gestión Ficha Médica, Gestionar
-Odontograma, Gestionar Tratamientos, **Gestionar Procedimientos e Insumos
-Utilizados**.
+- **Gestionar Procedimientos e Insumos Utilizados**: cuelga de un
+  Tratamiento (sin entrada propia en sidebar, acceso siempre contextual).
+  Tablas `sesiones_tratamiento`+`sesion_insumos`. `numero_sesion`
+  correlativo con único parcial. Primera sesión pasa el tratamiento a
+  `en_seguimiento`. Solo se puede anular la última sesión activa, con
+  cascada a sus insumos. "Finalizar Tratamiento" vive acá (no en
+  Gestionar Tratamientos).
+- **Generar Recetas e Indicaciones**: cuelga de Consulta, vinculación
+  opcional a Diagnóstico y/o Tratamiento. Cabecera `recetas` + detalle
+  `receta_medicamento` (mínimo 1 medicamento). Con entrada propia en
+  sidebar + tarjeta de Acción Rápida.
+- **Generar Orden de Estudios / Generar Orden de Análisis**: idénticos
+  estructuralmente entre sí (solo cambia el catálogo). Tabla única, sin
+  `activo` — el propio `estado` (pendiente/enviado/en_proceso/completado/
+  cancelado) hace de baja lógica. Dos acciones: "Actualizar Estado"
+  (avanza UN paso, secuencial estricto — el sistema calcula el siguiente,
+  no se puede saltar) y "Anular" (bloqueado si completado/cancelado).
+- **Generar Justificativo Médico**: cuelga de Consulta, vinculación
+  opcional SOLO a Diagnóstico (sin Tratamiento, a diferencia de
+  Recetas/Órdenes). Campos: Días de Reposo (>0) + Recomendaciones.
+  Estados simples `activo`/`anulado` (no la cadena de 4 pasos de las
+  Órdenes). **Genera PDF al vuelo con ReportLab** (instalado, sin
+  dependencias de sistema — funciona limpio en Windows), sin persistir
+  archivo en el servidor — se regenera desde los datos de la BD cada vez.
+  Un justificativo anulado sigue siendo descargable, pero con marca
+  "ANULADO" visible en rojo (no se bloquea la descarga, sirve de
+  respaldo/auditoría). Servicio en `app/Services/justificativo_pdf_service.py`
+  — pensado para reutilizar el mismo patrón si en el futuro se agrega PDF
+  a Recetas/Órdenes.
 
-- **Gestionar Procedimientos e Insumos Utilizados**: construido de cero.
-  Tablas nuevas `sesiones_tratamiento` (cabecera, cuelga de `tratamientos`)
-  y `sesion_insumos` (detalle). Se entra SIEMPRE desde el detalle de un
-  Tratamiento (botón nuevo en su listado) — sin entrada propia en el
-  sidebar/buscador, a propósito, porque el CUS nunca lo contempla como
-  acceso independiente. `numero_sesion` correlativo por tratamiento, único
-  parcial `WHERE activo=true` (se puede reutilizar tras anular). Registrar
-  la primera sesión pasa el tratamiento de `pendiente` a `en_seguimiento`
-  automáticamente. ANULAR solo permite la sesión más reciente activa
-  (bloquea las demás), con baja lógica en cascada a sus insumos.
-  "Finalizar Tratamiento" vive en este mismo movimiento (no en Gestionar
-  Tratamientos) — bloquea si el tratamiento está `pendiente` (sin
-  sesiones) o si ya está `finalizado`/`cancelado`.
-  Dependencias cruzadas conectadas: `TratamientoDao.deleteTratamiento()`
-  ahora bloquea si hay sesiones activas (pendiente documentado desde que se
-  construyó Tratamientos); `TipoInsumoDao` no tenía `estaEnUso()` y se le
-  agregó (antes de esto, CUALQUIER insumo se podía anular aunque estuviera
-  en uso — bug real de integridad, no solo un pendiente); se completó
-  `TipoProcedimientoMedicoDao.estaEnUso()` para sumar `sesiones_tratamiento`
-  además de `consultas_detalle`.
-  Bug de seguridad aparte corregido: `tipo_insumo_api.py` chequeaba
-  `if resultado:` en vez de comparar contra `"EN_USO"` — como cualquier
-  string no vacío es "truthy" en Python, esto permitía anular un insumo en
-  uso sin bloquear nada. Ahora corregido.
+**Dependencias cruzadas conectadas a lo largo del módulo** (todos los
+`estaEnUso()` que quedaban documentados como "pendiente, esperando a que
+exista X" ya fueron conectados apenas esa tabla se construyó):
+`TratamientoDao.deleteTratamiento()` bloquea si hay sesiones activas;
+`TipoInsumoDao.estaEnUso()` (no existía — bug real, cualquier insumo se
+podía anular en uso); `TipoProcedimientoMedicoDao.estaEnUso()` (sumó
+`sesiones_tratamiento`); `MedicamentoDao.estaEnUso()` (contra
+`receta_medicamento`); `TipoEstudioDao`/`TipoAnalisisDao.estaEnUso()`
+(contra sus respectivas órdenes, con `estado <> 'cancelado'`). Bug de
+seguridad aparte corregido: `tipo_insumo_api.py` chequeaba `if resultado:`
+en vez de comparar contra `"EN_USO"` (permitía anular en uso sin
+bloquear, por ser cualquier string "truthy" en Python).
 
-**Mejora de UX aplicada a los 6 movimientos + las 6 referenciales:** los
-mensajes de éxito/error que arma el backend (`f-strings` mostrados vía
-SweetAlert) mostraban el ID crudo del registro (ej. "registro id 12
-anulado"). Se reemplazó por un dato descriptivo real en cada pantalla
-(código para Diagnóstico, número+fecha para Sesiones, descripción/nombre
-para las referenciales, etc.) — revisar este mismo detalle al construir
-los movimientos que faltan, no repetir el error de mostrar IDs crudos al
-usuario.
+**Mejora de UX aplicada a todo el módulo:** los mensajes de éxito/error
+usan datos descriptivos reales (código, fecha+paciente, descripción,
+etc.), nunca IDs crudos.
 
-**Movimientos que faltan (dependen de las referenciales, ya listas):**
-Generar Recetas e Indicaciones (siguiente), Generar Orden de Estudios,
-Generar Orden de Análisis, Generar Justificativo Médico. Ninguno tiene
-tabla propia todavía, hay que crearlas al programar cada uno.
+## Reglas generales aprendidas en Consultorio (aplicar a Facturación también)
 
-**Checklist a aplicar en cada uno de los que faltan, antes de darlo por
-cerrado** (todo lo aprendido hasta ahora):
-1. Revisar el CUS real (Ara lo confirma) antes de asumir que se parece a
-   otro módulo — campos, si tiene Modificar o no, qué bloquea el Anular.
-2. Nuevo + Anular (+ Ver de regalo), nombre de botón correcto, baja lógica
-   si el CUS lo pide.
-3. Índices únicos parciales si hay algo `UNIQUE` + baja lógica — aplicarlo
-   DESDE EL ARRANQUE si se sabe que va a hacer falta, no esperar a que
-   falle.
-4. Dependencias cruzadas: qué otras tablas/movimientos referencian a este,
-   y si sus validaciones/JOINs necesitan filtrar `activo`. Revisar también
-   si algún DAO ya construido dejó un `estaEnUso()` pendiente documentado
-   "esperando a que exista X" — conectarlo apenas X exista.
-5. Revisar si hay botones "Acción Rápida"/cruces con otras pantallas
-   (como Diagnóstico→Odontograma, Consulta→Tratamientos) que haya que
-   cablear, en vez de dejarlos como placeholder.
-6. Mensajes de éxito/error con datos descriptivos reales, nunca IDs crudos.
-7. Probar en el navegador vos misma, no solo confiar en los tests por
+1. **Revisar el CUS real antes de asumir que un movimiento se parece a
+   otro** — incluso movimientos "parecidos" (Recetas vs Órdenes vs
+   Justificativo) tienen diferencias reales de campos, vinculación
+   opcional, y mecanismo de estados. Hay un chat de análisis aparte,
+   "Diseño del módulo de Consultorio en OdontoClinic", con los CUS ya
+   documentados — buscar ahí antes de re-derivar. Puede existir un chat
+   equivalente para Facturación, buscarlo antes de asumir que no existe.
+2. Un movimiento clínico es **Nuevo + Anular únicamente** por defecto
+   (nunca "Modificar" salvo excepción explícita del CUS, como Ficha
+   Médica). Un botón **"Ver"** de solo lectura siempre es válido agregar.
+   El botón de baja SIEMPRE se llama **"Anular"**, nunca "Eliminar" — y
+   si el CUS pide "actualiza el estado a inactivo", es baja lógica real.
+3. **Índices únicos parciales** (`WHERE activo = true` o equivalente):
+   cualquier `UNIQUE` en una tabla con baja lógica tiene que convertirse
+   en parcial DESDE EL ARRANQUE, si no un registro anulado bloquea crear
+   uno nuevo en su lugar para siempre (pasó repetidas veces).
+4. **Dependencias cruzadas**: cuando una tabla B agrega baja lógica,
+   revisar TODOS los `EXISTS`/bloqueos que otras tablas hacen contra B
+   para que filtren `activo` — y todos los JOIN de listados contra B, que
+   pueden MULTIPLICAR filas visualmente si no filtran (pasó con
+   `ConsultaDao.getConsultas()` contra `ficha_medica_consulta`). Conectar
+   cualquier `estaEnUso()` que haya quedado documentado como "pendiente,
+   esperando a que exista X" apenas X se construya.
+5. Revisar si hay botones "Acción Rápida"/cruces con otras pantallas que
+   haya que cablear, en vez de dejarlos como placeholder sin conectar.
+6. Mensajes de éxito/error con datos descriptivos reales, nunca IDs
+   crudos.
+7. Probar en el navegador manualmente, no solo confiar en los tests por
    script de Claude Code.
+8. Antes de abrir una terminal nueva o pedir que se levante el servidor,
+   confirmar que no haya otro `run.py` corriendo de una sesión anterior
+   (pasó con 8 procesos zombie acumulados en una sesión larga).
+
+**Próximo módulo grande: Facturación** — todavía sin empezar.
 
 ## Pendiente de decidir a futuro: control de acceso en módulos grandes
 Hoy Agendamiento, Referenciales y Consultorio NO tienen ninguna restricción

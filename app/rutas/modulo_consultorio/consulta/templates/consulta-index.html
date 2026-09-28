@@ -352,7 +352,7 @@ Gestión de Consultas Médicas
                   <div class="row">
                     
                     <!-- Card Ficha Médica -->
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-3 mb-3">
                       <div class="action-card-medical action-card-success" id="btnVerEditarFichaMedica">
                         <div class="action-card-icon">
                           <i class="fas fa-file-medical"></i>
@@ -363,7 +363,7 @@ Gestión de Consultas Médicas
                     </div>
 
                     <!-- Card Diagnósticos -->
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-3 mb-3">
                       <div class="action-card-medical action-card-primary" id="btnGestionarDiagnosticos">
                         <div class="action-card-icon">
                           <i class="fas fa-stethoscope"></i>
@@ -374,13 +374,57 @@ Gestión de Consultas Médicas
                     </div>
 
                     <!-- Card Tratamientos -->
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-3 mb-3">
                       <div class="action-card-medical action-card-warning" id="btnRegistrarTratamientos">
                         <div class="action-card-icon">
                           <i class="fas fa-pills"></i>
                         </div>
                         <div class="action-card-title">Tratamientos</div>
                         <div class="action-card-desc">Registrar tratamientos médicos</div>
+                      </div>
+                    </div>
+
+                    <!-- Card Recetas -->
+                    <div class="col-md-3 mb-3">
+                      <div class="action-card-medical action-card-info" id="btnGenerarRecetas">
+                        <div class="action-card-icon">
+                          <i class="fas fa-prescription"></i>
+                        </div>
+                        <div class="action-card-title">Recetas</div>
+                        <div class="action-card-desc">Generar recetas e indicaciones</div>
+                      </div>
+                    </div>
+
+                    <!-- Card Orden de Estudios -->
+                    <div class="col-md-3 mb-3">
+                      <div class="action-card-medical action-card-danger" id="btnGenerarOrdenEstudios">
+                        <div class="action-card-icon">
+                          <i class="fas fa-vial"></i>
+                        </div>
+                        <div class="action-card-title">Orden de Estudios</div>
+                        <div class="action-card-desc">Generar orden de estudios</div>
+                      </div>
+                    </div>
+
+                    <!-- Card Orden de Análisis -->
+                    <div class="col-md-3 mb-3">
+                      <div class="action-card-medical action-card-secondary" id="btnGenerarOrdenAnalisis">
+                        <div class="action-card-icon">
+                          <i class="fas fa-flask"></i>
+                        </div>
+                        <div class="action-card-title">Orden de Análisis</div>
+                        <div class="action-card-desc">Generar orden de análisis</div>
+                      </div>
+                    </div>
+
+                    <!-- Card Justificativo Médico -->
+                    <div class="col-md-3 mb-3">
+                      <div class="action-card-medical action-card-dark" id="btnGenerarJustificativo">
+                        <div class="action-card-icon">
+                          <i class="fas fa-file-signature"></i>
+                        </div>
+                        <div class="action-card-title">Justificativo Médico</div>
+                        <div class="action-card-desc">Generar justificativo médico</div>
                       </div>
                     </div>
 
@@ -755,6 +799,18 @@ Gestión de Consultas Médicas
   --medical-gray-light: #ECEFF1;
   --medical-warning: #F57C00;
   --medical-warning-light: #FFF3E0;
+  --medical-info: #00838F;
+  --medical-info-dark: #005662;
+  --medical-info-light: #E0F7FA;
+  --medical-danger: #C62828;
+  --medical-danger-dark: #8E0000;
+  --medical-danger-light: #FFEBEE;
+  --medical-secondary: #5E35B1;
+  --medical-secondary-dark: #4527A0;
+  --medical-secondary-light: #EDE7F6;
+  --medical-dark: #37474F;
+  --medical-dark-dark: #1C2A2F;
+  --medical-dark-light: #ECEFF1;
   --medical-white: #FFFFFF;
   --medical-shadow: 0 2px 10px rgba(0,0,0,0.08);
   --medical-shadow-hover: 0 4px 20px rgba(0,0,0,0.15);
@@ -1238,6 +1294,42 @@ Gestión de Consultas Médicas
   background: var(--medical-warning-light);
 }
 
+.action-card-info {
+  border-color: var(--medical-info-light);
+}
+
+.action-card-info:hover {
+  border-color: var(--medical-info);
+  background: var(--medical-info-light);
+}
+
+.action-card-danger {
+  border-color: var(--medical-danger-light);
+}
+
+.action-card-danger:hover {
+  border-color: var(--medical-danger);
+  background: var(--medical-danger-light);
+}
+
+.action-card-secondary {
+  border-color: var(--medical-secondary-light);
+}
+
+.action-card-secondary:hover {
+  border-color: var(--medical-secondary);
+  background: var(--medical-secondary-light);
+}
+
+.action-card-dark {
+  border-color: var(--medical-dark-light);
+}
+
+.action-card-dark:hover {
+  border-color: var(--medical-dark);
+  background: var(--medical-dark-light);
+}
+
 .action-card-icon {
   width: 70px;
   height: 70px;
@@ -1279,6 +1371,50 @@ Gestión de Consultas Médicas
 
 .action-card-warning:hover .action-card-icon {
   background: var(--medical-warning);
+  color: white;
+  transform: scale(1.1) rotate(5deg);
+}
+
+.action-card-info .action-card-icon {
+  background: var(--medical-info-light);
+  color: var(--medical-info-dark);
+}
+
+.action-card-info:hover .action-card-icon {
+  background: var(--medical-info);
+  color: white;
+  transform: scale(1.1) rotate(5deg);
+}
+
+.action-card-danger .action-card-icon {
+  background: var(--medical-danger-light);
+  color: var(--medical-danger-dark);
+}
+
+.action-card-danger:hover .action-card-icon {
+  background: var(--medical-danger);
+  color: white;
+  transform: scale(1.1) rotate(5deg);
+}
+
+.action-card-secondary .action-card-icon {
+  background: var(--medical-secondary-light);
+  color: var(--medical-secondary-dark);
+}
+
+.action-card-secondary:hover .action-card-icon {
+  background: var(--medical-secondary);
+  color: white;
+  transform: scale(1.1) rotate(5deg);
+}
+
+.action-card-dark .action-card-icon {
+  background: var(--medical-dark-light);
+  color: var(--medical-dark-dark);
+}
+
+.action-card-dark:hover .action-card-icon {
+  background: var(--medical-dark);
   color: white;
   transform: scale(1.1) rotate(5deg);
 }
@@ -2308,6 +2444,62 @@ $('#btnRegistrarTratamientos').on('click', function() {
   }
 
   window.location.href = `/referenciales/tratamiento/tratamiento-index?consulta=${idConsulta}`;
+});
+
+// ============================================
+// BOTÓN: GENERAR RECETAS
+// ============================================
+$('#btnGenerarRecetas').on('click', function() {
+  const idConsulta = consultaActualId;
+
+  if (!idConsulta) {
+    Swal.fire('Error', 'No se ha seleccionado una consulta', 'error');
+    return;
+  }
+
+  window.location.href = `{{ url_for('receta.recetaIndex') }}?consulta=${idConsulta}`;
+});
+
+// ============================================
+// BOTÓN: GENERAR ORDEN DE ESTUDIOS
+// ============================================
+$('#btnGenerarOrdenEstudios').on('click', function() {
+  const idConsulta = consultaActualId;
+
+  if (!idConsulta) {
+    Swal.fire('Error', 'No se ha seleccionado una consulta', 'error');
+    return;
+  }
+
+  window.location.href = `{{ url_for('ordenestudio.ordenEstudioIndex') }}?consulta=${idConsulta}`;
+});
+
+// ============================================
+// BOTÓN: GENERAR ORDEN DE ANÁLISIS
+// ============================================
+$('#btnGenerarOrdenAnalisis').on('click', function() {
+  const idConsulta = consultaActualId;
+
+  if (!idConsulta) {
+    Swal.fire('Error', 'No se ha seleccionado una consulta', 'error');
+    return;
+  }
+
+  window.location.href = `{{ url_for('ordenanalisis.ordenAnalisisIndex') }}?consulta=${idConsulta}`;
+});
+
+// ============================================
+// BOTÓN: GENERAR JUSTIFICATIVO MÉDICO
+// ============================================
+$('#btnGenerarJustificativo').on('click', function() {
+  const idConsulta = consultaActualId;
+
+  if (!idConsulta) {
+    Swal.fire('Error', 'No se ha seleccionado una consulta', 'error');
+    return;
+  }
+
+  window.location.href = `{{ url_for('justificativomedico.justificativoMedicoIndex') }}?consulta=${idConsulta}`;
 });
 
 // ============================================

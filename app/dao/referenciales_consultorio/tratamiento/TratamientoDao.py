@@ -82,6 +82,37 @@ class TratamientoDao:
             cur.close()
             con.close()
 
+    def getTratamientosByConsulta(self, id_consulta_cab):
+        """
+        Obtiene los tratamientos (no cancelados) de una consulta específica.
+        Usado para poblar el combo opcional de Tratamiento al registrar una
+        Receta (debe pertenecer a la misma consulta).
+        """
+        sql = """
+        SELECT id_tratamiento, id_tipo_tratamiento, descripcion_tratamiento, estado
+        FROM tratamientos
+        WHERE id_consulta_cab = %s AND estado <> 'cancelado'
+        ORDER BY id_tratamiento ASC
+        """
+        conexion = Conexion()
+        con = conexion.getConexion()
+        cur = con.cursor()
+        try:
+            cur.execute(sql, (id_consulta_cab,))
+            rows = cur.fetchall()
+            return [{
+                'id_tratamiento': r[0],
+                'id_tipo_tratamiento': r[1],
+                'descripcion_tratamiento': r[2],
+                'estado': r[3]
+            } for r in rows]
+        except Exception as e:
+            app.logger.error(f"Error al obtener tratamientos de la consulta: {str(e)}")
+            return []
+        finally:
+            cur.close()
+            con.close()
+
     def getTratamientoById(self, id_tratamiento):
         """Obtiene un tratamiento específico por ID (sin filtrar por estado)."""
         sql = """

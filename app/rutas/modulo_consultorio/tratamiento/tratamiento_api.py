@@ -40,6 +40,26 @@ def getTratamientos():
 
 
 # =====================================================
+# ENDPOINT: OBTENER TRATAMIENTOS DE UNA CONSULTA
+# =====================================================
+@tratamientoapi.route('/tratamientos/consulta/<int:id_consulta_cab>', methods=['GET'])
+def getTratamientosByConsulta(id_consulta_cab):
+    """
+    Obtiene los tratamientos (no cancelados) de una consulta específica.
+    Usado para poblar el combo opcional de Tratamiento en Generar Recetas.
+
+    URL: GET /api/v1/tratamientos/consulta/5
+    """
+    dao = TratamientoDao()
+    try:
+        tratamientos = dao.getTratamientosByConsulta(id_consulta_cab)
+        return jsonify({'success': True, 'data': tratamientos, 'error': None}), 200
+    except Exception as e:
+        app.logger.error(f"Error al obtener tratamientos de la consulta: {str(e)}")
+        return jsonify({'success': False, 'error': 'Ocurrió un error interno. Consulte con el administrador.'}), 500
+
+
+# =====================================================
 # ENDPOINT: OBTENER UN TRATAMIENTO POR ID
 # =====================================================
 @tratamientoapi.route('/tratamientos/<int:id_tratamiento>', methods=['GET'])

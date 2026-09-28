@@ -9,11 +9,8 @@ class MedicamentoDao:
     Nombre Comercial es el único campo descriptivo (no hay campo Código) y
     es el identificador de negocio: se valida duplicado sobre él.
 
-    NOTA: `estaEnUso()` todavía no valida nada real: depende de
-    `receta_medicamento` (tabla de "Generar Recetas e Indicaciones"), que no
-    existe en la base todavía. Cuando se programe ese movimiento, agregar
-    acá el chequeo contra esa tabla, igual que se documentó en
-    TipoInsumoDao/TipoProcedimientoMedicoDao.
+    `estaEnUso()` valida contra `receta_medicamento` (Generar Recetas e
+    Indicaciones).
     """
 
     def getMedicamentos(self):
@@ -142,17 +139,27 @@ class MedicamentoDao:
 
     def estaEnUso(self, id_medicamento):
         """
-        Pendiente: todavía no hay tabla `receta_medicamento` para chequear.
-        Cuando se programe "Generar Recetas e Indicaciones", reemplazar este
-        método por un chequeo real contra esa tabla.
+        Indica si el medicamento está utilizado en alguna receta activa
+        (`receta_medicamento`).
         """
-        return False
+        sql = "SELECT EXISTS(SELECT 1 FROM receta_medicamento WHERE id_medicamento = %s AND activo = true)"
+        conexion = Conexion()
+        con = conexion.getConexion()
+        cur = con.cursor()
+        try:
+            cur.execute(sql, (id_medicamento,))
+            return bool(cur.fetchone()[0])
+        except Exception as e:
+            app.logger.error(f"Error al verificar uso de medicamento: {str(e)}")
+            return True  # Ante la duda, bloquear el borrado
+        finally:
+            cur.close()
+            con.close()
 
     def deleteMedicamento(self, id_medicamento):
         """
         Anula (baja lógica) un medicamento, validando antes que no esté en
-        uso (ver nota de `estaEnUso()`: hoy esa validación no chequea nada
-        real todavía).
+        uso en ninguna receta activa.
 
         Returns:
             bool | str: True si se anuló, False si no existía, "EN_USO" si

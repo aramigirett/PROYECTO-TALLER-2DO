@@ -45,6 +45,10 @@ from app.rutas.modulo_consultorio.tipo_estudio.tipo_estudio_routes import tipoes
 from app.rutas.modulo_consultorio.tipo_analisis.tipo_analisis_routes import tipoanalisismod
 from app.rutas.modulo_consultorio.tratamiento.tratamiento_routes import tratamientomod
 from app.rutas.modulo_consultorio.sesion_tratamiento.sesion_tratamiento_routes import sesiontratamientomod
+from app.rutas.modulo_consultorio.receta.receta_routes import recetamod
+from app.rutas.modulo_consultorio.orden_estudio.orden_estudio_routes import ordenestudiomod
+from app.rutas.modulo_consultorio.orden_analisis.orden_analisis_routes import ordenanalisismod
+from app.rutas.modulo_consultorio.justificativo_medico.justificativo_medico_routes import justificativomedicomod
 
 
 
@@ -89,6 +93,10 @@ app.register_blueprint(tipoestudiomod, url_prefix=f'{modulo0}/tipo-estudio')
 app.register_blueprint(tipoanalisismod, url_prefix=f'{modulo0}/tipo-analisis')
 app.register_blueprint(tratamientomod, url_prefix=f'{modulo0}/tratamiento')
 app.register_blueprint(sesiontratamientomod, url_prefix=f'{modulo0}/sesion-tratamiento')
+app.register_blueprint(recetamod, url_prefix=f'{modulo0}/receta')
+app.register_blueprint(ordenestudiomod, url_prefix=f'{modulo0}/orden-estudio')
+app.register_blueprint(ordenanalisismod, url_prefix=f'{modulo0}/orden-analisis')
+app.register_blueprint(justificativomedicomod, url_prefix=f'{modulo0}/justificativo-medico')
 
 
 #ciudad
@@ -141,6 +149,10 @@ from app.rutas.modulo_consultorio.tipo_estudio.tipo_estudio_api import tipoestud
 from app.rutas.modulo_consultorio.tipo_analisis.tipo_analisis_api import tipoanalisisapi
 from app.rutas.modulo_consultorio.tratamiento.tratamiento_api import tratamientoapi
 from app.rutas.modulo_consultorio.sesion_tratamiento.sesion_tratamiento_api import sesiontratamientoapi
+from app.rutas.modulo_consultorio.receta.receta_api import recetaapi
+from app.rutas.modulo_consultorio.orden_estudio.orden_estudio_api import ordenestudioapi
+from app.rutas.modulo_consultorio.orden_analisis.orden_analisis_api import ordenanalisisapi
+from app.rutas.modulo_consultorio.justificativo_medico.justificativo_medico_api import justificativomedicoapi
 
 
 # APIS v1
@@ -216,6 +228,10 @@ app.register_blueprint(tipoestudioapi, url_prefix=version1)
 app.register_blueprint(tipoanalisisapi, url_prefix=version1)
 app.register_blueprint(tratamientoapi, url_prefix=version1)
 app.register_blueprint(sesiontratamientoapi, url_prefix=version1)
+app.register_blueprint(recetaapi, url_prefix=version1)
+app.register_blueprint(ordenestudioapi, url_prefix=version1)
+app.register_blueprint(ordenanalisisapi, url_prefix=version1)
+app.register_blueprint(justificativomedicoapi, url_prefix=version1)
 
 
 ##REGISTRAR CONSULTA Y FICHA MEDICA
