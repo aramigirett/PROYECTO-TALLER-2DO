@@ -7,6 +7,7 @@ Descripción: Endpoints REST para órdenes de análisis de una Consulta
 
 from flask import Blueprint, request, jsonify, current_app as app
 from app.dao.referenciales_consultorio.orden_analisis.OrdenAnalisisDao import OrdenAnalisisDao
+from app.rutas.modulo_seguridad.decorators import require_permiso
 
 ordenanalisisapi = Blueprint('ordenanalisisapi', __name__)
 
@@ -23,6 +24,7 @@ ERRORES = {
 # ENDPOINT: OBTENER TODAS LAS ÓRDENES DE ANÁLISIS
 # =====================================================
 @ordenanalisisapi.route('/orden-analisis', methods=['GET'])
+@require_permiso('ordenanalisis', 'ver')
 def getOrdenes():
     dao = OrdenAnalisisDao()
     try:
@@ -37,6 +39,7 @@ def getOrdenes():
 # ENDPOINT: OBTENER UNA ORDEN DE ANÁLISIS POR ID
 # =====================================================
 @ordenanalisisapi.route('/orden-analisis/<int:id_orden_analisis>', methods=['GET'])
+@require_permiso('ordenanalisis', 'ver')
 def getOrden(id_orden_analisis):
     dao = OrdenAnalisisDao()
     try:
@@ -54,6 +57,7 @@ def getOrden(id_orden_analisis):
 # ENDPOINT: REGISTRAR NUEVA ORDEN DE ANÁLISIS
 # =====================================================
 @ordenanalisisapi.route('/orden-analisis', methods=['POST'])
+@require_permiso('ordenanalisis', 'nuevo')
 def addOrden():
     """
     Registra una nueva orden de análisis, a partir de una Consulta activa.
@@ -105,6 +109,7 @@ def addOrden():
 # ENDPOINT: ACTUALIZAR ESTADO (avanza al siguiente paso)
 # =====================================================
 @ordenanalisisapi.route('/orden-analisis/<int:id_orden_analisis>/estado', methods=['PUT'])
+@require_permiso('ordenanalisis', 'estado')
 def actualizarEstado(id_orden_analisis):
     """
     Avanza la orden al siguiente estado de la secuencia estricta
@@ -147,6 +152,7 @@ def actualizarEstado(id_orden_analisis):
 # ENDPOINT: ANULAR ORDEN DE ANÁLISIS
 # =====================================================
 @ordenanalisisapi.route('/orden-analisis/<int:id_orden_analisis>', methods=['DELETE'])
+@require_permiso('ordenanalisis', 'anular')
 def deleteOrden(id_orden_analisis):
     dao = OrdenAnalisisDao()
     try:

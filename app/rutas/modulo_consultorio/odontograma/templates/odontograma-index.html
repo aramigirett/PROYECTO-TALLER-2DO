@@ -14,9 +14,9 @@ Odontogramas
     <h2 class="text-info">
       <i class="fas fa-tooth"></i> Gestión de Odontogramas
     </h2>
-    <button type="button" class="btn btn-info btn-lg shadow-sm" id="btnNuevo">
+    {% if puede('odontograma','nuevo') %}<button type="button" class="btn btn-info btn-lg shadow-sm" id="btnNuevo">
       <i class="fas fa-plus-circle"></i> Nuevo Odontograma
-    </button>
+    </button>{% endif %}
   </div>
 
   <!-- ========================================
@@ -646,12 +646,12 @@ function initDatatableOdontogramas() {
           <button class="btn btn-success btn-sm" name="btn_ver" data-id="${row.id_odontograma}" title="Ver">
             <i class="fas fa-eye"></i>
           </button>
-          <button class="btn btn-warning btn-sm" name="btn_editar" data-id="${row.id_odontograma}" title="Editar">
+          {% if puede('odontograma','editar') %}<button class="btn btn-warning btn-sm" name="btn_editar" data-id="${row.id_odontograma}" title="Editar">
             <i class="fas fa-edit"></i>
-          </button>
-          <button class="btn btn-danger btn-sm" name="btn_eliminar" data-id="${row.id_odontograma}" title="Eliminar">
+          </button>{% endif %}
+          {% if puede('odontograma','anular') %}<button class="btn btn-danger btn-sm" name="btn_eliminar" data-id="${row.id_odontograma}" title="Eliminar">
             <i class="fas fa-trash-alt"></i>
-          </button>
+          </button>{% endif %}
         `
       }
     ]

@@ -7,6 +7,7 @@ Descripción: Endpoints REST para recetas médicas de una Consulta
 
 from flask import Blueprint, request, jsonify, current_app as app
 from app.dao.referenciales_consultorio.receta.RecetaDao import RecetaDao
+from app.rutas.modulo_seguridad.decorators import require_permiso
 
 recetaapi = Blueprint('recetaapi', __name__)
 
@@ -24,6 +25,7 @@ ERRORES = {
 # ENDPOINT: OBTENER TODAS LAS RECETAS
 # =====================================================
 @recetaapi.route('/recetas', methods=['GET'])
+@require_permiso('receta', 'ver')
 def getRecetas():
     dao = RecetaDao()
     try:
@@ -38,6 +40,7 @@ def getRecetas():
 # ENDPOINT: OBTENER UNA RECETA POR ID
 # =====================================================
 @recetaapi.route('/recetas/<int:id_receta>', methods=['GET'])
+@require_permiso('receta', 'ver')
 def getReceta(id_receta):
     dao = RecetaDao()
     try:
@@ -55,6 +58,7 @@ def getReceta(id_receta):
 # ENDPOINT: REGISTRAR NUEVA RECETA
 # =====================================================
 @recetaapi.route('/recetas', methods=['POST'])
+@require_permiso('receta', 'nuevo')
 def addReceta():
     """
     Registra una nueva receta con sus medicamentos, a partir de una
@@ -109,6 +113,7 @@ def addReceta():
 # ENDPOINT: ANULAR RECETA (baja lógica)
 # =====================================================
 @recetaapi.route('/recetas/<int:id_receta>', methods=['DELETE'])
+@require_permiso('receta', 'anular')
 def deleteReceta(id_receta):
     dao = RecetaDao()
     try:

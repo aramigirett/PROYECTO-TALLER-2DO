@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, current_app as app
 from app.dao.referenciales_agendamiento.odontograma.OdontogramaDao import OdontogramaDao
 from datetime import date
+from app.rutas.modulo_seguridad.decorators import require_permiso, require_login
 
 # Crear Blueprint para la API de Odontogramas
 odontogramaapi = Blueprint('odontogramaapi', __name__)
@@ -23,6 +24,7 @@ def obtener_id_funcionario_actual():
 # ========================================
 
 @odontogramaapi.route('/estados-dentales', methods=['GET'])
+@require_login  # lookup: lo consumen otras pantallas
 def getEstadosDentales():
     odontograma_dao = OdontogramaDao()
     try:
@@ -45,6 +47,7 @@ def getEstadosDentales():
 # ========================================
 
 @odontogramaapi.route('/odontogramas', methods=['GET'])
+@require_permiso('odontograma', 'ver')
 def getOdontogramas():
     """
     Obtiene todos los odontogramas
@@ -66,6 +69,7 @@ def getOdontogramas():
         }), 500
 
 @odontogramaapi.route('/odontogramas/<int:id_odontograma>', methods=['GET'])
+@require_permiso('odontograma', 'ver')
 def getOdontogramaById(id_odontograma):
     """
     Obtiene un odontograma específico por ID con sus detalles
@@ -99,6 +103,7 @@ def getOdontogramaById(id_odontograma):
         }), 500
 
 @odontogramaapi.route('/odontogramas/paciente/<int:id_paciente>', methods=['GET'])
+@require_permiso('odontograma', 'ver')
 def getOdontogramasByPaciente(id_paciente):
     """
     Obtiene todos los odontogramas de un paciente específico
@@ -126,6 +131,7 @@ def getOdontogramasByPaciente(id_paciente):
         }), 500
 
 @odontogramaapi.route('/odontogramas', methods=['POST'])
+@require_permiso('odontograma', 'nuevo')
 def addOdontograma():
     """
     Crea un nuevo odontograma
@@ -222,6 +228,7 @@ def addOdontograma():
         }), 500
 
 @odontogramaapi.route('/odontogramas/<int:id_odontograma>', methods=['PUT'])
+@require_permiso('odontograma', 'editar')
 def updateOdontograma(id_odontograma):
     """
     Actualiza un odontograma existente
@@ -287,6 +294,7 @@ def updateOdontograma(id_odontograma):
         }), 500
 
 @odontogramaapi.route('/odontogramas/<int:id_odontograma>', methods=['DELETE'])
+@require_permiso('odontograma', 'anular')
 def deleteOdontograma(id_odontograma):
     """
     Elimina un odontograma y sus detalles
@@ -315,6 +323,7 @@ def deleteOdontograma(id_odontograma):
         }), 500
 
 @odontogramaapi.route('/odontogramas/<int:id_odontograma>/estado', methods=['PATCH'])
+@require_permiso('odontograma', 'anular')
 def cambiarEstadoOdontograma(id_odontograma):
     """
     Cambia el estado de un odontograma
@@ -356,6 +365,7 @@ def cambiarEstadoOdontograma(id_odontograma):
 # ========================================
 
 @odontogramaapi.route('/odontogramas/<int:id_odontograma>/detalles', methods=['GET'])
+@require_permiso('odontograma', 'ver')
 def getDetalles(id_odontograma):
     """
     Obtiene todos los detalles de un odontograma
@@ -377,6 +387,7 @@ def getDetalles(id_odontograma):
         }), 500
 
 @odontogramaapi.route('/odontogramas/<int:id_odontograma>/detalles', methods=['POST'])
+@require_permiso('odontograma', 'nuevo')
 def addDetalle(id_odontograma):
     """
     Agrega un detalle a un odontograma
@@ -436,6 +447,7 @@ def addDetalle(id_odontograma):
         }), 500
 
 @odontogramaapi.route('/detalles/<int:id_detalle>', methods=['PUT'])
+@require_permiso('odontograma', 'editar')
 def updateDetalle(id_detalle):
     """
     Actualiza un detalle específico
@@ -484,6 +496,7 @@ def updateDetalle(id_detalle):
         }), 500
 
 @odontogramaapi.route('/detalles/<int:id_detalle>', methods=['DELETE'])
+@require_permiso('odontograma', 'editar')
 def deleteDetalle(id_detalle):
     """
     Elimina un detalle específico
@@ -516,6 +529,7 @@ def deleteDetalle(id_detalle):
 # ========================================
 
 @odontogramaapi.route('/odontogramas/validar-paciente/<int:id_paciente>', methods=['GET'])
+@require_permiso('odontograma', 'ver')
 def validarPaciente(id_paciente):
     """
     Verifica si un paciente ya tiene un odontograma activo

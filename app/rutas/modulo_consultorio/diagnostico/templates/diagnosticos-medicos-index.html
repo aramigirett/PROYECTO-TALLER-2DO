@@ -200,9 +200,9 @@ Gestión de Diagnósticos
               <label class="label-medical-new">
                 <i class="fas fa-tooth text-info mr-1"></i>
                 Pieza Dental
-                <button type="button" class="btn btn-sm btn-link p-0 ml-2" id="btnVerOdontograma" title="Ver Odontograma">
+                {% if puede('odontograma','ver') %}<button type="button" class="btn btn-sm btn-link p-0 ml-2" id="btnVerOdontograma" title="Ver Odontograma">
                   <i class="fas fa-external-link-alt"></i> Ver Odontograma
-                </button>
+                </button>{% endif %}
               </label>
               <div class="input-medical-wrapper">
                 <input type="text" id="pieza_dental" class="form-control-medical-new" 
@@ -253,10 +253,10 @@ Gestión de Diagnósticos
 
       <!-- BOTONES -->
       <div class="text-center mt-4">
-        <button type="button" class="btn btn-save-clinical" id="btnGuardarDiagnostico">
+        {% if puede('diagnostico','nuevo') %}<button type="button" class="btn btn-save-clinical" id="btnGuardarDiagnostico">
           <i class="fas fa-save mr-2"></i>
           <span>Guardar Diagnóstico</span>
-        </button>
+        </button>{% endif %}
       </div>
     </div>
   </div>
@@ -809,10 +809,10 @@ function initDatatableDiagnosticos() {
                   data-id="${row.id_diagnostico}" title="Ver">
             <i class="fas fa-eye"></i>
           </button>
-          <button class="btn btn-danger btn-sm" name="btn_anular"
+          {% if puede('diagnostico','anular') %}<button class="btn btn-danger btn-sm" name="btn_anular"
                   data-id="${row.id_diagnostico}" title="Anular">
             <i class="fas fa-ban"></i>
-          </button>
+          </button>{% endif %}
         `
       }
     ],

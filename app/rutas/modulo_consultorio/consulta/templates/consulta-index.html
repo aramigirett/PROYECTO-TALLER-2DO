@@ -103,9 +103,9 @@ Gestión de Consultas Médicas
         <h5 class="mb-0 font-weight-bold text-white">
           <i class="fas fa-stethoscope mr-2"></i> Gestión de Consultas Médicas
         </h5>
-        <button type="button" class="btn btn-medical-white" id="btnAgregar">
+        {% if puede('consulta','nuevo') %}<button type="button" class="btn btn-medical-white" id="btnAgregar">
           <i class="fas fa-plus-circle mr-1"></i> Nueva Consulta
-        </button>
+        </button>{% endif %}
       </div>
     </div>
 
@@ -352,7 +352,7 @@ Gestión de Consultas Médicas
                   <div class="row">
                     
                     <!-- Card Ficha Médica -->
-                    <div class="col-md-3 mb-3">
+                    {% if puede('fichamedica','ver') %}<div class="col-md-3 mb-3">
                       <div class="action-card-medical action-card-success" id="btnVerEditarFichaMedica">
                         <div class="action-card-icon">
                           <i class="fas fa-file-medical"></i>
@@ -360,10 +360,10 @@ Gestión de Consultas Médicas
                         <div class="action-card-title">Ficha Médica</div>
                         <div class="action-card-desc">Ver o editar ficha médica del paciente</div>
                       </div>
-                    </div>
+                    </div>{% endif %}
 
                     <!-- Card Diagnósticos -->
-                    <div class="col-md-3 mb-3">
+                    {% if puede('diagnostico','ver') %}<div class="col-md-3 mb-3">
                       <div class="action-card-medical action-card-primary" id="btnGestionarDiagnosticos">
                         <div class="action-card-icon">
                           <i class="fas fa-stethoscope"></i>
@@ -371,10 +371,10 @@ Gestión de Consultas Médicas
                         <div class="action-card-title">Diagnósticos</div>
                         <div class="action-card-desc">Gestionar diagnósticos detallados</div>
                       </div>
-                    </div>
+                    </div>{% endif %}
 
                     <!-- Card Tratamientos -->
-                    <div class="col-md-3 mb-3">
+                    {% if puede('tratamiento','ver') %}<div class="col-md-3 mb-3">
                       <div class="action-card-medical action-card-warning" id="btnRegistrarTratamientos">
                         <div class="action-card-icon">
                           <i class="fas fa-pills"></i>
@@ -382,10 +382,10 @@ Gestión de Consultas Médicas
                         <div class="action-card-title">Tratamientos</div>
                         <div class="action-card-desc">Registrar tratamientos médicos</div>
                       </div>
-                    </div>
+                    </div>{% endif %}
 
                     <!-- Card Recetas -->
-                    <div class="col-md-3 mb-3">
+                    {% if puede('receta','ver') %}<div class="col-md-3 mb-3">
                       <div class="action-card-medical action-card-info" id="btnGenerarRecetas">
                         <div class="action-card-icon">
                           <i class="fas fa-prescription"></i>
@@ -393,10 +393,10 @@ Gestión de Consultas Médicas
                         <div class="action-card-title">Recetas</div>
                         <div class="action-card-desc">Generar recetas e indicaciones</div>
                       </div>
-                    </div>
+                    </div>{% endif %}
 
                     <!-- Card Orden de Estudios -->
-                    <div class="col-md-3 mb-3">
+                    {% if puede('ordenestudio','ver') %}<div class="col-md-3 mb-3">
                       <div class="action-card-medical action-card-danger" id="btnGenerarOrdenEstudios">
                         <div class="action-card-icon">
                           <i class="fas fa-vial"></i>
@@ -404,10 +404,10 @@ Gestión de Consultas Médicas
                         <div class="action-card-title">Orden de Estudios</div>
                         <div class="action-card-desc">Generar orden de estudios</div>
                       </div>
-                    </div>
+                    </div>{% endif %}
 
                     <!-- Card Orden de Análisis -->
-                    <div class="col-md-3 mb-3">
+                    {% if puede('ordenanalisis','ver') %}<div class="col-md-3 mb-3">
                       <div class="action-card-medical action-card-secondary" id="btnGenerarOrdenAnalisis">
                         <div class="action-card-icon">
                           <i class="fas fa-flask"></i>
@@ -415,10 +415,10 @@ Gestión de Consultas Médicas
                         <div class="action-card-title">Orden de Análisis</div>
                         <div class="action-card-desc">Generar orden de análisis</div>
                       </div>
-                    </div>
+                    </div>{% endif %}
 
                     <!-- Card Justificativo Médico -->
-                    <div class="col-md-3 mb-3">
+                    {% if puede('justificativomedico','ver') %}<div class="col-md-3 mb-3">
                       <div class="action-card-medical action-card-dark" id="btnGenerarJustificativo">
                         <div class="action-card-icon">
                           <i class="fas fa-file-signature"></i>
@@ -426,7 +426,7 @@ Gestión de Consultas Médicas
                         <div class="action-card-title">Justificativo Médico</div>
                         <div class="action-card-desc">Generar justificativo médico</div>
                       </div>
-                    </div>
+                    </div>{% endif %}
 
                   </div>
                 </div>
@@ -494,9 +494,9 @@ Gestión de Consultas Médicas
 
                   <!-- Botón Guardar -->
                   <div class="text-right mt-3">
-                    <button type="button" class="btn btn-medical-success btn-lg" id="btnAgregarDetalle">
+                    {% if puede('consulta','nuevo') %}<button type="button" class="btn btn-medical-success btn-lg" id="btnAgregarDetalle">
                       <i class="fas fa-save mr-2"></i> Guardar Detalle Clínico
-                    </button>
+                    </button>{% endif %}
                   </div>
 
                 </div>
@@ -663,9 +663,9 @@ Gestión de Consultas Médicas
         <button type="button" class="btn btn-medical-success" id="btnGuardarFichaMedica">
           <i class="fas fa-save mr-1"></i> Guardar Ficha Médica
         </button>
-        <button type="button" class="btn btn-danger" id="btnAnularFichaMedica" style="display:none;">
+        {% if puede('fichamedica','anular') %}<button type="button" class="btn btn-danger" id="btnAnularFichaMedica" style="display:none;">
           <i class="fas fa-ban mr-1"></i> Anular Ficha Médica
-        </button>
+        </button>{% endif %}
         <button type="button" class="btn btn-medical-secondary" data-dismiss="modal">
           <i class="fas fa-times mr-1"></i> Cerrar
         </button>
@@ -1487,6 +1487,8 @@ Gestión de Consultas Médicas
 
 {% block js %}
 <script>
+const PUEDE_FICHA_NUEVO = {{ 'true' if puede('consulta','nuevo') else 'false' }};
+const PUEDE_FICHA_EDITAR = {{ 'true' if puede('fichamedica','editar') else 'false' }};
 // ============================================
 // VARIABLES GLOBALES
 // ============================================
@@ -1597,14 +1599,14 @@ function initDatatableConsultas() {
                   data-id="${row.id_consulta_cab}" title="Ver Detalles">
             <i class="fas fa-eye"></i>
           </button>
-          <button class="btn btn-info btn-sm" name="btn_editar" 
+          {% if puede('consulta','estado') %}<button class="btn btn-info btn-sm" name="btn_editar" 
                   data-id="${row.id_consulta_cab}" title="Editar">
             <i class="fas fa-edit"></i>
-          </button>
-          <button class="btn btn-danger btn-sm" name="btn_eliminar" 
+          </button>{% endif %}
+          {% if puede('consulta','anular') %}<button class="btn btn-danger btn-sm" name="btn_eliminar" 
                   data-id="${row.id_consulta_cab}" title="Eliminar">
             <i class="fas fa-trash-alt"></i>
-          </button>
+          </button>{% endif %}
         `
       }
     ],
@@ -1885,6 +1887,7 @@ $('#btnGuardar').on('click', function() {
             // Limpiar campos de ficha médica
             $('#presion_arterial, #temperatura, #frecuencia_cardiaca, #frecuencia_respiratoria, #peso, #talla, #imc, #examen_fisico_general, #examen_bucal, #observaciones_medico').val('');
             
+            $('#btnGuardarFichaMedica').toggle(PUEDE_FICHA_NUEVO);
             // Abrir modal de ficha médica
             $('#modalFichaMedica').modal('show');
           }
@@ -2033,7 +2036,7 @@ function cargarDetallesConsulta(idConsulta) {
               <td>${det.tratamiento || '-'}</td>
               <td>${det.procedimiento || '-'}</td>
               <td>
-                <button class="btn btn-info btn-sm" name="btn_editar_detalle" 
+                {% if puede('consulta','editar') %}<button class="btn btn-info btn-sm" name="btn_editar_detalle" 
                         data-id="${det.id_consulta_detalle}"
                         data-id_sintoma="${det.id_sintoma}"
                         data-descripcion_sintoma="${det.descripcion_sintoma || ''}"
@@ -2043,12 +2046,12 @@ function cargarDetallesConsulta(idConsulta) {
                         data-procedimiento="${det.procedimiento || ''}"
                         title="Editar">
                   <i class="fas fa-edit"></i>
-                </button>
-                <button class="btn btn-danger btn-sm" name="btn_eliminar_detalle" 
+                </button>{% endif %}
+                {% if puede('consulta','anular') %}<button class="btn btn-danger btn-sm" name="btn_eliminar_detalle" 
                         data-id="${det.id_consulta_detalle}"
                         title="Eliminar">
                   <i class="fas fa-trash-alt"></i>
-                </button>
+                </button>{% endif %}
               </td>
             </tr>
           `);
@@ -2250,6 +2253,7 @@ $('#btnVerEditarFichaMedica').on('click', function() {
 
         // Ya existe: mostrar botón Anular
         $('#btnAnularFichaMedica').show();
+        $('#btnGuardarFichaMedica').toggle(PUEDE_FICHA_EDITAR);
 
         // Abrir modal
         $('#modalFichaMedica').modal('show');
@@ -2280,6 +2284,7 @@ $('#btnVerEditarFichaMedica').on('click', function() {
 
             // Todavía no existe: ocultar botón Anular
             $('#btnAnularFichaMedica').hide();
+            $('#btnGuardarFichaMedica').toggle(PUEDE_FICHA_NUEVO);
 
             // Abrir modal
             $('#modalFichaMedica').modal('show');

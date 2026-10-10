@@ -9,6 +9,8 @@
 #   icono      -> clase FontAwesome
 #   modulo     -> agrupador visual (debe existir en MODULOS, más abajo)
 #   ventana    -> clave estable usada en la tabla `permisos` (rol+ventana+accion)
+#   en_menu    -> (opcional, default True) False = no se muestra en sidebar ni buscador,
+#                 solo en la matriz de permisos (pantallas contextuales)
 #   acciones   -> subconjunto de ('ver','nuevo','editar','anular','estado') que expone
 #                 esa ventana. 'ver' siempre debe estar. 'editar' solo en las
 #                 ventanas donde el CUS lo contempla explícitamente (hoy:
@@ -22,8 +24,11 @@
 #
 # NOTA 2: acción 'estado' = cambios de estado del flujo (no baja ni edición de
 # datos). Hoy: Cita (estado de cada horario) y Avisos (confirmación y envío por
-# WhatsApp). A futuro (Consultorio): Actualizar Estado de Órdenes de Estudios/
-# Análisis y Finalizar Tratamiento. 'anular' incluye anular/reactivar.
+# WhatsApp) y, en Consultorio, Duración/Estado de la Consulta, Actualizar Estado
+# de Órdenes de Estudios/Análisis y Finalizar Tratamiento. 'anular' incluye
+# anular/reactivar. En Consultorio solo Ficha Médica expone 'editar'; las
+# demás ediciones de datos (detalle clínico de Consulta, Odontograma) exigen
+# 'editar' sin que exista en su ventana: quedan solo para Administrador.
 # Paciente/Funcionario/Médico tienen 'editar' (datos maestros). Agenda, Cita,
 # Avisos e Historial NO la exponen: su edición de datos (PUT) exige 'editar',
 # que ningún rol no-admin puede tener, o sea queda solo para Administrador.
@@ -65,15 +70,18 @@ CATALOGO_MENU = [
     {"etiqueta": "Tipo Análisis", "endpoint": "tipoanalisis.tipoAnalisisIndex", "icono": "fa-vial", "modulo": "Referenciales Consultorio", "ventana": "tipoanalisis", "acciones": ["ver", "nuevo", "editar", "anular"]},
 
     # Módulo Consultorio
-    {"etiqueta": "Registrar Consulta", "endpoint": "consulta.consultaIndex", "icono": "fa-stethoscope", "modulo": "Módulo Consultorio", "ventana": "consulta", "acciones": ["ver", "nuevo", "anular"]},
+    {"etiqueta": "Registrar Consulta", "endpoint": "consulta.consultaIndex", "icono": "fa-stethoscope", "modulo": "Módulo Consultorio", "ventana": "consulta", "acciones": ["ver", "nuevo", "anular", "estado"]},
     {"etiqueta": "Gestión Fichas Médicas", "endpoint": "fichamedica.fichaMedicaIndex", "icono": "fa-file-medical-alt", "modulo": "Módulo Consultorio", "ventana": "fichamedica", "acciones": ["ver", "editar", "anular"]},
     {"etiqueta": "Gestión Diagnósticos", "endpoint": "diagnostico_medico.diagnosticoIndex", "icono": "fa-diagnoses", "modulo": "Módulo Consultorio", "ventana": "diagnostico", "acciones": ["ver", "nuevo", "anular"]},
     {"etiqueta": "Historial Médico", "endpoint": "historial.historialIndex", "icono": "fa-history", "modulo": "Módulo Consultorio", "ventana": "historial", "acciones": ["ver", "nuevo", "anular"]},
     {"etiqueta": "Registrar Odontograma", "endpoint": "odontograma.odontogramaIndex", "icono": "fa-teeth", "modulo": "Módulo Consultorio", "ventana": "odontograma", "acciones": ["ver", "nuevo", "anular"]},
-    {"etiqueta": "Gestionar Tratamientos", "endpoint": "tratamiento.tratamientoIndex", "icono": "fa-prescription-bottle-alt", "modulo": "Módulo Consultorio", "ventana": "tratamiento", "acciones": ["ver", "nuevo", "anular"]},
+    {"etiqueta": "Gestionar Tratamientos", "endpoint": "tratamiento.tratamientoIndex", "icono": "fa-prescription-bottle-alt", "modulo": "Módulo Consultorio", "ventana": "tratamiento", "acciones": ["ver", "nuevo", "anular", "estado"]},
     {"etiqueta": "Generar Recetas e Indicaciones", "endpoint": "receta.recetaIndex", "icono": "fa-prescription", "modulo": "Módulo Consultorio", "ventana": "receta", "acciones": ["ver", "nuevo", "anular"]},
-    {"etiqueta": "Generar Orden de Estudios", "endpoint": "ordenestudio.ordenEstudioIndex", "icono": "fa-vial", "modulo": "Módulo Consultorio", "ventana": "ordenestudio", "acciones": ["ver", "nuevo", "anular"]},
-    {"etiqueta": "Generar Orden de Análisis", "endpoint": "ordenanalisis.ordenAnalisisIndex", "icono": "fa-flask", "modulo": "Módulo Consultorio", "ventana": "ordenanalisis", "acciones": ["ver", "nuevo", "anular"]},
+    # Sin entrada en el sidebar ni en el buscador (en_menu False): se llega siempre desde
+    # Gestionar Tratamientos. Está en el catálogo para tener su fila en la matriz de permisos.
+    {"etiqueta": "Procedimientos e Insumos (Sesiones)", "endpoint": "sesiontratamiento.sesionTratamientoIndex", "icono": "fa-notes-medical", "modulo": "Módulo Consultorio", "ventana": "sesiontratamiento", "acciones": ["ver", "nuevo", "anular"], "en_menu": False},
+    {"etiqueta": "Generar Orden de Estudios", "endpoint": "ordenestudio.ordenEstudioIndex", "icono": "fa-vial", "modulo": "Módulo Consultorio", "ventana": "ordenestudio", "acciones": ["ver", "nuevo", "anular", "estado"]},
+    {"etiqueta": "Generar Orden de Análisis", "endpoint": "ordenanalisis.ordenAnalisisIndex", "icono": "fa-flask", "modulo": "Módulo Consultorio", "ventana": "ordenanalisis", "acciones": ["ver", "nuevo", "anular", "estado"]},
     {"etiqueta": "Generar Justificativo Médico", "endpoint": "justificativomedico.justificativoMedicoIndex", "icono": "fa-file-signature", "modulo": "Módulo Consultorio", "ventana": "justificativomedico", "acciones": ["ver", "nuevo", "anular"]},
 
     # Módulo Seguridad
@@ -90,7 +98,7 @@ def agrupar_por_modulo_visible():
     """
     from app.rutas.modulo_seguridad.permisos_contexto import puede
 
-    visibles = [item for item in CATALOGO_MENU if puede(item['ventana'], 'ver')]
+    visibles = [item for item in CATALOGO_MENU if item.get('en_menu', True) and puede(item['ventana'], 'ver')]
     por_modulo = {}
     for item in visibles:
         por_modulo.setdefault(item['modulo'], []).append(item)

@@ -26,7 +26,7 @@ def buscarMenu():
     try:
         resultados = []
         for item in CATALOGO_MENU:
-            if q not in _normalizar(item['etiqueta']):
+            if not item.get('en_menu', True) or q not in _normalizar(item['etiqueta']):
                 continue
 
             if not puede(item['ventana'], 'ver'):

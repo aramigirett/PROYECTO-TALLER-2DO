@@ -8,9 +8,9 @@ Gestionar Tratamientos
 <div class="container-fluid mt-4">
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h3>Gestionar Tratamientos</h3>
-    <button type="button" class="btn btn-primary" id="btnAgregar">
+    {% if puede('tratamiento','nuevo') %}<button type="button" class="btn btn-primary" id="btnAgregar">
       <i class="fas fa-plus-circle"></i> Nuevo Tratamiento
-    </button>
+    </button>{% endif %}
   </div>
 
   <div class="card shadow-sm">
@@ -243,12 +243,12 @@ function initDatatableTratamientos() {
           <button class="btn btn-success btn-sm" name="btn_ver" data-id="${row.id_tratamiento}" title="Ver">
             <i class="fas fa-eye"></i>
           </button>
-          <button class="btn btn-info btn-sm" name="btn_sesiones" data-id="${row.id_tratamiento}" title="Procedimientos e Insumos">
+          {% if puede('sesiontratamiento','ver') %}<button class="btn btn-info btn-sm" name="btn_sesiones" data-id="${row.id_tratamiento}" title="Procedimientos e Insumos">
             <i class="fas fa-syringe"></i>
-          </button>
-          <button class="btn btn-danger btn-sm" name="btn_anular" data-id="${row.id_tratamiento}" title="Anular">
+          </button>{% endif %}
+          {% if puede('tratamiento','anular') %}<button class="btn btn-danger btn-sm" name="btn_anular" data-id="${row.id_tratamiento}" title="Anular">
             <i class="fas fa-ban"></i>
-          </button>
+          </button>{% endif %}
         `
       }
     ]

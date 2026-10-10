@@ -7,6 +7,7 @@ Descripción: Endpoints REST para gestionar consultas médicas
 
 from flask import Blueprint, request, jsonify, current_app as app
 from app.dao.referenciales_consultorio.consulta.ConsultaDao  import ConsultaDao
+from app.rutas.modulo_seguridad.decorators import require_permiso, require_login
 
 # Crear Blueprint
 consultaapi = Blueprint('consultaapi', __name__)
@@ -15,6 +16,7 @@ consultaapi = Blueprint('consultaapi', __name__)
 # ENDPOINT: OBTENER TODAS LAS CONSULTAS
 # =====================================================
 @consultaapi.route('/consultas', methods=['GET'])
+@require_permiso('consulta', 'ver')
 def getConsultas():
     """
     Obtiene todas las consultas médicas
@@ -44,6 +46,7 @@ def getConsultas():
 # ENDPOINT: OBTENER CONSULTAS ACTIVAS (para Gestionar Tratamientos)
 # =====================================================
 @consultaapi.route('/consultas/activas', methods=['GET'])
+@require_login  # lookup: lo consumen otras pantallas
 def getConsultasActivas():
     """
     Obtiene las consultas activas (programada/en_proceso) desde las que se
@@ -72,6 +75,7 @@ def getConsultasActivas():
 # ENDPOINT: OBTENER UNA CONSULTA POR ID
 # =====================================================
 @consultaapi.route('/consultas/<int:consulta_id>', methods=['GET'])
+@require_login  # lookup: lo consumen otras pantallas
 def getConsulta(consulta_id):
     """
     Obtiene una consulta específica por ID
@@ -107,6 +111,7 @@ def getConsulta(consulta_id):
 # ENDPOINT: AGREGAR NUEVA CONSULTA
 # =====================================================
 @consultaapi.route('/consultas', methods=['POST'])
+@require_permiso('consulta', 'nuevo')
 def addConsulta():
     """
     Crea una nueva consulta médica a partir de una Cita ya Confirmada.
@@ -167,6 +172,7 @@ def addConsulta():
 # ENDPOINT: ACTUALIZAR CONSULTA
 # =====================================================
 @consultaapi.route('/consultas/<int:consulta_id>', methods=['PUT'])
+@require_permiso('consulta', 'estado')
 def updateConsulta(consulta_id):
     """
     Actualiza una consulta existente.
@@ -213,6 +219,7 @@ def updateConsulta(consulta_id):
 # ENDPOINT: ELIMINAR CONSULTA
 # =====================================================
 @consultaapi.route('/consultas/<int:consulta_id>', methods=['DELETE'])
+@require_permiso('consulta', 'anular')
 def deleteConsulta(consulta_id):
     """
     Anula (baja lógica) una consulta. Se bloquea si ya tiene Ficha Médica,

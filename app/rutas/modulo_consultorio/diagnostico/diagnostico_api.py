@@ -7,6 +7,7 @@ Descripción: Endpoints REST para diagnósticos médicos
 
 from flask import Blueprint, request, jsonify, current_app as app
 from app.dao.referenciales_consultorio.diagnostico.DiagnosticoDao import DiagnosticoDao
+from app.rutas.modulo_seguridad.decorators import require_permiso, require_login
 
 # Crear Blueprint
 diagnostico_medico_api = Blueprint('diagnostico_medico_api', __name__)
@@ -15,6 +16,7 @@ diagnostico_medico_api = Blueprint('diagnostico_medico_api', __name__)
 # ENDPOINT: OBTENER TODOS LOS DIAGNÓSTICOS
 # =====================================================
 @diagnostico_medico_api.route('/diagnosticos-medicos', methods=['GET'])
+@require_permiso('diagnostico', 'ver')
 def getDiagnosticosMedicos():
     """
     Obtiene todos los diagnósticos médicos
@@ -44,6 +46,7 @@ def getDiagnosticosMedicos():
 # ENDPOINT: OBTENER UN DIAGNÓSTICO POR ID
 # =====================================================
 @diagnostico_medico_api.route('/diagnosticos-medicos/<int:diagnostico_id>', methods=['GET'])
+@require_permiso('diagnostico', 'ver')
 def getDiagnosticoMedico(diagnostico_id):
     """
     Obtiene un diagnóstico específico por ID
@@ -79,6 +82,7 @@ def getDiagnosticoMedico(diagnostico_id):
 # ENDPOINT: OBTENER DIAGNÓSTICOS DE UN PACIENTE
 # =====================================================
 @diagnostico_medico_api.route('/diagnosticos-medicos/paciente/<int:paciente_id>', methods=['GET'])
+@require_permiso('diagnostico', 'ver')
 def getDiagnosticosByPaciente(paciente_id):
     """
     Obtiene todos los diagnósticos de un paciente
@@ -108,6 +112,7 @@ def getDiagnosticosByPaciente(paciente_id):
 # ENDPOINT: OBTENER DIAGNÓSTICOS DE UNA CONSULTA (para Gestionar Tratamientos)
 # =====================================================
 @diagnostico_medico_api.route('/diagnosticos-medicos/consulta/<int:id_consulta_cab>', methods=['GET'])
+@require_login  # lookup: lo consumen otras pantallas
 def getDiagnosticosByConsulta(id_consulta_cab):
     """
     Obtiene los diagnósticos vinculados a una consulta específica.
@@ -135,6 +140,7 @@ def getDiagnosticosByConsulta(id_consulta_cab):
 # ENDPOINT: AGREGAR NUEVO DIAGNÓSTICO
 # =====================================================
 @diagnostico_medico_api.route('/diagnosticos-medicos', methods=['POST'])
+@require_permiso('diagnostico', 'nuevo')
 def addDiagnosticoMedico():
     """
     Crea un nuevo diagnóstico médico
@@ -198,6 +204,7 @@ def addDiagnosticoMedico():
 # ENDPOINT: ANULAR DIAGNÓSTICO (baja lógica)
 # =====================================================
 @diagnostico_medico_api.route('/diagnosticos-medicos/<int:diagnostico_id>', methods=['DELETE'])
+@require_permiso('diagnostico', 'anular')
 def deleteDiagnosticoMedico(diagnostico_id):
     """
     Anula (baja lógica) un diagnóstico. Se bloquea si tiene un Tratamiento

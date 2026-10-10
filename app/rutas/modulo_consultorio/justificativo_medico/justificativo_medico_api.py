@@ -8,6 +8,7 @@ Descripción: Endpoints REST para justificativos médicos de una Consulta
 from flask import Blueprint, request, jsonify, current_app as app, Response
 from app.dao.referenciales_consultorio.justificativo_medico.JustificativoMedicoDao import JustificativoMedicoDao
 from app.Services.justificativo_pdf_service import generarJustificativoPdf
+from app.rutas.modulo_seguridad.decorators import require_permiso
 
 justificativomedicoapi = Blueprint('justificativomedicoapi', __name__)
 
@@ -23,6 +24,7 @@ ERRORES = {
 # ENDPOINT: OBTENER TODOS LOS JUSTIFICATIVOS
 # =====================================================
 @justificativomedicoapi.route('/justificativos', methods=['GET'])
+@require_permiso('justificativomedico', 'ver')
 def getJustificativos():
     dao = JustificativoMedicoDao()
     try:
@@ -37,6 +39,7 @@ def getJustificativos():
 # ENDPOINT: OBTENER UN JUSTIFICATIVO POR ID
 # =====================================================
 @justificativomedicoapi.route('/justificativos/<int:id_justificativo>', methods=['GET'])
+@require_permiso('justificativomedico', 'ver')
 def getJustificativo(id_justificativo):
     dao = JustificativoMedicoDao()
     try:
@@ -54,6 +57,7 @@ def getJustificativo(id_justificativo):
 # ENDPOINT: REGISTRAR NUEVO JUSTIFICATIVO
 # =====================================================
 @justificativomedicoapi.route('/justificativos', methods=['POST'])
+@require_permiso('justificativomedico', 'nuevo')
 def addJustificativo():
     """
     Registra un nuevo justificativo médico, a partir de una Consulta activa.
@@ -102,6 +106,7 @@ def addJustificativo():
 # ENDPOINT: ANULAR JUSTIFICATIVO
 # =====================================================
 @justificativomedicoapi.route('/justificativos/<int:id_justificativo>', methods=['DELETE'])
+@require_permiso('justificativomedico', 'anular')
 def deleteJustificativo(id_justificativo):
     dao = JustificativoMedicoDao()
     try:
@@ -133,6 +138,7 @@ def deleteJustificativo(id_justificativo):
 # ENDPOINT: DESCARGAR PDF DEL JUSTIFICATIVO
 # =====================================================
 @justificativomedicoapi.route('/justificativos/<int:id_justificativo>/pdf', methods=['GET'])
+@require_permiso('justificativomedico', 'ver')
 def descargarPdf(id_justificativo):
     """
     Genera y devuelve el PDF del justificativo al vuelo (no se guarda en

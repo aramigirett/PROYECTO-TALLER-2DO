@@ -7,6 +7,7 @@ Descripción: Endpoints REST para detalles clínicos
 
 from flask import Blueprint, request, jsonify, current_app as app
 from app.dao.referenciales_consultorio.consulta.ConsultaDetalleDao import ConsultaDetalleDao
+from app.rutas.modulo_seguridad.decorators import require_permiso
 
 # Crear Blueprint
 consultadetalleapi = Blueprint('consultadetalleapi', __name__)
@@ -15,6 +16,7 @@ consultadetalleapi = Blueprint('consultadetalleapi', __name__)
 # ENDPOINT: OBTENER DETALLES DE UNA CONSULTA
 # =====================================================
 @consultadetalleapi.route('/consultas-detalle/consulta/<int:consulta_id>', methods=['GET'])
+@require_permiso('consulta', 'ver')
 def getDetallesByConsulta(consulta_id):
     """
     Obtiene todos los detalles clínicos de una consulta
@@ -44,6 +46,7 @@ def getDetallesByConsulta(consulta_id):
 # ENDPOINT: OBTENER UN DETALLE POR ID
 # =====================================================
 @consultadetalleapi.route('/consultas-detalle/<int:detalle_id>', methods=['GET'])
+@require_permiso('consulta', 'ver')
 def getDetalle(detalle_id):
     """
     Obtiene un detalle específico por ID
@@ -79,6 +82,7 @@ def getDetalle(detalle_id):
 # ENDPOINT: AGREGAR NUEVO DETALLE
 # =====================================================
 @consultadetalleapi.route('/consultas-detalle', methods=['POST'])
+@require_permiso('consulta', 'nuevo')
 def addDetalle():
     """
     Crea un nuevo detalle clínico
@@ -128,6 +132,7 @@ def addDetalle():
 # ENDPOINT: ACTUALIZAR DETALLE
 # =====================================================
 @consultadetalleapi.route('/consultas-detalle/<int:detalle_id>', methods=['PUT'])
+@require_permiso('consulta', 'editar')
 def updateDetalle(detalle_id):
     """
     Actualiza un detalle clínico existente
@@ -175,6 +180,7 @@ def updateDetalle(detalle_id):
 # ENDPOINT: ELIMINAR DETALLE
 # =====================================================
 @consultadetalleapi.route('/consultas-detalle/<int:detalle_id>', methods=['DELETE'])
+@require_permiso('consulta', 'anular')
 def deleteDetalle(detalle_id):
     """
     Elimina un detalle clínico

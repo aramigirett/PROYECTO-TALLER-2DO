@@ -7,6 +7,7 @@ Descripción: Endpoints REST para las sesiones clínicas de un Tratamiento
 
 from flask import Blueprint, request, jsonify, current_app as app
 from app.dao.referenciales_consultorio.sesion_tratamiento.SesionTratamientoDao import SesionTratamientoDao
+from app.rutas.modulo_seguridad.decorators import require_permiso
 
 sesiontratamientoapi = Blueprint('sesiontratamientoapi', __name__)
 
@@ -22,6 +23,7 @@ ERRORES = {
 # ENDPOINT: OBTENER SESIONES DE UN TRATAMIENTO
 # =====================================================
 @sesiontratamientoapi.route('/sesiones-tratamiento/tratamiento/<int:id_tratamiento>', methods=['GET'])
+@require_permiso('sesiontratamiento', 'ver')
 def getSesionesByTratamiento(id_tratamiento):
     dao = SesionTratamientoDao()
     try:
@@ -36,6 +38,7 @@ def getSesionesByTratamiento(id_tratamiento):
 # ENDPOINT: OBTENER UNA SESIÓN POR ID
 # =====================================================
 @sesiontratamientoapi.route('/sesiones-tratamiento/<int:id_sesion>', methods=['GET'])
+@require_permiso('sesiontratamiento', 'ver')
 def getSesion(id_sesion):
     dao = SesionTratamientoDao()
     try:
@@ -53,6 +56,7 @@ def getSesion(id_sesion):
 # ENDPOINT: REGISTRAR NUEVA SESIÓN
 # =====================================================
 @sesiontratamientoapi.route('/sesiones-tratamiento', methods=['POST'])
+@require_permiso('sesiontratamiento', 'nuevo')
 def addSesion():
     """
     Registra una nueva sesión de tratamiento con sus insumos.
@@ -109,6 +113,7 @@ def addSesion():
 # ENDPOINT: ANULAR SESIÓN (baja lógica, solo la última)
 # =====================================================
 @sesiontratamientoapi.route('/sesiones-tratamiento/<int:id_sesion>', methods=['DELETE'])
+@require_permiso('sesiontratamiento', 'anular')
 def deleteSesion(id_sesion):
     dao = SesionTratamientoDao()
     try:

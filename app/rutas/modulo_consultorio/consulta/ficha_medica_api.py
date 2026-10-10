@@ -7,6 +7,7 @@ Descripción: Endpoints REST para fichas médicas
 
 from flask import Blueprint, request, jsonify, current_app as app
 from app.dao.referenciales_consultorio.consulta.FichaMedicaDao import FichaMedicaDao
+from app.rutas.modulo_seguridad.decorators import require_permiso, require_login
 
 # Crear Blueprint
 fichamedicaapi = Blueprint('fichamedicaapi', __name__)
@@ -15,6 +16,7 @@ fichamedicaapi = Blueprint('fichamedicaapi', __name__)
 # ENDPOINT: OBTENER FICHA MÉDICA DE UNA CONSULTA
 # =====================================================
 @fichamedicaapi.route('/ficha-medica/consulta/<int:consulta_id>', methods=['GET'])
+@require_login  # lookup: lo consumen otras pantallas
 def getFichaByConsulta(consulta_id):
     """
     Obtiene la ficha médica de una consulta específica
@@ -50,6 +52,7 @@ def getFichaByConsulta(consulta_id):
 # ENDPOINT: OBTENER FICHA MÉDICA POR ID
 # =====================================================
 @fichamedicaapi.route('/ficha-medica/<int:ficha_id>', methods=['GET'])
+@require_login  # lookup: lo consumen otras pantallas
 def getFicha(ficha_id):
     """
     Obtiene una ficha médica por su ID
@@ -85,6 +88,7 @@ def getFicha(ficha_id):
 # ENDPOINT: CREAR NUEVA FICHA MÉDICA
 # =====================================================
 @fichamedicaapi.route('/ficha-medica', methods=['POST'])
+@require_permiso('consulta', 'nuevo')
 def addFicha():
     """
     Crea una nueva ficha médica
@@ -155,6 +159,7 @@ def addFicha():
 # ENDPOINT: ACTUALIZAR FICHA MÉDICA
 # =====================================================
 @fichamedicaapi.route('/ficha-medica/<int:ficha_id>', methods=['PUT'])
+@require_permiso('fichamedica', 'editar')
 def updateFicha(ficha_id):
     """
     Actualiza una ficha médica existente
@@ -192,6 +197,7 @@ def updateFicha(ficha_id):
 # ENDPOINT: ANULAR FICHA MÉDICA (baja lógica)
 # =====================================================
 @fichamedicaapi.route('/ficha-medica/<int:ficha_id>', methods=['DELETE'])
+@require_permiso('fichamedica', 'anular')
 def deleteFicha(ficha_id):
     """
     Anula (baja lógica) una ficha médica. Se bloquea si la consulta a la
@@ -235,6 +241,7 @@ def deleteFicha(ficha_id):
 # ENDPOINT: OBTENER TODAS LAS FICHAS CON INFO COMPLETA
 # =====================================================
 @fichamedicaapi.route('/fichas-todas', methods=['GET'])
+@require_permiso('fichamedica', 'ver')
 def getFichasTodas():
     """
     Obtiene todas las fichas médicas con información de consulta, paciente y médico

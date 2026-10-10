@@ -8,9 +8,9 @@ Procedimientos e Insumos Utilizados
 <div class="container-fluid mt-4">
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h3>Procedimientos e Insumos Utilizados</h3>
-    <a href="{{ url_for('tratamiento.tratamientoIndex') }}" class="btn btn-outline-secondary">
+    {% if puede('tratamiento','ver') %}<a href="{{ url_for('tratamiento.tratamientoIndex') }}" class="btn btn-outline-secondary">
       <i class="fas fa-arrow-left"></i> Volver a Tratamientos
-    </a>
+    </a>{% endif %}
   </div>
 
   <!-- Cabecera del Tratamiento (solo lectura) -->
@@ -46,12 +46,12 @@ Procedimientos e Insumos Utilizados
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h5 class="mb-0">Sesiones</h5>
     <div>
-      <button type="button" class="btn btn-success" id="btnFinalizarTratamiento">
+      {% if puede('tratamiento','estado') %}<button type="button" class="btn btn-success" id="btnFinalizarTratamiento">
         <i class="fas fa-check-circle"></i> Finalizar Tratamiento
-      </button>
-      <button type="button" class="btn btn-primary" id="btnAgregarSesion">
+      </button>{% endif %}
+      {% if puede('sesiontratamiento','nuevo') %}<button type="button" class="btn btn-primary" id="btnAgregarSesion">
         <i class="fas fa-plus-circle"></i> Registrar Sesión
-      </button>
+      </button>{% endif %}
     </div>
   </div>
 
@@ -319,7 +319,7 @@ function cargarSesiones() {
         const insumosTxt = s.insumos.map(i => `${i.descripcion_insumo} x${i.cantidad}`).join(', ');
         const esUltima = s.numero_sesion === maxNumero;
         const btnAnular = esUltima
-          ? `<button class="btn btn-danger btn-sm" name="btn_anular_sesion" data-id="${s.id_sesion}" title="Anular"><i class="fas fa-ban"></i></button>`
+          ? `{% if puede('sesiontratamiento','anular') %}<button class="btn btn-danger btn-sm" name="btn_anular_sesion" data-id="${s.id_sesion}" title="Anular"><i class="fas fa-ban"></i></button>{% endif %}`
           : '';
         tbody.append(`
           <tr>

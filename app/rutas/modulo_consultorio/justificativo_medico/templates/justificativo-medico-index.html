@@ -8,9 +8,9 @@ Generar Justificativo Médico
 <div class="container-fluid mt-4">
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h3>Generar Justificativo Médico</h3>
-    <button type="button" class="btn btn-primary" id="btnAgregar">
+    {% if puede('justificativomedico','nuevo') %}<button type="button" class="btn btn-primary" id="btnAgregar">
       <i class="fas fa-plus-circle"></i> Nuevo Justificativo
-    </button>
+    </button>{% endif %}
   </div>
 
   <div class="card shadow-sm">
@@ -227,9 +227,9 @@ function initDatatableJustificativos() {
           <button class="btn btn-info btn-sm" name="btn_pdf" data-id="${row.id_justificativo}" title="Descargar PDF">
             <i class="fas fa-file-pdf"></i>
           </button>
-          <button class="btn btn-danger btn-sm" name="btn_anular" data-id="${row.id_justificativo}" title="Anular">
+          {% if puede('justificativomedico','anular') %}<button class="btn btn-danger btn-sm" name="btn_anular" data-id="${row.id_justificativo}" title="Anular">
             <i class="fas fa-ban"></i>
-          </button>
+          </button>{% endif %}
         `
       }
     ]

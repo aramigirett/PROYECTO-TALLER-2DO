@@ -7,6 +7,7 @@ Descripción: Endpoints REST para órdenes de estudio de una Consulta
 
 from flask import Blueprint, request, jsonify, current_app as app
 from app.dao.referenciales_consultorio.orden_estudio.OrdenEstudioDao import OrdenEstudioDao
+from app.rutas.modulo_seguridad.decorators import require_permiso
 
 ordenestudioapi = Blueprint('ordenestudioapi', __name__)
 
@@ -23,6 +24,7 @@ ERRORES = {
 # ENDPOINT: OBTENER TODAS LAS ÓRDENES DE ESTUDIO
 # =====================================================
 @ordenestudioapi.route('/orden-estudios', methods=['GET'])
+@require_permiso('ordenestudio', 'ver')
 def getOrdenes():
     dao = OrdenEstudioDao()
     try:
@@ -37,6 +39,7 @@ def getOrdenes():
 # ENDPOINT: OBTENER UNA ORDEN DE ESTUDIO POR ID
 # =====================================================
 @ordenestudioapi.route('/orden-estudios/<int:id_orden_estudio>', methods=['GET'])
+@require_permiso('ordenestudio', 'ver')
 def getOrden(id_orden_estudio):
     dao = OrdenEstudioDao()
     try:
@@ -54,6 +57,7 @@ def getOrden(id_orden_estudio):
 # ENDPOINT: REGISTRAR NUEVA ORDEN DE ESTUDIO
 # =====================================================
 @ordenestudioapi.route('/orden-estudios', methods=['POST'])
+@require_permiso('ordenestudio', 'nuevo')
 def addOrden():
     """
     Registra una nueva orden de estudio, a partir de una Consulta activa.
@@ -105,6 +109,7 @@ def addOrden():
 # ENDPOINT: ACTUALIZAR ESTADO (avanza al siguiente paso)
 # =====================================================
 @ordenestudioapi.route('/orden-estudios/<int:id_orden_estudio>/estado', methods=['PUT'])
+@require_permiso('ordenestudio', 'estado')
 def actualizarEstado(id_orden_estudio):
     """
     Avanza la orden al siguiente estado de la secuencia estricta
@@ -147,6 +152,7 @@ def actualizarEstado(id_orden_estudio):
 # ENDPOINT: ANULAR ORDEN DE ESTUDIO
 # =====================================================
 @ordenestudioapi.route('/orden-estudios/<int:id_orden_estudio>', methods=['DELETE'])
+@require_permiso('ordenestudio', 'anular')
 def deleteOrden(id_orden_estudio):
     dao = OrdenEstudioDao()
     try:

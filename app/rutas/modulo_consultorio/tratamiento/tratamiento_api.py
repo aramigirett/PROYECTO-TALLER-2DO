@@ -7,6 +7,7 @@ Descripción: Endpoints REST para el movimiento clínico de tratamientos
 
 from flask import Blueprint, request, jsonify, current_app as app
 from app.dao.referenciales_consultorio.tratamiento.TratamientoDao import TratamientoDao
+from app.rutas.modulo_seguridad.decorators import require_permiso, require_login
 
 tratamientoapi = Blueprint('tratamientoapi', __name__)
 
@@ -29,6 +30,7 @@ def _descripcionCorta(texto, largo=40):
 # ENDPOINT: OBTENER TODOS LOS TRATAMIENTOS
 # =====================================================
 @tratamientoapi.route('/tratamientos', methods=['GET'])
+@require_permiso('tratamiento', 'ver')
 def getTratamientos():
     dao = TratamientoDao()
     try:
@@ -43,6 +45,7 @@ def getTratamientos():
 # ENDPOINT: OBTENER TRATAMIENTOS DE UNA CONSULTA
 # =====================================================
 @tratamientoapi.route('/tratamientos/consulta/<int:id_consulta_cab>', methods=['GET'])
+@require_login  # lookup: lo consumen otras pantallas
 def getTratamientosByConsulta(id_consulta_cab):
     """
     Obtiene los tratamientos (no cancelados) de una consulta específica.
@@ -63,6 +66,7 @@ def getTratamientosByConsulta(id_consulta_cab):
 # ENDPOINT: OBTENER UN TRATAMIENTO POR ID
 # =====================================================
 @tratamientoapi.route('/tratamientos/<int:id_tratamiento>', methods=['GET'])
+@require_login  # lookup: lo consumen otras pantallas
 def getTratamiento(id_tratamiento):
     dao = TratamientoDao()
     try:
@@ -80,6 +84,7 @@ def getTratamiento(id_tratamiento):
 # ENDPOINT: REGISTRAR NUEVO TRATAMIENTO
 # =====================================================
 @tratamientoapi.route('/tratamientos', methods=['POST'])
+@require_permiso('tratamiento', 'nuevo')
 def addTratamiento():
     """
     Registra un nuevo tratamiento a partir de una Consulta activa.
@@ -131,6 +136,7 @@ def addTratamiento():
 # ENDPOINT: ANULAR TRATAMIENTO (baja lógica)
 # =====================================================
 @tratamientoapi.route('/tratamientos/<int:id_tratamiento>', methods=['DELETE'])
+@require_permiso('tratamiento', 'anular')
 def deleteTratamiento(id_tratamiento):
     dao = TratamientoDao()
     try:
@@ -161,6 +167,7 @@ def deleteTratamiento(id_tratamiento):
 # ENDPOINT: FINALIZAR TRATAMIENTO
 # =====================================================
 @tratamientoapi.route('/tratamientos/<int:id_tratamiento>/finalizar', methods=['PUT'])
+@require_permiso('tratamiento', 'estado')
 def finalizarTratamiento(id_tratamiento):
     """
     Marca un tratamiento como 'finalizado'. Bloquea si está 'pendiente'

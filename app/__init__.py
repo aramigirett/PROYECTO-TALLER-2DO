@@ -15,7 +15,6 @@ from app.rutas.modulo_seguridad.usuario_routes import usuariomod
 from app.rutas.modulo_seguridad.auditoria_routes import auditoriamod
 from app.rutas.modulo_seguridad.permiso_routes import permisomod
 from app.rutas.referenciales.ciudad.ciudad_routes import ciumod #ciudad
-from app.rutas.referenciales.paises.pais_routes import paimod   #pais
 from app.rutas.referenciales.especialidad.especialidad_routes import especimod  #especialidad
 from app.rutas.referenciales.dia.dia_routes import diamod  #dia
 from app.rutas.referenciales.turno.turno_routes import turmod  #turno
@@ -62,7 +61,6 @@ app.register_blueprint(usuariomod, url_prefix=f'{modulo0}/usuario')
 app.register_blueprint(auditoriamod, url_prefix=f'{modulo0}/auditoria')
 app.register_blueprint(permisomod, url_prefix=f'{modulo0}/permiso')
 app.register_blueprint(ciumod, url_prefix=f'{modulo0}/ciudad') #ciudad
-app.register_blueprint(paimod, url_prefix=f'{modulo0}/paises') #pais
 app.register_blueprint(especimod, url_prefix=f'{modulo0}/especialidad') #especialidad
 app.register_blueprint(diamod, url_prefix=f'{modulo0}/dia') #dia
 app.register_blueprint(turmod, url_prefix=f'{modulo0}/turno') #turno
@@ -101,8 +99,6 @@ app.register_blueprint(justificativomedicomod, url_prefix=f'{modulo0}/justificat
 
 #ciudad
 from app.rutas.referenciales.ciudad.ciudad_api import ciuapi
-#pais
-from app.rutas.referenciales.paises.pais_api import paisapi
 #especialidad
 from app.rutas.referenciales.especialidad.especialidad_api import especiapi
 #dia
@@ -159,9 +155,7 @@ from app.rutas.modulo_consultorio.justificativo_medico.justificativo_medico_api 
 #Ciudad
 version1 = '/api/v1'
 app.register_blueprint(ciuapi, url_prefix=version1)
-#Pais
 version1 = '/api/v1'
-app.register_blueprint(paisapi, url_prefix=version1)
 #especialidad
 version1 = '/api/v1'
 app.register_blueprint(especiapi, url_prefix=version1)
