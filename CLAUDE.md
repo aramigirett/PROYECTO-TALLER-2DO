@@ -72,27 +72,50 @@ Basado en el CUS "Mantener Acceso" ya documentado:
   momento.
 
 ### Endurecimiento de acceso (rúbrica del profe) — rama acceso-seguridad
-- **Contraseña compleja** (`password_policy.py`): mín. 8, mayúscula, número y
-  símbolo; se aplica en alta/edición de usuario y en recuperación. La lista de
-  requisitos en tiempo real está duplicada en JS (`usuario-index.html`,
-  `recuperar.html`): si cambia la política, cambiar los tres.
-- **Bloqueo**: 3 fallos consecutivos (`MAX_INTENTOS_FALLIDOS`) → `usuarios.bloqueado`.
-  Se libera solo a los 15 min (`BLOQUEO_MINUTOS`) o con la acción de permiso
-  `desbloquear` (ventana `usuario`). El contador se reinicia al completar el
-  login con 2FA, no con el primer factor. Reactivar un usuario NO lo desbloquea.
-  Recuperar la contraseña SÍ lo desbloquea.
-- **Alertas por correo**: al usuario en cada fallo y al bloquearse; a los
-  Administradores activos solo al bloquearse. Se envían en un hilo aparte.
-- **Recuperación** (`/recuperar` → `/recuperar/codigo` → `/recuperar/nueva`):
-  reutiliza `token_2fa` con `proposito = 'RECUPERACION'` (10 min, un solo uso,
-  máx. 5 intentos erróneos, 60 s entre envíos). `generar_codigo`/`validar_codigo`
-  del 2FA filtran `proposito = 'LOGIN'`: los códigos no son intercambiables.
-  Mismo mensaje exista o no el CI/RUC. Todo se audita con `accion = 'RECUPERACION'`.
-- **Auditoría**: `auditoria_acceso.id_usuario_actor` (quién desbloqueó);
-  `ci_ruc_ingresado` se trunca a 20 y, si no hay usuario, solo se guarda si
-  parece CI/RUC (si no, `[formato inválido]`) para no persistir contraseñas
-  tipeadas en ese campo. Tablero con filtro desde/hasta.
-- Scripts SQL idempotentes: `schema_acceso_seguridad.sql`, `schema_permisos_desbloquear.sql`.
+- **Contraseña compleja** (`app/rutas/modulo_seguridad/password_policy.py`): mínimo 8
+  caracteres, una mayúscula, un número y un símbolo. Se valida en el servidor en el
+  alta y la edición de usuario (en edición solo si se escribe una nueva) y en la
+  recuperación. La lista de requisitos en tiempo real está duplicada en JS
+  (`usuario-index.html` y `recuperar.html`): si cambia la política, cambiar los tres.
+- **Bloqueo por intentos fallidos**: 3 fallos consecutivos (`MAX_INTENTOS_FALLIDOS`)
+  ponen `usuarios.bloqueado = TRUE` (columnas `intentos_fallidos`, `bloqueado`,
+  `fecha_bloqueo`). Una cuenta bloqueada no entra ni con la contraseña correcta.
+  - **Desbloqueo manual:** acción de permiso propia `desbloquear` de la ventana
+    `usuario` (CHECK de `permisos`, catálogo y matriz). Endpoint
+    `PATCH /api/v1/usuarios/<id>/desbloquear`.
+  - **Desbloqueo automático:** a los 15 min (`BLOQUEO_MINUTOS` en `UsuarioDao`), en
+    el siguiente intento de login.
+  - El contador se reinicia solo al completar el login con 2FA, no con el primer
+    factor. Reactivar un usuario NO lo desbloquea; recuperar la contraseña SÍ.
+- **Alertas por correo** (`email_service.py`, en un hilo aparte para no demorar el
+  login; un fallo de SMTP solo se loguea): al usuario en cada intento fallido y al
+  bloquearse; a los administradores solo al bloquearse. Destinatarios admin: correos
+  de los usuarios con rol Administrador activos (no hay `MAIL_ADMIN`). Los correos
+  nunca incluyen la contraseña.
+- **Recuperación de contraseña** (`/recuperar` → `/recuperar/codigo` →
+  `/recuperar/nueva`, enlace "¿Olvidaste tu contraseña?" en el login): código de 6
+  dígitos por correo, de un solo uso, vence a los 10 min, máx. 5 intentos erróneos
+  y 60 s entre envíos. Mismo mensaje exista o no el CI/RUC. Al cambiar la
+  contraseña se desbloquea la cuenta, se reinician los intentos y se invalidan los
+  códigos pendientes. Se audita todo con `accion = 'RECUPERACION'`.
+- **`token_2fa.proposito`** (`'LOGIN'` | `'RECUPERACION'`, CHECK): el mecanismo del
+  2FA se reutiliza, pero los códigos no son intercambiables. `generar_codigo` y
+  `validar_codigo` del 2FA filtran `proposito = 'LOGIN'`; las funciones de
+  recuperación filtran `'RECUPERACION'`. Índice parcial sobre códigos no usados.
+- **Auditoría** (`auditoria_acceso`):
+  - `id_usuario_actor` (FK a `usuarios`, nullable): quién ejecutó la acción cuando
+    no es el propio usuario (hoy, el Administrador que desbloquea). El tablero lo
+    muestra en la columna "Realizado por".
+  - **Filtro por fecha desde/hasta** en el Tablero de Administrador
+    (`GET /api/v1/auditoria/intentos?desde=&hasta=`, `hasta` inclusivo, 400 si el
+    formato es inválido o `desde > hasta`).
+  - **Nunca se guarda la contraseña ingresada.** `ci_ruc_ingresado` se trunca a 20
+    caracteres y, si el identificador no corresponde a ningún usuario, solo se
+    guarda cuando parece CI/RUC (dígitos con dígito verificador opcional); si no,
+    queda `[formato inválido]`, para no persistir una contraseña tipeada en ese
+    campo.
+- Scripts SQL idempotentes (`app/dao/modulo_seguridad/`): `schema_acceso_seguridad.sql`
+  y `schema_permisos_desbloquear.sql`.
 
 Con esto el Módulo Seguridad queda completo. Los próximos módulos a programar
 son los funcionales grandes: Agendamiento, Consultorio, Facturación — ya
