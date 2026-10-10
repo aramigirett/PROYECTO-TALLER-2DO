@@ -294,6 +294,13 @@ def inject_permisos():
     return dict(puede=puede, menu_agrupado=agrupar_por_modulo_visible())
 
 
+# ============================================
+# Páginas de error propias (403 / 404 / 500); JSON si la ruta es /api/
+# ============================================
+from app.rutas.errores import registrar_manejadores_de_error
+registrar_manejadores_de_error(app)
+
+
 @app.route('/vista')
 def vista():
     return render_template('vista-index.html')

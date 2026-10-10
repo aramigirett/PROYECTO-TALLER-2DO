@@ -401,30 +401,10 @@ etc.), nunca IDs crudos.
   
 **Próximo módulo grande: Facturación** — todavía sin empezar.
 
-## Pendiente de decidir a futuro: control de acceso en módulos grandes
-Hoy Agendamiento, Referenciales y Consultorio NO tienen ninguna restricción
-de rol en el código — cualquier usuario logueado (sin importar su rol) puede
-entrar. Esto salió a la luz al programar Mantener Menú (buscar-only), que
-respeta esta realidad en vez de inventar restricciones nuevas. Cuando se
-encaren estos módulos a fondo, hay que definir con el análisis qué rol puede
-acceder a qué pantalla, y aplicar el mismo patrón de decorator que ya existe
-(`require_admin` en `app/rutas/modulo_seguridad/decorators.py`, más un
-`require_login` más liviano agregado para Mantener Menú).
-
-## Control de acceso por rol
-- Existe `app/rutas/modulo_seguridad/decorators.py` con `@require_admin`: primer
-  decorator de control de acceso del proyecto. Bloquea vistas (redirige a
-  dashboard con flash) y endpoints de API (403) si `session['nombre_rol']` no
-  es `'Administrador'`.
-- Toda pantalla/endpoint nuevo que sea exclusivo de Administrador (Mantener
-  Usuario, Tablero de Administrador, y a futuro Mantener Roles y Permisos)
-  debe usar este mismo decorator — no inventar uno nuevo.
-- Los links del sidebar para esas pantallas deben estar envueltos en
-  `{% if session.get('nombre_rol') == 'Administrador' %}` en base.html.
-- Regla general: cualquier pantalla nueva de acá en más, definir de entrada
-  quién puede verla (todos los roles logueados, o solo Administrador) y
-  aplicar el control correspondiente desde el principio, no como parche
-  después.
+## Control de acceso
+Ver la sección **"Modelo de permisos"** (más abajo): reemplaza al antiguo control
+por rol con `@require_admin` y a la nota de "pendiente de decidir" sobre los
+módulos grandes, que ya quedó resuelta.
 
 ## Módulo Facturación (sin empezar)
 Cuando se llegue a este módulo: **revisar específicamente si sus 8
@@ -444,6 +424,45 @@ con sistemas de pago), no necesariamente un error de análisis.
   o bajo `/api/v1`.
 - Seguir el mismo estilo/nombres que los módulos ya existentes (ej. `CiudadDao.py`,
   `ciudad_api.py`, `ciudad_routes.py`) para cualquier módulo nuevo.
+
+## Modelo de permisos
+- **Permiso = rol + ventana + acción.** Acciones: `ver`, `nuevo`, `editar`, `anular`,
+  `estado`. Tabla `permisos` (FK a `roles`, único por rol+ventana+acción, CHECK de
+  acción). Administrador no necesita filas: siempre pasa (bypass en `puede()`).
+- **Catálogo único: `app/rutas/modulo_seguridad/menu_catalog.py`.** De ahí salen el
+  sidebar, el buscador general y las filas de la matriz de Roles y Permisos. Cada
+  entrada declara qué `acciones` expone la ventana. `en_menu: False` = pantalla
+  contextual (ej. Sesiones de tratamiento): sin sidebar ni buscador, pero con fila
+  en la matriz.
+- **Pantalla nueva = una entrada en el catálogo + seed de permisos** (SQL idempotente
+  `app/dao/modulo_seguridad/schema_permisos_*.sql`, con `ON CONFLICT DO NOTHING`; los
+  roles no-admin reciben lo que ya hacían, para no cortar flujos).
+- **Todo endpoint nuevo lleva `@require_permiso(ventana, acción)`** (GET = ver,
+  POST = nuevo, PUT = editar, DELETE = anular) y **los botones van envueltos en
+  `puede(ventana, acción)`** en el template, incluidas las tarjetas/atajos hacia
+  otras ventanas (según el `ver` de la ventana destino).
+- **Los GET que alimentan combos o datos de otras pantallas quedan con
+  `@require_login`** (si no, quitarle `ver` a una ventana rompería los formularios
+  de otras).
+- **`estado` vs `anular`:** `estado` es para mover un registro dentro de su flujo
+  (estado de cita, confirmar/enviar aviso, actualizar estado de una orden, finalizar
+  tratamiento, estado de la consulta). `anular` es solo anular o reactivar (baja
+  lógica).
+- **Edición de datos sin `editar` en el catálogo = solo Administrador:** si una API
+  tiene un PUT de datos pero la ventana no expone `editar`, el endpoint exige
+  `editar` igual y nadie más que Administrador lo tiene; se oculta el botón Editar.
+  Si hay que delegarlo, se agrega `editar` a la ventana en el catálogo y al seed.
+- **Roles y Permisos** (la matriz) queda con `@require_admin` fijo y fuera del
+  catálogo, para que nadie pueda autoconcederse acceso.
+- **Páginas de error propias 403/404/500** (`app/rutas/errores.py`, plantillas en
+  `app/templates/errores/`): si la ruta empieza con `/api/` responden JSON; si es
+  una vista, HTML. Con sesión extienden `base.html` (sidebar); sin sesión usan un
+  layout standalone (SB Admin 2). `require_permiso`/`require_admin` hacen
+  `abort(403)` en las vistas (ya no redirigen con flash); el 403 muestra qué ventana
+  se intentó abrir cuando `require_permiso` la conoce.
+- **Pendiente (limpieza al final):** carpetas duplicadas sin uso
+  `app/rutas/referenciales/consultorio/` y `app/rutas/referenciales/avisosRecordatorios/`
+  (el sistema usa las de `modulo_agendamiento/`).
 
 ## Cómo trabajar conmigo en este proyecto
 - Antes de tocar código existente, mostrame el plan de archivos que vas a crear/modificar.

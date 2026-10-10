@@ -1,0 +1,36 @@
+{% extends layout %}
+
+{% block titulo %}{{ codigo }} - {{ titulo }}{% endblock %}
+
+{% block contenido %}
+<div class="container-fluid mt-4">
+  <div class="row justify-content-center">
+    <div class="col-lg-7 col-md-9">
+      <div class="card shadow mb-4">
+        <div class="card-body text-center py-5">
+          <div class="error mx-auto" data-text="{{ codigo }}">{{ codigo }}</div>
+          <p class="lead text-gray-800 mb-3">
+            <i class="fas {{ icono }} mr-2"></i>{{ titulo }}
+          </p>
+          <p class="text-gray-700 mb-2">{{ mensaje }}</p>
+          {% if ventana %}
+          <p class="text-gray-600 mb-3">
+            Ventana a la que intentaste entrar: <strong>{{ ventana }}</strong>
+          </p>
+          {% endif %}
+          <div class="mt-4">
+            <a href="{{ url_inicio }}" class="btn btn-primary">
+              <i class="fas fa-home mr-1"></i> {{ texto_inicio }}
+            </a>
+            {% if mostrar_atras %}
+            <button type="button" class="btn btn-outline-secondary" onclick="if (window.history.length > 1) { window.history.back(); } else { window.location.href = '{{ url_inicio }}'; }">
+              <i class="fas fa-arrow-left mr-1"></i> Volver atrás
+            </button>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
