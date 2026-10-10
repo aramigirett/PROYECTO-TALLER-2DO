@@ -1,8 +1,17 @@
-from flask import Blueprint, jsonify, request, current_app as app
+from flask import Blueprint, jsonify, request, session, current_app as app
 from app.dao.referenciales_agendamiento.medico.MedicoDao import MedicoDao
+from app.dao.modulo_seguridad.AuditoriaDao import AuditoriaDao
 from app.rutas.modulo_seguridad.decorators import require_permiso, require_login
 
-medicoapi = Blueprint('medicoapi', __name__) 
+medicoapi = Blueprint('medicoapi', __name__)
+
+
+def _error_cedula_repetida(donde):
+    quien = 'funcionario' if donde == 'funcionario' else 'médico'
+    return jsonify({
+        'success': False,
+        'error': f'Esa cédula ya pertenece a otro {quien}. La cédula es el CI/RUC de login y no puede repetirse.'
+    }), 409
 
 
 # ==============================
@@ -66,7 +75,13 @@ def addMedico():
                 'error': f'El campo {campo} es obligatorio y no puede estar vacío.'
             }), 400
 
+    data['cedula'] = str(data['cedula']).strip()
     try:
+        # La cédula tampoco puede existir en la tabla de funcionarios
+        donde = medicodao.cedulaUsadaPorOtro(data['cedula'])
+        if donde:
+            return _error_cedula_repetida(donde)
+
         # Validación de duplicados
         if medicodao.existeDuplicado(data['cedula'], data['num_registro']):
             return jsonify({
@@ -121,7 +136,26 @@ def updateMedico(medico_id):
                 'error': f'El campo {campo} es obligatorio y no puede estar vacío.'
             }), 400
 
+    data['cedula'] = str(data['cedula']).strip()
     try:
+        donde = medicodao.cedulaUsadaPorOtro(data['cedula'], excluir_medico=medico_id)
+        if donde:
+            return _error_cedula_repetida(donde)
+
+        # Si la persona tiene usuario, su cédula es su login: cambiarla exige confirmación
+        actual = medicodao.getMedicoById(medico_id)
+        cedula_anterior = (actual['cedula'] or '').strip() if actual else None
+        id_usuario = medicodao.getUsuarioVinculado(medico_id) if actual else None
+        cambia_login = bool(id_usuario) and cedula_anterior != data['cedula']
+        if cambia_login and not data.get('confirmar_cambio_cedula'):
+            return jsonify({
+                'success': False,
+                'requiere_confirmacion': True,
+                'cedula_anterior': cedula_anterior,
+                'cedula_nueva': data['cedula'],
+                'error': 'Cambiar la cédula cambia el CI/RUC con el que esta persona inicia sesión.'
+            }), 409
+
         actualizado = medicodao.updateMedico(
             medico_id, data['nombre'], data['apellido'], data['id_especialidad'], data['num_registro'],
             data['cedula'], data['fecha_nacimiento'], data['fecha_registro'],
@@ -129,6 +163,10 @@ def updateMedico(medico_id):
         )
 
         if actualizado:
+            if cambia_login:
+                AuditoriaDao().registrar_cambio_cedula(
+                    id_usuario, cedula_anterior, data['cedula'],
+                    request.remote_addr, session.get('id_usuario'))
             app.logger.info(f"Médico con ID {medico_id} actualizado exitosamente.")
             return jsonify({
                 'success': True,

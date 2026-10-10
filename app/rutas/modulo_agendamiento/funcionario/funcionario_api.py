@@ -1,8 +1,17 @@
-from flask import Blueprint, jsonify, request, current_app as app
+from flask import Blueprint, jsonify, request, session, current_app as app
 from app.dao.referenciales.funcionario.FuncionarioDao import FuncionarioDao
+from app.dao.modulo_seguridad.AuditoriaDao import AuditoriaDao
 from app.rutas.modulo_seguridad.decorators import require_permiso, require_login
 
 funcionarioapi = Blueprint('funcionarioapi', __name__)
+
+
+def _error_cedula_repetida(donde):
+    quien = 'funcionario' if donde == 'funcionario' else 'médico'
+    return jsonify({
+        'success': False,
+        'error': f'Esa cédula ya pertenece a otro {quien}. La cédula es el CI/RUC de login y no puede repetirse.'
+    }), 409
 
 # ==============================
 #   Obtener todos los funcionarios
@@ -63,7 +72,13 @@ def addFuncionario():
                 'error': f'El campo {campo} es obligatorio y no puede estar vacío.'
             }), 400
 
+    data['cedula'] = str(data['cedula']).strip()
     try:
+        # La cédula tampoco puede existir en la tabla de médicos
+        donde = funcionariodao.cedulaUsadaPorOtro(data['cedula'])
+        if donde:
+            return _error_cedula_repetida(donde)
+
         # Validar duplicado
         if funcionariodao.existeDuplicado(data['cedula'], data['correo']):
             return jsonify({
@@ -115,13 +130,36 @@ def updateFuncionario(funcionario_id):
                 'error': f'El campo {campo} es obligatorio y no puede estar vacío.'
             }), 400
 
+    data['cedula'] = str(data['cedula']).strip()
     try:
+        donde = funcionariodao.cedulaUsadaPorOtro(data['cedula'], excluir_funcionario=funcionario_id)
+        if donde:
+            return _error_cedula_repetida(donde)
+
+        # Si la persona tiene usuario, su cédula es su login: cambiarla exige confirmación
+        actual = funcionariodao.getFuncionarioById(funcionario_id)
+        cedula_anterior = (actual['cedula'] or '').strip() if actual else None
+        id_usuario = funcionariodao.getUsuarioVinculado(funcionario_id) if actual else None
+        cambia_login = bool(id_usuario) and cedula_anterior != data['cedula']
+        if cambia_login and not data.get('confirmar_cambio_cedula'):
+            return jsonify({
+                'success': False,
+                'requiere_confirmacion': True,
+                'cedula_anterior': cedula_anterior,
+                'cedula_nueva': data['cedula'],
+                'error': 'Cambiar la cédula cambia el CI/RUC con el que esta persona inicia sesión.'
+            }), 409
+
         actualizado = funcionariodao.updateFuncionario(
             funcionario_id, data['nombre'], data['apellido'], data['cedula'], data['fecha_nacimiento'],
             data['telefono'], data['direccion'], data['correo'], data['id_cargo'], data['fecha_registro']
         )
 
         if actualizado:
+            if cambia_login:
+                AuditoriaDao().registrar_cambio_cedula(
+                    id_usuario, cedula_anterior, data['cedula'],
+                    request.remote_addr, session.get('id_usuario'))
             app.logger.info(f"Funcionario con ID {funcionario_id} actualizado exitosamente.")
             return jsonify({
                 'success': True,

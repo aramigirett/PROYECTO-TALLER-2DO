@@ -297,28 +297,44 @@ const guardar = () => {
     };
 
     if (id_funcionario > 0) {
-      // Editar
-      fetch(`/api/v1/funcionarios/${id_funcionario}`, {
-        method: 'PUT',
-        headers: { 
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(data)
-      })
-      .then(resp => resp.json())
-      .then(result => {
-        if (result && result.success) {
-          tabla.ajax.reload(null, false);
-          Swal.fire("Actualizado", "El funcionario ha sido actualizado correctamente.", "success")
-            .then(() => { $('#modalFormulario').modal("hide"); });
-        } else {
-          Swal.fire("Error", result.error || "Error al actualizar.", "error");
-        }
-      })
-      .catch((error) => {
-        console.error('Error al actualizar:', error);
-        Swal.fire("Error", "Ocurrió un error al actualizar.", "error");
-      });
+      // Editar. Si la cédula cambia y la persona tiene usuario, el servidor responde
+      // 409 con requiere_confirmacion: se pide confirmar y se reenvía.
+      const enviarEdicion = (confirmado) => {
+        fetch(`/api/v1/funcionarios/${id_funcionario}`, {
+          method: 'PUT',
+          headers: { 
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(confirmado ? { ...data, confirmar_cambio_cedula: true } : data)
+        })
+        .then(resp => resp.json())
+        .then(result => {
+          if (result && result.success) {
+            tabla.ajax.reload(null, false);
+            Swal.fire("Actualizado", "El funcionario ha sido actualizado correctamente.", "success")
+              .then(() => { $('#modalFormulario').modal("hide"); });
+          } else if (result && result.requiere_confirmacion) {
+            Swal.fire({
+              title: 'Esto cambia su inicio de sesión',
+              html: `Este funcionario tiene un usuario de acceso: su cédula es su CI/RUC de login.<br><br>
+                     Cédula anterior: <b>${result.cedula_anterior}</b><br>
+                     Cédula nueva: <b>${result.cedula_nueva}</b><br><br>
+                     Desde ahora deberá ingresar con la cédula nueva.`,
+              icon: 'warning',
+              showCancelButton: true,
+              confirmButtonText: 'Sí, cambiar cédula',
+              cancelButtonText: 'Cancelar'
+            }).then((r) => { if (r.isConfirmed) enviarEdicion(true); });
+          } else {
+            Swal.fire("Error", result.error || "Error al actualizar.", "error");
+          }
+        })
+        .catch((error) => {
+          console.error('Error al actualizar:', error);
+          Swal.fire("Error", "Ocurrió un error al actualizar.", "error");
+        });
+      };
+      enviarEdicion(false);
     } else {
       // Agregar
       fetch(`/api/v1/funcionarios`, {

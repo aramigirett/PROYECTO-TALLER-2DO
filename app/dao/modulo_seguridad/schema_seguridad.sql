@@ -20,11 +20,11 @@ INSERT INTO roles (nombre_rol) VALUES
 -- USUARIOS
 -- Un usuario se vincula SIEMPRE a exactamente una persona: funcionario O medico,
 -- nunca ambos ni ninguno (no existe tabla "Persona" genérica en este sistema).
+-- El CI/RUC (login) y el correo NO se guardan acá: se leen de la persona vinculada
+-- (funcionario.cedula/correo o medico.cedula/correo).
 CREATE TABLE usuarios (
     id_usuario SERIAL PRIMARY KEY,
-    ci_ruc VARCHAR(20) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
-    correo VARCHAR(150) NOT NULL,
     id_rol INTEGER NOT NULL REFERENCES roles(id_rol),
     id_funcionario INTEGER NULL REFERENCES funcionario(id_funcionario),
     id_medico INTEGER NULL REFERENCES medico(id_medico),

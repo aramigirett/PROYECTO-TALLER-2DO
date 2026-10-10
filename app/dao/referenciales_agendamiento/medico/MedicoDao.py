@@ -180,3 +180,49 @@ class MedicoDao:
         finally:
             cur.close()
             con.close()
+
+    def cedulaUsadaPorOtro(self, cedula, excluir_funcionario=None, excluir_medico=None):
+        """
+        La cédula es el CI/RUC de login del usuario vinculado, así que no puede
+        repetirse ni dentro de medico ni en funcionario (la unicidad entre tablas
+        no la garantiza la base). Retorna 'funcionario' / 'medico' según dónde
+        esté usada, o None si está libre. excluir_*: la propia persona que se edita.
+        """
+        sql = """
+            SELECT 'funcionario' FROM funcionario
+            WHERE TRIM(cedula) = %s AND (%s::int IS NULL OR id_funcionario <> %s::int)
+            UNION ALL
+            SELECT 'medico' FROM medico
+            WHERE TRIM(cedula) = %s AND (%s::int IS NULL OR id_medico <> %s::int)
+        """
+        conexion = Conexion()
+        con = conexion.getConexion()
+        cur = con.cursor()
+        try:
+            cur.execute(sql, (cedula, excluir_funcionario, excluir_funcionario,
+                              cedula, excluir_medico, excluir_medico))
+            fila = cur.fetchone()
+            return fila[0] if fila else None
+        except Exception as e:
+            app.logger.error(f"Error al verificar cédula: {str(e)}")
+            return None
+        finally:
+            cur.close()
+            con.close()
+
+    def getUsuarioVinculado(self, id_medico):
+        """id_usuario del usuario de acceso vinculado a esta persona, o None."""
+        sql = "SELECT id_usuario FROM usuarios WHERE id_medico = %s"
+        conexion = Conexion()
+        con = conexion.getConexion()
+        cur = con.cursor()
+        try:
+            cur.execute(sql, (id_medico,))
+            fila = cur.fetchone()
+            return fila[0] if fila else None
+        except Exception as e:
+            app.logger.error(f"Error al buscar usuario vinculado: {str(e)}")
+            return None
+        finally:
+            cur.close()
+            con.close()

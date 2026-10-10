@@ -12,6 +12,8 @@ usuarioapi = Blueprint('usuarioapi', __name__)
 
 EMAIL_REGEX = r'^[^\s@]+@[^\s@]+\.[^\s@]+$'
 
+NOTA_FUENTE = "Se edita en Funcionario/Médico."
+
 
 def _validar_persona(id_funcionario, id_medico):
     """
@@ -20,6 +22,25 @@ def _validar_persona(id_funcionario, id_medico):
     """
     if bool(id_funcionario) == bool(id_medico):
         return "Debés seleccionar exactamente una persona: un funcionario o un médico, no ambos ni ninguno."
+    return None
+
+
+def _validar_datos_persona(usuariodao, id_funcionario, id_medico):
+    """
+    CI/RUC (login) y correo (2FA, alertas, recuperación) salen de la persona
+    vinculada, no se guardan en usuarios. Por eso la persona tiene que existir
+    y tener ambos cargados antes de vincularle un usuario.
+    """
+    datos = usuariodao.getDatosPersona(id_funcionario, id_medico)
+    if datos is None:
+        return "La persona seleccionada no existe."
+    if not datos['ci_ruc']:
+        return f"La persona seleccionada no tiene cédula registrada. {NOTA_FUENTE}"
+    if not datos['correo']:
+        return (f"La persona seleccionada no tiene correo registrado: sin correo no puede "
+                f"recibir el código de verificación. {NOTA_FUENTE}")
+    if not re.match(EMAIL_REGEX, datos['correo']):
+        return f"El correo registrado de la persona no es válido. {NOTA_FUENTE}"
     return None
 
 
@@ -103,18 +124,13 @@ def addUsuario():
     data = request.get_json() or {}
     usuariodao = UsuarioDao()
 
-    ci_ruc = (data.get('ci_ruc') or '').strip()
     password = data.get('password') or ''
-    correo = (data.get('correo') or '').strip()
     id_rol = data.get('id_rol')
     id_funcionario = data.get('id_funcionario') or None
     id_medico = data.get('id_medico') or None
 
-    if not ci_ruc or not correo or not id_rol:
-        return jsonify({'success': False, 'error': 'CI/RUC, correo y rol son obligatorios.'}), 400
-
-    if not re.match(EMAIL_REGEX, correo):
-        return jsonify({'success': False, 'error': 'El correo electrónico no es válido.'}), 400
+    if not id_rol:
+        return jsonify({'success': False, 'error': 'El rol es obligatorio.'}), 400
 
     error_password = validar_password_compleja(password)
     if error_password:
@@ -125,13 +141,14 @@ def addUsuario():
         return jsonify({'success': False, 'error': error_persona}), 400
 
     try:
-        if usuariodao.existeDuplicadoCiRuc(ci_ruc):
-            return jsonify({'success': False, 'error': 'Ya existe un usuario con ese CI/RUC.'}), 400
+        error_datos = _validar_datos_persona(usuariodao, id_funcionario, id_medico)
+        if error_datos:
+            return jsonify({'success': False, 'error': error_datos}), 400
 
         if usuariodao.existePersonaVinculada(id_funcionario, id_medico):
             return jsonify({'success': False, 'error': 'Esa persona ya tiene un usuario de acceso.'}), 400
 
-        id_usuario = usuariodao.guardarUsuario(ci_ruc, password, correo, id_rol, id_funcionario, id_medico)
+        id_usuario = usuariodao.guardarUsuario(password, id_rol, id_funcionario, id_medico)
         if id_usuario:
             return jsonify({'success': True, 'data': {'id_usuario': id_usuario}, 'error': None}), 201
         return jsonify({'success': False, 'error': 'No se pudo guardar el usuario. Consulte con el administrador.'}), 500
@@ -149,18 +166,13 @@ def updateUsuario(id_usuario):
     data = request.get_json() or {}
     usuariodao = UsuarioDao()
 
-    ci_ruc = (data.get('ci_ruc') or '').strip()
     password = data.get('password') or ''
-    correo = (data.get('correo') or '').strip()
     id_rol = data.get('id_rol')
     id_funcionario = data.get('id_funcionario') or None
     id_medico = data.get('id_medico') or None
 
-    if not ci_ruc or not correo or not id_rol:
-        return jsonify({'success': False, 'error': 'CI/RUC, correo y rol son obligatorios.'}), 400
-
-    if not re.match(EMAIL_REGEX, correo):
-        return jsonify({'success': False, 'error': 'El correo electrónico no es válido.'}), 400
+    if not id_rol:
+        return jsonify({'success': False, 'error': 'El rol es obligatorio.'}), 400
 
     error_password = validar_password_compleja(password) if password else None
     if error_password:
@@ -171,17 +183,22 @@ def updateUsuario(id_usuario):
         return jsonify({'success': False, 'error': error_persona}), 400
 
     try:
-        if not usuariodao.getUsuarioById(id_usuario):
+        actual = usuariodao.getUsuarioById(id_usuario)
+        if not actual:
             return jsonify({'success': False, 'error': 'No se encontró el usuario con el ID proporcionado.'}), 404
 
-        if usuariodao.existeDuplicadoCiRuc(ci_ruc, excluir_id=id_usuario):
-            return jsonify({'success': False, 'error': 'Ya existe un usuario con ese CI/RUC.'}), 400
+        # Los datos de la persona solo se exigen si se la cambia: editar el rol de
+        # un usuario no debe bloquearse por un dato de una persona ya vinculada.
+        if (id_funcionario != actual['id_funcionario']) or (id_medico != actual['id_medico']):
+            error_datos = _validar_datos_persona(usuariodao, id_funcionario, id_medico)
+            if error_datos:
+                return jsonify({'success': False, 'error': error_datos}), 400
 
         if usuariodao.existePersonaVinculada(id_funcionario, id_medico, excluir_id=id_usuario):
             return jsonify({'success': False, 'error': 'Esa persona ya tiene un usuario de acceso.'}), 400
 
         actualizado = usuariodao.updateUsuario(
-            id_usuario, ci_ruc, correo, id_rol, id_funcionario, id_medico,
+            id_usuario, id_rol, id_funcionario, id_medico,
             password=password or None
         )
         if actualizado:

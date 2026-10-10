@@ -7,16 +7,18 @@ un funcionario o un médico (nunca ambos, nunca ninguno - no existe tabla
 "Persona" genérica en este sistema). Por eso este script pide el id de un
 funcionario O de un médico ya cargado, no crea la persona.
 
+El CI/RUC (login) y el correo (2FA) NO se pasan acá: se toman siempre de la
+persona vinculada (cédula y correo del funcionario/médico), que debe tenerlos
+cargados. Para cambiarlos se edita la persona, no el usuario.
+
 Se ejecuta como módulo (con -m) desde la raíz del proyecto, para que los
 imports de "app" resuelvan bien:
 
     python -m app.dao.modulo_seguridad.seed_admin_usuario \
-        --ci-ruc 1234567 --password "unaClaveSegura123" \
-        --correo admin@clinica.com --id-funcionario 3
+        --password "unaClaveSegura123" --id-funcionario 3
 
     python -m app.dao.modulo_seguridad.seed_admin_usuario \
-        --ci-ruc 1234567 --password "unaClaveSegura123" \
-        --correo admin@clinica.com --id-medico 1
+        --password "unaClaveSegura123" --id-medico 1
 
 Para ver los funcionarios/médicos disponibles:
     python -m app.dao.modulo_seguridad.seed_admin_usuario --listar
@@ -53,9 +55,7 @@ def listar_personas(cur):
 
 def main():
     parser = argparse.ArgumentParser(description="Alta del primer usuario Administrador (Módulo Seguridad)")
-    parser.add_argument("--ci-ruc", help="CI o RUC del usuario (login)")
     parser.add_argument("--password", help="Contraseña en texto plano (se guarda hasheada)")
-    parser.add_argument("--correo", help="Correo al que se enviará el código 2FA")
     parser.add_argument("--id-funcionario", type=int, help="id_funcionario ya existente a vincular")
     parser.add_argument("--id-medico", type=int, help="id_medico ya existente a vincular")
     parser.add_argument("--listar", action="store_true", help="Lista funcionarios/médicos disponibles y termina")
@@ -71,7 +71,7 @@ def main():
 
         faltantes = [
             nombre for nombre, valor in
-            [("--ci-ruc", args.ci_ruc), ("--password", args.password), ("--correo", args.correo)]
+            [("--password", args.password)]
             if not valor
         ]
         if faltantes:
@@ -87,15 +87,22 @@ def main():
             sys.exit(1)
 
         if args.id_funcionario:
-            cur.execute("SELECT 1 FROM funcionario WHERE id_funcionario = %s", (args.id_funcionario,))
-            if not cur.fetchone():
+            cur.execute("SELECT cedula, correo FROM funcionario WHERE id_funcionario = %s", (args.id_funcionario,))
+            persona = cur.fetchone()
+            if not persona:
                 print(f"ERROR: no existe funcionario con id_funcionario={args.id_funcionario}.")
                 sys.exit(1)
         else:
-            cur.execute("SELECT 1 FROM medico WHERE id_medico = %s", (args.id_medico,))
-            if not cur.fetchone():
+            cur.execute("SELECT cedula, correo FROM medico WHERE id_medico = %s", (args.id_medico,))
+            persona = cur.fetchone()
+            if not persona:
                 print(f"ERROR: no existe médico con id_medico={args.id_medico}.")
                 sys.exit(1)
+
+        ci_ruc, correo = (persona[0] or '').strip(), (persona[1] or '').strip()
+        if not ci_ruc or not correo:
+            print("ERROR: la persona debe tener cédula y correo cargados (de ahí salen el login y el 2FA).")
+            sys.exit(1)
 
         cur.execute("SELECT id_rol FROM roles WHERE nombre_rol = 'Administrador'")
         rol = cur.fetchone()
@@ -104,25 +111,28 @@ def main():
             sys.exit(1)
         id_rol = rol[0]
 
-        cur.execute("SELECT 1 FROM usuarios WHERE ci_ruc = %s", (args.ci_ruc,))
+        cur.execute(
+            "SELECT 1 FROM usuarios WHERE id_funcionario = %s OR id_medico = %s",
+            (args.id_funcionario, args.id_medico),
+        )
         if cur.fetchone():
-            print(f"ERROR: ya existe un usuario con ci_ruc={args.ci_ruc}.")
+            print("ERROR: esa persona ya tiene un usuario de acceso.")
             sys.exit(1)
 
         password_hash = generate_password_hash(args.password)
 
         cur.execute(
             """
-            INSERT INTO usuarios (ci_ruc, password_hash, correo, id_rol, id_funcionario, id_medico)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            INSERT INTO usuarios (password_hash, id_rol, id_funcionario, id_medico)
+            VALUES (%s, %s, %s, %s)
             RETURNING id_usuario
             """,
-            (args.ci_ruc, password_hash, args.correo, id_rol, args.id_funcionario, args.id_medico),
+            (password_hash, id_rol, args.id_funcionario, args.id_medico),
         )
         id_usuario = cur.fetchone()[0]
         con.commit()
 
-        print(f"OK: usuario Administrador creado (id_usuario={id_usuario}, ci_ruc={args.ci_ruc}).")
+        print(f"OK: usuario Administrador creado (id_usuario={id_usuario}, ci_ruc={ci_ruc}).")
 
     except Exception as e:
         con.rollback()

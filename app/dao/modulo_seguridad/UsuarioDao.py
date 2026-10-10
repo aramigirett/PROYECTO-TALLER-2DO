@@ -8,6 +8,12 @@ from app.conexion.Conexion import Conexion
 MAX_INTENTOS_FALLIDOS = 3
 BLOQUEO_MINUTOS = 15
 
+# CI/RUC y correo NO se guardan en usuarios: viven en la persona vinculada
+# (funcionario o medico, mutuamente excluyentes). Estas expresiones requieren
+# los alias f (funcionario) y m (medico) con LEFT JOIN en la consulta.
+SQL_CI_RUC = "COALESCE(f.cedula, m.cedula)"
+SQL_CORREO = "NULLIF(TRIM(COALESCE(f.correo, m.correo)), '')"
+
 
 class UsuarioDao:
 
@@ -19,14 +25,16 @@ class UsuarioDao:
         puesto pero ya pasaron BLOQUEO_MINUTOS, o sea se puede liberar solo).
         """
         sql = """
-            SELECT u.id_usuario, u.ci_ruc, u.password_hash, u.correo,
+            SELECT u.id_usuario, {ci} AS ci_ruc, u.password_hash, {correo} AS correo,
                    u.id_rol, r.nombre_rol, u.id_funcionario, u.id_medico,
                    u.activo, u.bloqueado,
                    (u.bloqueado AND u.fecha_bloqueo <= NOW()::timestamp - make_interval(mins => %s)) AS bloqueo_vencido
             FROM usuarios u
             JOIN roles r ON u.id_rol = r.id_rol
-            WHERE u.ci_ruc = %s AND u.activo = TRUE
-        """
+            LEFT JOIN funcionario f ON u.id_funcionario = f.id_funcionario
+            LEFT JOIN medico m ON u.id_medico = m.id_medico
+            WHERE {ci} = %s AND u.activo = TRUE
+        """.format(ci=SQL_CI_RUC, correo=SQL_CORREO)
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
@@ -63,7 +71,7 @@ class UsuarioDao:
         cuenta con el CI/RUC.
         """
         sql = """
-            SELECT u.id_usuario, u.ci_ruc, u.password_hash, u.correo,
+            SELECT u.id_usuario, {ci}, u.password_hash, {correo},
                    u.id_rol, r.nombre_rol, u.id_funcionario, u.id_medico,
                    u.activo,
                    COALESCE(f.nombre || ' ' || f.apellido, m.nombre || ' ' || m.apellido) AS nombre_completo
@@ -72,7 +80,7 @@ class UsuarioDao:
             LEFT JOIN funcionario f ON u.id_funcionario = f.id_funcionario
             LEFT JOIN medico m ON u.id_medico = m.id_medico
             WHERE u.id_usuario = %s AND u.activo = TRUE
-        """
+        """.format(ci=SQL_CI_RUC, correo=SQL_CORREO)
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
@@ -113,12 +121,14 @@ class UsuarioDao:
         usuario bloqueado si él es administrador.
         """
         sql = """
-            SELECT u.correo
+            SELECT {correo}
             FROM usuarios u
             JOIN roles r ON u.id_rol = r.id_rol
+            LEFT JOIN funcionario f ON u.id_funcionario = f.id_funcionario
+            LEFT JOIN medico m ON u.id_medico = m.id_medico
             WHERE r.nombre_rol = 'Administrador' AND u.activo = TRUE
               AND (%s::int IS NULL OR u.id_usuario <> %s::int)
-        """
+        """.format(correo=SQL_CORREO)
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
@@ -239,7 +249,7 @@ class UsuarioDao:
         completo de la persona vinculada, para la grilla de administración.
         """
         sql = """
-            SELECT u.id_usuario, u.ci_ruc, u.correo, u.id_rol, r.nombre_rol,
+            SELECT u.id_usuario, {ci}, {correo}, u.id_rol, r.nombre_rol,
                    u.id_funcionario, u.id_medico, u.activo, u.fecha_creacion,
                    COALESCE(f.nombre || ' ' || f.apellido, m.nombre || ' ' || m.apellido) AS nombre_completo,
                    CASE WHEN u.id_funcionario IS NOT NULL THEN 'Funcionario' ELSE 'Medico' END AS tipo_persona,
@@ -249,7 +259,7 @@ class UsuarioDao:
             LEFT JOIN funcionario f ON u.id_funcionario = f.id_funcionario
             LEFT JOIN medico m ON u.id_medico = m.id_medico
             ORDER BY u.id_usuario
-        """
+        """.format(ci=SQL_CI_RUC, correo=SQL_CORREO)
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
@@ -286,7 +296,7 @@ class UsuarioDao:
         reactivar usuarios dados de baja desde el panel de administración).
         """
         sql = """
-            SELECT u.id_usuario, u.ci_ruc, u.correo, u.id_rol, r.nombre_rol,
+            SELECT u.id_usuario, {ci}, {correo}, u.id_rol, r.nombre_rol,
                    u.id_funcionario, u.id_medico, u.activo, u.fecha_creacion,
                    COALESCE(f.nombre || ' ' || f.apellido, m.nombre || ' ' || m.apellido) AS nombre_completo
             FROM usuarios u
@@ -294,7 +304,7 @@ class UsuarioDao:
             LEFT JOIN funcionario f ON u.id_funcionario = f.id_funcionario
             LEFT JOIN medico m ON u.id_medico = m.id_medico
             WHERE u.id_usuario = %s
-        """
+        """.format(ci=SQL_CI_RUC, correo=SQL_CORREO)
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
@@ -322,25 +332,32 @@ class UsuarioDao:
             cur.close()
             con.close()
 
-    def existeDuplicadoCiRuc(self, ci_ruc, excluir_id=None):
+    def getDatosPersona(self, id_funcionario, id_medico):
         """
-        Verifica si ya existe otro usuario con el mismo CI/RUC.
+        CI/RUC y correo actuales de la persona a vincular (la fuente de verdad).
+        Retorna None si la persona no existe; si existe, {"ci_ruc", "correo"}
+        con None en lo que no tenga cargado. El alta/edición de usuario exige
+        ambos antes de vincular.
         """
-        sql = "SELECT 1 FROM usuarios WHERE ci_ruc = %s"
-        params = [ci_ruc]
-        if excluir_id:
-            sql += " AND id_usuario != %s"
-            params.append(excluir_id)
+        if id_funcionario:
+            sql = "SELECT cedula, NULLIF(TRIM(correo), '') FROM funcionario WHERE id_funcionario = %s"
+            param = id_funcionario
+        else:
+            sql = "SELECT cedula, NULLIF(TRIM(correo), '') FROM medico WHERE id_medico = %s"
+            param = id_medico
 
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(sql, tuple(params))
-            return cur.fetchone() is not None
+            cur.execute(sql, (param,))
+            fila = cur.fetchone()
+            if not fila:
+                return None
+            return {"ci_ruc": (fila[0] or '').strip() or None, "correo": fila[1]}
         except Exception as e:
-            app.logger.error(f"Error al verificar duplicado de ci_ruc: {str(e)}")
-            return False
+            app.logger.error(f"Error al obtener datos de la persona: {str(e)}")
+            return None
         finally:
             cur.close()
             con.close()
@@ -375,14 +392,14 @@ class UsuarioDao:
             cur.close()
             con.close()
 
-    def guardarUsuario(self, ci_ruc, password, correo, id_rol, id_funcionario, id_medico):
+    def guardarUsuario(self, password, id_rol, id_funcionario, id_medico):
         """
         Da de alta un usuario nuevo. La contraseña se recibe en texto plano
-        y se guarda hasheada.
+        y se guarda hasheada. CI/RUC y correo no se guardan: salen de la persona.
         """
         sql = """
-            INSERT INTO usuarios (ci_ruc, password_hash, correo, id_rol, id_funcionario, id_medico)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            INSERT INTO usuarios (password_hash, id_rol, id_funcionario, id_medico)
+            VALUES (%s, %s, %s, %s)
             RETURNING id_usuario
         """
         password_hash = generate_password_hash(password)
@@ -390,7 +407,7 @@ class UsuarioDao:
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(sql, (ci_ruc, password_hash, correo, id_rol, id_funcionario, id_medico))
+            cur.execute(sql, (password_hash, id_rol, id_funcionario, id_medico))
             id_usuario = cur.fetchone()[0]
             con.commit()
             return id_usuario
@@ -402,7 +419,7 @@ class UsuarioDao:
             cur.close()
             con.close()
 
-    def updateUsuario(self, id_usuario, ci_ruc, correo, id_rol, id_funcionario, id_medico, password=None):
+    def updateUsuario(self, id_usuario, id_rol, id_funcionario, id_medico, password=None):
         """
         Actualiza los datos de un usuario. Si se pasa password, también se
         actualiza el hash; si no, la contraseña actual queda sin cambios.
@@ -410,17 +427,17 @@ class UsuarioDao:
         if password:
             sql = """
                 UPDATE usuarios
-                SET ci_ruc=%s, correo=%s, id_rol=%s, id_funcionario=%s, id_medico=%s, password_hash=%s
+                SET id_rol=%s, id_funcionario=%s, id_medico=%s, password_hash=%s
                 WHERE id_usuario=%s
             """
-            params = (ci_ruc, correo, id_rol, id_funcionario, id_medico, generate_password_hash(password), id_usuario)
+            params = (id_rol, id_funcionario, id_medico, generate_password_hash(password), id_usuario)
         else:
             sql = """
                 UPDATE usuarios
-                SET ci_ruc=%s, correo=%s, id_rol=%s, id_funcionario=%s, id_medico=%s
+                SET id_rol=%s, id_funcionario=%s, id_medico=%s
                 WHERE id_usuario=%s
             """
-            params = (ci_ruc, correo, id_rol, id_funcionario, id_medico, id_usuario)
+            params = (id_rol, id_funcionario, id_medico, id_usuario)
 
         conexion = Conexion()
         con = conexion.getConexion()
@@ -444,7 +461,7 @@ class UsuarioDao:
         ya está vinculado a excluir_usuario (para que siga apareciendo al editar).
         """
         sql = """
-            SELECT f.id_funcionario, f.nombre, f.apellido
+            SELECT f.id_funcionario, f.nombre, f.apellido, f.cedula, NULLIF(TRIM(f.correo), '')
             FROM funcionario f
             WHERE NOT EXISTS (
                 SELECT 1 FROM usuarios u
@@ -463,7 +480,7 @@ class UsuarioDao:
             cur.execute(sql, tuple(params))
             filas = cur.fetchall()
             return [
-                {"id_funcionario": f[0], "nombre_completo": f"{f[1]} {f[2]}"}
+                {"id_funcionario": f[0], "nombre_completo": f"{f[1]} {f[2]}", "ci_ruc": f[3], "correo": f[4]}
                 for f in filas
             ]
         except Exception as e:
@@ -479,7 +496,7 @@ class UsuarioDao:
         está vinculado a excluir_usuario (para que siga apareciendo al editar).
         """
         sql = """
-            SELECT m.id_medico, m.nombre, m.apellido
+            SELECT m.id_medico, m.nombre, m.apellido, m.cedula, NULLIF(TRIM(m.correo), '')
             FROM medico m
             WHERE NOT EXISTS (
                 SELECT 1 FROM usuarios u
@@ -498,7 +515,7 @@ class UsuarioDao:
             cur.execute(sql, tuple(params))
             filas = cur.fetchall()
             return [
-                {"id_medico": m[0], "nombre_completo": f"{m[1]} {m[2]}"}
+                {"id_medico": m[0], "nombre_completo": f"{m[1]} {m[2]}", "ci_ruc": m[3], "correo": m[4]}
                 for m in filas
             ]
         except Exception as e:

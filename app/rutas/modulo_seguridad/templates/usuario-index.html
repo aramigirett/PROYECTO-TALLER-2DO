@@ -14,6 +14,10 @@ Usuarios
       {% if puede('usuario','nuevo') %}<button type="button" class="btn btn-outline-primary" id="btnAgregar">Agregar</button>{% endif %}
     </div>
     <div class="card-body">
+      <p class="small text-muted mb-2">
+        <i class="fas fa-info-circle"></i> El CI/RUC (login) y el correo se toman de la persona vinculada:
+        se editan en Funcionario/Médico.
+      </p>
       <div class="table-responsive">
         <table class="table table-striped" id="tbl">
           <thead>
@@ -51,14 +55,16 @@ Usuarios
             <div class="row">
               <div class="col-md-6">
                 <div class="form-group">
-                  <label for="txtCiRuc">CI/RUC:</label>
-                  <input type="text" class="form-control" placeholder="Ingrese el CI/RUC" id="txtCiRuc">
+                  <label for="txtCiRuc">CI/RUC (login):</label>
+                  <input type="text" class="form-control" placeholder="Se toma de la persona" id="txtCiRuc" readonly>
+                  <small class="form-text text-muted">Se edita en Funcionario/Médico.</small>
                 </div>
               </div>
               <div class="col-md-6">
                 <div class="form-group">
                   <label for="txtCorreo">Correo:</label>
-                  <input type="email" class="form-control" placeholder="correo@ejemplo.com" id="txtCorreo">
+                  <input type="email" class="form-control" placeholder="Se toma de la persona" id="txtCorreo" readonly>
+                  <small class="form-text text-muted" id="hintCorreo">Se edita en Funcionario/Médico.</small>
                 </div>
               </div>
               <div class="col-md-6">
@@ -154,16 +160,33 @@ Usuarios
       .then(result => {
         const sel = $('#selPersona');
         sel.find('option:not(:first)').remove();
+        personasDisponibles = {};
         if (result && result.success) {
           result.data.forEach(p => {
             const id = tipo === 'medico' ? p.id_medico : p.id_funcionario;
+            personasDisponibles[id] = p;
             sel.append(`<option value="${id}">${p.nombre_completo}</option>`);
           });
         }
         if (idSeleccionado) {
           sel.val(idSeleccionado);
         }
+        mostrarDatosPersona();
       });
+  };
+
+  // CI/RUC y correo de la persona elegida (solo lectura: se editan en Funcionario/Médico)
+  let personasDisponibles = {};
+  const mostrarDatosPersona = () => {
+    const p = personasDisponibles[$('#selPersona').val()];
+    $('#txtCiRuc').val(p ? (p.ci_ruc || '') : '');
+    $('#txtCorreo').val(p ? (p.correo || '') : '');
+    const faltan = p && (!p.ci_ruc || !p.correo);
+    $('#hintCorreo')
+      .toggleClass('text-danger', !!faltan).toggleClass('text-muted', !faltan)
+      .text(faltan
+        ? 'Esta persona no tiene cédula o correo cargados: no se puede vincular hasta completarlos en Funcionario/Médico.'
+        : 'Se edita en Funcionario/Médico.');
   };
 
   // Requisitos de contraseña (misma política que password_policy.py)
@@ -249,22 +272,19 @@ Usuarios
   const guardar = () => {
     $('#btnGuardar').on('click', function() {
       const idUsuario = Number($('#txtIdUsuario').val()) || 0;
-      const ci_ruc = $('#txtCiRuc').val().trim();
       const password = $('#txtPassword').val();
-      const correo = $('#txtCorreo').val().trim();
       const id_rol = $('#selRol').val();
       const idPersona = $('#selPersona').val();
       const tipo = tipoPersonaSeleccionado();
       const tabla = $('#tbl').DataTable();
 
-      if (!ci_ruc || !correo || !id_rol || !idPersona) {
-        Swal.fire('Error', 'CI/RUC, correo, rol y persona vinculada son obligatorios.', 'error');
+      if (!id_rol || !idPersona) {
+        Swal.fire('Error', 'Rol y persona vinculada son obligatorios.', 'error');
         return;
       }
 
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(correo)) {
-        Swal.fire('Error', 'El correo electrónico no es válido.', 'error');
+      if (!$('#txtCiRuc').val() || !$('#txtCorreo').val()) {
+        Swal.fire('Error', 'La persona seleccionada necesita cédula y correo cargados en Funcionario/Médico.', 'error');
         return;
       }
 
@@ -279,8 +299,6 @@ Usuarios
       }
 
       const data = {
-        ci_ruc: ci_ruc,
-        correo: correo,
         id_rol: parseInt(id_rol),
         id_funcionario: tipo === 'funcionario' ? parseInt(idPersona) : null,
         id_medico: tipo === 'medico' ? parseInt(idPersona) : null
@@ -325,8 +343,6 @@ Usuarios
           const u = result.data;
           $('#modalTitle').text('Editar Usuario');
           $('#txtIdUsuario').val(u.id_usuario);
-          $('#txtCiRuc').val(u.ci_ruc);
-          $('#txtCorreo').val(u.correo);
           $('#txtPassword').val('');
           $('#txtPassword').attr('placeholder', 'Dejar en blanco para no cambiar');
           $('#hintPassword').show();
@@ -351,6 +367,7 @@ Usuarios
     $('input[name="tipoPersona"]').on('change', function() {
       cargarPersonas($(this).val());
     });
+    $('#selPersona').on('change', mostrarDatosPersona);
   };
 
   const darDeBaja = () => {

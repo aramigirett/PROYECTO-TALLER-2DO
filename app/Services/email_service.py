@@ -63,7 +63,8 @@ def _enviar_correo(destinatarios, asunto, cuerpo):
     """
     if isinstance(destinatarios, str):
         destinatarios = [destinatarios]
-    destinatarios = [d for d in destinatarios if d]
+    # El correo sale de la persona vinculada y puede faltar (None)
+    destinatarios = [d for d in (destinatarios or []) if d]
     if not destinatarios:
         return False
 

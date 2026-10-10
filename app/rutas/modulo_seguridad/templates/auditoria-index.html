@@ -56,8 +56,9 @@ Tablero de Administrador
   const badgeResultado = (resultado) => {
     const exitosos = ['EXITOSO', 'DESBLOQUEADO', 'CODIGO_VERIFICADO'];
     const neutros = ['SOLICITADO'];
+    // 'ANTES: <cédula>' = cambio de CI/RUC por edición de la persona (informativo)
     const clase = exitosos.includes(resultado) ? 'badge-success'
-                : neutros.includes(resultado) ? 'badge-info' : 'badge-danger';
+                : (neutros.includes(resultado) || resultado.startsWith('ANTES:')) ? 'badge-info' : 'badge-danger';
     return `<span class="badge ${clase}">${resultado}</span>`;
   };
 

@@ -47,6 +47,15 @@ class AuditoriaDao:
             cur.close()
             con.close()
 
+    def registrar_cambio_cedula(self, id_usuario, cedula_anterior, cedula_nueva, ip, id_usuario_actor):
+        """
+        Registra que cambió el CI/RUC de login de un usuario porque se editó la
+        cédula de su persona vinculada. ci_ruc_ingresado guarda la cédula nueva
+        (la que vale desde ahora para entrar) y resultado la anterior.
+        """
+        return self.registrar(id_usuario, cedula_nueva, f"ANTES: {cedula_anterior}"[:30],
+                              ip, 'CAMBIO_CEDULA', id_usuario_actor)
+
     def get_ultimos_intentos(self, limite, desde=None, hasta=None):
         """
         Trae los últimos intentos de acceso (exitosos y fallidos) para el
@@ -66,9 +75,11 @@ class AuditoriaDao:
 
         sql = f"""
             SELECT a.id_auditoria, a.id_usuario, a.ci_ruc_ingresado, a.fecha_hora,
-                   a.resultado, a.ip, a.accion, act.ci_ruc
+                   a.resultado, a.ip, a.accion, COALESCE(af.cedula, am.cedula)
             FROM auditoria_acceso a
             LEFT JOIN usuarios act ON a.id_usuario_actor = act.id_usuario
+            LEFT JOIN funcionario af ON act.id_funcionario = af.id_funcionario
+            LEFT JOIN medico am ON act.id_medico = am.id_medico
             {where}
             ORDER BY a.fecha_hora DESC
             LIMIT %s

@@ -334,25 +334,42 @@ Médicos
       const url = idMedico ? `/api/v1/medico/${idMedico}` : '/api/v1/medico';
       const method = idMedico ? 'PUT' : 'POST';
 
-      fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json'},
-        body: JSON.stringify(datos)
-      })
-      .then(resp => resp.json())
-      .then(data => {
-        if (data.success) {
-          $('#tbl').DataTable().ajax.reload();
-          Swal.fire("Éxito", idMedico ? "Médico actualizado" : "Médico registrado", "success");
-          $('#modalFormulario').modal('hide');
-        } else {
-          Swal.fire("Error", data.error, "error");
-        }
-      })
-      .catch(err => {
-        console.error('Error:', err);
-        Swal.fire("Error", "Ocurrió un error al guardar", "error");
-      });
+      // Si la cédula cambia y el médico tiene usuario, el servidor responde 409 con
+      // requiere_confirmacion: se pide confirmar y se reenvía.
+      const enviar = (confirmado) => {
+        fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json'},
+          body: JSON.stringify(confirmado ? { ...datos, confirmar_cambio_cedula: true } : datos)
+        })
+        .then(resp => resp.json())
+        .then(data => {
+          if (data.success) {
+            $('#tbl').DataTable().ajax.reload();
+            Swal.fire("Éxito", idMedico ? "Médico actualizado" : "Médico registrado", "success");
+            $('#modalFormulario').modal('hide');
+          } else if (data.requiere_confirmacion) {
+            Swal.fire({
+              title: 'Esto cambia su inicio de sesión',
+              html: `Este médico tiene un usuario de acceso: su cédula es su CI/RUC de login.<br><br>
+                     Cédula anterior: <b>${data.cedula_anterior}</b><br>
+                     Cédula nueva: <b>${data.cedula_nueva}</b><br><br>
+                     Desde ahora deberá ingresar con la cédula nueva.`,
+              icon: 'warning',
+              showCancelButton: true,
+              confirmButtonText: 'Sí, cambiar cédula',
+              cancelButtonText: 'Cancelar'
+            }).then((r) => { if (r.isConfirmed) enviar(true); });
+          } else {
+            Swal.fire("Error", data.error, "error");
+          }
+        })
+        .catch(err => {
+          console.error('Error:', err);
+          Swal.fire("Error", "Ocurrió un error al guardar", "error");
+        });
+      };
+      enviar(false);
     });
   };
 

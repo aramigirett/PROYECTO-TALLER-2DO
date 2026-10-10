@@ -42,6 +42,10 @@ def login():
                 return render_template('login.html')
 
         if usuario and usuariodao.validar_password(usuario['password_hash'], password):
+            if not usuario['correo']:
+                # El correo sale de la persona vinculada: si se lo borraron no hay a dónde enviar el 2FA
+                flash('Tu cuenta no tiene un correo registrado. Contactá al administrador.', 'danger')
+                return render_template('login.html')
             codigo = TokenDao().generar_codigo(usuario['id_usuario'])
             if codigo and enviar_codigo_2fa(usuario['correo'], codigo):
                 session.clear()
@@ -149,7 +153,7 @@ def recuperar():
                                  ci_ruc, 'SOLICITADO', ip, 'RECUPERACION')
 
         tokendao = TokenDao()
-        if usuario and not tokendao.hay_codigo_reciente(
+        if usuario and usuario['correo'] and not tokendao.hay_codigo_reciente(
                 usuario['id_usuario'], 'RECUPERACION', RECUPERACION_COOLDOWN_SEGUNDOS):
             codigo = tokendao.generar_codigo_recuperacion(usuario['id_usuario'])
             if codigo:

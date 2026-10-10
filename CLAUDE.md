@@ -48,7 +48,8 @@ Agrupaciones existentes bajo `app/rutas/`:
 
 ## Módulo Seguridad (en desarrollo)
 Basado en el CUS "Mantener Acceso" ya documentado:
-- Primer factor: CI/RUC + contraseña.
+- Primer factor: CI/RUC (= cédula de la persona vinculada, ver sección "CI/RUC y correo")
+  + contraseña.
 - Segundo factor (2FA): código de 6 dígitos enviado por **correo electrónico**,
   válido por 5 minutos, tabla `token_2fa`.
 - Cada intento de acceso (exitoso o fallido) se registra en `auditoria_acceso`
@@ -446,6 +447,34 @@ etc.), nunca IDs crudos.
   no implementarlos en la interfaz.
   
 **Próximo módulo grande: Facturación** — todavía sin empezar.
+
+## CI/RUC y correo: una sola fuente de verdad (rama datos-unica-fuente)
+- **El CI/RUC de login y el correo de un usuario NO se guardan en `usuarios`:** se leen
+  siempre de la persona vinculada (`COALESCE(f.cedula, m.cedula)` y
+  `COALESCE(f.correo, m.correo)`, ver `SQL_CI_RUC`/`SQL_CORREO` en `UsuarioDao`). Login,
+  2FA, alertas, recuperación, sesión, tablero y Gestión de Usuarios usan eso. Los dicts
+  de `UsuarioDao` siguen exponiendo las claves `ci_ruc` y `correo`.
+- **Alta/edición de usuario:** ya no reciben `ci_ruc` ni `correo`. La persona tiene que
+  tener cédula y correo cargados para vincularla (`_validar_datos_persona`); al editar
+  solo se exige si se cambia de persona. En la grilla y el formulario son de solo lectura
+  ("se edita en Funcionario/Médico"). Persona sin correo ⇒ el login muestra error claro.
+- **Unicidad de la cédula** (es el login): `funcionario.cedula` y `medico.cedula` tienen
+  UNIQUE (`medico_cedula_key` agregado), y entre ambas tablas se valida en código al
+  guardar y editar (`cedulaUsadaPorOtro` en `FuncionarioDao`/`MedicoDao`, 409).
+- **Cambiar la cédula de una persona con usuario cambia su login:** el PUT responde 409
+  con `requiere_confirmacion` (cédula anterior/nueva); el front pide confirmar y reenvía
+  con `confirmar_cambio_cedula`. El cambio se audita (`accion = 'CAMBIO_CEDULA'`,
+  `ci_ruc_ingresado` = cédula nueva, `resultado` = `ANTES: <anterior>`, actor = quien editó).
+- `seed_admin_usuario.py` ya no recibe `--ci-ruc` ni `--correo`: los toma de la persona.
+- `auditoria_acceso.ci_ruc_ingresado` es historial de lo tipeado: no se toca.
+- **Las columnas `usuarios.ci_ruc` y `usuarios.correo` YA NO EXISTEN** (etapa 2, ✅
+  aplicada y probada). Scripts idempotentes: `schema_datos_unica_fuente.sql` (UNIQUE en
+  `medico.cedula`; relajaba las columnas, ahora no-op si ya no están) y
+  `schema_datos_unica_fuente_etapa2.sql` (`DROP COLUMN IF EXISTS`, sin CASCADE a propósito).
+  `schema_seguridad.sql` ya crea `usuarios` sin ellas. Cualquier consulta nueva que
+  necesite CI o correo de un usuario debe hacer LEFT JOIN a funcionario/medico y usar
+  `SQL_CI_RUC`/`SQL_CORREO` de `UsuarioDao`; nunca `u.ci_ruc`/`u.correo`.
+- Si el correo de una persona con usuario cambia, cambia el destino del 2FA (no hay aviso).
 
 ## Control de acceso
 Ver la sección **"Modelo de permisos"** (más abajo): reemplaza al antiguo control
