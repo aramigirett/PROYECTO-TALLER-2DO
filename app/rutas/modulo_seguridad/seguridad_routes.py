@@ -1,9 +1,14 @@
+import time
+
 from flask import Blueprint, render_template, request, redirect, url_for, session, flash
 
 from app.dao.modulo_seguridad.UsuarioDao import UsuarioDao, BLOQUEO_MINUTOS, MAX_INTENTOS_FALLIDOS
-from app.dao.modulo_seguridad.TokenDao import TokenDao
+from app.dao.modulo_seguridad.TokenDao import (
+    TokenDao, RECUPERACION_MINUTOS, RECUPERACION_COOLDOWN_SEGUNDOS
+)
 from app.dao.modulo_seguridad.AuditoriaDao import AuditoriaDao
-from app.Services.email_service import enviar_codigo_2fa, alertar_intento_fallido, alertar_bloqueo
+from app.Services.email_service import enviar_codigo_2fa, alertar_intento_fallido, alertar_bloqueo, enviar_codigo_recuperacion
+from app.rutas.modulo_seguridad.password_policy import validar_password_compleja
 
 seguridadmod = Blueprint('seguridad', __name__, template_folder='templates')
 
@@ -112,3 +117,110 @@ def logout():
     session.clear()
     flash('Sesión cerrada correctamente.', 'success')
     return redirect(url_for('seguridad.login'))
+
+
+# ---------------------------------------------------------------------------
+# Recuperación de contraseña: /recuperar -> /recuperar/codigo -> /recuperar/nueva
+# Mismo mensaje exista o no el CI/RUC (no se revela qué cuentas existen). La
+# sesión solo guarda el CI/RUC tipeado hasta que el código se valida.
+# ---------------------------------------------------------------------------
+MENSAJE_RECUPERACION = (
+    'Si el CI/RUC corresponde a una cuenta activa, enviamos un código de '
+    'recuperación al correo registrado.'
+)
+MENSAJE_CODIGO_INVALIDO = 'Código inválido o vencido. Volvé a solicitar uno si hace falta.'
+SESION_RECUPERACION_SEGUNDOS = RECUPERACION_MINUTOS * 60
+
+
+@seguridadmod.route('/recuperar', methods=['GET', 'POST'])
+def recuperar():
+    if session.get('id_usuario'):
+        return redirect(url_for('vista.vistaIndex'))
+
+    if request.method == 'POST':
+        ci_ruc = request.form.get('ci_ruc', '').strip()[:20]
+        ip = request.remote_addr
+        if not ci_ruc:
+            flash('Ingresá tu CI o RUC.', 'danger')
+            return render_template('recuperar.html', paso=1)
+
+        usuario = UsuarioDao().get_by_ci_ruc(ci_ruc)
+        AuditoriaDao().registrar(usuario['id_usuario'] if usuario else None,
+                                 ci_ruc, 'SOLICITADO', ip, 'RECUPERACION')
+
+        tokendao = TokenDao()
+        if usuario and not tokendao.hay_codigo_reciente(
+                usuario['id_usuario'], 'RECUPERACION', RECUPERACION_COOLDOWN_SEGUNDOS):
+            codigo = tokendao.generar_codigo_recuperacion(usuario['id_usuario'])
+            if codigo:
+                enviar_codigo_recuperacion(usuario['correo'], codigo, RECUPERACION_MINUTOS)
+
+        session.clear()
+        session['recuperar_ci'] = ci_ruc
+        flash(MENSAJE_RECUPERACION, 'info')
+        return redirect(url_for('seguridad.recuperar_codigo'))
+
+    return render_template('recuperar.html', paso=1)
+
+
+@seguridadmod.route('/recuperar/codigo', methods=['GET', 'POST'])
+def recuperar_codigo():
+    ci_ruc = session.get('recuperar_ci')
+    if not ci_ruc:
+        return redirect(url_for('seguridad.recuperar'))
+
+    if request.method == 'POST':
+        codigo = request.form.get('codigo', '').strip()
+        ip = request.remote_addr
+        usuario = UsuarioDao().get_by_ci_ruc(ci_ruc)
+
+        resultado = 'INVALIDO'
+        if usuario and codigo.isdigit() and len(codigo) == 6:
+            resultado = TokenDao().validar_codigo_recuperacion(usuario['id_usuario'], codigo)
+
+        if resultado == 'OK':
+            AuditoriaDao().registrar(usuario['id_usuario'], ci_ruc, 'CODIGO_VERIFICADO', ip, 'RECUPERACION')
+            session.pop('recuperar_ci', None)
+            session['recuperar_ok'] = {'id_usuario': usuario['id_usuario'], 'ts': time.time()}
+            return redirect(url_for('seguridad.recuperar_nueva'))
+
+        AuditoriaDao().registrar(usuario['id_usuario'] if usuario else None,
+                                 ci_ruc, 'CODIGO_INVALIDO', ip, 'RECUPERACION')
+        flash(MENSAJE_CODIGO_INVALIDO, 'danger')
+
+    return render_template('recuperar.html', paso=2)
+
+
+@seguridadmod.route('/recuperar/nueva', methods=['GET', 'POST'])
+def recuperar_nueva():
+    ok = session.get('recuperar_ok')
+    if not ok or time.time() - ok.get('ts', 0) > SESION_RECUPERACION_SEGUNDOS:
+        session.pop('recuperar_ok', None)
+        return redirect(url_for('seguridad.recuperar'))
+
+    if request.method == 'POST':
+        password = request.form.get('password', '')
+        confirmar = request.form.get('confirmar', '')
+        ip = request.remote_addr
+
+        error = validar_password_compleja(password)
+        if not error and password != confirmar:
+            error = 'Las contraseñas no coinciden.'
+        if error:
+            flash(error, 'danger')
+            return render_template('recuperar.html', paso=3)
+
+        usuariodao = UsuarioDao()
+        id_usuario = ok['id_usuario']
+        usuario = usuariodao.get_by_id(id_usuario)
+        if not usuario or not usuariodao.restablecer_password(id_usuario, password):
+            flash('No se pudo cambiar la contraseña. Intentá nuevamente.', 'danger')
+            return render_template('recuperar.html', paso=3)
+
+        TokenDao().invalidar_codigos_recuperacion(id_usuario)
+        AuditoriaDao().registrar(id_usuario, usuario['ci_ruc'], 'EXITOSO', ip, 'RECUPERACION')
+        session.clear()
+        flash('Contraseña actualizada. Ya podés iniciar sesión.', 'success')
+        return redirect(url_for('seguridad.login'))
+
+    return render_template('recuperar.html', paso=3)

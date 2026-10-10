@@ -207,6 +207,20 @@ class UsuarioDao:
         """
         return self._ejecutar_update(sql, (id_usuario,), "Error al reiniciar intentos fallidos") > 0
 
+    def restablecer_password(self, id_usuario, password):
+        """
+        Cambia la contraseña por recuperación (texto plano -> hash) y, en la
+        misma sentencia, desbloquea la cuenta y reinicia el contador de intentos.
+        """
+        sql = """
+            UPDATE usuarios
+            SET password_hash = %s, bloqueado = FALSE, intentos_fallidos = 0, fecha_bloqueo = NULL
+            WHERE id_usuario = %s AND activo = TRUE
+        """
+        return self._ejecutar_update(
+            sql, (generate_password_hash(password), id_usuario), "Error al restablecer contraseña"
+        ) > 0
+
     def desbloquear(self, id_usuario):
         """
         Desbloqueo manual (Administrador) o por recuperación de contraseña.

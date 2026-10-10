@@ -306,6 +306,11 @@
         .oc-btn-primary:hover  { background: #9dd8ff; }
         .oc-btn-primary:active { transform: scale(0.98); }
 
+        /* ── Enlace recuperar contraseña ────────────────────────── */
+        .oc-forgot { margin-top: 1.1rem; text-align: center; }
+        .oc-link { font-size: 0.85rem; color: var(--text-muted); text-decoration: none; transition: color 0.2s; }
+        .oc-link:hover { color: var(--accent); }
+
         /* ── Pie ────────────────────────────────────────────────── */
         .oc-footer {
             margin-top: 1.75rem;
@@ -412,6 +417,10 @@
                 </button>
 
             </form>
+
+            <div class="oc-forgot">
+                <a href="{{ url_for('seguridad.recuperar') }}" class="oc-link">¿Olvidaste tu contraseña?</a>
+            </div>
 
             <!-- Pie -->
             <div class="oc-footer">

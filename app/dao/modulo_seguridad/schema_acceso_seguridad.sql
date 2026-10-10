@@ -22,3 +22,6 @@ CREATE INDEX IF NOT EXISTS idx_token_2fa_vigentes
 -- que desbloquea una cuenta). NULL en los accesos normales.
 ALTER TABLE auditoria_acceso
     ADD COLUMN IF NOT EXISTS id_usuario_actor INTEGER NULL REFERENCES usuarios(id_usuario);
+
+-- Intentos fallidos al ingresar un código de recuperación (se invalida al llegar al máximo).
+ALTER TABLE token_2fa ADD COLUMN IF NOT EXISTS intentos_fallidos INTEGER NOT NULL DEFAULT 0;

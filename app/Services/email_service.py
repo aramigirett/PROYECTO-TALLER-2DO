@@ -157,3 +157,17 @@ def alertar_intento_fallido(destinatario, ci_ruc, ip, intentos, maximo):
 def alertar_bloqueo(correo_usuario, correos_admin, ci_ruc, ip, minutos):
     _en_segundo_plano(enviar_alerta_bloqueo_usuario, correo_usuario, ci_ruc, ip, minutos)
     _en_segundo_plano(enviar_alerta_bloqueo_admin, correos_admin, ci_ruc, ip, minutos)
+
+
+def enviar_codigo_recuperacion(destinatario, codigo, minutos):
+    """Envía el código de recuperación de contraseña (en segundo plano)."""
+    def enviar():
+        cuerpo = (
+            f"Recibimos una solicitud para recuperar la contraseña de tu cuenta.\n\n"
+            f"Tu código de recuperación es: {codigo}\n\n"
+            f"Vence en {minutos} minutos y solo puede usarse una vez. "
+            "Si no lo solicitaste, ignorá este mensaje: tu contraseña no cambia."
+        )
+        _enviar_correo(destinatario, "Recuperación de contraseña - OdontoClinic", cuerpo)
+
+    _en_segundo_plano(enviar)

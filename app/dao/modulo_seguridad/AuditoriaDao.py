@@ -1,7 +1,14 @@
 # Data Access Object - DAO
+import re
+
 from flask import current_app as app
 from app.conexion.Conexion import Conexion
 
+# Un identificador que NO corresponde a ningún usuario solo se audita si tiene
+# forma de CI/RUC (dígitos, con dígito verificador opcional). Así, si alguien
+# escribe su contraseña en el campo CI/RUC, no queda guardada en la auditoría.
+_FORMATO_CI_RUC = re.compile(r'^[0-9]{1,12}(-[0-9A-Za-z])?$')
+CI_RUC_NO_VALIDO = '[formato inválido]'
 
 class AuditoriaDao:
 
@@ -11,7 +18,14 @@ class AuditoriaDao:
         id_usuario puede ser None cuando el CI/RUC ingresado no existe.
         id_usuario_actor: quien ejecutó la acción cuando no es el propio
         usuario (ej. el Administrador que desbloquea una cuenta).
+        NUNCA recibe ni guarda contraseñas: ci_ruc_ingresado se trunca a 20
+        caracteres y, si no hay usuario, se descarta lo que no parezca un CI/RUC.
         """
+        ci_ruc_ingresado = (ci_ruc_ingresado or '').strip()
+        if id_usuario is None and not _FORMATO_CI_RUC.match(ci_ruc_ingresado):
+            ci_ruc_ingresado = CI_RUC_NO_VALIDO
+        ci_ruc_ingresado = ci_ruc_ingresado[:20]
+
         sql = """
             INSERT INTO auditoria_acceso (id_usuario, ci_ruc_ingresado, resultado, ip, accion, id_usuario_actor)
             VALUES (%s, %s, %s, %s, %s, %s)
@@ -33,16 +47,29 @@ class AuditoriaDao:
             cur.close()
             con.close()
 
-    def get_ultimos_intentos(self, limite):
+    def get_ultimos_intentos(self, limite, desde=None, hasta=None):
         """
         Trae los últimos intentos de acceso (exitosos y fallidos) para el
-        tablero de administrador, del más reciente al más antiguo.
+        tablero de administrador, del más reciente al más antiguo. desde/hasta
+        son objetos date (ambos inclusive) y son opcionales.
         """
-        sql = """
+        filtros = []
+        params = []
+        if desde:
+            filtros.append("a.fecha_hora >= %s")
+            params.append(desde)
+        if hasta:
+            filtros.append("a.fecha_hora < %s::date + 1")
+            params.append(hasta)
+        where = ("WHERE " + " AND ".join(filtros)) if filtros else ""
+        params.append(limite)
+
+        sql = f"""
             SELECT a.id_auditoria, a.id_usuario, a.ci_ruc_ingresado, a.fecha_hora,
                    a.resultado, a.ip, a.accion, act.ci_ruc
             FROM auditoria_acceso a
             LEFT JOIN usuarios act ON a.id_usuario_actor = act.id_usuario
+            {where}
             ORDER BY a.fecha_hora DESC
             LIMIT %s
         """
@@ -50,7 +77,7 @@ class AuditoriaDao:
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(sql, (limite,))
+            cur.execute(sql, tuple(params))
             intentos = cur.fetchall()
             return [
                 {

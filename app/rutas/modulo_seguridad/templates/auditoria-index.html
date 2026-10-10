@@ -17,6 +17,16 @@ Tablero de Administrador
       </button>
     </div>
     <div class="card-body">
+      <form class="form-inline mb-3" id="frmFiltro" onsubmit="return false;">
+        <label class="mr-2" for="fDesde">Desde</label>
+        <input type="date" class="form-control mr-3 mb-2 mb-sm-0" id="fDesde">
+        <label class="mr-2" for="fHasta">Hasta</label>
+        <input type="date" class="form-control mr-3 mb-2 mb-sm-0" id="fHasta">
+        <button type="button" class="btn btn-primary mr-2" id="btnFiltrar">
+          <i class="fas fa-filter"></i> Filtrar
+        </button>
+        <button type="button" class="btn btn-outline-secondary" id="btnLimpiar">Limpiar</button>
+      </form>
       <div class="table-responsive">
         <table class="table table-striped" id="tbl">
           <thead>
@@ -44,14 +54,26 @@ Tablero de Administrador
 <script>
 
   const badgeResultado = (resultado) => {
-    const clase = ['EXITOSO', 'DESBLOQUEADO'].includes(resultado) ? 'badge-success' : 'badge-danger';
+    const exitosos = ['EXITOSO', 'DESBLOQUEADO', 'CODIGO_VERIFICADO'];
+    const neutros = ['SOLICITADO'];
+    const clase = exitosos.includes(resultado) ? 'badge-success'
+                : neutros.includes(resultado) ? 'badge-info' : 'badge-danger';
     return `<span class="badge ${clase}">${resultado}</span>`;
   };
 
   const initDatatable = () => {
     return $('#tbl').DataTable({
       language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
-      ajax: { url: '/api/v1/auditoria/intentos', dataSrc: 'data' },
+      ajax: {
+        url: '/api/v1/auditoria/intentos',
+        data: function() {
+          const params = { limite: 1000 };
+          if ($('#fDesde').val()) params.desde = $('#fDesde').val();
+          if ($('#fHasta').val()) params.hasta = $('#fHasta').val();
+          return params;
+        },
+        dataSrc: 'data'
+      },
       order: [[0, 'desc']],
       columns: [
         { data: 'fecha_hora' },
@@ -66,7 +88,29 @@ Tablero de Administrador
 
   $(function() {
     const tabla = initDatatable();
-    $('#btnActualizar').on('click', function() {
+    $.fn.dataTable.ext.errMode = 'none';
+
+    // Un 400 del API (fechas inválidas o desde > hasta) se muestra con su mensaje
+    $('#tbl').on('error.dt', function(e, settings, techNote, message) {
+      const resp = settings.jqXHR && settings.jqXHR.responseJSON;
+      Swal.fire('Error', (resp && resp.error) || 'No se pudieron cargar los intentos de acceso.', 'error');
+    });
+
+    const recargar = () => {
+      const desde = $('#fDesde').val();
+      const hasta = $('#fHasta').val();
+      if (desde && hasta && desde > hasta) {
+        Swal.fire('Error', 'La fecha "desde" no puede ser posterior a "hasta".', 'error');
+        return;
+      }
+      tabla.ajax.reload(null, false);
+    };
+
+    $('#btnActualizar').on('click', recargar);
+    $('#btnFiltrar').on('click', recargar);
+    $('#btnLimpiar').on('click', function() {
+      $('#fDesde').val('');
+      $('#fHasta').val('');
       tabla.ajax.reload(null, false);
     });
   });

@@ -71,6 +71,29 @@ Basado en el CUS "Mantener Acceso" ya documentado:
   empiecen a referenciarlos — puede que haya que pasar a baja lógica en ese
   momento.
 
+### Endurecimiento de acceso (rúbrica del profe) — rama acceso-seguridad
+- **Contraseña compleja** (`password_policy.py`): mín. 8, mayúscula, número y
+  símbolo; se aplica en alta/edición de usuario y en recuperación. La lista de
+  requisitos en tiempo real está duplicada en JS (`usuario-index.html`,
+  `recuperar.html`): si cambia la política, cambiar los tres.
+- **Bloqueo**: 3 fallos consecutivos (`MAX_INTENTOS_FALLIDOS`) → `usuarios.bloqueado`.
+  Se libera solo a los 15 min (`BLOQUEO_MINUTOS`) o con la acción de permiso
+  `desbloquear` (ventana `usuario`). El contador se reinicia al completar el
+  login con 2FA, no con el primer factor. Reactivar un usuario NO lo desbloquea.
+  Recuperar la contraseña SÍ lo desbloquea.
+- **Alertas por correo**: al usuario en cada fallo y al bloquearse; a los
+  Administradores activos solo al bloquearse. Se envían en un hilo aparte.
+- **Recuperación** (`/recuperar` → `/recuperar/codigo` → `/recuperar/nueva`):
+  reutiliza `token_2fa` con `proposito = 'RECUPERACION'` (10 min, un solo uso,
+  máx. 5 intentos erróneos, 60 s entre envíos). `generar_codigo`/`validar_codigo`
+  del 2FA filtran `proposito = 'LOGIN'`: los códigos no son intercambiables.
+  Mismo mensaje exista o no el CI/RUC. Todo se audita con `accion = 'RECUPERACION'`.
+- **Auditoría**: `auditoria_acceso.id_usuario_actor` (quién desbloqueó);
+  `ci_ruc_ingresado` se trunca a 20 y, si no hay usuario, solo se guarda si
+  parece CI/RUC (si no, `[formato inválido]`) para no persistir contraseñas
+  tipeadas en ese campo. Tablero con filtro desde/hasta.
+- Scripts SQL idempotentes: `schema_acceso_seguridad.sql`, `schema_permisos_desbloquear.sql`.
+
 Con esto el Módulo Seguridad queda completo. Los próximos módulos a programar
 son los funcionales grandes: Agendamiento, Consultorio, Facturación — ya
 documentados en el análisis de la tesis.
