@@ -1,8 +1,9 @@
 import re
 
-from flask import Blueprint, request, jsonify, current_app as app
+from flask import Blueprint, request, jsonify, session, current_app as app
 
 from app.dao.modulo_seguridad.UsuarioDao import UsuarioDao
+from app.dao.modulo_seguridad.AuditoriaDao import AuditoriaDao
 from app.dao.modulo_seguridad.RolDao import RolDao
 from app.rutas.modulo_seguridad.decorators import require_permiso
 
@@ -200,6 +201,29 @@ def bajaUsuario(id_usuario):
         return jsonify({'success': False, 'error': 'No se encontró el usuario con el ID proporcionado o no se pudo dar de baja.'}), 404
     except Exception as e:
         app.logger.error(f"Error al dar de baja usuario: {str(e)}")
+        return jsonify({'success': False, 'error': 'Ocurrió un error interno. Consulte con el administrador.'}), 500
+
+
+# -------------------------
+# Desbloquear una cuenta bloqueada por intentos fallidos
+# -------------------------
+@usuarioapi.route('/usuarios/<int:id_usuario>/desbloquear', methods=['PATCH'])
+@require_permiso('usuario', 'desbloquear')
+def desbloquearUsuario(id_usuario):
+    try:
+        usuariodao = UsuarioDao()
+        usuario = usuariodao.getUsuarioById(id_usuario)
+        if not usuario:
+            return jsonify({'success': False, 'error': 'No se encontró el usuario con el ID proporcionado.'}), 404
+
+        if not usuariodao.desbloquear(id_usuario):
+            return jsonify({'success': False, 'error': 'El usuario no está bloqueado.'}), 409
+
+        AuditoriaDao().registrar(id_usuario, usuario['ci_ruc'], 'DESBLOQUEADO', request.remote_addr, 'DESBLOQUEO_ADMIN')
+        app.logger.info(f"Usuario {usuario['ci_ruc']} desbloqueado por {session.get('ci_ruc')}")
+        return jsonify({'success': True, 'mensaje': 'Usuario desbloqueado correctamente.', 'error': None}), 200
+    except Exception as e:
+        app.logger.error(f"Error al desbloquear usuario: {str(e)}")
         return jsonify({'success': False, 'error': 'Ocurrió un error interno. Consulte con el administrador.'}), 500
 
 

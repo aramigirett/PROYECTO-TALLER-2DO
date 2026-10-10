@@ -119,6 +119,8 @@ Usuarios
 {% block js %}
 <script>
 
+  const PUEDE_DESBLOQUEAR = {{ 'true' if puede('usuario', 'desbloquear') else 'false' }};
+
   const cargarRoles = () => {
     return fetch('/api/v1/roles')
       .then(resp => resp.json())
@@ -168,9 +170,11 @@ Usuarios
         { data: 'nombre_rol' },
         { data: function(row) { return `${row.nombre_completo || ''} <small class="text-muted">(${row.tipo_persona})</small>`; } },
         { data: function(row) {
-            return row.activo
+            const estado = row.activo
               ? '<span class="badge badge-success">Activo</span>'
               : '<span class="badge badge-secondary">Inactivo</span>';
+            const bloqueo = row.bloqueado ? ' <span class="badge badge-warning">Bloqueado</span>' : '';
+            return estado + bloqueo;
           }
         },
         { data: function(row) {
@@ -178,7 +182,10 @@ Usuarios
             const btnEstado = row.activo
               ? `<button type="button" name="btn_baja" class="btn btn-danger" data-id="${row.id_usuario}" title="Dar de baja"><i class="fas fa-user-slash"></i></button>`
               : `<button type="button" name="btn_reactivar" class="btn btn-success" data-id="${row.id_usuario}" title="Reactivar"><i class="fas fa-user-check"></i></button>`;
-            return `${btnEditar} ${btnEstado}`;
+            const btnDesbloquear = (PUEDE_DESBLOQUEAR && row.bloqueado)
+              ? `<button type="button" name="btn_desbloquear" class="btn btn-warning" data-id="${row.id_usuario}" title="Desbloquear"><i class="fas fa-unlock"></i></button>`
+              : '';
+            return `${btnEditar} ${btnEstado} ${btnDesbloquear}`;
           }
         }
       ]
@@ -362,7 +369,41 @@ Usuarios
     });
   };
 
+  const desbloquear = () => {
+    $('#tbl').on('click', 'button[name="btn_desbloquear"]', function() {
+      const idUsuario = $(this).data('id');
+      const tabla = $('#tbl').DataTable();
+      const fila = tabla.row($(this).closest('tr')).data();
+
+      Swal.fire({
+        title: '¿Desbloquear este usuario?',
+        text: `${fila.ci_ruc} - ${fila.nombre_completo || ''} podrá volver a iniciar sesión.`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, desbloquear',
+        cancelButtonText: 'Cancelar'
+      }).then((result) => {
+        if (!result.isConfirmed) return;
+        fetch(`/api/v1/usuarios/${idUsuario}/desbloquear`, { method: 'PATCH' })
+          .then(resp => resp.json())
+          .then(data => {
+            tabla.ajax.reload(null, false);
+            if (data && data.success) {
+              Swal.fire('Listo', `Se desbloqueó a ${fila.ci_ruc}.`, 'success');
+            } else {
+              Swal.fire('Error', (data && data.error) || 'No se pudo desbloquear al usuario.', 'error');
+            }
+          })
+          .catch(err => {
+            console.error(err);
+            Swal.fire('Error', 'Ocurrió un error al desbloquear al usuario.', 'error');
+          });
+      });
+    });
+  };
+
   const addEvents = () => {
+    desbloquear();
     agregar();
     guardar();
     editar();

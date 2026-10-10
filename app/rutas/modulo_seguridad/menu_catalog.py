@@ -11,7 +11,7 @@
 #   ventana    -> clave estable usada en la tabla `permisos` (rol+ventana+accion)
 #   en_menu    -> (opcional, default True) False = no se muestra en sidebar ni buscador,
 #                 solo en la matriz de permisos (pantallas contextuales)
-#   acciones   -> subconjunto de ('ver','nuevo','editar','anular','estado') que expone
+#   acciones   -> subconjunto de ('ver','nuevo','editar','anular','estado','desbloquear') que expone
 #                 esa ventana. 'ver' siempre debe estar. 'editar' solo en las
 #                 ventanas donde el CUS lo contempla explícitamente (hoy:
 #                 Ficha Médica y las referenciales). Los movimientos
@@ -21,6 +21,9 @@
 # queda siempre exclusiva de Administrador vía @require_admin, fuera del
 # mecanismo de permisos delegables, para que nadie pueda autoconcederse
 # acceso. Sigue teniendo su link fijo en el sidebar (ver base.html).
+#
+# NOTA 1b: acción 'desbloquear' = levantar el bloqueo de una cuenta por intentos
+# fallidos. Solo la expone la ventana 'usuario'.
 #
 # NOTA 2: acción 'estado' = cambios de estado del flujo (no baja ni edición de
 # datos). Hoy: Cita (estado de cada horario) y Avisos (confirmación y envío por
@@ -85,7 +88,7 @@ CATALOGO_MENU = [
     {"etiqueta": "Generar Justificativo Médico", "endpoint": "justificativomedico.justificativoMedicoIndex", "icono": "fa-file-signature", "modulo": "Módulo Consultorio", "ventana": "justificativomedico", "acciones": ["ver", "nuevo", "anular"]},
 
     # Módulo Seguridad
-    {"etiqueta": "Gestión de Usuarios", "endpoint": "usuario.usuarioIndex", "icono": "fa-users-cog", "modulo": "Módulo Seguridad", "ventana": "usuario", "acciones": ["ver", "nuevo", "editar", "anular"]},
+    {"etiqueta": "Gestión de Usuarios", "endpoint": "usuario.usuarioIndex", "icono": "fa-users-cog", "modulo": "Módulo Seguridad", "ventana": "usuario", "acciones": ["ver", "nuevo", "editar", "anular", "desbloquear"]},
     {"etiqueta": "Tablero de Administrador", "endpoint": "auditoria.auditoriaIndex", "icono": "fa-shield-alt", "modulo": "Módulo Seguridad", "ventana": "auditoria", "acciones": ["ver"]},
 ]
 

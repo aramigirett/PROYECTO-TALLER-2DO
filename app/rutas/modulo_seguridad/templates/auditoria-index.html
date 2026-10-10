@@ -43,7 +43,7 @@ Tablero de Administrador
 <script>
 
   const badgeResultado = (resultado) => {
-    const clase = resultado === 'EXITOSO' ? 'badge-success' : 'badge-danger';
+    const clase = ['EXITOSO', 'DESBLOQUEADO'].includes(resultado) ? 'badge-success' : 'badge-danger';
     return `<span class="badge ${clase}">${resultado}</span>`;
   };
 

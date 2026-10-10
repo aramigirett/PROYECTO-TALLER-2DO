@@ -37,6 +37,7 @@ Roles y Permisos
               <th class="text-center" style="width: 90px;">Editar</th>
               <th class="text-center" style="width: 90px;">Anular</th>
               <th class="text-center" style="width: 90px;">Estado</th>
+              <th class="text-center" style="width: 110px;">Desbloquear</th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -55,7 +56,7 @@ Roles y Permisos
 {% block js %}
 <script>
 
-  const ACCIONES = ['ver', 'nuevo', 'editar', 'anular', 'estado'];
+  const ACCIONES = ['ver', 'nuevo', 'editar', 'anular', 'estado', 'desbloquear'];
   let catalogoModulos = null;
 
   const toast = Swal.mixin({
@@ -109,7 +110,7 @@ Roles y Permisos
     const set = new Set(otorgados.map(p => `${p.ventana}|${p.accion}`));
 
     modulos.forEach(modulo => {
-      $tbody.append(`<tr class="bg-light"><td colspan="6"><strong>${modulo.modulo}</strong></td></tr>`);
+      $tbody.append(`<tr class="bg-light"><td colspan="7"><strong>${modulo.modulo}</strong></td></tr>`);
       modulo.ventanas.forEach(ventana => {
         const celdas = ACCIONES.map(accion => {
           const disponible = ventana.acciones.includes(accion);

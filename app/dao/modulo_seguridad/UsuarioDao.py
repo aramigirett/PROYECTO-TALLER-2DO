@@ -4,17 +4,25 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from app.conexion.Conexion import Conexion
 
 
+# Bloqueo de cuenta por intentos fallidos consecutivos
+MAX_INTENTOS_FALLIDOS = 3
+BLOQUEO_MINUTOS = 15
+
+
 class UsuarioDao:
 
     def get_by_ci_ruc(self, ci_ruc):
         """
         Trae un usuario activo (con su rol) a partir del CI/RUC.
-        Retorna None si no existe o está inactivo.
+        Retorna None si no existe o está inactivo. Incluye el estado de
+        bloqueo: `bloqueado` (flag guardado) y `bloqueo_vencido` (el flag está
+        puesto pero ya pasaron BLOQUEO_MINUTOS, o sea se puede liberar solo).
         """
         sql = """
             SELECT u.id_usuario, u.ci_ruc, u.password_hash, u.correo,
                    u.id_rol, r.nombre_rol, u.id_funcionario, u.id_medico,
-                   u.activo
+                   u.activo, u.bloqueado,
+                   (u.bloqueado AND u.fecha_bloqueo <= NOW()::timestamp - make_interval(mins => %s)) AS bloqueo_vencido
             FROM usuarios u
             JOIN roles r ON u.id_rol = r.id_rol
             WHERE u.ci_ruc = %s AND u.activo = TRUE
@@ -23,7 +31,7 @@ class UsuarioDao:
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(sql, (ci_ruc,))
+            cur.execute(sql, (BLOQUEO_MINUTOS, ci_ruc))
             usuario = cur.fetchone()
             if not usuario:
                 return None
@@ -37,6 +45,8 @@ class UsuarioDao:
                 "id_funcionario": usuario[6],
                 "id_medico": usuario[7],
                 "activo": usuario[8],
+                "bloqueado": usuario[9],
+                "bloqueo_vencido": bool(usuario[10]),
             }
         except Exception as e:
             app.logger.error(f"Error al obtener usuario por ci_ruc: {str(e)}")
@@ -96,6 +106,93 @@ class UsuarioDao:
         """
         return check_password_hash(password_hash, password)
 
+    def _ejecutar_update(self, sql, params, mensaje_error):
+        """Ejecuta un UPDATE puntual y retorna las filas afectadas (0 si falla)."""
+        conexion = Conexion()
+        con = conexion.getConexion()
+        cur = con.cursor()
+        try:
+            cur.execute(sql, params)
+            filas = cur.rowcount
+            con.commit()
+            return filas
+        except Exception as e:
+            app.logger.error(f"{mensaje_error}: {str(e)}")
+            con.rollback()
+            return 0
+        finally:
+            cur.close()
+            con.close()
+
+    def registrar_fallo(self, id_usuario):
+        """
+        Suma un intento fallido y bloquea la cuenta al llegar a
+        MAX_INTENTOS_FALLIDOS. El incremento y el bloqueo se hacen en una sola
+        sentencia (atómica ante intentos concurrentes). Retorna
+        {"intentos": n, "bloqueado": bool} o None si falló.
+        """
+        sql = """
+            UPDATE usuarios
+            SET intentos_fallidos = intentos_fallidos + 1,
+                bloqueado = (intentos_fallidos + 1 >= %s),
+                fecha_bloqueo = CASE WHEN intentos_fallidos + 1 >= %s
+                                     THEN NOW() ELSE fecha_bloqueo END
+            WHERE id_usuario = %s
+            RETURNING intentos_fallidos, bloqueado
+        """
+        conexion = Conexion()
+        con = conexion.getConexion()
+        cur = con.cursor()
+        try:
+            cur.execute(sql, (MAX_INTENTOS_FALLIDOS, MAX_INTENTOS_FALLIDOS, id_usuario))
+            fila = cur.fetchone()
+            con.commit()
+            return {"intentos": fila[0], "bloqueado": fila[1]} if fila else None
+        except Exception as e:
+            app.logger.error(f"Error al registrar intento fallido: {str(e)}")
+            con.rollback()
+            return None
+        finally:
+            cur.close()
+            con.close()
+
+    def liberar_bloqueo_vencido(self, id_usuario):
+        """
+        Levanta el bloqueo si ya pasaron BLOQUEO_MINUTOS (desbloqueo por tiempo).
+        """
+        sql = """
+            UPDATE usuarios
+            SET bloqueado = FALSE, intentos_fallidos = 0, fecha_bloqueo = NULL
+            WHERE id_usuario = %s AND bloqueado
+              AND fecha_bloqueo <= NOW()::timestamp - make_interval(mins => %s)
+        """
+        return self._ejecutar_update(
+            sql, (id_usuario, BLOQUEO_MINUTOS), "Error al liberar bloqueo vencido"
+        ) > 0
+
+    def reiniciar_intentos(self, id_usuario):
+        """
+        Pone el contador en 0 al completar el login (después del 2FA). No toca
+        cuentas bloqueadas: ese estado solo lo levanta el tiempo o el admin.
+        """
+        sql = """
+            UPDATE usuarios SET intentos_fallidos = 0
+            WHERE id_usuario = %s AND NOT bloqueado AND intentos_fallidos <> 0
+        """
+        return self._ejecutar_update(sql, (id_usuario,), "Error al reiniciar intentos fallidos") > 0
+
+    def desbloquear(self, id_usuario):
+        """
+        Desbloqueo manual (Administrador) o por recuperación de contraseña.
+        Retorna True si la cuenta estaba bloqueada y se liberó.
+        """
+        sql = """
+            UPDATE usuarios
+            SET bloqueado = FALSE, intentos_fallidos = 0, fecha_bloqueo = NULL
+            WHERE id_usuario = %s AND bloqueado
+        """
+        return self._ejecutar_update(sql, (id_usuario,), "Error al desbloquear usuario") > 0
+
     def getUsuarios(self):
         """
         Trae todos los usuarios (activos e inactivos) con su rol y el nombre
@@ -105,7 +202,8 @@ class UsuarioDao:
             SELECT u.id_usuario, u.ci_ruc, u.correo, u.id_rol, r.nombre_rol,
                    u.id_funcionario, u.id_medico, u.activo, u.fecha_creacion,
                    COALESCE(f.nombre || ' ' || f.apellido, m.nombre || ' ' || m.apellido) AS nombre_completo,
-                   CASE WHEN u.id_funcionario IS NOT NULL THEN 'Funcionario' ELSE 'Medico' END AS tipo_persona
+                   CASE WHEN u.id_funcionario IS NOT NULL THEN 'Funcionario' ELSE 'Medico' END AS tipo_persona,
+                   (u.bloqueado AND u.fecha_bloqueo > NOW()::timestamp - make_interval(mins => %s)) AS bloqueado_vigente
             FROM usuarios u
             JOIN roles r ON u.id_rol = r.id_rol
             LEFT JOIN funcionario f ON u.id_funcionario = f.id_funcionario
@@ -116,7 +214,7 @@ class UsuarioDao:
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(sql)
+            cur.execute(sql, (BLOQUEO_MINUTOS,))
             usuarios = cur.fetchall()
             return [
                 {
@@ -131,6 +229,7 @@ class UsuarioDao:
                     "fecha_creacion": str(u[8]) if u[8] else None,
                     "nombre_completo": u[9],
                     "tipo_persona": u[10],
+                    "bloqueado": bool(u[11]),
                 }
                 for u in usuarios
             ]

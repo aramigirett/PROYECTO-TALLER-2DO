@@ -1,11 +1,16 @@
 from flask import Blueprint, render_template, request, redirect, url_for, session, flash
 
-from app.dao.modulo_seguridad.UsuarioDao import UsuarioDao
+from app.dao.modulo_seguridad.UsuarioDao import UsuarioDao, BLOQUEO_MINUTOS
 from app.dao.modulo_seguridad.TokenDao import TokenDao
 from app.dao.modulo_seguridad.AuditoriaDao import AuditoriaDao
 from app.Services.email_service import enviar_codigo_2fa
 
 seguridadmod = Blueprint('seguridad', __name__, template_folder='templates')
+
+MENSAJE_CUENTA_BLOQUEADA = (
+    f'Cuenta bloqueada por intentos fallidos. Contactá al administrador '
+    f'o esperá {BLOQUEO_MINUTOS} minutos para volver a intentar.'
+)
 
 
 @seguridadmod.route('/login', methods=['GET', 'POST'])
@@ -21,6 +26,16 @@ def login():
         usuariodao = UsuarioDao()
         usuario = usuariodao.get_by_ci_ruc(ci_ruc)
 
+        if usuario and usuario['bloqueado']:
+            if usuario['bloqueo_vencido']:
+                # Desbloqueo por tiempo: pasaron BLOQUEO_MINUTOS desde el bloqueo
+                usuariodao.liberar_bloqueo_vencido(usuario['id_usuario'])
+                AuditoriaDao().registrar(usuario['id_usuario'], ci_ruc, 'DESBLOQUEADO', ip, 'DESBLOQUEO_TIEMPO')
+            else:
+                AuditoriaDao().registrar(usuario['id_usuario'], ci_ruc, 'CUENTA_BLOQUEADA', ip, 'LOGIN')
+                flash(MENSAJE_CUENTA_BLOQUEADA, 'danger')
+                return render_template('login.html')
+
         if usuario and usuariodao.validar_password(usuario['password_hash'], password):
             codigo = TokenDao().generar_codigo(usuario['id_usuario'])
             if codigo and enviar_codigo_2fa(usuario['correo'], codigo):
@@ -32,7 +47,14 @@ def login():
         else:
             id_usuario = usuario['id_usuario'] if usuario else None
             AuditoriaDao().registrar(id_usuario, ci_ruc, 'CREDENCIALES_INVALIDAS', ip, 'LOGIN')
-            flash('CI/RUC o contraseña incorrectos.', 'danger')
+
+            # Mensaje genérico mientras no se bloquea, para no revelar si el CI/RUC existe
+            bloqueo = usuariodao.registrar_fallo(id_usuario) if usuario else None
+            if bloqueo and bloqueo['bloqueado']:
+                AuditoriaDao().registrar(id_usuario, ci_ruc, 'CUENTA_BLOQUEADA', ip, 'BLOQUEO')
+                flash(MENSAJE_CUENTA_BLOQUEADA, 'danger')
+            else:
+                flash('CI/RUC o contraseña incorrectos.', 'danger')
 
     return render_template('login.html')
 
@@ -59,6 +81,7 @@ def verificar_2fa():
             session['ci_ruc'] = usuario['ci_ruc']
             session['nombre_completo'] = usuario['nombre_completo']
 
+            UsuarioDao().reiniciar_intentos(usuario['id_usuario'])
             AuditoriaDao().registrar(usuario['id_usuario'], ci_ruc, 'EXITOSO', ip, 'LOGIN')
             flash('Inicio de sesión exitoso.', 'success')
             return redirect(url_for('vista.vistaIndex'))
