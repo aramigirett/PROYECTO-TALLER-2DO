@@ -1,13 +1,13 @@
 from flask import Blueprint, request, jsonify, current_app as app
 
 from app.dao.modulo_seguridad.AuditoriaDao import AuditoriaDao
-from app.rutas.modulo_seguridad.decorators import require_admin
+from app.rutas.modulo_seguridad.decorators import require_permiso
 
 auditoriaapi = Blueprint('auditoriaapi', __name__)
 
 
 @auditoriaapi.route('/auditoria/intentos', methods=['GET'])
-@require_admin
+@require_permiso('auditoria', 'ver')
 def getUltimosIntentos():
     limite = request.args.get('limite', default=200, type=int)
     try:

@@ -287,6 +287,19 @@ from app.rutas.modulo_consultorio.diagnostico.diagnostico_routes import diagnost
 app.register_blueprint(diagnosticos_medicos_mod, url_prefix=f'{modulo0}/diagnosticos-medicos')
 
 
+# ============================================
+# Accesibilidad (Roles y Permisos): puede() y el sidebar dinámico quedan
+# disponibles en todos los templates sin pasarlos a mano en cada render_template.
+# ============================================
+from app.rutas.modulo_seguridad.permisos_contexto import puede
+from app.rutas.modulo_seguridad.menu_catalog import agrupar_por_modulo_visible
+
+
+@app.context_processor
+def inject_permisos():
+    return dict(puede=puede, menu_agrupado=agrupar_por_modulo_visible())
+
+
 @app.route('/vista')
 def vista():
     return render_template('vista-index.html')

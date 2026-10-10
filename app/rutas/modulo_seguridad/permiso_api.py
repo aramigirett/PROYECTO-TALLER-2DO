@@ -3,124 +3,108 @@ from flask import Blueprint, request, jsonify, current_app as app
 from app.dao.modulo_seguridad.PermisoDao import PermisoDao
 from app.dao.modulo_seguridad.RolDao import RolDao
 from app.rutas.modulo_seguridad.decorators import require_admin
+from app.rutas.modulo_seguridad.menu_catalog import CATALOGO_MENU, MODULOS
 
 permisoapi = Blueprint('permisoapi', __name__)
 
 
 # -------------------------
-# Roles con cantidad de permisos (panel de solo lectura)
+# Roles que se pueden restringir desde la matriz (Administrador queda afuera:
+# siempre ve todo, no tiene sentido togglearle nada).
 # -------------------------
-@permisoapi.route('/roles-con-permisos', methods=['GET'])
+@permisoapi.route('/roles-restringibles', methods=['GET'])
 @require_admin
-def getRolesConPermisos():
+def getRolesRestringibles():
     try:
-        roles = RolDao().getRolesConConteoPermisos()
+        roles = [r for r in RolDao().getRoles() if r['nombre_rol'] != 'Administrador']
         return jsonify({'success': True, 'data': roles, 'error': None}), 200
     except Exception as e:
-        app.logger.error(f"Error al obtener roles con permisos: {str(e)}")
+        app.logger.error(f"Error al obtener roles restringibles: {str(e)}")
         return jsonify({'success': False, 'error': 'Ocurrió un error interno. Consulte con el administrador.'}), 500
 
 
 # -------------------------
-# Trae todos los permisos
+# Catálogo de ventanas/acciones agrupado por módulo, para dibujar la matriz
 # -------------------------
-@permisoapi.route('/permisos', methods=['GET'])
+@permisoapi.route('/permisos/catalogo', methods=['GET'])
 @require_admin
-def getPermisos():
+def getCatalogoPermisos():
     try:
-        permisos = PermisoDao().getPermisos()
-        return jsonify({'success': True, 'data': permisos, 'error': None}), 200
+        por_modulo = {}
+        for item in CATALOGO_MENU:
+            por_modulo.setdefault(item['modulo'], []).append({
+                'ventana': item['ventana'],
+                'etiqueta': item['etiqueta'],
+                'acciones': item['acciones'],
+            })
+
+        data = [
+            {'modulo': m['modulo'], 'ventanas': por_modulo[m['modulo']]}
+            for m in MODULOS
+            if m['modulo'] in por_modulo
+        ]
+        return jsonify({'success': True, 'data': data, 'error': None}), 200
     except Exception as e:
-        app.logger.error(f"Error al obtener todos los permisos: {str(e)}")
+        app.logger.error(f"Error al obtener catálogo de permisos: {str(e)}")
         return jsonify({'success': False, 'error': 'Ocurrió un error interno. Consulte con el administrador.'}), 500
 
 
 # -------------------------
-# Trae un permiso por ID
+# Permisos otorgados a un rol (para marcar los checkboxes ya activos)
 # -------------------------
-@permisoapi.route('/permisos/<int:id_permiso>', methods=['GET'])
+@permisoapi.route('/permisos/matriz/<int:id_rol>', methods=['GET'])
 @require_admin
-def getPermiso(id_permiso):
+def getMatrizRol(id_rol):
     try:
-        permiso = PermisoDao().getPermisoById(id_permiso)
-        if permiso:
-            return jsonify({'success': True, 'data': permiso, 'error': None}), 200
-        return jsonify({'success': False, 'error': 'No se encontró el permiso con el ID proporcionado.'}), 404
+        otorgados = PermisoDao().getPermisosDeRol(id_rol)
+        data = [{'ventana': ventana, 'accion': accion} for ventana, accion in sorted(otorgados)]
+        return jsonify({'success': True, 'data': data, 'error': None}), 200
     except Exception as e:
-        app.logger.error(f"Error al obtener permiso: {str(e)}")
+        app.logger.error(f"Error al obtener la matriz de permisos: {str(e)}")
         return jsonify({'success': False, 'error': 'Ocurrió un error interno. Consulte con el administrador.'}), 500
 
 
 # -------------------------
-# Agrega un nuevo permiso (Alta)
+# Togglear un permiso puntual: ON (otorgar)
 # -------------------------
-@permisoapi.route('/permisos', methods=['POST'])
+@permisoapi.route('/permisos/matriz', methods=['POST'])
 @require_admin
-def addPermiso():
+def otorgarPermiso():
     data = request.get_json() or {}
-    permisodao = PermisoDao()
-
-    nombre_permiso = (data.get('nombre_permiso') or '').strip()
-    descripcion = (data.get('descripcion') or '').strip() or None
     id_rol = data.get('id_rol')
+    ventana = data.get('ventana')
+    accion = data.get('accion')
 
-    if not nombre_permiso or not id_rol:
-        return jsonify({'success': False, 'error': 'El nombre del permiso y el rol son obligatorios.'}), 400
+    if not id_rol or not ventana or not accion:
+        return jsonify({'success': False, 'error': 'Rol, ventana y acción son obligatorios.'}), 400
 
     try:
-        if permisodao.existeDuplicado(id_rol, nombre_permiso):
-            return jsonify({'success': False, 'error': 'Ese rol ya tiene un permiso con ese nombre.'}), 400
-
-        id_permiso = permisodao.guardarPermiso(nombre_permiso, descripcion, id_rol)
-        if id_permiso:
-            return jsonify({'success': True, 'data': {'id_permiso': id_permiso}, 'error': None}), 201
-        return jsonify({'success': False, 'error': 'No se pudo guardar el permiso. Consulte con el administrador.'}), 500
+        if PermisoDao().otorgar(id_rol, ventana, accion):
+            return jsonify({'success': True, 'error': None}), 201
+        return jsonify({'success': False, 'error': 'No se pudo otorgar el permiso.'}), 500
     except Exception as e:
-        app.logger.error(f"Error al agregar permiso: {str(e)}")
+        app.logger.error(f"Error al otorgar permiso: {str(e)}")
         return jsonify({'success': False, 'error': 'Ocurrió un error interno. Consulte con el administrador.'}), 500
 
 
 # -------------------------
-# Actualiza un permiso (Modificación)
+# Togglear un permiso puntual: OFF (revocar)
 # -------------------------
-@permisoapi.route('/permisos/<int:id_permiso>', methods=['PUT'])
+@permisoapi.route('/permisos/matriz', methods=['DELETE'])
 @require_admin
-def updatePermiso(id_permiso):
+def revocarPermiso():
     data = request.get_json() or {}
-    permisodao = PermisoDao()
-
-    nombre_permiso = (data.get('nombre_permiso') or '').strip()
-    descripcion = (data.get('descripcion') or '').strip() or None
     id_rol = data.get('id_rol')
+    ventana = data.get('ventana')
+    accion = data.get('accion')
 
-    if not nombre_permiso or not id_rol:
-        return jsonify({'success': False, 'error': 'El nombre del permiso y el rol son obligatorios.'}), 400
+    if not id_rol or not ventana or not accion:
+        return jsonify({'success': False, 'error': 'Rol, ventana y acción son obligatorios.'}), 400
 
     try:
-        if not permisodao.getPermisoById(id_permiso):
-            return jsonify({'success': False, 'error': 'No se encontró el permiso con el ID proporcionado.'}), 404
-
-        if permisodao.existeDuplicado(id_rol, nombre_permiso, excluir_id=id_permiso):
-            return jsonify({'success': False, 'error': 'Ese rol ya tiene un permiso con ese nombre.'}), 400
-
-        if permisodao.updatePermiso(id_permiso, nombre_permiso, descripcion, id_rol):
-            return jsonify({'success': True, 'data': {'id_permiso': id_permiso}, 'error': None}), 200
-        return jsonify({'success': False, 'error': 'No se pudo actualizar el permiso.'}), 500
+        if PermisoDao().revocar(id_rol, ventana, accion):
+            return jsonify({'success': True, 'error': None}), 200
+        return jsonify({'success': False, 'error': 'No se pudo revocar el permiso.'}), 500
     except Exception as e:
-        app.logger.error(f"Error al actualizar permiso: {str(e)}")
-        return jsonify({'success': False, 'error': 'Ocurrió un error interno. Consulte con el administrador.'}), 500
-
-
-# -------------------------
-# Elimina un permiso (Baja física)
-# -------------------------
-@permisoapi.route('/permisos/<int:id_permiso>', methods=['DELETE'])
-@require_admin
-def deletePermiso(id_permiso):
-    try:
-        if PermisoDao().deletePermiso(id_permiso):
-            return jsonify({'success': True, 'mensaje': f'Permiso con ID {id_permiso} eliminado correctamente.', 'error': None}), 200
-        return jsonify({'success': False, 'error': 'No se encontró el permiso con el ID proporcionado o no se pudo eliminar.'}), 404
-    except Exception as e:
-        app.logger.error(f"Error al eliminar permiso: {str(e)}")
+        app.logger.error(f"Error al revocar permiso: {str(e)}")
         return jsonify({'success': False, 'error': 'Ocurrió un error interno. Consulte con el administrador.'}), 500

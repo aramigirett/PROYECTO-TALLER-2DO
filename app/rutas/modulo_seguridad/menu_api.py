@@ -1,10 +1,10 @@
 import unicodedata
 
-from flask import Blueprint, request, jsonify, session, url_for, current_app as app
+from flask import Blueprint, request, jsonify, url_for, current_app as app
 
-from app.dao.modulo_seguridad.PermisoDao import PermisoDao
 from app.rutas.modulo_seguridad.decorators import require_login
 from app.rutas.modulo_seguridad.menu_catalog import CATALOGO_MENU
+from app.rutas.modulo_seguridad.permisos_contexto import puede
 
 menuapi = Blueprint('menuapi', __name__)
 
@@ -24,18 +24,12 @@ def buscarMenu():
         return jsonify({'success': True, 'data': [], 'error': None}), 200
 
     try:
-        nombre_rol = session.get('nombre_rol')
-        es_admin = nombre_rol == 'Administrador'
-        permisos_rol = set() if es_admin else PermisoDao().getNombresPermisosPorRol(session.get('id_rol'))
-
         resultados = []
         for item in CATALOGO_MENU:
             if q not in _normalizar(item['etiqueta']):
                 continue
 
-            permiso_requerido = item['permiso_requerido']
-            puede_ver = es_admin or permiso_requerido is None or permiso_requerido in permisos_rol
-            if not puede_ver:
+            if not puede(item['ventana'], 'ver'):
                 continue
 
             resultados.append({

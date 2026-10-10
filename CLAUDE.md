@@ -388,6 +388,17 @@ etc.), nunca IDs crudos.
    confirmar que no haya otro `run.py` corriendo de una sesión anterior
    (pasó con 8 procesos zombie acumulados en una sesión larga).
 
+
+## Rediseño visual (en curso)
+- Login y Verificación 2FA ya rediseñados (Tabler/Bootstrap 5, tarjeta centrada,
+  panel azul marino con foto). Assets locales, sin CDN: app/static/vendor/tabler/,
+  img/login-fondo.png, img/2fa-fondo.png, img/logo-diente.png,
+  fonts/DancingScript.ttf.
+- El resto del sistema sigue en SB Admin 2 (Bootstrap 4). NO mezclar ambos
+  frameworks en una misma página.
+- "¿Olvidaste tu contraseña?" y "Reenviar código" no existen en el backend:
+  no implementarlos en la interfaz.
+  
 **Próximo módulo grande: Facturación** — todavía sin empezar.
 
 ## Pendiente de decidir a futuro: control de acceso en módulos grandes

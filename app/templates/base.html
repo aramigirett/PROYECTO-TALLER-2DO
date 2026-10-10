@@ -360,107 +360,28 @@
             <!-- Divider -->
             <hr class="sidebar-divider">
 
-            <!-- Nav Item - Agendamiento -->
+            <!-- Módulos: armados dinámicamente desde menu_catalog.py, filtrados
+                 por lo que el rol de la sesión actual puede ver (puede/menu_agrupado
+                 inyectados por el context_processor en app/__init__.py). -->
+            {% for modulo in menu_agrupado %}
             <li class="nav-item">
-                <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseAgendamiento"
-                    aria-expanded="false" aria-controls="collapseAgendamiento">
-                    <i class="fas fa-calendar-check"></i>
-                    <span class="text-wrap">Agendamiento</span>
+                <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseModulo{{ loop.index }}"
+                    aria-expanded="false" aria-controls="collapseModulo{{ loop.index }}">
+                    <i class="fas {{ modulo.icono }}"></i>
+                    <span class="text-wrap">{{ modulo.modulo }}</span>
                 </a>
-                <div id="collapseAgendamiento" class="collapse" aria-labelledby="headingAgendamiento"
-                    data-parent="#accordionSidebar">
+                <div id="collapseModulo{{ loop.index }}" class="collapse" data-parent="#accordionSidebar">
                     <div class="bg-white py-2 collapse-inner rounded">
-                        <a class="collapse-item" href="{{ url_for('agenda_bp.index') }}"><i class="fas fa-calendar-alt"></i> Registrar Agenda</a>
-                        <a class="collapse-item" href="{{ url_for('cita.citaIndex') }}"><i class="fas fa-book"></i> Registrar Citas</a>
-                        <a class="collapse-item" href="{{ url_for('avisos_bp.avisos_recordatorios') }}"><i class="fas fa-bell"></i> Registrar Avisos</a>
-                        <a class="collapse-item" href="{{ url_for('paciente.pacienteIndex') }}"><i class="fas fa-user-injured"></i> Registrar Pacientes</a>
-                        <a class="collapse-item" href="{{ url_for('funcionario.funcionarioIndex') }}"><i class="fas fa-users"></i> Registrar Funcionario</a>
-                        <a class="collapse-item" href="{{ url_for('medico.medicoIndex') }}"><i class="fas fa-stethoscope"></i> Registrar Médicos</a>
-                    </div>
-                </div>
-            </li>
-
-            <!-- Nav Item - Referenciales Agendamiento -->
-            <li class="nav-item">
-                <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseRefAgendamiento"
-                    aria-expanded="false" aria-controls="collapseRefAgendamiento">
-                    <i class="fas fa-file-alt"></i>
-                    <span>Referenciales Agendamiento</span>
-                </a>
-                <div id="collapseRefAgendamiento" class="collapse" aria-labelledby="headingRefAgendamiento" data-parent="#accordionSidebar">
-                    <div class="bg-white py-2 collapse-inner rounded">
-                        <a class="collapse-item" href="{{ url_for('ciudad.ciudadIndex') }}"><i class="fas fa-map-marker-alt"></i> Ciudad</a>
-                        <a class="collapse-item" href="{{ url_for('cargo.cargoIndex') }}"><i class="fas fa-briefcase"></i> Cargo</a>
-                        <a class="collapse-item" href="{{ url_for('consultorio.consultorioIndex') }}"><i class="fas fa-clinic-medical"></i> Consultorio</a>
-                        <a class="collapse-item" href="{{ url_for('disponibilidad.disponibilidadIndex') }}"><i class="fas fa-clock"></i> Disponibilidad Horaria</a>
-                        <a class="collapse-item" href="{{ url_for('especialidad.especialidadIndex') }}"><i class="fas fa-certificate"></i> Especialidad</a>
-                        <a class="collapse-item" href="{{ url_for('dia.diaIndex') }}"><i class="fas fa-sun"></i> Día</a>
-                        <a class="collapse-item" href="{{ url_for('turno.turnoIndex') }}"><i class="fas fa-hourglass"></i> Turno</a>
-                    </div>
-                </div>
-            </li>
-
-            <!-- Nav Item - Referenciales Consultorio -->
-            <li class="nav-item">
-                <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseRefConsultorio"
-                    aria-expanded="false" aria-controls="collapseRefConsultorio">
-                    <i class="fas fa-file-alt"></i>
-                    <span>Referenciales Consultorio</span>
-                </a>
-                <div id="collapseRefConsultorio" class="collapse" aria-labelledby="headingRefConsultorio" data-parent="#accordionSidebar">
-                    <div class="bg-white py-2 collapse-inner rounded">
-                        <a class="collapse-item" href="{{ url_for('tipodiagnostico.tipoDiagnosticoIndex') }}"><i class="fas fa-microscope"></i> Tipo diagnóstico</a>
-                        <a class="collapse-item" href="{{ url_for('sintoma.sintomaIndex') }}"><i class="fas fa-heartbeat"></i> Síntomas</a>
-                        <a class="collapse-item" href="{{ url_for('tipotratamiento.tipoTratamientoIndex') }}"><i class="fas fa-notes-medical"></i> Tipo Tratamiento</a>
-                        <a class="collapse-item" href="{{ url_for('tipoinsumo.tipoInsumoIndex') }}"><i class="fas fa-box-open"></i> Tipo Insumo Utilizado</a>
-                        <a class="collapse-item" href="{{ url_for('tipoprocedimientomedico.tipoProcedimientoMedicoIndex') }}"><i class="fas fa-syringe"></i> Tipo Procedimiento Médico</a>
-                        <a class="collapse-item" href="{{ url_for('medicamento.medicamentoIndex') }}"><i class="fas fa-pills"></i> Medicamentos</a>
-                        <a class="collapse-item" href="{{ url_for('tipoestudio.tipoEstudioIndex') }}"><i class="fas fa-x-ray"></i> Tipo Estudio</a>
-                        <a class="collapse-item" href="{{ url_for('tipoanalisis.tipoAnalisisIndex') }}"><i class="fas fa-vial"></i> Tipo Análisis</a>
-                    </div>
-                </div>
-            </li>
-
-            <!-- Nav Item - Módulo Consultorio -->
-            <li class="nav-item">
-                <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseModuloConsultorio"
-                    aria-expanded="false" aria-controls="collapseModuloConsultorio">
-                    <i class="fas fa-file-medical"></i>
-                    <span>Módulo Consultorio</span>
-                </a>
-                <div id="collapseModuloConsultorio" class="collapse" aria-labelledby="headingModuloConsultorio" data-parent="#accordionSidebar">
-                    <div class="bg-white py-2 collapse-inner rounded">
-                        <a class="collapse-item" href="{{ url_for('consulta.consultaIndex') }}"><i class="fas fa-stethoscope"></i> Registrar Consulta</a>
-                        <a class="collapse-item" href="{{ url_for('fichamedica.fichaMedicaIndex') }}"><i class="fas fa-file-medical-alt"></i> Gestión Fichas Médicas</a>
-                        <a class="collapse-item" href="{{ url_for('diagnostico_medico.diagnosticoIndex') }}"><i class="fas fa-diagnoses"></i> Gestión Diagnósticos</a>
-                        <a class="collapse-item" href="{{ url_for('historial.historialIndex') }}"><i class="fas fa-history"></i> Historial Médico</a>
-                        <a class="collapse-item" href="{{ url_for('odontograma.odontogramaIndex') }}"><i class="fas fa-teeth"></i> Registrar Odontograma</a>
-                        <a class="collapse-item" href="{{ url_for('tratamiento.tratamientoIndex') }}"><i class="fas fa-prescription-bottle-alt"></i> Gestionar Tratamientos</a>
-                        <a class="collapse-item" href="{{ url_for('receta.recetaIndex') }}"><i class="fas fa-prescription"></i> Generar Recetas e Indicaciones</a>
-                        <a class="collapse-item" href="{{ url_for('ordenestudio.ordenEstudioIndex') }}"><i class="fas fa-vial"></i> Generar Orden de Estudios</a>
-                        <a class="collapse-item" href="{{ url_for('ordenanalisis.ordenAnalisisIndex') }}"><i class="fas fa-flask"></i> Generar Orden de Análisis</a>
-                        <a class="collapse-item" href="{{ url_for('justificativomedico.justificativoMedicoIndex') }}"><i class="fas fa-file-signature"></i> Generar Justificativo Médico</a>
-                    </div>
-                </div>
-            </li>
-
-            <!-- Nav Item - Módulo Seguridad -->
-            <li class="nav-item">
-                <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseModuloSeguridad"
-                    aria-expanded="false" aria-controls="collapseModuloSeguridad">
-                    <i class="fas fa-user-shield"></i>
-                    <span>Módulo Seguridad</span>
-                </a>
-                <div id="collapseModuloSeguridad" class="collapse" aria-labelledby="headingModuloSeguridad" data-parent="#accordionSidebar">
-                    <div class="bg-white py-2 collapse-inner rounded">
-                        {% if session.get('nombre_rol') == 'Administrador' %}
-                        <a class="collapse-item" href="{{ url_for('usuario.usuarioIndex') }}"><i class="fas fa-users-cog"></i> Gestión de Usuarios</a>
+                        {% for item in modulo.items %}
+                        <a class="collapse-item" href="{{ url_for(item.endpoint) }}"><i class="fas {{ item.icono }}"></i> {{ item.etiqueta }}</a>
+                        {% endfor %}
+                        {% if modulo.modulo == 'Módulo Seguridad' and session.get('nombre_rol') == 'Administrador' %}
                         <a class="collapse-item" href="{{ url_for('permiso.permisoIndex') }}"><i class="fas fa-key"></i> Roles y Permisos</a>
-                        <a class="collapse-item" href="{{ url_for('auditoria.auditoriaIndex') }}"><i class="fas fa-shield-alt"></i> Tablero de Administrador</a>
                         {% endif %}
                     </div>
                 </div>
             </li>
+            {% endfor %}
 
             <!-- Divider -->
             <hr class="sidebar-divider">

@@ -1,55 +1,100 @@
-# Catálogo fijo de pantallas buscables desde el buscador general (CUS "Mantener Menú").
-# Cada entrada: etiqueta visible, endpoint de Flask (para url_for), ícono FontAwesome,
-# módulo al que pertenece (para agrupar en el resultado) y permiso_requerido.
+# Catálogo único de pantallas del sistema. De acá salen, dinámicamente:
+# el sidebar de base.html, el buscador general (CUS "Mantener Menú") y las
+# filas de la matriz de "Roles y Permisos" (CUS "Mantener Acceso" -
+# Accesibilidad). Agregar una pantalla nueva = una entrada acá.
 #
-# permiso_requerido = None  -> visible para cualquier usuario logueado (hoy estas
-#   pantallas no tienen restricción de rol en el código).
-# permiso_requerido = "<nombre>" -> solo visible si el rol del usuario tiene ese
-#   permiso cargado en la tabla `permisos`, o si el usuario es Administrador
-#   (Administrador siempre ve todo, igual que con @require_admin).
+# Cada entrada:
+#   etiqueta   -> texto visible
+#   endpoint   -> endpoint de Flask (para url_for)
+#   icono      -> clase FontAwesome
+#   modulo     -> agrupador visual (debe existir en MODULOS, más abajo)
+#   ventana    -> clave estable usada en la tabla `permisos` (rol+ventana+accion)
+#   acciones   -> subconjunto de ('ver','nuevo','editar','anular') que expone
+#                 esa ventana. 'ver' siempre debe estar. 'editar' solo en las
+#                 ventanas donde el CUS lo contempla explícitamente (hoy:
+#                 Ficha Médica y las referenciales). Los movimientos
+#                 clínicos/de agendamiento son ver+nuevo+anular por defecto.
+#
+# NOTA: "Roles y Permisos" (matriz) NO está en este catálogo a propósito:
+# queda siempre exclusiva de Administrador vía @require_admin, fuera del
+# mecanismo de permisos delegables, para que nadie pueda autoconcederse
+# acceso. Sigue teniendo su link fijo en el sidebar (ver base.html).
+#
+# NOTA 2: las acciones de Paciente/Funcionario/Médico/Agenda/Cita/Avisos/
+# Historial/Consulta/Odontograma quedaron en ver+nuevo+anular (regla por
+# defecto) aunque sus API exponen un PUT real hoy sin gatear. Se revisa y
+# se decide si necesitan 'editar' propio cuando se cablee el decorator en
+# la etapa de ese módulo (Agendamiento / Consultorio), no antes.
+
+MODULOS = [
+    {"modulo": "Agendamiento", "icono": "fa-calendar-check"},
+    {"modulo": "Referenciales Agendamiento", "icono": "fa-file-alt"},
+    {"modulo": "Referenciales Consultorio", "icono": "fa-file-alt"},
+    {"modulo": "Módulo Consultorio", "icono": "fa-file-medical"},
+    {"modulo": "Módulo Seguridad", "icono": "fa-user-shield"},
+]
 
 CATALOGO_MENU = [
     # Agendamiento
-    {"etiqueta": "Registrar Agenda", "endpoint": "agenda_bp.index", "icono": "fa-calendar-alt", "modulo": "Agendamiento", "permiso_requerido": None},
-    {"etiqueta": "Registrar Citas", "endpoint": "cita.citaIndex", "icono": "fa-book", "modulo": "Agendamiento", "permiso_requerido": None},
-    {"etiqueta": "Registrar Avisos", "endpoint": "avisos_bp.avisos_recordatorios", "icono": "fa-bell", "modulo": "Agendamiento", "permiso_requerido": None},
-    {"etiqueta": "Registrar Pacientes", "endpoint": "paciente.pacienteIndex", "icono": "fa-user-injured", "modulo": "Agendamiento", "permiso_requerido": None},
-    {"etiqueta": "Registrar Funcionario", "endpoint": "funcionario.funcionarioIndex", "icono": "fa-users", "modulo": "Agendamiento", "permiso_requerido": None},
-    {"etiqueta": "Registrar Médicos", "endpoint": "medico.medicoIndex", "icono": "fa-stethoscope", "modulo": "Agendamiento", "permiso_requerido": None},
+    {"etiqueta": "Registrar Agenda", "endpoint": "agenda_bp.index", "icono": "fa-calendar-alt", "modulo": "Agendamiento", "ventana": "agenda", "acciones": ["ver", "nuevo", "anular"]},
+    {"etiqueta": "Registrar Citas", "endpoint": "cita.citaIndex", "icono": "fa-book", "modulo": "Agendamiento", "ventana": "cita", "acciones": ["ver", "nuevo", "anular"]},
+    {"etiqueta": "Registrar Avisos", "endpoint": "avisos_bp.avisos_recordatorios", "icono": "fa-bell", "modulo": "Agendamiento", "ventana": "avisos", "acciones": ["ver", "nuevo", "anular"]},
+    {"etiqueta": "Registrar Pacientes", "endpoint": "paciente.pacienteIndex", "icono": "fa-user-injured", "modulo": "Agendamiento", "ventana": "paciente", "acciones": ["ver", "nuevo", "anular"]},
+    {"etiqueta": "Registrar Funcionario", "endpoint": "funcionario.funcionarioIndex", "icono": "fa-users", "modulo": "Agendamiento", "ventana": "funcionario", "acciones": ["ver", "nuevo", "anular"]},
+    {"etiqueta": "Registrar Médicos", "endpoint": "medico.medicoIndex", "icono": "fa-stethoscope", "modulo": "Agendamiento", "ventana": "medico", "acciones": ["ver", "nuevo", "anular"]},
 
     # Referenciales Agendamiento
-    {"etiqueta": "Ciudad", "endpoint": "ciudad.ciudadIndex", "icono": "fa-map-marker-alt", "modulo": "Referenciales Agendamiento", "permiso_requerido": None},
-    {"etiqueta": "Cargo", "endpoint": "cargo.cargoIndex", "icono": "fa-briefcase", "modulo": "Referenciales Agendamiento", "permiso_requerido": None},
-    {"etiqueta": "Consultorio", "endpoint": "consultorio.consultorioIndex", "icono": "fa-clinic-medical", "modulo": "Referenciales Agendamiento", "permiso_requerido": None},
-    {"etiqueta": "Disponibilidad Horaria", "endpoint": "disponibilidad.disponibilidadIndex", "icono": "fa-clock", "modulo": "Referenciales Agendamiento", "permiso_requerido": None},
-    {"etiqueta": "Especialidad", "endpoint": "especialidad.especialidadIndex", "icono": "fa-certificate", "modulo": "Referenciales Agendamiento", "permiso_requerido": None},
-    {"etiqueta": "Día", "endpoint": "dia.diaIndex", "icono": "fa-sun", "modulo": "Referenciales Agendamiento", "permiso_requerido": None},
-    {"etiqueta": "Turno", "endpoint": "turno.turnoIndex", "icono": "fa-hourglass", "modulo": "Referenciales Agendamiento", "permiso_requerido": None},
+    {"etiqueta": "Ciudad", "endpoint": "ciudad.ciudadIndex", "icono": "fa-map-marker-alt", "modulo": "Referenciales Agendamiento", "ventana": "ciudad", "acciones": ["ver", "nuevo", "editar", "anular"]},
+    {"etiqueta": "Cargo", "endpoint": "cargo.cargoIndex", "icono": "fa-briefcase", "modulo": "Referenciales Agendamiento", "ventana": "cargo", "acciones": ["ver", "nuevo", "editar", "anular"]},
+    {"etiqueta": "Consultorio", "endpoint": "consultorio.consultorioIndex", "icono": "fa-clinic-medical", "modulo": "Referenciales Agendamiento", "ventana": "consultorio", "acciones": ["ver", "nuevo", "editar", "anular"]},
+    {"etiqueta": "Disponibilidad Horaria", "endpoint": "disponibilidad.disponibilidadIndex", "icono": "fa-clock", "modulo": "Referenciales Agendamiento", "ventana": "disponibilidad", "acciones": ["ver", "nuevo", "editar", "anular"]},
+    {"etiqueta": "Especialidad", "endpoint": "especialidad.especialidadIndex", "icono": "fa-certificate", "modulo": "Referenciales Agendamiento", "ventana": "especialidad", "acciones": ["ver", "nuevo", "editar", "anular"]},
+    {"etiqueta": "Día", "endpoint": "dia.diaIndex", "icono": "fa-sun", "modulo": "Referenciales Agendamiento", "ventana": "dia", "acciones": ["ver", "nuevo", "editar", "anular"]},
+    {"etiqueta": "Turno", "endpoint": "turno.turnoIndex", "icono": "fa-hourglass", "modulo": "Referenciales Agendamiento", "ventana": "turno", "acciones": ["ver", "nuevo", "editar", "anular"]},
 
     # Referenciales Consultorio
-    {"etiqueta": "Tipo diagnóstico", "endpoint": "tipodiagnostico.tipoDiagnosticoIndex", "icono": "fa-microscope", "modulo": "Referenciales Consultorio", "permiso_requerido": None},
-    {"etiqueta": "Síntomas", "endpoint": "sintoma.sintomaIndex", "icono": "fa-heartbeat", "modulo": "Referenciales Consultorio", "permiso_requerido": None},
-    {"etiqueta": "Tipo Tratamiento", "endpoint": "tipotratamiento.tipoTratamientoIndex", "icono": "fa-notes-medical", "modulo": "Referenciales Consultorio", "permiso_requerido": None},
-    {"etiqueta": "Tipo Insumo Utilizado", "endpoint": "tipoinsumo.tipoInsumoIndex", "icono": "fa-box-open", "modulo": "Referenciales Consultorio", "permiso_requerido": None},
-    {"etiqueta": "Tipo Procedimiento Médico", "endpoint": "tipoprocedimientomedico.tipoProcedimientoMedicoIndex", "icono": "fa-syringe", "modulo": "Referenciales Consultorio", "permiso_requerido": None},
-    {"etiqueta": "Medicamentos", "endpoint": "medicamento.medicamentoIndex", "icono": "fa-pills", "modulo": "Referenciales Consultorio", "permiso_requerido": None},
-    {"etiqueta": "Tipo Estudio", "endpoint": "tipoestudio.tipoEstudioIndex", "icono": "fa-x-ray", "modulo": "Referenciales Consultorio", "permiso_requerido": None},
-    {"etiqueta": "Tipo Análisis", "endpoint": "tipoanalisis.tipoAnalisisIndex", "icono": "fa-vial", "modulo": "Referenciales Consultorio", "permiso_requerido": None},
+    {"etiqueta": "Tipo diagnóstico", "endpoint": "tipodiagnostico.tipoDiagnosticoIndex", "icono": "fa-microscope", "modulo": "Referenciales Consultorio", "ventana": "tipodiagnostico", "acciones": ["ver", "nuevo", "editar", "anular"]},
+    {"etiqueta": "Síntomas", "endpoint": "sintoma.sintomaIndex", "icono": "fa-heartbeat", "modulo": "Referenciales Consultorio", "ventana": "sintoma", "acciones": ["ver", "nuevo", "editar", "anular"]},
+    {"etiqueta": "Tipo Tratamiento", "endpoint": "tipotratamiento.tipoTratamientoIndex", "icono": "fa-notes-medical", "modulo": "Referenciales Consultorio", "ventana": "tipotratamiento", "acciones": ["ver", "nuevo", "editar", "anular"]},
+    {"etiqueta": "Tipo Insumo Utilizado", "endpoint": "tipoinsumo.tipoInsumoIndex", "icono": "fa-box-open", "modulo": "Referenciales Consultorio", "ventana": "tipoinsumo", "acciones": ["ver", "nuevo", "editar", "anular"]},
+    {"etiqueta": "Tipo Procedimiento Médico", "endpoint": "tipoprocedimientomedico.tipoProcedimientoMedicoIndex", "icono": "fa-syringe", "modulo": "Referenciales Consultorio", "ventana": "tipoprocedimientomedico", "acciones": ["ver", "nuevo", "editar", "anular"]},
+    {"etiqueta": "Medicamentos", "endpoint": "medicamento.medicamentoIndex", "icono": "fa-pills", "modulo": "Referenciales Consultorio", "ventana": "medicamento", "acciones": ["ver", "nuevo", "editar", "anular"]},
+    {"etiqueta": "Tipo Estudio", "endpoint": "tipoestudio.tipoEstudioIndex", "icono": "fa-x-ray", "modulo": "Referenciales Consultorio", "ventana": "tipoestudio", "acciones": ["ver", "nuevo", "editar", "anular"]},
+    {"etiqueta": "Tipo Análisis", "endpoint": "tipoanalisis.tipoAnalisisIndex", "icono": "fa-vial", "modulo": "Referenciales Consultorio", "ventana": "tipoanalisis", "acciones": ["ver", "nuevo", "editar", "anular"]},
 
     # Módulo Consultorio
-    {"etiqueta": "Registrar Consulta", "endpoint": "consulta.consultaIndex", "icono": "fa-stethoscope", "modulo": "Módulo Consultorio", "permiso_requerido": None},
-    {"etiqueta": "Gestión Fichas Médicas", "endpoint": "fichamedica.fichaMedicaIndex", "icono": "fa-file-medical-alt", "modulo": "Módulo Consultorio", "permiso_requerido": None},
-    {"etiqueta": "Gestión Diagnósticos", "endpoint": "diagnostico_medico.diagnosticoIndex", "icono": "fa-diagnoses", "modulo": "Módulo Consultorio", "permiso_requerido": None},
-    {"etiqueta": "Historial Médico", "endpoint": "historial.historialIndex", "icono": "fa-history", "modulo": "Módulo Consultorio", "permiso_requerido": None},
-    {"etiqueta": "Registrar Odontograma", "endpoint": "odontograma.odontogramaIndex", "icono": "fa-teeth", "modulo": "Módulo Consultorio", "permiso_requerido": None},
-    {"etiqueta": "Gestionar Tratamientos", "endpoint": "tratamiento.tratamientoIndex", "icono": "fa-prescription-bottle-alt", "modulo": "Módulo Consultorio", "permiso_requerido": None},
-    {"etiqueta": "Generar Recetas e Indicaciones", "endpoint": "receta.recetaIndex", "icono": "fa-prescription", "modulo": "Módulo Consultorio", "permiso_requerido": None},
-    {"etiqueta": "Generar Orden de Estudios", "endpoint": "ordenestudio.ordenEstudioIndex", "icono": "fa-vial", "modulo": "Módulo Consultorio", "permiso_requerido": None},
-    {"etiqueta": "Generar Orden de Análisis", "endpoint": "ordenanalisis.ordenAnalisisIndex", "icono": "fa-flask", "modulo": "Módulo Consultorio", "permiso_requerido": None},
-    {"etiqueta": "Generar Justificativo Médico", "endpoint": "justificativomedico.justificativoMedicoIndex", "icono": "fa-file-signature", "modulo": "Módulo Consultorio", "permiso_requerido": None},
+    {"etiqueta": "Registrar Consulta", "endpoint": "consulta.consultaIndex", "icono": "fa-stethoscope", "modulo": "Módulo Consultorio", "ventana": "consulta", "acciones": ["ver", "nuevo", "anular"]},
+    {"etiqueta": "Gestión Fichas Médicas", "endpoint": "fichamedica.fichaMedicaIndex", "icono": "fa-file-medical-alt", "modulo": "Módulo Consultorio", "ventana": "fichamedica", "acciones": ["ver", "editar", "anular"]},
+    {"etiqueta": "Gestión Diagnósticos", "endpoint": "diagnostico_medico.diagnosticoIndex", "icono": "fa-diagnoses", "modulo": "Módulo Consultorio", "ventana": "diagnostico", "acciones": ["ver", "nuevo", "anular"]},
+    {"etiqueta": "Historial Médico", "endpoint": "historial.historialIndex", "icono": "fa-history", "modulo": "Módulo Consultorio", "ventana": "historial", "acciones": ["ver", "nuevo", "anular"]},
+    {"etiqueta": "Registrar Odontograma", "endpoint": "odontograma.odontogramaIndex", "icono": "fa-teeth", "modulo": "Módulo Consultorio", "ventana": "odontograma", "acciones": ["ver", "nuevo", "anular"]},
+    {"etiqueta": "Gestionar Tratamientos", "endpoint": "tratamiento.tratamientoIndex", "icono": "fa-prescription-bottle-alt", "modulo": "Módulo Consultorio", "ventana": "tratamiento", "acciones": ["ver", "nuevo", "anular"]},
+    {"etiqueta": "Generar Recetas e Indicaciones", "endpoint": "receta.recetaIndex", "icono": "fa-prescription", "modulo": "Módulo Consultorio", "ventana": "receta", "acciones": ["ver", "nuevo", "anular"]},
+    {"etiqueta": "Generar Orden de Estudios", "endpoint": "ordenestudio.ordenEstudioIndex", "icono": "fa-vial", "modulo": "Módulo Consultorio", "ventana": "ordenestudio", "acciones": ["ver", "nuevo", "anular"]},
+    {"etiqueta": "Generar Orden de Análisis", "endpoint": "ordenanalisis.ordenAnalisisIndex", "icono": "fa-flask", "modulo": "Módulo Consultorio", "ventana": "ordenanalisis", "acciones": ["ver", "nuevo", "anular"]},
+    {"etiqueta": "Generar Justificativo Médico", "endpoint": "justificativomedico.justificativoMedicoIndex", "icono": "fa-file-signature", "modulo": "Módulo Consultorio", "ventana": "justificativomedico", "acciones": ["ver", "nuevo", "anular"]},
 
-    # Módulo Seguridad (restringidas por permiso, salvo Administrador)
-    {"etiqueta": "Gestión de Usuarios", "endpoint": "usuario.usuarioIndex", "icono": "fa-users-cog", "modulo": "Módulo Seguridad", "permiso_requerido": "gestionar_usuarios"},
-    {"etiqueta": "Roles y Permisos", "endpoint": "permiso.permisoIndex", "icono": "fa-key", "modulo": "Módulo Seguridad", "permiso_requerido": "gestionar_permisos"},
-    {"etiqueta": "Tablero de Administrador", "endpoint": "auditoria.auditoriaIndex", "icono": "fa-shield-alt", "modulo": "Módulo Seguridad", "permiso_requerido": "ver_auditoria"},
+    # Módulo Seguridad
+    {"etiqueta": "Gestión de Usuarios", "endpoint": "usuario.usuarioIndex", "icono": "fa-users-cog", "modulo": "Módulo Seguridad", "ventana": "usuario", "acciones": ["ver", "nuevo", "editar", "anular"]},
+    {"etiqueta": "Tablero de Administrador", "endpoint": "auditoria.auditoriaIndex", "icono": "fa-shield-alt", "modulo": "Módulo Seguridad", "ventana": "auditoria", "acciones": ["ver"]},
 ]
+
+
+def agrupar_por_modulo_visible():
+    """
+    Agrupa CATALOGO_MENU por módulo (respetando el orden de MODULOS),
+    filtrando a las ventanas donde el rol de la sesión actual tiene 'ver'.
+    Usado por el context_processor para armar el sidebar dinámico.
+    """
+    from app.rutas.modulo_seguridad.permisos_contexto import puede
+
+    visibles = [item for item in CATALOGO_MENU if puede(item['ventana'], 'ver')]
+    por_modulo = {}
+    for item in visibles:
+        por_modulo.setdefault(item['modulo'], []).append(item)
+
+    return [
+        {**modulo, "items": por_modulo[modulo['modulo']]}
+        for modulo in MODULOS
+        if modulo['modulo'] in por_modulo
+    ]

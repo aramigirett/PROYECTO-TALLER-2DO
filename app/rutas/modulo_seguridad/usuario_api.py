@@ -4,7 +4,7 @@ from flask import Blueprint, request, jsonify, current_app as app
 
 from app.dao.modulo_seguridad.UsuarioDao import UsuarioDao
 from app.dao.modulo_seguridad.RolDao import RolDao
-from app.rutas.modulo_seguridad.decorators import require_admin
+from app.rutas.modulo_seguridad.decorators import require_permiso
 
 usuarioapi = Blueprint('usuarioapi', __name__)
 
@@ -25,7 +25,7 @@ def _validar_persona(id_funcionario, id_medico):
 # Roles (para el combo del formulario)
 # -------------------------
 @usuarioapi.route('/roles', methods=['GET'])
-@require_admin
+@require_permiso('usuario', 'ver')
 def getRoles():
     try:
         roles = RolDao().getRoles()
@@ -39,7 +39,7 @@ def getRoles():
 # Personas disponibles para vincular
 # -------------------------
 @usuarioapi.route('/usuarios/funcionarios-disponibles', methods=['GET'])
-@require_admin
+@require_permiso('usuario', 'ver')
 def getFuncionariosDisponibles():
     excluir_usuario = request.args.get('excluir_usuario', type=int)
     try:
@@ -51,7 +51,7 @@ def getFuncionariosDisponibles():
 
 
 @usuarioapi.route('/usuarios/medicos-disponibles', methods=['GET'])
-@require_admin
+@require_permiso('usuario', 'ver')
 def getMedicosDisponibles():
     excluir_usuario = request.args.get('excluir_usuario', type=int)
     try:
@@ -66,7 +66,7 @@ def getMedicosDisponibles():
 # Trae todos los usuarios
 # -------------------------
 @usuarioapi.route('/usuarios', methods=['GET'])
-@require_admin
+@require_permiso('usuario', 'ver')
 def getUsuarios():
     try:
         usuarios = UsuarioDao().getUsuarios()
@@ -80,7 +80,7 @@ def getUsuarios():
 # Trae un usuario por ID
 # -------------------------
 @usuarioapi.route('/usuarios/<int:id_usuario>', methods=['GET'])
-@require_admin
+@require_permiso('usuario', 'ver')
 def getUsuario(id_usuario):
     try:
         usuario = UsuarioDao().getUsuarioById(id_usuario)
@@ -96,7 +96,7 @@ def getUsuario(id_usuario):
 # Agrega un nuevo usuario (Alta)
 # -------------------------
 @usuarioapi.route('/usuarios', methods=['POST'])
-@require_admin
+@require_permiso('usuario', 'nuevo')
 def addUsuario():
     data = request.get_json() or {}
     usuariodao = UsuarioDao()
@@ -141,7 +141,7 @@ def addUsuario():
 # Actualiza un usuario (Modificación)
 # -------------------------
 @usuarioapi.route('/usuarios/<int:id_usuario>', methods=['PUT'])
-@require_admin
+@require_permiso('usuario', 'editar')
 def updateUsuario(id_usuario):
     data = request.get_json() or {}
     usuariodao = UsuarioDao()
@@ -192,7 +192,7 @@ def updateUsuario(id_usuario):
 # Baja (desactivar) un usuario
 # -------------------------
 @usuarioapi.route('/usuarios/<int:id_usuario>', methods=['DELETE'])
-@require_admin
+@require_permiso('usuario', 'anular')
 def bajaUsuario(id_usuario):
     try:
         if UsuarioDao().cambiarEstado(id_usuario, False):
@@ -207,7 +207,7 @@ def bajaUsuario(id_usuario):
 # Reactivar un usuario dado de baja
 # -------------------------
 @usuarioapi.route('/usuarios/<int:id_usuario>/reactivar', methods=['PATCH'])
-@require_admin
+@require_permiso('usuario', 'anular')
 def reactivarUsuario(id_usuario):
     try:
         if UsuarioDao().cambiarEstado(id_usuario, True):
