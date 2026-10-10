@@ -11,7 +11,7 @@ Tipos de Procedimiento Médico
   <!-- Tarjeta -->
   <div class="card">
     <div class="card-header">
-      <button type="button" class="btn btn-outline-primary" id="btnAgregar">Agregar</button>
+      {% if puede('tipoprocedimientomedico','nuevo') %}<button type="button" class="btn btn-outline-primary" id="btnAgregar">Agregar</button>{% endif %}
     </div>
     <div class="card-body">
       <div class="table-responsive">
@@ -80,8 +80,8 @@ Tipos de Procedimiento Médico
       columns: [
         { data: 'descripcion' },
         { data: function(row) {
-            return `<button type="button" name="btn_editar" class="btn btn-info" data-id="${row.id_tipo_procedimiento}" title="Editar"><i class="fas fa-edit"></i></button>
-                    <button type="button" name="btn_eliminar" class="btn btn-danger" data-id="${row.id_tipo_procedimiento}" title="Eliminar"><i class="fas fa-trash-alt"></i></button>`
+            return `{% if puede('tipoprocedimientomedico','editar') %}<button type="button" name="btn_editar" class="btn btn-info" data-id="${row.id_tipo_procedimiento}" title="Editar"><i class="fas fa-edit"></i></button>{% endif %}
+                    {% if puede('tipoprocedimientomedico','anular') %}<button type="button" name="btn_eliminar" class="btn btn-danger" data-id="${row.id_tipo_procedimiento}" title="Eliminar"><i class="fas fa-trash-alt"></i></button>{% endif %}`
           }
         }
       ]

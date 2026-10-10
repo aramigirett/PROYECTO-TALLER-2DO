@@ -1,10 +1,12 @@
 from flask import Blueprint, request, jsonify, current_app as app
 from app.dao.referenciales.especialidad.EspecialidadDao import EspecialidadDao
+from app.rutas.modulo_seguridad.decorators import require_permiso, require_login
 
 especiapi = Blueprint('especiapi', __name__)
 
 # Trae todas las especialidades
 @especiapi.route('/especialidades', methods=['GET'])
+@require_login  # lookup: alimenta combos de otras pantallas
 def getEspecialidades():
     especialidaddao = EspecialidadDao()
     try:
@@ -22,6 +24,7 @@ def getEspecialidades():
         }), 500
 
 @especiapi.route('/especialidades/<int:id_especialidad>', methods=['GET'])
+@require_permiso('especialidad', 'ver')
 def getEspecialidad(id_especialidad):
     especialidaddao = EspecialidadDao()
     try:
@@ -46,6 +49,7 @@ def getEspecialidad(id_especialidad):
 
 # Agrega una nueva especialidad
 @especiapi.route('/especialidades', methods=['POST'])
+@require_permiso('especialidad', 'nuevo')
 def addEspecialidad():
     data = request.get_json()
     especialidaddao = EspecialidadDao()
@@ -78,6 +82,7 @@ def addEspecialidad():
         }), 500
 
 @especiapi.route('/especialidades/<int:id_especialidad>', methods=['PUT'])
+@require_permiso('especialidad', 'editar')
 def updateEspecialidad(id_especialidad):
     data = request.get_json()
     especialidaddao = EspecialidadDao()
@@ -109,6 +114,7 @@ def updateEspecialidad(id_especialidad):
         }), 500
 
 @especiapi.route('/especialidades/<int:id_especialidad>', methods=['DELETE'])
+@require_permiso('especialidad', 'anular')
 def deleteEspecialidad(id_especialidad):
     especialidaddao = EspecialidadDao()
     try:

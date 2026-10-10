@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify, current_app as app
 from app.dao.referenciales.dia.DiaDao import DiaDao
+from app.rutas.modulo_seguridad.decorators import require_permiso, require_login
 
 diaapi = Blueprint('diaapi', __name__)
 
@@ -8,6 +9,7 @@ DIAS_VALIDOS = ['LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES']
 
 # Trae todos los días
 @diaapi.route('/dias', methods=['GET'])
+@require_login  # lookup: alimenta combos de otras pantallas
 def getDias():
     diadao = DiaDao()
 
@@ -28,6 +30,7 @@ def getDias():
         }), 500
 
 @diaapi.route('/dias/<int:dia_id>', methods=['GET'])
+@require_permiso('dia', 'ver')
 def getDia(dia_id):
     diadao = DiaDao()
 
@@ -55,6 +58,7 @@ def getDia(dia_id):
 
 # Agrega un nuevo día con validación
 @diaapi.route('/dias', methods=['POST'])
+@require_permiso('dia', 'nuevo')
 def addDia():
     data = request.get_json()
     diadao = DiaDao()
@@ -97,6 +101,7 @@ def addDia():
         }), 500
 
 @diaapi.route('/dias/<int:dia_id>', methods=['PUT'])
+@require_permiso('dia', 'editar')
 def updateDia(dia_id):
     data = request.get_json()
     diadao = DiaDao()
@@ -132,6 +137,7 @@ def updateDia(dia_id):
         }), 500
 
 @diaapi.route('/dias/<int:dia_id>', methods=['DELETE'])
+@require_permiso('dia', 'anular')
 def deleteDia(dia_id):
     diadao = DiaDao()
 

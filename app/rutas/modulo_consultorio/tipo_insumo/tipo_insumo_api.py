@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, current_app as app
 import re
 from app.dao.referenciales_consultorio.tipo_insumo.TipoInsumoDao import TipoInsumoDao
+from app.rutas.modulo_seguridad.decorators import require_permiso, require_login
 
 tipoinsumoapi = Blueprint('tipoinsumoapi', __name__)
 
@@ -18,6 +19,7 @@ def descripcion_valida(texto):
 # Trae todos los tipos de insumo
 # -------------------------
 @tipoinsumoapi.route('/tipos-insumo', methods=['GET'])
+@require_login  # lookup: alimenta combos de otras pantallas
 def getTiposInsumo():
     dao = TipoInsumoDao()
     try:
@@ -32,6 +34,7 @@ def getTiposInsumo():
 # Trae un tipo de insumo por ID
 # -------------------------
 @tipoinsumoapi.route('/tipos-insumo/<int:id_insumo>', methods=['GET'])
+@require_permiso('tipoinsumo', 'ver')
 def getTipoInsumo(id_insumo):
     dao = TipoInsumoDao()
     try:
@@ -49,6 +52,7 @@ def getTipoInsumo(id_insumo):
 # Agrega un nuevo tipo de insumo
 # -------------------------
 @tipoinsumoapi.route('/tipos-insumo', methods=['POST'])
+@require_permiso('tipoinsumo', 'nuevo')
 def addTipoInsumo():
     data = request.get_json()
     dao = TipoInsumoDao()
@@ -86,6 +90,7 @@ def addTipoInsumo():
 # Actualiza un tipo de insumo
 # -------------------------
 @tipoinsumoapi.route('/tipos-insumo/<int:id_insumo>', methods=['PUT'])
+@require_permiso('tipoinsumo', 'editar')
 def updateTipoInsumo(id_insumo):
     data = request.get_json()
     dao = TipoInsumoDao()
@@ -122,6 +127,7 @@ def updateTipoInsumo(id_insumo):
 # Elimina (baja lógica) un tipo de insumo
 # -------------------------
 @tipoinsumoapi.route('/tipos-insumo/<int:id_insumo>', methods=['DELETE'])
+@require_permiso('tipoinsumo', 'anular')
 def deleteTipoInsumo(id_insumo):
     dao = TipoInsumoDao()
     try:

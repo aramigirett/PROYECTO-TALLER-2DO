@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify, current_app as app
 from app.dao.referenciales.turno.TurnoDao import TurnoDao
+from app.rutas.modulo_seguridad.decorators import require_permiso, require_login
 
 turnoapi = Blueprint('turnoapi', __name__)
 
@@ -8,6 +9,7 @@ TURNOS_VALIDOS= ['MAÑANA', 'TARDE', 'NOCHE']
 
 # Trae todos los turnos
 @turnoapi.route('/turnos', methods=['GET'])
+@require_login  # lookup: alimenta combos de otras pantallas
 def getTurnos():
     turnodao = TurnoDao()
 
@@ -28,6 +30,7 @@ def getTurnos():
         }), 500
 
 @turnoapi.route('/turnos/<int:id_turno>', methods=['GET'])
+@require_permiso('turno', 'ver')
 def getTurno(id_turno):
     turnodao = TurnoDao()
 
@@ -55,6 +58,7 @@ def getTurno(id_turno):
 
 # Agrega un nuevo turno
 @turnoapi.route('/turnos', methods=['POST'])
+@require_permiso('turno', 'nuevo')
 def addTurno():
     data = request.get_json()
     turnodao = TurnoDao()
@@ -98,6 +102,7 @@ def addTurno():
         }), 500
 
 @turnoapi.route('/turnos/<int:id_turno>', methods=['PUT'])
+@require_permiso('turno', 'editar')
 def updateTurno(id_turno):
     data = request.get_json()
     turnodao = TurnoDao()
@@ -141,6 +146,7 @@ def updateTurno(id_turno):
         }), 500
 
 @turnoapi.route('/turnos/<int:id_turno>', methods=['DELETE'])
+@require_permiso('turno', 'anular')
 def deleteTurno(id_turno):
     turnodao = TurnoDao()
 

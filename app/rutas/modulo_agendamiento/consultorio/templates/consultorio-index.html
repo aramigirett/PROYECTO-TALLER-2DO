@@ -12,7 +12,7 @@ Consultorios
   <!-- tarjeta -->
   <div class="card">
     <div class="card-header">
-      <button type="button" class="btn btn-outline-primary" id="btnAgregar">Agregar</button>
+      {% if puede('consultorio','nuevo') %}<button type="button" class="btn btn-outline-primary" id="btnAgregar">Agregar</button>{% endif %}
     </div>
     <div class="card-body">
       <table class="table table-striped" id="tblConsultorios">
@@ -185,14 +185,14 @@ const initDatatable = () => {
         data: function (row) {
           return `
             <div class="btn-group" role="group">
-              <button type="button" name="btn_editar" class="btn btn-sm btn-info" 
+              {% if puede('consultorio','editar') %}<button type="button" name="btn_editar" class="btn btn-sm btn-info" 
                       data-codigo="${row.codigo}" title="Editar">
                 <i class="fas fa-edit"></i>
-              </button>
-              <button type="button" name="btn_eliminar" class="btn btn-sm btn-danger" 
+              </button>{% endif %}
+              {% if puede('consultorio','anular') %}<button type="button" name="btn_eliminar" class="btn btn-sm btn-danger" 
                       data-codigo="${row.codigo}" title="Eliminar">
                 <i class="fas fa-trash-alt"></i>
-              </button>
+              </button>{% endif %}
             </div>`;
         }
       }

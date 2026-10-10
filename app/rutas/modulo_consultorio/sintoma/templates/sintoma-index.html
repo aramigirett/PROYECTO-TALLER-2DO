@@ -11,7 +11,7 @@ Síntomas
     <!-- tarjeta -->
     <div class="card">
       <div class="card-header">
-        <button type="button" class="btn btn-outline-info" id="btnAgregar">Agregar</button>
+        {% if puede('sintoma','nuevo') %}<button type="button" class="btn btn-outline-info" id="btnAgregar">Agregar</button>{% endif %}
       </div>
       <div class="card-body">
         <table class="table table-striped" id="tbl">
@@ -76,8 +76,8 @@ function validarDescripcion(descripcion) {
       columns: [
         { data: 'descripcion_sintoma' },  // CORREGIDO
         { data: function(row) {
-            return `<button type="button" name="btn_editar" class="btn btn-info" data-id_sintoma="${row.id_sintoma}" title="Editar"><i class="fas fa-edit"></i></button>
-                    <button type="button" name="btn_eliminar" class="btn btn-danger" data-id_sintoma="${row.id_sintoma}" title="Eliminar"><i class="fas fa-trash-alt"></i></button>`;
+            return `{% if puede('sintoma','editar') %}<button type="button" name="btn_editar" class="btn btn-info" data-id_sintoma="${row.id_sintoma}" title="Editar"><i class="fas fa-edit"></i></button>{% endif %}
+                    {% if puede('sintoma','anular') %}<button type="button" name="btn_eliminar" class="btn btn-danger" data-id_sintoma="${row.id_sintoma}" title="Eliminar"><i class="fas fa-trash-alt"></i></button>{% endif %}`;
           }
         }
       ]

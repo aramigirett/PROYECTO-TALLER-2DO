@@ -11,7 +11,7 @@ Turnos
     <!-- tarjeta -->
     <div class="card">
       <div class="card-header">
-        <button type="button" class="btn btn-outline-primary" id="btnAgregar">Agregar</button>
+        {% if puede('turno','nuevo') %}<button type="button" class="btn btn-outline-primary" id="btnAgregar">Agregar</button>{% endif %}
       </div>
       <div class="card-body">
         <table class="table table-striped" id="tbl">
@@ -80,8 +80,8 @@ Turnos
       columns: [
         { data: 'descripcion' },
         { data: function(row) {
-            return `<button type="button" name="btn_editar" class="btn btn-outline-primary" data-id="${row.id_turno}">Editar</button>
-                    <button type="button" name="btn_eliminar" class="btn btn-outline-warning" data-id="${row.id_turno}">Eliminar</button>`
+            return `{% if puede('turno','editar') %}<button type="button" name="btn_editar" class="btn btn-outline-primary" data-id="${row.id_turno}">Editar</button>{% endif %}
+                    {% if puede('turno','anular') %}<button type="button" name="btn_eliminar" class="btn btn-outline-warning" data-id="${row.id_turno}">Eliminar</button>{% endif %}`
           }
         }
       ]

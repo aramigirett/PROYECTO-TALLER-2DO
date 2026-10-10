@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, current_app as app
 from app.dao.referenciales_consultorio.tipo_diagnostico.TipoDiagnosticoDao import TipoDiagnosticoDao
 import re
+from app.rutas.modulo_seguridad.decorators import require_permiso, require_login
 
 # Validaciones
 def texto_valido(texto):
@@ -10,6 +11,7 @@ tipodiagnosticoapi = Blueprint('tipodiagnosticoapi', __name__)
 
 # Obtener todos los diagnósticos
 @tipodiagnosticoapi.route('/diagnosticos', methods=['GET'])
+@require_login  # lookup: alimenta combos de otras pantallas
 def getDiagnosticos():
     dao = TipoDiagnosticoDao()
     try:
@@ -22,6 +24,7 @@ def getDiagnosticos():
 
 # Obtener un diagnóstico por ID
 @tipodiagnosticoapi.route('/diagnosticos/<int:id_tipo_diagnostico>', methods=['GET'])
+@require_permiso('tipodiagnostico', 'ver')
 def getDiagnostico(id_tipo_diagnostico):
     dao = TipoDiagnosticoDao()
     try:
@@ -37,6 +40,7 @@ def getDiagnostico(id_tipo_diagnostico):
 
 # Agregar un nuevo diagnóstico
 @tipodiagnosticoapi.route('/diagnosticos', methods=['POST'])
+@require_permiso('tipodiagnostico', 'nuevo')
 def addDiagnostico():
     data = request.get_json()
     dao = TipoDiagnosticoDao()
@@ -75,6 +79,7 @@ def addDiagnostico():
 
 # Actualizar un diagnóstico
 @tipodiagnosticoapi.route('/diagnosticos/<int:id_tipo_diagnostico>', methods=['PUT'])
+@require_permiso('tipodiagnostico', 'editar')
 def updateDiagnostico(id_tipo_diagnostico):
     data = request.get_json()
     dao = TipoDiagnosticoDao()
@@ -109,6 +114,7 @@ def updateDiagnostico(id_tipo_diagnostico):
 
 # Eliminar un diagnóstico
 @tipodiagnosticoapi.route('/diagnosticos/<int:id_tipo_diagnostico>', methods=['DELETE'])
+@require_permiso('tipodiagnostico', 'anular')
 def deleteDiagnostico(id_tipo_diagnostico):
     dao = TipoDiagnosticoDao()
     try:

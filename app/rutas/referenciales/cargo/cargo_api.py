@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, current_app as app
 import re
 from app.dao.referenciales.cargo.CargoDao import CargoDao
+from app.rutas.modulo_seguridad.decorators import require_permiso, require_login
 
 cargoapi = Blueprint('cargoapi', __name__)
 
@@ -17,6 +18,7 @@ def validar_ciudad(nombre):
 # Trae todos los cargos
 # -------------------------
 @cargoapi.route('/cargos', methods=['GET'])
+@require_login  # lookup: alimenta combos de otras pantallas
 def getCargos():
     cargodao = CargoDao()
     try:
@@ -38,6 +40,7 @@ def getCargos():
 # Trae un cargo por ID
 # -------------------------
 @cargoapi.route('/cargos/<int:cargo_id>', methods=['GET'])
+@require_permiso('cargo', 'ver')
 def getCargo(cargo_id):
     cargodao = CargoDao()
     try:
@@ -55,6 +58,7 @@ def getCargo(cargo_id):
 # Agrega un nuevo cargo
 # -------------------------
 @cargoapi.route('/cargos', methods=['POST'])
+@require_permiso('cargo', 'nuevo')
 def addCargo():
     data = request.get_json()
     cargodao = CargoDao()
@@ -88,6 +92,7 @@ def addCargo():
 # Actualiza un cargo
 # -------------------------
 @cargoapi.route('/cargos/<int:cargo_id>', methods=['PUT'])
+@require_permiso('cargo', 'editar')
 def updateCargo(cargo_id):
     data = request.get_json()
     cargodao = CargoDao()
@@ -119,6 +124,7 @@ def updateCargo(cargo_id):
 # Elimina un cargo
 # -------------------------
 @cargoapi.route('/cargos/<int:cargo_id>', methods=['DELETE'])
+@require_permiso('cargo', 'anular')
 def deleteCargo(cargo_id):
     cargodao = CargoDao()
     try:

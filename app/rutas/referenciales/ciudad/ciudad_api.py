@@ -1,10 +1,12 @@
 from flask import Blueprint, request, jsonify, current_app as app
 from app.dao.referenciales.ciudad.CiudadDao import CiudadDao
+from app.rutas.modulo_seguridad.decorators import require_permiso, require_login
 
 ciuapi = Blueprint('ciuapi', __name__)
 
 # Trae todas las ciudades
 @ciuapi.route('/ciudades', methods=['GET'])
+@require_login  # lookup: alimenta combos de otras pantallas
 def getCiudades():
     ciudao = CiudadDao()
 
@@ -25,6 +27,7 @@ def getCiudades():
         }), 500
 
 @ciuapi.route('/ciudades/<int:ciudad_id>', methods=['GET'])
+@require_permiso('ciudad', 'ver')
 def getCiudad(ciudad_id):
     ciudao = CiudadDao()
 
@@ -52,6 +55,7 @@ def getCiudad(ciudad_id):
 
 # Agrega una nueva ciudad
 @ciuapi.route('/ciudades', methods=['POST'])
+@require_permiso('ciudad', 'nuevo')
 def addCiudad():
     data = request.get_json()
     ciudao = CiudadDao()
@@ -86,6 +90,7 @@ def addCiudad():
         }), 500
 
 @ciuapi.route('/ciudades/<int:ciudad_id>', methods=['PUT'])
+@require_permiso('ciudad', 'editar')
 def updateCiudad(ciudad_id):
     data = request.get_json()
     ciudao = CiudadDao()
@@ -121,6 +126,7 @@ def updateCiudad(ciudad_id):
         }), 500
 
 @ciuapi.route('/ciudades/<int:ciudad_id>', methods=['DELETE'])
+@require_permiso('ciudad', 'anular')
 def deleteCiudad(ciudad_id):
     ciudao = CiudadDao()
 

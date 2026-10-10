@@ -11,7 +11,7 @@ Cargos
   <!-- Tarjeta -->
   <div class="card">
     <div class="card-header">
-      <button type="button" class="btn btn-outline-primary" id="btnAgregar">Agregar</button>
+      {% if puede('cargo','nuevo') %}<button type="button" class="btn btn-outline-primary" id="btnAgregar">Agregar</button>{% endif %}
     </div>
     <div class="card-body">
       <div class="table-responsive">
@@ -90,8 +90,8 @@ Cargos
       columns: [
         { data: 'descripcion' },
         { data: function(row) {
-            return `<button type="button" name="btn_editar" class="btn btn-info" data-id_cargo="${row.id_cargo}" title="Editar"><i class="fas fa-edit"></i></button>
-                    <button type="button" name="btn_eliminar" class="btn btn-danger" data-id_cargo="${row.id_cargo}" title="Eliminar"><i class="fas fa-trash-alt"></i></button>`
+            return `{% if puede('cargo','editar') %}<button type="button" name="btn_editar" class="btn btn-info" data-id_cargo="${row.id_cargo}" title="Editar"><i class="fas fa-edit"></i></button>{% endif %}
+                    {% if puede('cargo','anular') %}<button type="button" name="btn_eliminar" class="btn btn-danger" data-id_cargo="${row.id_cargo}" title="Eliminar"><i class="fas fa-trash-alt"></i></button>{% endif %}`
           }
         }
       ]

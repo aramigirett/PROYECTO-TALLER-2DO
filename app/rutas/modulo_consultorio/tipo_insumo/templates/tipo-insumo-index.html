@@ -11,7 +11,7 @@ Tipos de Insumo Utilizado
   <!-- Tarjeta -->
   <div class="card">
     <div class="card-header">
-      <button type="button" class="btn btn-outline-primary" id="btnAgregar">Agregar</button>
+      {% if puede('tipoinsumo','nuevo') %}<button type="button" class="btn btn-outline-primary" id="btnAgregar">Agregar</button>{% endif %}
     </div>
     <div class="card-body">
       <div class="table-responsive">
@@ -88,8 +88,8 @@ Tipos de Insumo Utilizado
         { data: 'descripcion' },
         { data: d => d.presentacion || '-' },
         { data: function(row) {
-            return `<button type="button" name="btn_editar" class="btn btn-info" data-id="${row.id_insumo}" title="Editar"><i class="fas fa-edit"></i></button>
-                    <button type="button" name="btn_eliminar" class="btn btn-danger" data-id="${row.id_insumo}" title="Eliminar"><i class="fas fa-trash-alt"></i></button>`
+            return `{% if puede('tipoinsumo','editar') %}<button type="button" name="btn_editar" class="btn btn-info" data-id="${row.id_insumo}" title="Editar"><i class="fas fa-edit"></i></button>{% endif %}
+                    {% if puede('tipoinsumo','anular') %}<button type="button" name="btn_eliminar" class="btn btn-danger" data-id="${row.id_insumo}" title="Eliminar"><i class="fas fa-trash-alt"></i></button>{% endif %}`
           }
         }
       ]

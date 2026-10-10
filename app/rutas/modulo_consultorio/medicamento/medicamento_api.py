@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, current_app as app
 import re
 from app.dao.referenciales_consultorio.medicamento.MedicamentoDao import MedicamentoDao
+from app.rutas.modulo_seguridad.decorators import require_permiso, require_login
 
 medicamentoapi = Blueprint('medicamentoapi', __name__)
 
@@ -18,6 +19,7 @@ def nombre_valido(texto):
 # Trae todos los medicamentos
 # -------------------------
 @medicamentoapi.route('/medicamentos', methods=['GET'])
+@require_login  # lookup: alimenta combos de otras pantallas
 def getMedicamentos():
     dao = MedicamentoDao()
     try:
@@ -32,6 +34,7 @@ def getMedicamentos():
 # Trae un medicamento por ID
 # -------------------------
 @medicamentoapi.route('/medicamentos/<int:id_medicamento>', methods=['GET'])
+@require_permiso('medicamento', 'ver')
 def getMedicamento(id_medicamento):
     dao = MedicamentoDao()
     try:
@@ -49,6 +52,7 @@ def getMedicamento(id_medicamento):
 # Agrega un nuevo medicamento
 # -------------------------
 @medicamentoapi.route('/medicamentos', methods=['POST'])
+@require_permiso('medicamento', 'nuevo')
 def addMedicamento():
     data = request.get_json()
     dao = MedicamentoDao()
@@ -86,6 +90,7 @@ def addMedicamento():
 # Actualiza un medicamento
 # -------------------------
 @medicamentoapi.route('/medicamentos/<int:id_medicamento>', methods=['PUT'])
+@require_permiso('medicamento', 'editar')
 def updateMedicamento(id_medicamento):
     data = request.get_json()
     dao = MedicamentoDao()
@@ -122,6 +127,7 @@ def updateMedicamento(id_medicamento):
 # Elimina (baja lógica) un medicamento
 # -------------------------
 @medicamentoapi.route('/medicamentos/<int:id_medicamento>', methods=['DELETE'])
+@require_permiso('medicamento', 'anular')
 def deleteMedicamento(id_medicamento):
     dao = MedicamentoDao()
     try:

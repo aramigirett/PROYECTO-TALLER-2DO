@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, current_app as app
 import re
 from app.dao.referenciales_consultorio.tipo_estudio.TipoEstudioDao import TipoEstudioDao
+from app.rutas.modulo_seguridad.decorators import require_permiso, require_login
 
 tipoestudioapi = Blueprint('tipoestudioapi', __name__)
 
@@ -18,6 +19,7 @@ def descripcion_valida(texto):
 # Trae todos los tipos de estudio
 # -------------------------
 @tipoestudioapi.route('/tipos-estudio', methods=['GET'])
+@require_login  # lookup: alimenta combos de otras pantallas
 def getTiposEstudio():
     dao = TipoEstudioDao()
     try:
@@ -32,6 +34,7 @@ def getTiposEstudio():
 # Trae un tipo de estudio por ID
 # -------------------------
 @tipoestudioapi.route('/tipos-estudio/<int:id_tipo_estudio>', methods=['GET'])
+@require_permiso('tipoestudio', 'ver')
 def getTipoEstudio(id_tipo_estudio):
     dao = TipoEstudioDao()
     try:
@@ -49,6 +52,7 @@ def getTipoEstudio(id_tipo_estudio):
 # Agrega un nuevo tipo de estudio
 # -------------------------
 @tipoestudioapi.route('/tipos-estudio', methods=['POST'])
+@require_permiso('tipoestudio', 'nuevo')
 def addTipoEstudio():
     data = request.get_json()
     dao = TipoEstudioDao()
@@ -83,6 +87,7 @@ def addTipoEstudio():
 # Actualiza un tipo de estudio
 # -------------------------
 @tipoestudioapi.route('/tipos-estudio/<int:id_tipo_estudio>', methods=['PUT'])
+@require_permiso('tipoestudio', 'editar')
 def updateTipoEstudio(id_tipo_estudio):
     data = request.get_json()
     dao = TipoEstudioDao()
@@ -116,6 +121,7 @@ def updateTipoEstudio(id_tipo_estudio):
 # Elimina (baja lógica) un tipo de estudio
 # -------------------------
 @tipoestudioapi.route('/tipos-estudio/<int:id_tipo_estudio>', methods=['DELETE'])
+@require_permiso('tipoestudio', 'anular')
 def deleteTipoEstudio(id_tipo_estudio):
     dao = TipoEstudioDao()
     try:

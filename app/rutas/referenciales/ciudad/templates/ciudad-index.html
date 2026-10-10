@@ -11,7 +11,7 @@ Ciudades
     <!-- tarjeta -->
     <div class="card">
       <div class="card-header">
-        <button type="button" class="btn btn-outline-primary" id="btnAgregar">Agregar</button>
+        {% if puede('ciudad','nuevo') %}<button type="button" class="btn btn-outline-primary" id="btnAgregar">Agregar</button>{% endif %}
       </div>
       <div class="card-body">
         <table class="table table-striped" id="tbl">
@@ -81,8 +81,8 @@ Ciudades
       columns: [
         { data: 'descripcion' },
         { data: function(row) {
-            return `<button type="button" name="btn_editar" class="btn btn-outline-primary" data-id="${row.id_ciudad}">Editar</button>
-                    <button type="button" name="btn_eliminar" class="btn btn-outline-warning" data-id="${row.id_ciudad}">Eliminar</button>`
+            return `{% if puede('ciudad','editar') %}<button type="button" name="btn_editar" class="btn btn-outline-primary" data-id="${row.id_ciudad}">Editar</button>{% endif %}
+                    {% if puede('ciudad','anular') %}<button type="button" name="btn_eliminar" class="btn btn-outline-warning" data-id="${row.id_ciudad}">Eliminar</button>{% endif %}`
           }
         }
       ]

@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, current_app as app
 from app.dao.referenciales_consultorio.sintomas.SintomasDao import SintomaDao
 import re
+from app.rutas.modulo_seguridad.decorators import require_permiso, require_login
 
 def descripcion_valida(texto: str) -> bool:
     """
@@ -27,6 +28,7 @@ sintomaapi = Blueprint('sintomaapi', __name__)
 
 # Trae todos los síntomas
 @sintomaapi.route('/sintomas', methods=['GET'])
+@require_login  # lookup: alimenta combos de otras pantallas
 def getSintomas():
     sdao = SintomaDao()
     try:
@@ -45,6 +47,7 @@ def getSintomas():
 
 # Trae un síntoma por ID
 @sintomaapi.route('/sintomas/<int:id_sintoma>', methods=['GET'])
+@require_permiso('sintoma', 'ver')
 def getSintoma(id_sintoma):
     sdao = SintomaDao()
     try:
@@ -69,6 +72,7 @@ def getSintoma(id_sintoma):
 
 # Agrega un nuevo síntoma
 @sintomaapi.route('/sintomas', methods=['POST'])
+@require_permiso('sintoma', 'nuevo')
 def addSintoma():
     data = request.get_json()
     sdao = SintomaDao()
@@ -115,6 +119,7 @@ def addSintoma():
 
 # Actualiza un síntoma
 @sintomaapi.route('/sintomas/<int:id_sintoma>', methods=['PUT'])
+@require_permiso('sintoma', 'editar')
 def updateSintoma(id_sintoma):
     data = request.get_json()
     sdao = SintomaDao()
@@ -154,6 +159,7 @@ def updateSintoma(id_sintoma):
 
 # Elimina un síntoma
 @sintomaapi.route('/sintomas/<int:id_sintoma>', methods=['DELETE'])
+@require_permiso('sintoma', 'anular')
 def deleteSintoma(id_sintoma):
     sdao = SintomaDao()
     try:

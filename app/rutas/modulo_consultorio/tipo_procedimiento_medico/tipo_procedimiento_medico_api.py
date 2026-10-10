@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, current_app as app
 import re
 from app.dao.referenciales_consultorio.tipo_procedimiento_medico.TipoProcedimientoMedicoDao import TipoProcedimientoMedicoDao
+from app.rutas.modulo_seguridad.decorators import require_permiso, require_login
 
 tipoprocedimientomedicoapi = Blueprint('tipoprocedimientomedicoapi', __name__)
 
@@ -18,6 +19,7 @@ def descripcion_valida(texto):
 # Trae todos los tipos de procedimiento médico
 # -------------------------
 @tipoprocedimientomedicoapi.route('/tipos-procedimiento-medico', methods=['GET'])
+@require_login  # lookup: alimenta combos de otras pantallas
 def getTiposProcedimientoMedico():
     dao = TipoProcedimientoMedicoDao()
     try:
@@ -32,6 +34,7 @@ def getTiposProcedimientoMedico():
 # Trae un tipo de procedimiento médico por ID
 # -------------------------
 @tipoprocedimientomedicoapi.route('/tipos-procedimiento-medico/<int:id_tipo_procedimiento>', methods=['GET'])
+@require_permiso('tipoprocedimientomedico', 'ver')
 def getTipoProcedimientoMedico(id_tipo_procedimiento):
     dao = TipoProcedimientoMedicoDao()
     try:
@@ -49,6 +52,7 @@ def getTipoProcedimientoMedico(id_tipo_procedimiento):
 # Agrega un nuevo tipo de procedimiento médico
 # -------------------------
 @tipoprocedimientomedicoapi.route('/tipos-procedimiento-medico', methods=['POST'])
+@require_permiso('tipoprocedimientomedico', 'nuevo')
 def addTipoProcedimientoMedico():
     data = request.get_json()
     dao = TipoProcedimientoMedicoDao()
@@ -83,6 +87,7 @@ def addTipoProcedimientoMedico():
 # Actualiza un tipo de procedimiento médico
 # -------------------------
 @tipoprocedimientomedicoapi.route('/tipos-procedimiento-medico/<int:id_tipo_procedimiento>', methods=['PUT'])
+@require_permiso('tipoprocedimientomedico', 'editar')
 def updateTipoProcedimientoMedico(id_tipo_procedimiento):
     data = request.get_json()
     dao = TipoProcedimientoMedicoDao()
@@ -116,6 +121,7 @@ def updateTipoProcedimientoMedico(id_tipo_procedimiento):
 # Elimina (baja lógica) un tipo de procedimiento médico
 # -------------------------
 @tipoprocedimientomedicoapi.route('/tipos-procedimiento-medico/<int:id_tipo_procedimiento>', methods=['DELETE'])
+@require_permiso('tipoprocedimientomedico', 'anular')
 def deleteTipoProcedimientoMedico(id_tipo_procedimiento):
     dao = TipoProcedimientoMedicoDao()
     try:

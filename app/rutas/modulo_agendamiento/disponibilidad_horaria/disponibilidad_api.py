@@ -1,11 +1,13 @@
 from flask import Blueprint, request, jsonify, current_app as app
 from app.dao.referenciales_agendamiento.disponibilidad_horaria.DisponibilidadHorariaDao import DisponibilidadDao
 from datetime import datetime
+from app.rutas.modulo_seguridad.decorators import require_permiso, require_login
 
 disponibilidadapi = Blueprint('disponibilidadapi', __name__)
 
 # 🔹 Obtener todas las disponibilidades
 @disponibilidadapi.route('/disponibilidades', methods=['GET'])
+@require_login  # lookup: alimenta combos de otras pantallas
 def getDisponibilidades():
     dao = DisponibilidadDao()
     try:
@@ -19,6 +21,7 @@ def getDisponibilidades():
 
 # 🔹 Obtener disponibilidades por médico y fecha (para agenda)
 @disponibilidadapi.route('/disponibilidades/medico-fecha', methods=['GET'])
+@require_login  # lookup: alimenta combos de otras pantallas
 def getDisponibilidadesPorMedicoFecha():
     id_medico = request.args.get('id_medico')
     fecha = request.args.get('fecha')  # formato YYYY-MM-DD
@@ -40,6 +43,7 @@ def getDisponibilidadesPorMedicoFecha():
 
 # 🔹 Obtener disponibilidad por ID
 @disponibilidadapi.route('/disponibilidades/<int:id_disponibilidad>', methods=['GET'])
+@require_permiso('disponibilidad', 'ver')
 def getDisponibilidadById(id_disponibilidad):
     dao = DisponibilidadDao()
     try:
@@ -54,6 +58,7 @@ def getDisponibilidadById(id_disponibilidad):
 
 # 🔹 Agregar nueva disponibilidad
 @disponibilidadapi.route('/disponibilidades', methods=['POST'])
+@require_permiso('disponibilidad', 'nuevo')
 def addDisponibilidad():
     data = request.get_json()
     dao = DisponibilidadDao()
@@ -105,6 +110,7 @@ def addDisponibilidad():
 
 # 🔹 Actualizar disponibilidad
 @disponibilidadapi.route('/disponibilidades/<int:id_disponibilidad>', methods=['PUT'])
+@require_permiso('disponibilidad', 'editar')
 def updateDisponibilidad(id_disponibilidad):
     data = request.get_json()
     dao = DisponibilidadDao()
@@ -156,6 +162,7 @@ def updateDisponibilidad(id_disponibilidad):
 
 # 🔹 Eliminar disponibilidad
 @disponibilidadapi.route('/disponibilidades/<int:id_disponibilidad>', methods=['DELETE'])
+@require_permiso('disponibilidad', 'anular')
 def deleteDisponibilidad(id_disponibilidad):
     dao = DisponibilidadDao()
     try:

@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, current_app as app
 from app.dao.referenciales_agendamiento.consultorio.ConsultorioDao import ConsultorioDao
 import re
+from app.rutas.modulo_seguridad.decorators import require_permiso, require_login
 
 consultorioapi = Blueprint('consultorioapi', __name__)
 dao = ConsultorioDao()
@@ -82,6 +83,7 @@ def validar_datos_consultorio(nombre, direccion, telefono, correo):
 # ==========================================
 
 @consultorioapi.route('/consultorios', methods=['GET'])
+@require_login  # lookup: alimenta combos de otras pantallas
 def getConsultorios():
     """
     GET /api/v1/consultorios
@@ -96,6 +98,7 @@ def getConsultorios():
 
 
 @consultorioapi.route('/consultorios/<int:codigo>', methods=['GET'])
+@require_permiso('consultorio', 'ver')
 def getConsultorio(codigo):
     """
     GET /api/v1/consultorios/<codigo>
@@ -112,6 +115,7 @@ def getConsultorio(codigo):
 
 
 @consultorioapi.route('/consultorios', methods=['POST'])
+@require_permiso('consultorio', 'nuevo')
 def addConsultorio():
     """
     POST /api/v1/consultorios
@@ -172,6 +176,7 @@ def addConsultorio():
 
 
 @consultorioapi.route('/consultorios/<int:codigo>', methods=['PUT'])
+@require_permiso('consultorio', 'editar')
 def updateConsultorio(codigo):
     """
     PUT /api/v1/consultorios/<codigo>
@@ -239,6 +244,7 @@ def updateConsultorio(codigo):
 
 
 @consultorioapi.route('/consultorios/<int:codigo>', methods=['DELETE'])
+@require_permiso('consultorio', 'anular')
 def deleteConsultorio(codigo):
     """
     DELETE /api/v1/consultorios/<codigo>

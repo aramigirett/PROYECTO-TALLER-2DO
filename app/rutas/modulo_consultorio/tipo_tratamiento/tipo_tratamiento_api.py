@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, current_app as app
 import re
 from app.dao.referenciales_consultorio.tipo_tratamiento.TipoTratamientoDao import TipoTratamientoDao
+from app.rutas.modulo_seguridad.decorators import require_permiso, require_login
 
 tipotratamientoapi = Blueprint('tipotratamientoapi', __name__)
 
@@ -18,6 +19,7 @@ def descripcion_valida(texto):
 # Trae todos los tipos de tratamiento
 # -------------------------
 @tipotratamientoapi.route('/tipos-tratamiento', methods=['GET'])
+@require_login  # lookup: alimenta combos de otras pantallas
 def getTiposTratamiento():
     dao = TipoTratamientoDao()
     try:
@@ -32,6 +34,7 @@ def getTiposTratamiento():
 # Trae un tipo de tratamiento por ID
 # -------------------------
 @tipotratamientoapi.route('/tipos-tratamiento/<int:id_tipo_tratamiento>', methods=['GET'])
+@require_permiso('tipotratamiento', 'ver')
 def getTipoTratamiento(id_tipo_tratamiento):
     dao = TipoTratamientoDao()
     try:
@@ -49,6 +52,7 @@ def getTipoTratamiento(id_tipo_tratamiento):
 # Agrega un nuevo tipo de tratamiento
 # -------------------------
 @tipotratamientoapi.route('/tipos-tratamiento', methods=['POST'])
+@require_permiso('tipotratamiento', 'nuevo')
 def addTipoTratamiento():
     data = request.get_json()
     dao = TipoTratamientoDao()
@@ -83,6 +87,7 @@ def addTipoTratamiento():
 # Actualiza un tipo de tratamiento
 # -------------------------
 @tipotratamientoapi.route('/tipos-tratamiento/<int:id_tipo_tratamiento>', methods=['PUT'])
+@require_permiso('tipotratamiento', 'editar')
 def updateTipoTratamiento(id_tipo_tratamiento):
     data = request.get_json()
     dao = TipoTratamientoDao()
@@ -116,6 +121,7 @@ def updateTipoTratamiento(id_tipo_tratamiento):
 # Elimina (baja lógica) un tipo de tratamiento
 # -------------------------
 @tipotratamientoapi.route('/tipos-tratamiento/<int:id_tipo_tratamiento>', methods=['DELETE'])
+@require_permiso('tipotratamiento', 'anular')
 def deleteTipoTratamiento(id_tipo_tratamiento):
     dao = TipoTratamientoDao()
     try:

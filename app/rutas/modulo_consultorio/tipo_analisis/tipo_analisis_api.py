@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, current_app as app
 import re
 from app.dao.referenciales_consultorio.tipo_analisis.TipoAnalisisDao import TipoAnalisisDao
+from app.rutas.modulo_seguridad.decorators import require_permiso, require_login
 
 tipoanalisisapi = Blueprint('tipoanalisisapi', __name__)
 
@@ -18,6 +19,7 @@ def descripcion_valida(texto):
 # Trae todos los tipos de análisis
 # -------------------------
 @tipoanalisisapi.route('/tipos-analisis', methods=['GET'])
+@require_login  # lookup: alimenta combos de otras pantallas
 def getTiposAnalisis():
     dao = TipoAnalisisDao()
     try:
@@ -32,6 +34,7 @@ def getTiposAnalisis():
 # Trae un tipo de análisis por ID
 # -------------------------
 @tipoanalisisapi.route('/tipos-analisis/<int:id_tipo_analisis>', methods=['GET'])
+@require_permiso('tipoanalisis', 'ver')
 def getTipoAnalisis(id_tipo_analisis):
     dao = TipoAnalisisDao()
     try:
@@ -49,6 +52,7 @@ def getTipoAnalisis(id_tipo_analisis):
 # Agrega un nuevo tipo de análisis
 # -------------------------
 @tipoanalisisapi.route('/tipos-analisis', methods=['POST'])
+@require_permiso('tipoanalisis', 'nuevo')
 def addTipoAnalisis():
     data = request.get_json()
     dao = TipoAnalisisDao()
@@ -83,6 +87,7 @@ def addTipoAnalisis():
 # Actualiza un tipo de análisis
 # -------------------------
 @tipoanalisisapi.route('/tipos-analisis/<int:id_tipo_analisis>', methods=['PUT'])
+@require_permiso('tipoanalisis', 'editar')
 def updateTipoAnalisis(id_tipo_analisis):
     data = request.get_json()
     dao = TipoAnalisisDao()
@@ -116,6 +121,7 @@ def updateTipoAnalisis(id_tipo_analisis):
 # Elimina (baja lógica) un tipo de análisis
 # -------------------------
 @tipoanalisisapi.route('/tipos-analisis/<int:id_tipo_analisis>', methods=['DELETE'])
+@require_permiso('tipoanalisis', 'anular')
 def deleteTipoAnalisis(id_tipo_analisis):
     dao = TipoAnalisisDao()
     try:
