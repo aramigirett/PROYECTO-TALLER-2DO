@@ -165,7 +165,14 @@ Usuarios
           result.data.forEach(p => {
             const id = tipo === 'medico' ? p.id_medico : p.id_funcionario;
             personasDisponibles[id] = p;
-            sel.append(`<option value="${id}">${p.nombre_completo}</option>`);
+            // Sin correo no hay 2FA ni alertas: se muestra pero no se puede elegir
+            // (salvo la persona ya vinculada al editar, para no dejar el combo roto)
+            const sinCorreo = !p.correo && String(id) !== String(idSeleccionado);
+            const detalle = tipo === 'medico' ? p.especialidad : p.cargo;
+            const texto = [p.nombre_completo, p.ci_ruc ? `CI ${p.ci_ruc}` : 'sin CI', detalle || 'sin ' + (tipo === 'medico' ? 'especialidad' : 'cargo')].join(' - ')
+                          + (sinCorreo ? ' (sin correo)' : '');
+            const opt = $('<option>').val(id).text(texto).prop('disabled', sinCorreo);
+            sel.append(opt);
           });
         }
         if (idSeleccionado) {

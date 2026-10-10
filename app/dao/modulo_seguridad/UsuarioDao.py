@@ -461,8 +461,10 @@ class UsuarioDao:
         ya está vinculado a excluir_usuario (para que siga apareciendo al editar).
         """
         sql = """
-            SELECT f.id_funcionario, f.nombre, f.apellido, f.cedula, NULLIF(TRIM(f.correo), '')
+            SELECT f.id_funcionario, f.nombre, f.apellido, f.cedula, NULLIF(TRIM(f.correo), ''),
+                   c.descripcion
             FROM funcionario f
+            LEFT JOIN cargo c ON f.id_cargo = c.id_cargo
             WHERE NOT EXISTS (
                 SELECT 1 FROM usuarios u
                 WHERE u.id_funcionario = f.id_funcionario
@@ -480,7 +482,7 @@ class UsuarioDao:
             cur.execute(sql, tuple(params))
             filas = cur.fetchall()
             return [
-                {"id_funcionario": f[0], "nombre_completo": f"{f[1]} {f[2]}", "ci_ruc": f[3], "correo": f[4]}
+                {"id_funcionario": f[0], "nombre_completo": f"{f[1]} {f[2]}", "ci_ruc": f[3], "correo": f[4], "cargo": f[5]}
                 for f in filas
             ]
         except Exception as e:
@@ -496,8 +498,10 @@ class UsuarioDao:
         está vinculado a excluir_usuario (para que siga apareciendo al editar).
         """
         sql = """
-            SELECT m.id_medico, m.nombre, m.apellido, m.cedula, NULLIF(TRIM(m.correo), '')
+            SELECT m.id_medico, m.nombre, m.apellido, m.cedula, NULLIF(TRIM(m.correo), ''),
+                   e.nombre_especialidad
             FROM medico m
+            LEFT JOIN especialidades e ON m.id_especialidad = e.id_especialidad
             WHERE NOT EXISTS (
                 SELECT 1 FROM usuarios u
                 WHERE u.id_medico = m.id_medico
@@ -515,7 +519,7 @@ class UsuarioDao:
             cur.execute(sql, tuple(params))
             filas = cur.fetchall()
             return [
-                {"id_medico": m[0], "nombre_completo": f"{m[1]} {m[2]}", "ci_ruc": m[3], "correo": m[4]}
+                {"id_medico": m[0], "nombre_completo": f"{m[1]} {m[2]}", "ci_ruc": m[3], "correo": m[4], "especialidad": m[5]}
                 for m in filas
             ]
         except Exception as e:
