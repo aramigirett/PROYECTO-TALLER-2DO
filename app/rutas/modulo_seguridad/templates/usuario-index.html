@@ -11,7 +11,7 @@ Usuarios
   <!-- Tarjeta -->
   <div class="card">
     <div class="card-header">
-      <button type="button" class="btn btn-outline-primary" id="btnAgregar">Agregar</button>
+      {% if puede('usuario','nuevo') %}<button type="button" class="btn btn-outline-primary" id="btnAgregar">Agregar</button>{% endif %}
     </div>
     <div class="card-body">
       <div class="table-responsive">
@@ -68,6 +68,12 @@ Usuarios
                   <small class="form-text text-muted" id="hintPassword" style="display:none;">
                     Dejar en blanco para no cambiar la contraseña actual.
                   </small>
+                  <ul class="list-unstyled small mt-2 mb-0" id="reqPassword">
+                    <li data-req="largo"><i class="fas fa-times-circle text-danger"></i> Al menos 8 caracteres</li>
+                    <li data-req="mayuscula"><i class="fas fa-times-circle text-danger"></i> Una letra mayúscula</li>
+                    <li data-req="numero"><i class="fas fa-times-circle text-danger"></i> Un número</li>
+                    <li data-req="simbolo"><i class="fas fa-times-circle text-danger"></i> Un símbolo (! @ # $ % & *)</li>
+                  </ul>
                 </div>
               </div>
               <div class="col-md-6">
@@ -119,7 +125,9 @@ Usuarios
 {% block js %}
 <script>
 
-  const PUEDE_DESBLOQUEAR = {{ 'true' if puede('usuario', 'desbloquear') else 'false' }};
+  const PUEDE_EDITAR = {{ 'true' if puede('usuario', 'editar') else 'false' }};
+  const PUEDE_ANULAR = {{ 'true' if puede('usuario', 'anular') else 'false' }};
+  const PUEDE_DESBLOQUEAR ={{ 'true' if puede('usuario', 'desbloquear') else 'false' }};
 
   const cargarRoles = () => {
     return fetch('/api/v1/roles')
@@ -158,7 +166,29 @@ Usuarios
       });
   };
 
-  const tipoPersonaSeleccionado = () => $('input[name="tipoPersona"]:checked').val();
+  // Requisitos de contraseña (misma política que password_policy.py)
+  const REGLAS_PASSWORD = {
+    largo: p => p.length >= 8,
+    mayuscula: p => /[A-ZÁÉÍÓÚÑ]/.test(p),
+    numero: p => /\d/.test(p),
+    simbolo: p => /[^\w\s]|_/.test(p)
+  };
+
+  // Repinta la lista de requisitos y devuelve true si la contraseña cumple todos
+  const actualizarRequisitosPassword = () => {
+    const p = $('#txtPassword').val();
+    let todo = true;
+    $('#reqPassword li').each(function() {
+      const ok = REGLAS_PASSWORD[$(this).data('req')](p);
+      todo = todo && ok;
+      $(this).find('i')
+        .toggleClass('fa-check-circle text-success', ok)
+        .toggleClass('fa-times-circle text-danger', !ok);
+    });
+    return todo;
+  };
+
+  const tipoPersonaSeleccionado =() => $('input[name="tipoPersona"]:checked').val();
 
   const initDatatable = () => {
     $('#tbl').DataTable({
@@ -178,8 +208,10 @@ Usuarios
           }
         },
         { data: function(row) {
-            const btnEditar = `<button type="button" name="btn_editar" class="btn btn-info" data-id="${row.id_usuario}" title="Editar"><i class="fas fa-edit"></i></button>`;
-            const btnEstado = row.activo
+            const btnEditar = PUEDE_EDITAR
+              ? `<button type="button" name="btn_editar" class="btn btn-info" data-id="${row.id_usuario}" title="Editar"><i class="fas fa-edit"></i></button>`
+              : '';
+            const btnEstado = !PUEDE_ANULAR ? '' : row.activo
               ? `<button type="button" name="btn_baja" class="btn btn-danger" data-id="${row.id_usuario}" title="Dar de baja"><i class="fas fa-user-slash"></i></button>`
               : `<button type="button" name="btn_reactivar" class="btn btn-success" data-id="${row.id_usuario}" title="Reactivar"><i class="fas fa-user-check"></i></button>`;
             const btnDesbloquear = (PUEDE_DESBLOQUEAR && row.bloqueado)
@@ -200,6 +232,7 @@ Usuarios
     $('#selRol').val('');
     $('#tipoFuncionario').prop('checked', true);
     $('#selPersona').val('');
+    actualizarRequisitosPassword();
   };
 
   const agregar = () => {
@@ -237,6 +270,11 @@ Usuarios
 
       if (!idUsuario && !password) {
         Swal.fire('Error', 'La contraseña es obligatoria para un usuario nuevo.', 'error');
+        return;
+      }
+
+      if (password && !actualizarRequisitosPassword()) {
+        Swal.fire('Error', 'La contraseña no cumple los requisitos indicados debajo del campo.', 'error');
         return;
       }
 
@@ -292,6 +330,7 @@ Usuarios
           $('#txtPassword').val('');
           $('#txtPassword').attr('placeholder', 'Dejar en blanco para no cambiar');
           $('#hintPassword').show();
+          actualizarRequisitosPassword();
           $('#selRol').val(u.id_rol);
 
           const tipo = u.id_medico ? 'medico' : 'funcionario';
@@ -403,6 +442,7 @@ Usuarios
   };
 
   const addEvents = () => {
+    $('#txtPassword').on('input', actualizarRequisitosPassword);
     desbloquear();
     agregar();
     guardar();

@@ -6,6 +6,7 @@ from app.dao.modulo_seguridad.UsuarioDao import UsuarioDao
 from app.dao.modulo_seguridad.AuditoriaDao import AuditoriaDao
 from app.dao.modulo_seguridad.RolDao import RolDao
 from app.rutas.modulo_seguridad.decorators import require_permiso
+from app.rutas.modulo_seguridad.password_policy import validar_password_compleja
 
 usuarioapi = Blueprint('usuarioapi', __name__)
 
@@ -115,8 +116,9 @@ def addUsuario():
     if not re.match(EMAIL_REGEX, correo):
         return jsonify({'success': False, 'error': 'El correo electrónico no es válido.'}), 400
 
-    if len(password) < 6:
-        return jsonify({'success': False, 'error': 'La contraseña debe tener al menos 6 caracteres.'}), 400
+    error_password = validar_password_compleja(password)
+    if error_password:
+        return jsonify({'success': False, 'error': error_password}), 400
 
     error_persona = _validar_persona(id_funcionario, id_medico)
     if error_persona:
@@ -160,8 +162,9 @@ def updateUsuario(id_usuario):
     if not re.match(EMAIL_REGEX, correo):
         return jsonify({'success': False, 'error': 'El correo electrónico no es válido.'}), 400
 
-    if password and len(password) < 6:
-        return jsonify({'success': False, 'error': 'La contraseña debe tener al menos 6 caracteres.'}), 400
+    error_password = validar_password_compleja(password) if password else None
+    if error_password:
+        return jsonify({'success': False, 'error': error_password}), 400
 
     error_persona = _validar_persona(id_funcionario, id_medico)
     if error_persona:
@@ -219,7 +222,8 @@ def desbloquearUsuario(id_usuario):
         if not usuariodao.desbloquear(id_usuario):
             return jsonify({'success': False, 'error': 'El usuario no está bloqueado.'}), 409
 
-        AuditoriaDao().registrar(id_usuario, usuario['ci_ruc'], 'DESBLOQUEADO', request.remote_addr, 'DESBLOQUEO_ADMIN')
+        AuditoriaDao().registrar(id_usuario, usuario['ci_ruc'], 'DESBLOQUEADO', request.remote_addr, 'DESBLOQUEO_ADMIN',
+                                  id_usuario_actor=session.get('id_usuario'))
         app.logger.info(f"Usuario {usuario['ci_ruc']} desbloqueado por {session.get('ci_ruc')}")
         return jsonify({'success': True, 'mensaje': 'Usuario desbloqueado correctamente.', 'error': None}), 200
     except Exception as e:

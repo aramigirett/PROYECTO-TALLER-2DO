@@ -17,3 +17,8 @@ ALTER TABLE token_2fa
 -- Índice parcial: solo los códigos vigentes (no usados) se consultan por usuario+propósito.
 CREATE INDEX IF NOT EXISTS idx_token_2fa_vigentes
     ON token_2fa (id_usuario, proposito) WHERE usado = FALSE;
+
+-- Quién realizó la acción cuando no es el propio usuario (ej. el Administrador
+-- que desbloquea una cuenta). NULL en los accesos normales.
+ALTER TABLE auditoria_acceso
+    ADD COLUMN IF NOT EXISTS id_usuario_actor INTEGER NULL REFERENCES usuarios(id_usuario);

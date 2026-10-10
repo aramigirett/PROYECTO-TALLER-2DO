@@ -106,6 +106,32 @@ class UsuarioDao:
         """
         return check_password_hash(password_hash, password)
 
+    def getCorreosAdministradores(self, excluir_id=None):
+        """
+        Correos de los usuarios activos con rol Administrador (destinatarios de
+        las alertas de bloqueo). excluir_id evita avisarle dos veces al propio
+        usuario bloqueado si él es administrador.
+        """
+        sql = """
+            SELECT u.correo
+            FROM usuarios u
+            JOIN roles r ON u.id_rol = r.id_rol
+            WHERE r.nombre_rol = 'Administrador' AND u.activo = TRUE
+              AND (%s::int IS NULL OR u.id_usuario <> %s::int)
+        """
+        conexion = Conexion()
+        con = conexion.getConexion()
+        cur = con.cursor()
+        try:
+            cur.execute(sql, (excluir_id, excluir_id))
+            return sorted({f[0] for f in cur.fetchall() if f[0]})
+        except Exception as e:
+            app.logger.error(f"Error al obtener correos de administradores: {str(e)}")
+            return []
+        finally:
+            cur.close()
+            con.close()
+
     def _ejecutar_update(self, sql, params, mensaje_error):
         """Ejecuta un UPDATE puntual y retorna las filas afectadas (0 si falla)."""
         conexion = Conexion()

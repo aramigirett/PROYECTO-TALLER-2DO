@@ -5,21 +5,23 @@ from app.conexion.Conexion import Conexion
 
 class AuditoriaDao:
 
-    def registrar(self, id_usuario, ci_ruc_ingresado, resultado, ip, accion):
+    def registrar(self, id_usuario, ci_ruc_ingresado, resultado, ip, accion, id_usuario_actor=None):
         """
         Registra un intento de acceso (login, verificación 2FA o logout).
         id_usuario puede ser None cuando el CI/RUC ingresado no existe.
+        id_usuario_actor: quien ejecutó la acción cuando no es el propio
+        usuario (ej. el Administrador que desbloquea una cuenta).
         """
         sql = """
-            INSERT INTO auditoria_acceso (id_usuario, ci_ruc_ingresado, resultado, ip, accion)
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO auditoria_acceso (id_usuario, ci_ruc_ingresado, resultado, ip, accion, id_usuario_actor)
+            VALUES (%s, %s, %s, %s, %s, %s)
             RETURNING id_auditoria
         """
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(sql, (id_usuario, ci_ruc_ingresado, resultado, ip, accion))
+            cur.execute(sql, (id_usuario, ci_ruc_ingresado, resultado, ip, accion, id_usuario_actor))
             id_auditoria = cur.fetchone()[0]
             con.commit()
             return id_auditoria
@@ -37,10 +39,11 @@ class AuditoriaDao:
         tablero de administrador, del más reciente al más antiguo.
         """
         sql = """
-            SELECT id_auditoria, id_usuario, ci_ruc_ingresado, fecha_hora,
-                   resultado, ip, accion
-            FROM auditoria_acceso
-            ORDER BY fecha_hora DESC
+            SELECT a.id_auditoria, a.id_usuario, a.ci_ruc_ingresado, a.fecha_hora,
+                   a.resultado, a.ip, a.accion, act.ci_ruc
+            FROM auditoria_acceso a
+            LEFT JOIN usuarios act ON a.id_usuario_actor = act.id_usuario
+            ORDER BY a.fecha_hora DESC
             LIMIT %s
         """
         conexion = Conexion()
@@ -58,6 +61,7 @@ class AuditoriaDao:
                     "resultado": i[4],
                     "ip": i[5],
                     "accion": i[6],
+                    "actor_ci_ruc": i[7],
                 }
                 for i in intentos
             ]

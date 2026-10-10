@@ -1,9 +1,9 @@
 from flask import Blueprint, render_template, request, redirect, url_for, session, flash
 
-from app.dao.modulo_seguridad.UsuarioDao import UsuarioDao, BLOQUEO_MINUTOS
+from app.dao.modulo_seguridad.UsuarioDao import UsuarioDao, BLOQUEO_MINUTOS, MAX_INTENTOS_FALLIDOS
 from app.dao.modulo_seguridad.TokenDao import TokenDao
 from app.dao.modulo_seguridad.AuditoriaDao import AuditoriaDao
-from app.Services.email_service import enviar_codigo_2fa
+from app.Services.email_service import enviar_codigo_2fa, alertar_intento_fallido, alertar_bloqueo
 
 seguridadmod = Blueprint('seguridad', __name__, template_folder='templates')
 
@@ -52,8 +52,14 @@ def login():
             bloqueo = usuariodao.registrar_fallo(id_usuario) if usuario else None
             if bloqueo and bloqueo['bloqueado']:
                 AuditoriaDao().registrar(id_usuario, ci_ruc, 'CUENTA_BLOQUEADA', ip, 'BLOQUEO')
+                # Al usuario y a los administradores (menos él mismo, si lo es)
+                alertar_bloqueo(usuario['correo'], usuariodao.getCorreosAdministradores(id_usuario),
+                                ci_ruc, ip, BLOQUEO_MINUTOS)
                 flash(MENSAJE_CUENTA_BLOQUEADA, 'danger')
             else:
+                if bloqueo:
+                    alertar_intento_fallido(usuario['correo'], ci_ruc, ip,
+                                            bloqueo['intentos'], MAX_INTENTOS_FALLIDOS)
                 flash('CI/RUC o contraseña incorrectos.', 'danger')
 
     return render_template('login.html')

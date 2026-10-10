@@ -26,6 +26,7 @@ Tablero de Administrador
               <th>Acción</th>
               <th>Resultado</th>
               <th>IP</th>
+              <th>Realizado por</th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -57,7 +58,8 @@ Tablero de Administrador
         { data: 'ci_ruc_ingresado' },
         { data: 'accion' },
         { data: function(row) { return badgeResultado(row.resultado); } },
-        { data: function(row) { return row.ip || ''; } }
+        { data: function(row) { return row.ip || ''; } },
+        { data: function(row) { return row.actor_ci_ruc || ''; } }
       ]
     });
   };
