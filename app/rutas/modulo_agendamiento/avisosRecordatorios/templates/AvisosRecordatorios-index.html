@@ -12,12 +12,12 @@ Avisos Recordatorios
       <i class="fas fa-bell"></i> Gestión de Avisos Recordatorios
     </h2>
     <div class="btn-group" role="group">
-      <button type="button" class="btn btn-primary btn-lg shadow-sm" id="btnAgregar">
+      {% if puede('avisos','nuevo') %}<button type="button" class="btn btn-primary btn-lg shadow-sm" id="btnAgregar">
         <i class="fas fa-plus-circle"></i> Nuevo Aviso
-      </button>
-      <button type="button" class="btn btn-success btn-lg shadow-sm" id="btnEnviarWhatsApp">
+      </button>{% endif %}
+      {% if puede('avisos','estado') %}<button type="button" class="btn btn-success btn-lg shadow-sm" id="btnEnviarWhatsApp">
         <i class="fab fa-whatsapp"></i> Enviar WhatsApp
-      </button>
+      </button>{% endif %}
       <button type="button" class="btn btn-info btn-lg shadow-sm" id="btnEstadisticas">
         <i class="fas fa-chart-bar"></i> Estadísticas
       </button>
@@ -642,14 +642,16 @@ const initDatatableAvisos = () => {
       },
       {
         data: function(row) {
-          let buttons = '<button type="button" name="btn_editar" class="btn btn-info btn-sm" data-id_aviso="' + row.id_aviso + '" title="Editar">' +
-                        '<i class="fas fa-edit"></i></button>' +
-                        '<button type="button" name="btn_eliminar" class="btn btn-danger btn-sm" data-id_aviso="' + row.id_aviso + '" title="Eliminar">' +
-                        '<i class="fas fa-trash-alt"></i></button>';
+          let buttons = '{% if puede("avisos","editar") %}<button type="button" name="btn_editar" class="btn btn-info btn-sm" data-id_aviso="' + row.id_aviso + '" title="Editar">' +
+                        '<i class="fas fa-edit"></i></button>{% endif %}' +
+                        '{% if puede("avisos","estado") %}<button type="button" name="btn_estado" class="btn btn-secondary btn-sm" data-id_aviso="' + row.id_aviso + '" data-estado="' + (row.estado_confirmacion || 'Pendiente') + '" title="Cambiar estado de confirmación">' +
+                        '<i class="fas fa-flag"></i></button>{% endif %}' +
+                        '{% if puede("avisos","anular") %}<button type="button" name="btn_eliminar" class="btn btn-danger btn-sm" data-id_aviso="' + row.id_aviso + '" title="Eliminar">' +
+                        '<i class="fas fa-trash-alt"></i></button>{% endif %}';
           
           if (row.forma_envio === 'WhatsApp' && row.estado_envio === 'Pendiente') {
-            buttons += '<button type="button" name="btn_enviar_individual" class="btn btn-success btn-sm" data-id_aviso="' + row.id_aviso + '" title="Enviar ahora">' +
-                       '<i class="fab fa-whatsapp"></i></button>';
+            buttons += '{% if puede("avisos","estado") %}<button type="button" name="btn_enviar_individual" class="btn btn-success btn-sm" data-id_aviso="' + row.id_aviso + '" title="Enviar ahora">' +
+                       '<i class="fab fa-whatsapp"></i></button>{% endif %}';
           }
           
           return buttons;
@@ -992,11 +994,45 @@ $('#tblAvisos').on('click', 'button[name="btn_editar"]', async function() {
       $('#hora_cita_modal').val(aviso.hora_cita);
       $('#forma_envio_modal').val(aviso.forma_envio);
       $('#mensaje_modal').val(aviso.mensaje || '');
-      $('#estado_confirmacion_modal').val(aviso.estado_confirmacion || 'Pendiente');
+      $('#estado_confirmacion_modal').val(aviso.estado_confirmacion || 'Pendiente').prop('disabled', true);  // se cambia con el botón de estado
       $('#modalTitle').text('Editar Aviso');
       $('#modalAviso').modal('show');
     } else {
       Swal.fire('Error', result.error, 'error');
+    }
+  } catch (error) {
+    Swal.fire('Error', 'Error de conexión: ' + error, 'error');
+  }
+});
+
+// ============================================================
+// EVENTO: Cambiar estado de confirmación (acción 'estado')
+// ============================================================
+$('#tblAvisos').on('click', 'button[name="btn_estado"]', async function() {
+  const idAviso = $(this).data('id_aviso');
+  const actual = $(this).data('estado');
+  const { value: nuevo } = await Swal.fire({
+    title: 'Estado de confirmación',
+    input: 'select',
+    inputOptions: { Pendiente: 'Pendiente', Confirmado: 'Confirmado', Cancelado: 'Cancelado' },
+    inputValue: actual,
+    showCancelButton: true,
+    confirmButtonText: 'Guardar',
+    cancelButtonText: 'Cancelar'
+  });
+  if (!nuevo || nuevo === actual) return;
+  try {
+    const response = await fetch('/api/v1/avisos/' + idAviso + '/estado', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ estado_confirmacion: nuevo })
+    });
+    const result = await response.json();
+    if (result.success) {
+      $('#tblAvisos').DataTable().ajax.reload();
+      Swal.fire('Éxito', 'Estado actualizado a ' + nuevo, 'success');
+    } else {
+      Swal.fire('Error', result.error || 'No se pudo cambiar el estado', 'error');
     }
   } catch (error) {
     Swal.fire('Error', 'Error de conexión: ' + error, 'error');
@@ -1080,7 +1116,7 @@ const agregarAviso = () => {
     $('#hora_cita_modal').val('');
     $('#forma_envio_modal').val('');
     $('#mensaje_modal').val('');
-    $('#estado_confirmacion_modal').val('Pendiente');
+    $('#estado_confirmacion_modal').val('Pendiente').prop('disabled', false);
     
     $('#cita_seleccionada').html('<option value="">-- Seleccionar cita del paciente --</option>');
     
@@ -1130,9 +1166,11 @@ $('#formAvisoModal').on('submit', async function(e) {
     fecha_cita: $('#fecha_cita_modal').val(),
     hora_cita: $('#hora_cita_modal').val(),
     forma_envio: $('#forma_envio_modal').val(),
-    mensaje: mensaje,
-    estado_confirmacion: $('#estado_confirmacion_modal').val()
+    mensaje: mensaje
   };
+  if (!idAviso) {
+    data.estado_confirmacion = $('#estado_confirmacion_modal').val();
+  }
 
   if (!idAviso) {
     data.estado_envio = 'Pendiente';

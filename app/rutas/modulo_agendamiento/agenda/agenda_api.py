@@ -3,6 +3,7 @@ from app.dao.referenciales_agendamiento.agenda.AgendaCabeceraDao import AgendaCa
 from app.dao.referenciales_agendamiento.agenda.AgendaDetalleDao import AgendaDetalleDao
 from app.dao.referenciales_agendamiento.disponibilidad_horaria.DisponibilidadHorariaDao import DisponibilidadDao
 from datetime import datetime
+from app.rutas.modulo_seguridad.decorators import require_permiso, require_login
 
 agendaapi = Blueprint('agendaapi', __name__)
 
@@ -12,6 +13,7 @@ agendaapi = Blueprint('agendaapi', __name__)
 
 # 🔹 Obtener todas las cabeceras
 @agendaapi.route('/agenda/cabeceras', methods=['GET'])
+@require_login  # lookup usado por formularios de otras ventanas
 def getCabeceras():
     dao = AgendaCabeceraDao()
     try:
@@ -24,6 +26,7 @@ def getCabeceras():
 
 # 🔹 Obtener cabecera por ID
 @agendaapi.route('/agenda/cabeceras/<int:id_cabecera>', methods=['GET'])
+@require_login  # lookup usado por formularios de otras ventanas
 def getCabecera(id_cabecera):
     dao = AgendaCabeceraDao()
     try:
@@ -38,6 +41,7 @@ def getCabecera(id_cabecera):
 
 # 🔹 Crear nueva cabecera
 @agendaapi.route('/agenda/cabeceras', methods=['POST'])
+@require_permiso('agenda', 'nuevo')
 def addCabecera():
     data = request.get_json()
     dao = AgendaCabeceraDao()
@@ -89,6 +93,7 @@ def addCabecera():
 
 # 🔹 Actualizar cabecera
 @agendaapi.route('/agenda/cabeceras/<int:id_cabecera>', methods=['PUT'])
+@require_permiso('agenda', 'editar')
 def updateCabecera(id_cabecera):
     data = request.get_json()
     dao = AgendaCabeceraDao()
@@ -129,6 +134,7 @@ def updateCabecera(id_cabecera):
 
 # 🔹 Anular cabecera (baja lógica; en cascada anula también sus detalles)
 @agendaapi.route('/agenda/cabeceras/<int:id_cabecera>', methods=['DELETE'])
+@require_permiso('agenda', 'anular')
 def deleteCabecera(id_cabecera):
     dao = AgendaCabeceraDao()
     try:
@@ -147,6 +153,7 @@ def deleteCabecera(id_cabecera):
 
 # 🔹 Cambiar estado de cabecera
 @agendaapi.route('/agenda/cabeceras/<int:id_cabecera>/estado', methods=['PATCH'])
+@require_permiso('agenda', 'anular')
 def cambiarEstadoCabecera(id_cabecera):
     data = request.get_json()
     dao = AgendaCabeceraDao()
@@ -170,6 +177,7 @@ def cambiarEstadoCabecera(id_cabecera):
 
 # 🔹 Obtener detalles de una cabecera
 @agendaapi.route('/agenda/cabeceras/<int:id_cabecera>/detalles', methods=['GET'])
+@require_login  # lookup usado por formularios de otras ventanas
 def getDetalles(id_cabecera):
     dao = AgendaDetalleDao()
     try:
@@ -182,6 +190,7 @@ def getDetalles(id_cabecera):
 
 # 🔹 Obtener un detalle específico
 @agendaapi.route('/agenda/detalles/<int:id_detalle>', methods=['GET'])
+@require_permiso('agenda', 'ver')
 def getDetalle(id_detalle):
     dao = AgendaDetalleDao()
     try:
@@ -196,6 +205,7 @@ def getDetalle(id_detalle):
 
 # 🔹 Agregar detalles (uno o varios) a una cabecera
 @agendaapi.route('/agenda/cabeceras/<int:id_cabecera>/detalles', methods=['POST'])
+@require_permiso('agenda', 'nuevo')
 def addDetalles(id_cabecera):
     data = request.get_json()
     detalle_dao = AgendaDetalleDao()
@@ -257,6 +267,7 @@ def addDetalles(id_cabecera):
 
 # 🔹 Eliminar un detalle específico
 @agendaapi.route('/agenda/detalles/<int:id_detalle>', methods=['DELETE'])
+@require_permiso('agenda', 'anular')
 def deleteDetalle(id_detalle):
     dao = AgendaDetalleDao()
     try:
@@ -276,6 +287,7 @@ def deleteDetalle(id_detalle):
 
 # 🔹 Actualizar cupos disponibles de un detalle
 @agendaapi.route('/agenda/detalles/<int:id_detalle>/cupos', methods=['PATCH'])
+@require_permiso('agenda', 'editar')
 def actualizarCupos(id_detalle):
     data = request.get_json()
     dao = AgendaDetalleDao()
@@ -302,6 +314,7 @@ def actualizarCupos(id_detalle):
 
 # 🔹 Cambiar estado de detalle
 @agendaapi.route('/agenda/detalles/<int:id_detalle>/estado', methods=['PATCH'])
+@require_permiso('agenda', 'anular')
 def cambiarEstadoDetalle(id_detalle):
     data = request.get_json()
     dao = AgendaDetalleDao()

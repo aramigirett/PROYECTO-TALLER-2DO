@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify, request, current_app as app
 from app.dao.referenciales_agendamiento.avisosRecordatorios.AvisosRecordatorioDao import AvisoRecordatorioDao
 from app.Services.whatsapp_service import AvisoRecordatorioService, WhatsAppService
 import threading
+from app.rutas.modulo_seguridad.decorators import require_permiso
 
 avisoapi = Blueprint('avisoapi', __name__, url_prefix='/api/v1')
 
@@ -12,6 +13,7 @@ dao = AvisoRecordatorioDao()
 # ==========================================
 
 @avisoapi.route('/avisos', methods=['GET'])
+@require_permiso('avisos', 'ver')
 def listar_avisos():
     """Lista todos los avisos y recordatorios"""
     try:
@@ -23,6 +25,7 @@ def listar_avisos():
 
 
 @avisoapi.route('/avisos/<int:id_aviso>', methods=['GET'])
+@require_permiso('avisos', 'ver')
 def get_aviso(id_aviso):
     """Obtiene un aviso específico por ID"""
     try:
@@ -36,6 +39,7 @@ def get_aviso(id_aviso):
 
 
 @avisoapi.route('/avisos', methods=['POST'])
+@require_permiso('avisos', 'nuevo')
 def crear_aviso():
     """Crea un nuevo aviso/recordatorio"""
     data = request.get_json()
@@ -50,9 +54,13 @@ def crear_aviso():
 
 
 @avisoapi.route('/avisos/<int:id_aviso>', methods=['PUT'])
+@require_permiso('avisos', 'editar')
 def actualizar_aviso(id_aviso):
-    """Actualiza un aviso existente"""
-    data = request.get_json()
+    """Edita los DATOS de un aviso (acción 'editar'). Los estados del flujo
+    (confirmación / envío) no se tocan acá: ver PATCH .../estado."""
+    data = request.get_json() or {}
+    data.pop('estado_confirmacion', None)
+    data.pop('estado_envio', None)
     try:
         if dao.updateAviso(id_aviso, data):
             return jsonify(success=True, mensaje="Aviso actualizado exitosamente")
@@ -63,6 +71,7 @@ def actualizar_aviso(id_aviso):
 
 
 @avisoapi.route('/avisos/<int:id_aviso>', methods=['DELETE'])
+@require_permiso('avisos', 'anular')
 def eliminar_aviso(id_aviso):
     """Elimina un aviso"""
     try:
@@ -78,7 +87,27 @@ def eliminar_aviso(id_aviso):
 #  ENDPOINTS PARA WHATSAPP
 # ==========================================
 
+@avisoapi.route('/avisos/<int:id_aviso>/estado', methods=['PATCH'])
+@require_permiso('avisos', 'estado')
+def cambiar_estado_aviso(id_aviso):
+    """Cambia el estado de confirmación del aviso (acción 'estado')."""
+    data = request.get_json() or {}
+    nuevo = data.get('estado_confirmacion')
+    if nuevo not in ('Pendiente', 'Confirmado', 'Cancelado'):
+        return jsonify(success=False, error="estado_confirmacion debe ser Pendiente, Confirmado o Cancelado"), 400
+    try:
+        if not dao.getAvisoById(id_aviso):
+            return jsonify(success=False, error="Aviso no encontrado"), 404
+        if dao.updateAviso(id_aviso, {'estado_confirmacion': nuevo}):
+            return jsonify(success=True, mensaje="Estado actualizado", data={'estado_confirmacion': nuevo})
+        return jsonify(success=False, error="No se pudo cambiar el estado"), 500
+    except Exception as e:
+        app.logger.error(f"Error en cambiar_estado_aviso: {e}")
+        return jsonify(success=False, error=str(e)), 500
+
+
 @avisoapi.route('/avisos/enviar-whatsapp', methods=['POST'])
+@require_permiso('avisos', 'estado')
 def enviar_avisos_whatsapp():
     """Envía todos los avisos pendientes de WhatsApp"""
     try:
@@ -92,6 +121,7 @@ def enviar_avisos_whatsapp():
 
 
 @avisoapi.route('/avisos/<int:id_aviso>/enviar-whatsapp', methods=['POST'])
+@require_permiso('avisos', 'estado')
 def enviar_aviso_individual(id_aviso):
     """Envía un aviso individual por WhatsApp de forma asíncrona"""
     try:
@@ -219,6 +249,7 @@ def enviar_aviso_individual(id_aviso):
 
 
 @avisoapi.route('/avisos/estadisticas', methods=['GET'])
+@require_permiso('avisos', 'ver')
 def estadisticas_avisos():
     """Obtiene estadísticas de los avisos"""
     try:
@@ -264,6 +295,7 @@ def estadisticas_avisos():
 
 
 @avisoapi.route('/avisos/<int:id_aviso>/mensaje-preview', methods=['GET'])
+@require_permiso('avisos', 'ver')
 def preview_mensaje(id_aviso):
     """Genera el preview del mensaje automático sin enviarlo"""
     try:

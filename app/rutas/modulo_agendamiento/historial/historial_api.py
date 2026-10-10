@@ -14,6 +14,7 @@ from app.dao.referenciales_agendamiento.historial.HistorialDao import HistorialM
 import os
 import time
 from werkzeug.utils import secure_filename
+from app.rutas.modulo_seguridad.decorators import require_permiso
 
 # ==================== CONFIGURACIÓN DEL BLUEPRINT ====================
 historialapi = Blueprint('historialapi', __name__)
@@ -45,6 +46,7 @@ def allowed_file(filename):
 # ENDPOINT: OBTENER TODO EL HISTORIAL DE UN PACIENTE
 # =====================================================
 @historialapi.route('/historial-medico/paciente/<int:id_paciente>', methods=['GET'])
+@require_permiso('historial', 'ver')
 def getHistorialByPaciente(id_paciente):
     """
     Obtiene TODOS los documentos del historial médico de un paciente específico
@@ -88,6 +90,7 @@ def getHistorialByPaciente(id_paciente):
 # ENDPOINT: OBTENER HISTORIAL FILTRADO POR TIPO
 # =====================================================
 @historialapi.route('/historial-medico/paciente/<int:id_paciente>/tipo/<string:tipo_documento>', methods=['GET'])
+@require_permiso('historial', 'ver')
 def getHistorialByTipo(id_paciente, tipo_documento):
     """
     Obtiene documentos filtrados por tipo (solo antecedentes, solo alergias, etc.)
@@ -133,6 +136,7 @@ def getHistorialByTipo(id_paciente, tipo_documento):
 # ENDPOINT: OBTENER UN DOCUMENTO ESPECÍFICO POR ID
 # =====================================================
 @historialapi.route('/historial-medico/<int:id_historial>', methods=['GET'])
+@require_permiso('historial', 'ver')
 def getHistorial(id_historial):
     """
     Obtiene los detalles de UN documento específico del historial
@@ -173,6 +177,7 @@ def getHistorial(id_historial):
 # ENDPOINT: AGREGAR NUEVO DOCUMENTO AL HISTORIAL
 # =====================================================
 @historialapi.route('/historial-medico', methods=['POST'])
+@require_permiso('historial', 'nuevo')
 def addHistorial():
     """
     Agrega un nuevo documento al historial médico del paciente
@@ -339,6 +344,7 @@ def addHistorial():
 # ENDPOINT: ACTUALIZAR DOCUMENTO DEL HISTORIAL
 # =====================================================
 @historialapi.route('/historial-medico/<int:id_historial>', methods=['PUT'])
+@require_permiso('historial', 'editar')
 def updateHistorial(id_historial):
     """
     Actualiza un documento existente del historial
@@ -467,6 +473,7 @@ def updateHistorial(id_historial):
 # ENDPOINT: ELIMINAR (INACTIVAR) DOCUMENTO
 # =====================================================
 @historialapi.route('/historial-medico/<int:id_historial>', methods=['DELETE'])
+@require_permiso('historial', 'anular')
 def deleteHistorial(id_historial):
     """
     Elimina (inactiva) un documento del historial
@@ -502,6 +509,7 @@ def deleteHistorial(id_historial):
 # ENDPOINT: OBTENER CONTADORES POR TIPO
 # =====================================================
 @historialapi.route('/historial-medico/paciente/<int:id_paciente>/contadores', methods=['GET'])
+@require_permiso('historial', 'ver')
 def getContadores(id_paciente):
     """
     Obtiene la cantidad de documentos por tipo para mostrar en los badges

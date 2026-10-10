@@ -14,9 +14,9 @@ Gestión de Citas
     <h2 class="text-success">
       <i class="fas fa-calendar-check"></i> Gestión de Citas Médicas
     </h2>
-    <button type="button" class="btn btn-success btn-lg shadow-sm" id="btnAgregar">
+    {% if puede('cita','nuevo') %}<button type="button" class="btn btn-success btn-lg shadow-sm" id="btnAgregar">
       <i class="fas fa-plus-circle"></i> Nueva Cita
-    </button>
+    </button>{% endif %}
   </div>
 
   <!-- ========================================
@@ -179,9 +179,9 @@ Gestión de Citas
 
           <!-- Botón para agregar horario de cita -->
           <div class="text-right mb-3">
-            <button type="button" class="btn btn-success" id="btnAgregarDetalleCita">
+            {% if puede('cita','nuevo') %}<button type="button" class="btn btn-success" id="btnAgregarDetalleCita">
               <i class="fas fa-clock"></i> Agendar Horario
-            </button>
+            </button>{% endif %}
           </div>
 
           <!-- Tabla de Detalles de Citas -->
@@ -541,6 +541,7 @@ Gestión de Citas
 // VARIABLES GLOBALES
 // ========================================
 let citaCabeceraActual = null; // Guarda la cabecera seleccionada para ver detalles
+let idDetalleCambioEstado = null;  // id del detalle cuando se abre el selector de estado desde la fila
 let agendaCabeceraSeleccionada = null; // Guarda info de la agenda seleccionada
 
 // ========================================
@@ -587,14 +588,14 @@ const initDatatableCitasCabecera = () => {
                   data-id="${row.id_cita_cabecera}" title="Ver Detalles">
             <i class="fas fa-eye"></i>
           </button>
-          <button class="btn btn-warning btn-sm-custom" name="btn_editar_cita" 
+          {% if puede('cita','editar') %}<button class="btn btn-warning btn-sm-custom" name="btn_editar_cita" 
                   data-id="${row.id_cita_cabecera}" title="Editar">
             <i class="fas fa-edit"></i>
-          </button>
-          <button class="btn btn-danger btn-sm-custom" name="btn_eliminar_cita" 
+          </button>{% endif %}
+          {% if puede('cita','anular') %}<button class="btn btn-danger btn-sm-custom" name="btn_eliminar_cita" 
                   data-id="${row.id_cita_cabecera}" title="Eliminar">
             <i class="fas fa-trash-alt"></i>
-          </button>
+          </button>{% endif %}
         `
       }
     ]
@@ -724,9 +725,38 @@ const initDatatableEstadosCita = () => {
   $('#tblEstadosCita').on('click', 'button[name="btn_seleccionar_estado"]', function() {
     const id = $(this).data('id');
     const descripcion = $(this).data('descripcion');
+    $('#modalBuscarEstado').modal('hide');
+
+    // Modo "Cambiar estado" desde la fila: PATCH propio (acción 'estado')
+    if (idDetalleCambioEstado) {
+      const idDetalle = idDetalleCambioEstado;
+      idDetalleCambioEstado = null;
+      fetch(`/api/v1/citas-detalle/${idDetalle}/estado`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_estado_cita: id })
+      })
+      .then(resp => resp.json())
+      .then(data => {
+        if (data.success) {
+          cargarDetallesCita(citaCabeceraActual.id_cita_cabecera);
+          Swal.fire('Éxito', 'Estado actualizado a ' + descripcion, 'success');
+        } else if (data.error && data.error.includes('cupos')) {
+          Swal.fire('Sin cupos', data.error, 'warning');
+        } else {
+          Swal.fire('Error', data.error || 'No se pudo cambiar el estado', 'error');
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        Swal.fire('Error', 'Ocurrió un error al cambiar el estado', 'error');
+      });
+      return;
+    }
+
+    // Modo formulario (alta de horario)
     $('#id_estado_cita').val(id);
     $('#txtEstadoCita').val(descripcion);
-    $('#modalBuscarEstado').modal('hide');
   });
 };
 
@@ -942,14 +972,18 @@ const cargarDetallesCita = (id_cita_cabecera) => {
               <td>${estadoBadge}</td>
               <td>${formatearFechaHora(d.fecha_cambio_estado)}</td>
               <td>
-                <button class="btn btn-warning btn-sm" name="btn_editar_detalle_cita" 
+                {% if puede('cita','estado') %}<button class="btn btn-info btn-sm" name="btn_estado_detalle_cita" 
+                        data-id="${d.id_cita_detalle}" title="Cambiar estado">
+                  <i class="fas fa-flag"></i>
+                </button>{% endif %}
+                {% if puede('cita','editar') %}<button class="btn btn-warning btn-sm" name="btn_editar_detalle_cita" 
                         data-id="${d.id_cita_detalle}" title="Editar">
                   <i class="fas fa-edit"></i>
-                </button>
-                <button class="btn btn-danger btn-sm" name="btn_eliminar_detalle_cita" 
+                </button>{% endif %}
+                {% if puede('cita','anular') %}<button class="btn btn-danger btn-sm" name="btn_eliminar_detalle_cita" 
                         data-id="${d.id_cita_detalle}" title="Eliminar">
                   <i class="fas fa-trash-alt"></i>
-                </button>
+                </button>{% endif %}
               </td>
             </tr>
           `);
@@ -991,6 +1025,7 @@ function limpiarFormularioDetalle() {
   $('#hora_cita').val('');
   $('#id_estado_cita').val('');
   $('#txtEstadoCita').val('');
+  $('#btnBuscarEstado').prop('disabled', false);
   $('#motivo_consulta').val('');
 }
 
@@ -1143,6 +1178,13 @@ const guardarDetalleCita = () => {
 // ========================================
 // FUNCIÓN: Editar detalle de cita
 // ========================================
+const cambiarEstadoDetalleCita = () => {
+  $('#tblDetallesCita').on('click', 'button[name="btn_estado_detalle_cita"]', function() {
+    idDetalleCambioEstado = $(this).data('id');
+    $('#modalBuscarEstado').modal('show');
+  });
+};
+
 const editarDetalleCita = () => {
   $('#tblDetallesCita').on('click', 'button[name="btn_editar_detalle_cita"]', function() {
     const id = $(this).data('id');
@@ -1161,6 +1203,7 @@ const editarDetalleCita = () => {
         $('#hora_cita').val(detalle.hora_cita.slice(0, 5));
         $('#id_estado_cita').val(detalle.id_estado_cita);
         $('#txtEstadoCita').val(detalle.estado_descripcion);
+        $('#btnBuscarEstado').prop('disabled', true);  // el estado se cambia con el botón "Cambiar estado" de la fila
         $('#motivo_consulta').val(detalle.motivo_consulta);
         $('#modalDetalleCita').modal('show');
       }
@@ -1227,6 +1270,8 @@ const abrirModalesBusqueda = () => {
 
   // Estado
   $('#btnBuscarEstado, #txtEstadoCita').on('click', () => {
+    if ($('#id_cita_detalle').val()) return;  // edición: estado de solo lectura
+    idDetalleCambioEstado = null;
     $('#modalBuscarEstado').modal('show');
   });
 };
@@ -1252,6 +1297,7 @@ $(function() {
   agregarDetalleCita();
   guardarDetalleCita();
   editarDetalleCita();
+  cambiarEstadoDetalleCita();
   eliminarDetalleCita();
   buscarHorarios();
 

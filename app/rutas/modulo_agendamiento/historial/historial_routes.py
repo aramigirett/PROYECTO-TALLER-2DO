@@ -7,11 +7,13 @@ DESCRIPCIÓN: Define las rutas para renderizar las plantillas HTML
 """
 
 from flask import Blueprint, render_template
+from app.rutas.modulo_seguridad.decorators import require_permiso
 
 # Crear Blueprint para historial médico
 historialmod = Blueprint('historial', __name__, template_folder='templates')
 
 @historialmod.route('/historial-index')
+@require_permiso('historial', 'ver')
 def historialIndex():
     """
     Renderiza la página principal del historial médico del paciente

@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, request, current_app as app
 from app.dao.referenciales_agendamiento.medico.MedicoDao import MedicoDao
+from app.rutas.modulo_seguridad.decorators import require_permiso, require_login
 
 medicoapi = Blueprint('medicoapi', __name__) 
 
@@ -8,6 +9,7 @@ medicoapi = Blueprint('medicoapi', __name__)
 #   Obtener todos los médicos
 # ==============================
 @medicoapi.route('/medico', methods=['GET'])
+@require_login  # lookup usado por formularios de otras ventanas
 def getMedicos():
     medicodao = MedicoDao()
     try:
@@ -25,6 +27,7 @@ def getMedicos():
 #   Obtener médico por ID
 # ==============================
 @medicoapi.route('/medico/<int:medico_id>', methods=['GET'])
+@require_login  # lookup usado por formularios de otras ventanas
 def getMedico(medico_id):
     medicodao = MedicoDao()
     try:
@@ -47,6 +50,7 @@ def getMedico(medico_id):
 #   Agregar nuevo médico
 # ==============================
 @medicoapi.route('/medico', methods=['POST'])
+@require_permiso('medico', 'nuevo')
 def addMedico():
     data = request.get_json()
     medicodao = MedicoDao()
@@ -101,6 +105,7 @@ def addMedico():
 #   Actualizar médico existente
 # ==============================
 @medicoapi.route('/medico/<int:medico_id>', methods=['PUT'])
+@require_permiso('medico', 'editar')
 def updateMedico(medico_id):
     data = request.get_json()
     medicodao = MedicoDao()
@@ -148,6 +153,7 @@ def updateMedico(medico_id):
 #   Eliminar médico
 # ==============================
 @medicoapi.route('/medico/<int:medico_id>', methods=['DELETE'])
+@require_permiso('medico', 'anular')
 def deleteMedico(medico_id):
     medicodao = MedicoDao()
     try:

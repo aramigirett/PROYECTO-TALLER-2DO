@@ -12,9 +12,9 @@ Agenda Médica
     <h2 class="text-primary">
       <i class="fas fa-calendar-alt"></i> Gestión de Agenda Médica
     </h2>
-    <button type="button" class="btn btn-primary btn-lg shadow-sm" id="btnAgregar">
+    {% if puede('agenda','nuevo') %}<button type="button" class="btn btn-primary btn-lg shadow-sm" id="btnAgregar">
       <i class="fas fa-plus-circle"></i> Nueva Agenda
-    </button>
+    </button>{% endif %}
   </div>
 
   <!-- ========================================
@@ -208,9 +208,9 @@ Agenda Médica
 
           <!-- Botón para agregar horarios -->
           <div class="text-right mb-3">
-            <button type="button" class="btn btn-success" id="btnAgregarHorarios">
+            {% if puede('agenda','nuevo') %}<button type="button" class="btn btn-success" id="btnAgregarHorarios">
               <i class="fas fa-clock"></i> Agregar Horarios
-            </button>
+            </button>{% endif %}
           </div>
 
           <!-- Tabla de Detalles -->
@@ -483,14 +483,14 @@ const initDatatableCabeceras = () => {
                   data-id="${row.id_agenda_cabecera}" title="Ver Detalles">
             <i class="fas fa-eye"></i>
           </button>
-          <button class="btn btn-warning btn-sm-custom" name="btn_editar" 
+          {% if puede('agenda','editar') %}<button class="btn btn-warning btn-sm-custom" name="btn_editar" 
                   data-id="${row.id_agenda_cabecera}" title="Editar">
             <i class="fas fa-edit"></i>
-          </button>
-          <button class="btn btn-danger btn-sm-custom" name="btn_eliminar" 
+          </button>{% endif %}
+          {% if puede('agenda','anular') %}<button class="btn btn-danger btn-sm-custom" name="btn_eliminar" 
                   data-id="${row.id_agenda_cabecera}" title="Eliminar">
             <i class="fas fa-trash-alt"></i>
-          </button>
+          </button>{% endif %}
         `
       }
     ]
@@ -791,10 +791,10 @@ const cargarDetalles = (id_cabecera) => {
               <td>${d.cupos_maximos}</td>
               <td>${estadoBadge}</td>
               <td>
-                <button class="btn btn-danger btn-sm" name="btn_eliminar_detalle" 
+                {% if puede('agenda','anular') %}<button class="btn btn-danger btn-sm" name="btn_eliminar_detalle" 
                         data-id="${d.id_agenda_detalle}" title="Eliminar">
                   <i class="fas fa-trash-alt"></i>
-                </button>
+                </button>{% endif %}
               </td>
             </tr>
           `);

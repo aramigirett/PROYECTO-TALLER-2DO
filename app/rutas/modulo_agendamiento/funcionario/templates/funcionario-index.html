@@ -11,7 +11,7 @@ Funcionario
   <!-- Tarjeta -->
   <div class="card">
     <div class="card-header">
-      <button type="button" class="btn btn-outline-primary" id="btnAgregar">Agregar</button>
+      {% if puede('funcionario','nuevo') %}<button type="button" class="btn btn-outline-primary" id="btnAgregar">Agregar</button>{% endif %}
     </div>
     <div class="card-body">
       <div class="table-responsive">
@@ -180,12 +180,12 @@ const initDatatable = () => {
         data: null,
         render: function (data, type, row) {
           return `
-            <button type="button" class="btn btn-info btn-sm btn-editar" data-id="${row.id_funcionario}">
+            {% if puede('funcionario','editar') %}<button type="button" class="btn btn-info btn-sm btn-editar" data-id="${row.id_funcionario}">
               <i class="fas fa-edit"></i>
-            </button>
-            <button type="button" class="btn btn-danger btn-sm btn-eliminar" data-id="${row.id_funcionario}">
+            </button>{% endif %}
+            {% if puede('funcionario','anular') %}<button type="button" class="btn btn-danger btn-sm btn-eliminar" data-id="${row.id_funcionario}">
               <i class="fas fa-trash-alt"></i>
-            </button>`;
+            </button>{% endif %}`;
         }
       }
     ]

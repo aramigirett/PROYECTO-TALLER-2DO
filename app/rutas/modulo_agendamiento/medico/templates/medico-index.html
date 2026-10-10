@@ -11,7 +11,7 @@ Médicos
   <!-- Tarjeta -->
   <div class="card">
     <div class="card-header">
-      <button type="button" class="btn btn-outline-primary" id="btnAgregar">Agregar</button>
+      {% if puede('medico','nuevo') %}<button type="button" class="btn btn-outline-primary" id="btnAgregar">Agregar</button>{% endif %}
     </div>
     <div class="card-body">
       <div class="table-responsive">
@@ -217,12 +217,12 @@ Médicos
         { data: 'fecha_registro' },
         {
           data: row => `
-            <button type="button" name="btn_editar" class="btn btn-outline-primary" data-id_medico="${row.id_medico}">
+            {% if puede('medico','editar') %}<button type="button" name="btn_editar" class="btn btn-outline-primary" data-id_medico="${row.id_medico}">
               <i class="fas fa-edit"></i>
-            </button>
-            <button type="button" name="btn_eliminar" class="btn btn-outline-warning" data-id_medico="${row.id_medico}">
+            </button>{% endif %}
+            {% if puede('medico','anular') %}<button type="button" name="btn_eliminar" class="btn btn-outline-warning" data-id_medico="${row.id_medico}">
               <i class="fas fa-trash-alt"></i>
-            </button>`
+            </button>{% endif %}`
         }
       ]
     });

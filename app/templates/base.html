@@ -372,7 +372,7 @@
                 </a>
                 <div id="collapseModulo{{ loop.index }}" class="collapse" data-parent="#accordionSidebar">
                     <div class="bg-white py-2 collapse-inner rounded">
-                        {% for item in modulo.items %}
+                        {% for item in modulo.entradas %}
                         <a class="collapse-item" href="{{ url_for(item.endpoint) }}"><i class="fas {{ item.icono }}"></i> {{ item.etiqueta }}</a>
                         {% endfor %}
                         {% if modulo.modulo == 'Módulo Seguridad' and session.get('nombre_rol') == 'Administrador' %}

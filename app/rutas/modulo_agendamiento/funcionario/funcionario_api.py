@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, request, current_app as app
 from app.dao.referenciales.funcionario.FuncionarioDao import FuncionarioDao
+from app.rutas.modulo_seguridad.decorators import require_permiso, require_login
 
 funcionarioapi = Blueprint('funcionarioapi', __name__)
 
@@ -7,6 +8,7 @@ funcionarioapi = Blueprint('funcionarioapi', __name__)
 #   Obtener todos los funcionarios
 # ==============================
 @funcionarioapi.route('/funcionarios', methods=['GET'])
+@require_login  # lookup usado por formularios de otras ventanas
 def getFuncionarios():
     funcionariodao = FuncionarioDao()
     try:
@@ -24,6 +26,7 @@ def getFuncionarios():
 #   Obtener funcionario por ID
 # ==============================
 @funcionarioapi.route('/funcionarios/<int:funcionario_id>', methods=['GET'])
+@require_permiso('funcionario', 'ver')
 def getFuncionarioById(funcionario_id):
     funcionariodao = FuncionarioDao()
     try:
@@ -46,6 +49,7 @@ def getFuncionarioById(funcionario_id):
 #   Agregar nuevo funcionario
 # ==============================
 @funcionarioapi.route('/funcionarios', methods=['POST'])
+@require_permiso('funcionario', 'nuevo')
 def addFuncionario():
     data = request.get_json()
     funcionariodao = FuncionarioDao()
@@ -97,6 +101,7 @@ def addFuncionario():
 #   Actualizar funcionario
 # ==============================
 @funcionarioapi.route('/funcionarios/<int:funcionario_id>', methods=['PUT'])
+@require_permiso('funcionario', 'editar')
 def updateFuncionario(funcionario_id):
     data = request.get_json()
     funcionariodao = FuncionarioDao()
@@ -140,6 +145,7 @@ def updateFuncionario(funcionario_id):
 #   Eliminar funcionario
 # ==============================
 @funcionarioapi.route('/funcionarios/<int:funcionario_id>', methods=['DELETE'])
+@require_permiso('funcionario', 'anular')
 def deleteFuncionario(funcionario_id):
     funcionariodao = FuncionarioDao()
     try:

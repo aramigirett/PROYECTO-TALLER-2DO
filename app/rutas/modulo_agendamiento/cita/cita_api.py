@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, current_app as app
 from app.dao.referenciales_agendamiento.cita.CitaDao import CitaDao
 from datetime import time
+from app.rutas.modulo_seguridad.decorators import require_permiso, require_login
 
 # Crear Blueprint para la API de Citas
 citaapi = Blueprint('citaapi', __name__)
@@ -24,6 +25,7 @@ def obtener_id_funcionario_actual():
 # ========================================
 
 @citaapi.route('/estados-cita', methods=['GET'])
+@require_permiso('cita', 'ver')
 def getEstadosCita():
     citadao = CitaDao()
     try:
@@ -45,6 +47,7 @@ def getEstadosCita():
 # ========================================
 
 @citaapi.route('/citas-cabecera', methods=['GET'])
+@require_permiso('cita', 'ver')
 def getCitasCabecera():
     citadao = CitaDao()
     try:
@@ -62,6 +65,7 @@ def getCitasCabecera():
         }), 500
 
 @citaapi.route('/citas-cabecera/<int:id_cita_cabecera>', methods=['GET'])
+@require_permiso('cita', 'ver')
 def getCitaCabeceraById(id_cita_cabecera):
     citadao = CitaDao()
     try:
@@ -85,6 +89,7 @@ def getCitaCabeceraById(id_cita_cabecera):
         }), 500
 
 @citaapi.route('/citas-cabecera', methods=['POST'])
+@require_permiso('cita', 'nuevo')
 def addCitaCabecera():
     data = request.get_json()
     citadao = CitaDao()
@@ -131,6 +136,7 @@ def addCitaCabecera():
         }), 500
 
 @citaapi.route('/citas-cabecera/<int:id_cita_cabecera>', methods=['PUT'])
+@require_permiso('cita', 'editar')
 def updateCitaCabecera(id_cita_cabecera):
     data = request.get_json()
     citadao = CitaDao()
@@ -176,6 +182,7 @@ def updateCitaCabecera(id_cita_cabecera):
         }), 500
 
 @citaapi.route('/citas-cabecera/<int:id_cita_cabecera>', methods=['DELETE'])
+@require_permiso('cita', 'anular')
 def deleteCitaCabecera(id_cita_cabecera):
     citadao = CitaDao()
     try:
@@ -198,6 +205,7 @@ def deleteCitaCabecera(id_cita_cabecera):
         }), 500
 
 @citaapi.route('/citas-cabecera/<int:id_cita_cabecera>/estado', methods=['PATCH'])
+@require_permiso('cita', 'anular')
 def cambiarEstadoCabecera(id_cita_cabecera):
     data = request.get_json()
     citadao = CitaDao()
@@ -232,6 +240,7 @@ def cambiarEstadoCabecera(id_cita_cabecera):
 # ========================================
 
 @citaapi.route('/citas-detalle/cabecera/<int:id_cita_cabecera>', methods=['GET'])
+@require_permiso('cita', 'ver')
 def getDetallesPorCabecera(id_cita_cabecera):
     citadao = CitaDao()
     try:
@@ -258,6 +267,7 @@ def getDetallesPorCabecera(id_cita_cabecera):
         }), 500
 
 @citaapi.route('/citas-detalle/<int:id_cita_detalle>', methods=['GET'])
+@require_permiso('cita', 'ver')
 def getDetalleById(id_cita_detalle):
     citadao = CitaDao()
     try:
@@ -284,6 +294,7 @@ def getDetalleById(id_cita_detalle):
         }), 500
 
 @citaapi.route('/citas-detalle', methods=['POST'])
+@require_permiso('cita', 'nuevo')
 def addCitaDetalle():
     data = request.get_json()
     citadao = CitaDao()
@@ -323,7 +334,7 @@ def addCitaDetalle():
                     'fecha_cita': data['fecha_cita'],
                     'hora_cita': data['hora_cita'],
                     'motivo_consulta': data['motivo_consulta'],
-                    'id_estado_cita': data['id_estado_cita']
+                    'id_estado_cita': actual['id_estado_cita']
                 },
                 'error': None
             }), 201
@@ -341,18 +352,27 @@ def addCitaDetalle():
         }), 500
 
 @citaapi.route('/citas-detalle/<int:id_cita_detalle>', methods=['PUT'])
+@require_permiso('cita', 'editar')
 def updateCitaDetalle(id_cita_detalle):
+    # Edición de DATOS del horario (acción 'editar'). El estado NO se toca
+    # acá: se conserva el actual; cambiarlo es PATCH .../estado (acción 'estado').
     data = request.get_json()
     citadao = CitaDao()
 
-    campos_requeridos = ['id_agenda_detalle', 'fecha_cita', 'hora_cita', 
-                         'motivo_consulta', 'id_estado_cita']
+    campos_requeridos = ['id_agenda_detalle', 'fecha_cita', 'hora_cita', 'motivo_consulta']
     for campo in campos_requeridos:
         if campo not in data or data[campo] in (None, "", "null"):
             return jsonify({
                 'success': False,
                 'error': f'El campo {campo} es obligatorio.'
             }), 400
+
+    actual = citadao.getDetalleById(id_cita_detalle)
+    if not actual:
+        return jsonify({
+            'success': False,
+            'error': f'No se encontró el detalle con ID {id_cita_detalle}.'
+        }), 404
 
     try:
         exito = citadao.updateCitaDetalle(
@@ -361,7 +381,7 @@ def updateCitaDetalle(id_cita_detalle):
             data['fecha_cita'],
             data['hora_cita'],
             data['motivo_consulta'],
-            data['id_estado_cita']
+            actual['id_estado_cita']
         )
 
         if exito == "SIN_CUPOS":
@@ -379,7 +399,7 @@ def updateCitaDetalle(id_cita_detalle):
                     'fecha_cita': data['fecha_cita'],
                     'hora_cita': data['hora_cita'],
                     'motivo_consulta': data['motivo_consulta'],
-                    'id_estado_cita': data['id_estado_cita']
+                    'id_estado_cita': actual['id_estado_cita']
                 },
                 'error': None
             }), 200
@@ -396,7 +416,45 @@ def updateCitaDetalle(id_cita_detalle):
             'error': 'Ocurrió un error al actualizar el detalle.'
         }), 500
 
+@citaapi.route('/citas-detalle/<int:id_cita_detalle>/estado', methods=['PATCH'])
+@require_permiso('cita', 'estado')
+def cambiarEstadoDetalle(id_cita_detalle):
+    # Cambio de estado del flujo de la cita (acción 'estado'). Reusa
+    # updateCitaDetalle con los datos actuales para conservar la lógica de cupos.
+    data = request.get_json() or {}
+    citadao = CitaDao()
+
+    if data.get('id_estado_cita') in (None, "", "null"):
+        return jsonify({'success': False, 'error': 'El campo id_estado_cita es obligatorio.'}), 400
+
+    actual = citadao.getDetalleById(id_cita_detalle)
+    if not actual:
+        return jsonify({
+            'success': False,
+            'error': f'No se encontró el detalle con ID {id_cita_detalle}.'
+        }), 404
+
+    try:
+        exito = citadao.updateCitaDetalle(
+            id_cita_detalle,
+            actual['id_agenda_detalle'],
+            actual['fecha_cita'],
+            actual['hora_cita'],
+            actual['motivo_consulta'],
+            data['id_estado_cita']
+        )
+        if exito == "SIN_CUPOS":
+            return jsonify({'success': False, 'error': 'No hay cupos disponibles en este horario.'}), 409
+        if exito:
+            return jsonify({'success': True, 'data': {'id_cita_detalle': id_cita_detalle,
+                            'id_estado_cita': int(data['id_estado_cita'])}, 'error': None}), 200
+        return jsonify({'success': False, 'error': 'No se pudo cambiar el estado.'}), 404
+    except Exception as e:
+        app.logger.error(f"Error al cambiar estado del detalle {id_cita_detalle}: {str(e)}")
+        return jsonify({'success': False, 'error': 'Ocurrió un error al cambiar el estado.'}), 500
+
 @citaapi.route('/citas-detalle/<int:id_cita_detalle>', methods=['DELETE'])
+@require_permiso('cita', 'anular')
 def deleteCitaDetalle(id_cita_detalle):
     citadao = CitaDao()
     try:
@@ -423,6 +481,7 @@ def deleteCitaDetalle(id_cita_detalle):
 # ========================================
 
 @citaapi.route('/agenda-detalle/cupos/<int:id_agenda_detalle>', methods=['GET'])
+@require_permiso('cita', 'ver')
 def verificarCupos(id_agenda_detalle):
     citadao = CitaDao()
     try:
@@ -447,6 +506,7 @@ def verificarCupos(id_agenda_detalle):
 # ========================================
 
 @citaapi.route('/citas/paciente/<int:id_paciente>', methods=['GET'])
+@require_login  # lookup usado por formularios de otras ventanas
 def obtener_citas_paciente(id_paciente):
     """Obtiene citas confirmadas del paciente para avisos"""
     citadao = CitaDao()
@@ -472,6 +532,7 @@ def obtener_citas_paciente(id_paciente):
 # ========================================
 
 @citaapi.route('/citas-detalle/confirmadas-sin-consulta', methods=['GET'])
+@require_login  # lookup usado por formularios de otras ventanas
 def getCitasConfirmadasSinConsulta():
     citadao = CitaDao()
     try:

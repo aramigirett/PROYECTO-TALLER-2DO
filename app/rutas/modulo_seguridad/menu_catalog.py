@@ -9,7 +9,7 @@
 #   icono      -> clase FontAwesome
 #   modulo     -> agrupador visual (debe existir en MODULOS, más abajo)
 #   ventana    -> clave estable usada en la tabla `permisos` (rol+ventana+accion)
-#   acciones   -> subconjunto de ('ver','nuevo','editar','anular') que expone
+#   acciones   -> subconjunto de ('ver','nuevo','editar','anular','estado') que expone
 #                 esa ventana. 'ver' siempre debe estar. 'editar' solo en las
 #                 ventanas donde el CUS lo contempla explícitamente (hoy:
 #                 Ficha Médica y las referenciales). Los movimientos
@@ -20,11 +20,13 @@
 # mecanismo de permisos delegables, para que nadie pueda autoconcederse
 # acceso. Sigue teniendo su link fijo en el sidebar (ver base.html).
 #
-# NOTA 2: las acciones de Paciente/Funcionario/Médico/Agenda/Cita/Avisos/
-# Historial/Consulta/Odontograma quedaron en ver+nuevo+anular (regla por
-# defecto) aunque sus API exponen un PUT real hoy sin gatear. Se revisa y
-# se decide si necesitan 'editar' propio cuando se cablee el decorator en
-# la etapa de ese módulo (Agendamiento / Consultorio), no antes.
+# NOTA 2: acción 'estado' = cambios de estado del flujo (no baja ni edición de
+# datos). Hoy: Cita (estado de cada horario) y Avisos (confirmación y envío por
+# WhatsApp). A futuro (Consultorio): Actualizar Estado de Órdenes de Estudios/
+# Análisis y Finalizar Tratamiento. 'anular' incluye anular/reactivar.
+# Paciente/Funcionario/Médico tienen 'editar' (datos maestros). Agenda, Cita,
+# Avisos e Historial NO la exponen: su edición de datos (PUT) exige 'editar',
+# que ningún rol no-admin puede tener, o sea queda solo para Administrador.
 
 MODULOS = [
     {"modulo": "Agendamiento", "icono": "fa-calendar-check"},
@@ -37,11 +39,11 @@ MODULOS = [
 CATALOGO_MENU = [
     # Agendamiento
     {"etiqueta": "Registrar Agenda", "endpoint": "agenda_bp.index", "icono": "fa-calendar-alt", "modulo": "Agendamiento", "ventana": "agenda", "acciones": ["ver", "nuevo", "anular"]},
-    {"etiqueta": "Registrar Citas", "endpoint": "cita.citaIndex", "icono": "fa-book", "modulo": "Agendamiento", "ventana": "cita", "acciones": ["ver", "nuevo", "anular"]},
-    {"etiqueta": "Registrar Avisos", "endpoint": "avisos_bp.avisos_recordatorios", "icono": "fa-bell", "modulo": "Agendamiento", "ventana": "avisos", "acciones": ["ver", "nuevo", "anular"]},
-    {"etiqueta": "Registrar Pacientes", "endpoint": "paciente.pacienteIndex", "icono": "fa-user-injured", "modulo": "Agendamiento", "ventana": "paciente", "acciones": ["ver", "nuevo", "anular"]},
-    {"etiqueta": "Registrar Funcionario", "endpoint": "funcionario.funcionarioIndex", "icono": "fa-users", "modulo": "Agendamiento", "ventana": "funcionario", "acciones": ["ver", "nuevo", "anular"]},
-    {"etiqueta": "Registrar Médicos", "endpoint": "medico.medicoIndex", "icono": "fa-stethoscope", "modulo": "Agendamiento", "ventana": "medico", "acciones": ["ver", "nuevo", "anular"]},
+    {"etiqueta": "Registrar Citas", "endpoint": "cita.citaIndex", "icono": "fa-book", "modulo": "Agendamiento", "ventana": "cita", "acciones": ["ver", "nuevo", "anular", "estado"]},
+    {"etiqueta": "Registrar Avisos", "endpoint": "avisos_bp.avisos_recordatorios", "icono": "fa-bell", "modulo": "Agendamiento", "ventana": "avisos", "acciones": ["ver", "nuevo", "anular", "estado"]},
+    {"etiqueta": "Registrar Pacientes", "endpoint": "paciente.pacienteIndex", "icono": "fa-user-injured", "modulo": "Agendamiento", "ventana": "paciente", "acciones": ["ver", "nuevo", "editar", "anular"]},
+    {"etiqueta": "Registrar Funcionario", "endpoint": "funcionario.funcionarioIndex", "icono": "fa-users", "modulo": "Agendamiento", "ventana": "funcionario", "acciones": ["ver", "nuevo", "editar", "anular"]},
+    {"etiqueta": "Registrar Médicos", "endpoint": "medico.medicoIndex", "icono": "fa-stethoscope", "modulo": "Agendamiento", "ventana": "medico", "acciones": ["ver", "nuevo", "editar", "anular"]},
 
     # Referenciales Agendamiento
     {"etiqueta": "Ciudad", "endpoint": "ciudad.ciudadIndex", "icono": "fa-map-marker-alt", "modulo": "Referenciales Agendamiento", "ventana": "ciudad", "acciones": ["ver", "nuevo", "editar", "anular"]},
@@ -94,7 +96,7 @@ def agrupar_por_modulo_visible():
         por_modulo.setdefault(item['modulo'], []).append(item)
 
     return [
-        {**modulo, "items": por_modulo[modulo['modulo']]}
+        {**modulo, "entradas": por_modulo[modulo['modulo']]}
         for modulo in MODULOS
         if modulo['modulo'] in por_modulo
     ]

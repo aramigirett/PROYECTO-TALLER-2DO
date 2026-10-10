@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, request, current_app as app
 from app.dao.referenciales_agendamiento.paciente.PacienteDao import PacienteDao
+from app.rutas.modulo_seguridad.decorators import require_permiso, require_login
 
 pacienteapi = Blueprint('pacienteapi', __name__)
 
@@ -7,6 +8,7 @@ pacienteapi = Blueprint('pacienteapi', __name__)
 #   Obtener todos los pacientes
 # ==============================
 @pacienteapi.route('/pacientes', methods=['GET'])
+@require_login  # lookup usado por formularios de otras ventanas
 def getPacientes():
     pacientedao = PacienteDao()
     try:
@@ -24,6 +26,7 @@ def getPacientes():
 #   Obtener paciente por ID
 # ==============================
 @pacienteapi.route('/pacientes/<int:paciente_id>', methods=['GET'])
+@require_login  # lookup usado por formularios de otras ventanas
 def getPacienteById(paciente_id):
     pacientedao = PacienteDao()
     try:
@@ -46,6 +49,7 @@ def getPacienteById(paciente_id):
 #   Agregar nuevo paciente
 # ==============================
 @pacienteapi.route('/pacientes', methods=['POST'])
+@require_permiso('paciente', 'nuevo')
 def addPaciente():
     data = request.get_json()
     pacientedao = PacienteDao()
@@ -96,6 +100,7 @@ def addPaciente():
 #   Actualizar paciente
 # ==============================
 @pacienteapi.route('/pacientes/<int:paciente_id>', methods=['PUT'])
+@require_permiso('paciente', 'editar')
 def updatePaciente(paciente_id):
     data = request.get_json()
     pacientedao = PacienteDao()
@@ -139,6 +144,7 @@ def updatePaciente(paciente_id):
 #   Eliminar paciente
 # ==============================
 @pacienteapi.route('/pacientes/<int:paciente_id>', methods=['DELETE'])
+@require_permiso('paciente', 'anular')
 def deletePaciente(paciente_id):
     pacientedao = PacienteDao()
     try:

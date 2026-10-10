@@ -18,9 +18,9 @@ Historial Médico del Paciente
         <h4 class="mb-0 text-white font-weight-bold">
           <i class="fas fa-tooth mr-2"></i> 📋 Historial Médico del Paciente
         </h4>
-        <button type="button" class="btn btn-light btn-sm" id="btnAgregarDocumento" disabled>
+        {% if puede('historial','nuevo') %}<button type="button" class="btn btn-light btn-sm" id="btnAgregarDocumento" disabled>
           <i class="fas fa-plus-circle mr-1"></i> Agregar Documento
-        </button>
+        </button>{% endif %}
       </div>
     </div>
 
@@ -735,18 +735,18 @@ function cargarTabAntecedentes() {
                   title="Ver detalles">
             <i class="fas fa-eye"></i>
           </button>
-          <button class="btn btn-sm btn-warning" 
+          {% if puede('historial','editar') %}<button class="btn btn-sm btn-warning" 
                   name="btn_editar_documento"
                   data-id="${doc.id_historial}"
                   title="Editar">
             <i class="fas fa-edit"></i>
-          </button>
-          <button class="btn btn-sm btn-danger" 
+          </button>{% endif %}
+          {% if puede('historial','anular') %}<button class="btn btn-sm btn-danger" 
                   name="btn_eliminar_documento"
                   data-id="${doc.id_historial}"
                   title="Eliminar">
             <i class="fas fa-trash-alt"></i>
-          </button>
+          </button>{% endif %}
         </td>
       </tr>
     `);
@@ -785,16 +785,16 @@ function cargarTabAlergias() {
                   data-id="${doc.id_historial}">
             <i class="fas fa-eye"></i>
           </button>
-          <button class="btn btn-sm btn-warning" 
+          {% if puede('historial','editar') %}<button class="btn btn-sm btn-warning" 
                   name="btn_editar_documento"
                   data-id="${doc.id_historial}">
             <i class="fas fa-edit"></i>
-          </button>
-          <button class="btn btn-sm btn-danger" 
+          </button>{% endif %}
+          {% if puede('historial','anular') %}<button class="btn btn-sm btn-danger" 
                   name="btn_eliminar_documento"
                   data-id="${doc.id_historial}">
             <i class="fas fa-trash-alt"></i>
-          </button>
+          </button>{% endif %}
         </td>
       </tr>
     `);
@@ -834,16 +834,16 @@ function cargarTabMedicamentos() {
                   data-id="${doc.id_historial}">
             <i class="fas fa-eye"></i>
           </button>
-          <button class="btn btn-sm btn-warning" 
+          {% if puede('historial','editar') %}<button class="btn btn-sm btn-warning" 
                   name="btn_editar_documento"
                   data-id="${doc.id_historial}">
             <i class="fas fa-edit"></i>
-          </button>
-          <button class="btn btn-sm btn-danger" 
+          </button>{% endif %}
+          {% if puede('historial','anular') %}<button class="btn btn-sm btn-danger" 
                   name="btn_eliminar_documento"
                   data-id="${doc.id_historial}">
             <i class="fas fa-trash-alt"></i>
-          </button>
+          </button>{% endif %}
         </td>
       </tr>
     `);
@@ -897,16 +897,16 @@ function cargarTabEstudios() {
                       data-id="${doc.id_historial}">
                 <i class="fas fa-eye"></i>
               </button>
-              <button class="btn btn-warning" 
+              {% if puede('historial','editar') %}<button class="btn btn-warning" 
                       name="btn_editar_documento"
                       data-id="${doc.id_historial}">
                 <i class="fas fa-edit"></i>
-              </button>
-              <button class="btn btn-danger" 
+              </button>{% endif %}
+              {% if puede('historial','anular') %}<button class="btn btn-danger" 
                       name="btn_eliminar_documento"
                       data-id="${doc.id_historial}">
                 <i class="fas fa-trash-alt"></i>
-              </button>
+              </button>{% endif %}
             </div>
           </div>
         </div>
@@ -964,16 +964,16 @@ function cargarTabOtros() {
                     data-id="${doc.id_historial}">
               <i class="fas fa-eye"></i>
             </button>
-            <button class="btn btn-sm btn-warning mr-1" 
+            {% if puede('historial','editar') %}<button class="btn btn-sm btn-warning mr-1" 
                     name="btn_editar_documento"
                     data-id="${doc.id_historial}">
               <i class="fas fa-edit"></i>
-            </button>
-            <button class="btn btn-sm btn-danger" 
+            </button>{% endif %}
+            {% if puede('historial','anular') %}<button class="btn btn-sm btn-danger" 
                     name="btn_eliminar_documento"
                     data-id="${doc.id_historial}">
               <i class="fas fa-trash-alt"></i>
-            </button>
+            </button>{% endif %}
           </div>
         </div>
       </div>
