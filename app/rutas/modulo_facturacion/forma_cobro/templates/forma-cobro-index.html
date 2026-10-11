@@ -1,0 +1,229 @@
+{% extends 'base_tabler.html' %}
+
+{% block titulo %}Formas de Cobro{% endblock %}
+
+{% block contenido %}
+<div class="page-header d-print-none mb-3">
+  <div class="row align-items-center">
+    <div class="col">
+      <div class="page-pretitle">Facturación · Referenciales</div>
+      <h2 class="page-title">Formas de Cobro</h2>
+    </div>
+    {% if puede('formacobro', 'nuevo') %}
+    <div class="col-auto ms-auto">
+      <button type="button" class="btn btn-primary" id="btnAgregar">
+        <i class="fas fa-plus me-2"></i>Agregar
+      </button>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table" id="tbl">
+      <thead>
+        <tr>
+          <th>Descripción</th>
+          <th style="width: 120px;">Estado</th>
+          <th class="w-1">Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="tbodyFormas">
+        <tr><td colspan="3" class="text-center text-muted py-4">Cargando…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# Modal Alta / Modificar #}
+<div class="modal modal-blur fade" id="modalFormulario" tabindex="-1" aria-labelledby="modalTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalTitle"></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <form id="formFormaCobro" novalidate>
+        <div class="modal-body">
+          <input type="hidden" id="txtIdFormaCobro">
+          <div class="mb-3">
+            <label class="form-label required" for="txtDescripcion">Descripción</label>
+            <input type="text" class="form-control" id="txtDescripcion" maxlength="60"
+                   placeholder="Ej.: EFECTIVO" autocomplete="off" style="text-transform: uppercase;">
+            <div class="invalid-feedback" id="errDescripcion"></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btnGuardar">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script>
+(function () {
+  const API = '/api/v1/formas-cobro';
+  const PUEDE_EDITAR = {{ 'true' if puede('formacobro', 'editar') else 'false' }};
+  const PUEDE_ANULAR = {{ 'true' if puede('formacobro', 'anular') else 'false' }};
+
+  const tbody = document.getElementById('tbodyFormas');
+  const modalEl = document.getElementById('modalFormulario');
+  const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+  const form = document.getElementById('formFormaCobro');
+  const inpId = document.getElementById('txtIdFormaCobro');
+  const inpDesc = document.getElementById('txtDescripcion');
+  const errDesc = document.getElementById('errDescripcion');
+  const btnGuardar = document.getElementById('btnGuardar');
+
+  const escapar = (t) => String(t).replace(/[&<>"']/g, (c) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  const mostrarError = (msg) => {
+    errDesc.textContent = msg;
+    inpDesc.classList.add('is-invalid');
+  };
+  const limpiarError = () => {
+    errDesc.textContent = '';
+    inpDesc.classList.remove('is-invalid');
+  };
+
+  async function pedir(url, opciones) {
+    const resp = await fetch(url, opciones);
+    let data = null;
+    try { data = await resp.json(); } catch (e) { /* respuesta no JSON (ej. 403 HTML) */ }
+    return { ok: resp.ok, status: resp.status, data };
+  }
+
+  async function cargar() {
+    try {
+      const { ok, data } = await pedir(API);
+      if (!ok || !data || !data.success) throw new Error();
+      if (!data.data.length) {
+        tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-4">No hay formas de cobro registradas.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = data.data.map((f) => {
+        const acciones = [];
+        if (PUEDE_EDITAR) acciones.push(`<button type="button" class="btn btn-sm btn-outline-primary" data-accion="editar" data-id="${f.id_forma_cobro}" title="Editar"><i class="fas fa-edit"></i></button>`);
+        if (PUEDE_ANULAR) acciones.push(`<button type="button" class="btn btn-sm btn-outline-danger" data-accion="anular" data-id="${f.id_forma_cobro}" data-desc="${escapar(f.descripcion)}" title="Anular"><i class="fas fa-ban"></i></button>`);
+        return `<tr>
+          <td>${escapar(f.descripcion)}</td>
+          <td><span class="badge bg-success-lt">Activo</span></td>
+          <td class="text-nowrap"><div class="btn-list flex-nowrap">${acciones.join('')}</div></td>
+        </tr>`;
+      }).join('');
+    } catch (e) {
+      tbody.innerHTML = '<tr><td colspan="3" class="text-center text-danger py-4">No se pudo cargar el listado.</td></tr>';
+    }
+  }
+
+  function abrirModal(titulo, id, descripcion) {
+    document.getElementById('modalTitle').textContent = titulo;
+    inpId.value = id || '';
+    inpDesc.value = descripcion || '';
+    limpiarError();
+    modal.show();
+  }
+
+  const btnAgregar = document.getElementById('btnAgregar');
+  if (btnAgregar) btnAgregar.addEventListener('click', () => abrirModal('Agregar Forma de Cobro'));
+
+  modalEl.addEventListener('shown.bs.modal', () => inpDesc.focus());
+  inpDesc.addEventListener('input', limpiarError);
+
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    limpiarError();
+
+    const id = inpId.value;
+    const descripcion = inpDesc.value.trim();
+    if (!descripcion) { mostrarError('El campo Descripción no puede estar vacío.'); return; }
+
+    if (id) {
+      const c = await Swal.fire({
+        title: '¿Guardar los cambios?',
+        text: 'Se modificará la descripción de esta forma de cobro.',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, guardar',
+        cancelButtonText: 'Cancelar'
+      });
+      if (!c.isConfirmed) return;
+    }
+
+    btnGuardar.disabled = true;
+    try {
+      const { data } = await pedir(id ? `${API}/${id}` : API, {
+        method: id ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ descripcion })
+      });
+      if (data && data.success) {
+        modal.hide();
+        await cargar();
+        Swal.fire(id ? 'Actualizada' : 'Agregada', data.mensaje, 'success');
+      } else {
+        // Validaciones (duplicado, longitud, etc.) se muestran dentro del modal.
+        mostrarError((data && data.error) || 'No se pudo guardar la forma de cobro.');
+      }
+    } catch (e) {
+      mostrarError('Ocurrió un error de conexión. Intente nuevamente.');
+    } finally {
+      btnGuardar.disabled = false;
+    }
+  });
+
+  tbody.addEventListener('click', async (ev) => {
+    const btn = ev.target.closest('button[data-accion]');
+    if (!btn) return;
+    const id = btn.dataset.id;
+
+    if (btn.dataset.accion === 'editar') {
+      try {
+        const { data } = await pedir(`${API}/${id}`);
+        if (data && data.success) {
+          abrirModal('Editar Forma de Cobro', data.data.id_forma_cobro, data.data.descripcion);
+        } else {
+          Swal.fire('Error', (data && data.error) || 'No se pudo cargar la forma de cobro.', 'error');
+          cargar();
+        }
+      } catch (e) {
+        Swal.fire('Error', 'Ocurrió un error de conexión.', 'error');
+      }
+    }
+
+    if (btn.dataset.accion === 'anular') {
+      const c = await Swal.fire({
+        title: '¿Anular esta forma de cobro?',
+        text: btn.dataset.desc,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, anular',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#d63939'
+      });
+      if (!c.isConfirmed) return;
+      try {
+        const { data } = await pedir(`${API}/${id}`, { method: 'DELETE' });
+        if (data && data.success) {
+          await cargar();
+          Swal.fire('Anulada', data.mensaje, 'success');
+        } else {
+          Swal.fire('Error', (data && data.error) || 'No se pudo anular la forma de cobro.', 'error');
+          cargar();
+        }
+      } catch (e) {
+        Swal.fire('Error', 'Ocurrió un error de conexión.', 'error');
+      }
+    }
+  });
+
+  cargar();
+})();
+</script>
+{% endblock %}

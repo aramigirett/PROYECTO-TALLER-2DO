@@ -446,7 +446,11 @@ etc.), nunca IDs crudos.
 - "¿Olvidaste tu contraseña?" y "Reenviar código" no existen en el backend:
   no implementarlos en la interfaz.
   
-**Próximo módulo grande: Facturación** — todavía sin empezar.
+- **Toda vista nueva extiende `base_tabler.html`; las vistas viejas se migran al final.**
+  Las vistas nuevas usan Bootstrap 5/Tabler, fetch + JS vanilla (sin jQuery) y SweetAlert2.
+  Patrón de referencia: `app/rutas/modulo_facturacion/forma_cobro/`.
+
+**Próximo módulo grande: Facturación** — en curso (ver sección "Módulo Facturación").
 
 ## CI/RUC y correo: una sola fuente de verdad (rama datos-unica-fuente)
 - **El CI/RUC de login y el correo de un usuario NO se guardan en `usuarios`:** se leen
@@ -481,7 +485,28 @@ Ver la sección **"Modelo de permisos"** (más abajo): reemplaza al antiguo cont
 por rol con `@require_admin` y a la nota de "pendiente de decidir" sobre los
 módulos grandes, que ya quedó resuelta.
 
-## Módulo Facturación (sin empezar)
+## Módulo Facturación (en curso)
+- ✅ **Forma de Cobro** (primer referencial, define el patrón visual de los otros 7):
+  tabla `forma_cobro` (sin código, baja lógica `activo`, índice único parcial sobre
+  `UPPER(descripcion) WHERE activo`), descripción en MAYÚSCULAS. `esta_en_uso()` es un
+  stub que devuelve `False` (TODO: consultar `cobro_cabecera` cuando exista).
+  Scripts: `app/dao/modulo_facturacion/schema_forma_cobro.sql` y
+  `schema_permisos_facturacion.sql`. Ventana `formacobro` en el catálogo, módulo
+  "Referenciales Facturación".
+- **Auditoría de cambios** (`auditoria_cambios` + `AuditoriaCambiosDao`): ALTA /
+  MODIFICACION / BAJA con `id_usuario` de la sesión e `ip` del request (nunca del
+  cliente). Distinta de `auditoria_acceso`. Los demás referenciales de Facturación
+  deben llamarla desde su API. Aún no tiene pantalla de consulta.
+- ⏳ **Pendiente:** los referenciales de Consultorio y Agendamiento no registran
+  auditoría de cambios; incorporar `auditoria_cambios` al final.
+- ✅ **Marca de Tarjeta**: calco de Forma de Cobro (`marca_tarjeta`, ventana `marcatarjeta`;
+  `esta_en_uso()` es stub: TODO consultar `cobro_tarjeta`). Helpers compartidos de las APIs
+  de Facturación (`normalizar_descripcion`, `auditar`, `error_interno`) en
+  `app/rutas/modulo_facturacion/utils.py`.
+- ⏳ Faltan 6 referenciales: Entidad Adherida, Entidad Emisora, Caja,
+  Tipo Ítems, Depósito, Cliente.
+
+### Pendiente de revisión previa (se mantiene)
 Cuando se llegue a este módulo: **revisar específicamente si sus 8
 referenciales (Mantener Forma de Cobro, Marca de Tarjeta, Entidad Adherida,
 Entidad Emisora, Caja, Tipo Ítems, Depósito, Cliente) tienen el mismo error

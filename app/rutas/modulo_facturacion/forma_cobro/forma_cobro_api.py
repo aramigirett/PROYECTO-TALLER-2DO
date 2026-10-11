@@ -1,0 +1,140 @@
+from flask import Blueprint, request, jsonify, current_app as app
+from app.dao.modulo_facturacion.forma_cobro.FormaCobroDao import FormaCobroDao
+from app.rutas.modulo_facturacion.utils import normalizar_descripcion, auditar as _auditar, error_interno
+from app.rutas.modulo_seguridad.decorators import require_permiso, require_login
+
+formacobroapi = Blueprint('formacobroapi', __name__)
+
+ENTIDAD = 'forma_cobro'
+
+
+def auditar(id_registro, accion, detalle):
+    _auditar(ENTIDAD, id_registro, accion, detalle)
+
+
+# -------------------------
+# Trae todas las formas de cobro activas
+# -------------------------
+@formacobroapi.route('/formas-cobro', methods=['GET'])
+@require_login  # lookup: alimenta combos de otras pantallas (ej. Cobros)
+def getFormasCobro():
+    try:
+        return jsonify({'success': True, 'data': FormaCobroDao().getFormasCobro(), 'error': None}), 200
+    except Exception as e:
+        app.logger.error(f"Error al obtener formas de cobro: {str(e)}")
+        return error_interno()
+
+
+# -------------------------
+# Trae una forma de cobro por ID
+# -------------------------
+@formacobroapi.route('/formas-cobro/<int:id_forma_cobro>', methods=['GET'])
+@require_permiso('formacobro', 'ver')
+def getFormaCobro(id_forma_cobro):
+    try:
+        forma = FormaCobroDao().getFormaCobroById(id_forma_cobro)
+        if forma:
+            return jsonify({'success': True, 'data': forma, 'error': None}), 200
+        return jsonify({'success': False, 'error': 'No se encontró la forma de cobro con el ID proporcionado.'}), 404
+    except Exception as e:
+        app.logger.error(f"Error al obtener forma de cobro: {str(e)}")
+        return error_interno()
+
+
+# -------------------------
+# Agrega una forma de cobro
+# -------------------------
+@formacobroapi.route('/formas-cobro', methods=['POST'])
+@require_permiso('formacobro', 'nuevo')
+def addFormaCobro():
+    descripcion, error = normalizar_descripcion(request.get_json(silent=True))
+    if error:
+        return jsonify({'success': False, 'error': error}), 400
+
+    dao = FormaCobroDao()
+    try:
+        if dao.existeDuplicado(descripcion):
+            return jsonify({'success': False, 'error': 'La descripción ya existe.'}), 400
+
+        nuevo_id = dao.guardarFormaCobro(descripcion)
+        if nuevo_id == "DUPLICADO":
+            return jsonify({'success': False, 'error': 'La descripción ya existe.'}), 400
+        if nuevo_id:
+            auditar(nuevo_id, 'ALTA', f'Descripción: {descripcion}')
+            return jsonify({
+                'success': True,
+                'data': {'id_forma_cobro': nuevo_id, 'descripcion': descripcion},
+                'mensaje': f'Forma de cobro "{descripcion}" agregada correctamente.',
+                'error': None
+            }), 201
+        return jsonify({'success': False, 'error': 'No se pudo guardar la forma de cobro. Consulte con el administrador.'}), 500
+    except Exception as e:
+        app.logger.error(f"Error al agregar forma de cobro: {str(e)}")
+        return error_interno()
+
+
+# -------------------------
+# Actualiza una forma de cobro
+# -------------------------
+@formacobroapi.route('/formas-cobro/<int:id_forma_cobro>', methods=['PUT'])
+@require_permiso('formacobro', 'editar')
+def updateFormaCobro(id_forma_cobro):
+    descripcion, error = normalizar_descripcion(request.get_json(silent=True))
+    if error:
+        return jsonify({'success': False, 'error': error}), 400
+
+    dao = FormaCobroDao()
+    try:
+        anterior = dao.getFormaCobroById(id_forma_cobro)
+        if not anterior:
+            return jsonify({'success': False, 'error': 'No se encontró la forma de cobro con el ID proporcionado.'}), 404
+
+        if anterior['descripcion'] == descripcion:
+            # Sin cambios: no se toca la BD ni se audita.
+            return jsonify({
+                'success': True,
+                'data': {'id_forma_cobro': id_forma_cobro, 'descripcion': descripcion},
+                'mensaje': f'Forma de cobro "{descripcion}" sin cambios.',
+                'error': None
+            }), 200
+
+        if dao.existeDuplicado(descripcion, excluir_id=id_forma_cobro):
+            return jsonify({'success': False, 'error': 'La descripción ya existe.'}), 400
+
+        resultado = dao.updateFormaCobro(id_forma_cobro, descripcion)
+        if resultado == "DUPLICADO":
+            return jsonify({'success': False, 'error': 'La descripción ya existe.'}), 400
+        if resultado:
+            auditar(id_forma_cobro, 'MODIFICACION', f'Descripción: {anterior["descripcion"]} -> {descripcion}')
+            return jsonify({
+                'success': True,
+                'data': {'id_forma_cobro': id_forma_cobro, 'descripcion': descripcion},
+                'mensaje': f'Forma de cobro "{descripcion}" actualizada correctamente.',
+                'error': None
+            }), 200
+        return jsonify({'success': False, 'error': 'No se pudo actualizar la forma de cobro.'}), 404
+    except Exception as e:
+        app.logger.error(f"Error al actualizar forma de cobro: {str(e)}")
+        return error_interno()
+
+
+# -------------------------
+# Anula (baja lógica) una forma de cobro
+# -------------------------
+@formacobroapi.route('/formas-cobro/<int:id_forma_cobro>', methods=['DELETE'])
+@require_permiso('formacobro', 'anular')
+def deleteFormaCobro(id_forma_cobro):
+    dao = FormaCobroDao()
+    try:
+        registro = dao.getFormaCobroById(id_forma_cobro)
+        resultado = dao.deleteFormaCobro(id_forma_cobro)
+        if resultado == "EN_USO":
+            return jsonify({'success': False, 'error': 'No se puede anular: esta forma de cobro está usada en una o más cobranzas.'}), 409
+        if resultado:
+            descripcion = registro['descripcion'] if registro else 'seleccionada'
+            auditar(id_forma_cobro, 'BAJA', f'Descripción: {descripcion}')
+            return jsonify({'success': True, 'mensaje': f'Forma de cobro "{descripcion}" anulada correctamente.', 'error': None}), 200
+        return jsonify({'success': False, 'error': 'No se encontró la forma de cobro con el ID proporcionado.'}), 404
+    except Exception as e:
+        app.logger.error(f"Error al anular forma de cobro: {str(e)}")
+        return error_interno()

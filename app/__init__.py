@@ -227,6 +227,19 @@ app.register_blueprint(ordenestudioapi, url_prefix=version1)
 app.register_blueprint(ordenanalisisapi, url_prefix=version1)
 app.register_blueprint(justificativomedicoapi, url_prefix=version1)
 
+# ============================================
+# MÓDULO FACTURACIÓN - Referenciales
+# ============================================
+from app.rutas.modulo_facturacion.forma_cobro.forma_cobro_routes import formacobromod
+from app.rutas.modulo_facturacion.forma_cobro.forma_cobro_api import formacobroapi
+from app.rutas.modulo_facturacion.marca_tarjeta.marca_tarjeta_routes import marcatarjetamod
+from app.rutas.modulo_facturacion.marca_tarjeta.marca_tarjeta_api import marcatarjetaapi
+
+app.register_blueprint(formacobromod, url_prefix='/referenciales/forma-cobro')
+app.register_blueprint(formacobroapi, url_prefix='/api/v1')
+app.register_blueprint(marcatarjetamod, url_prefix='/referenciales/marca-tarjeta')
+app.register_blueprint(marcatarjetaapi, url_prefix='/api/v1')
+
 
 ##REGISTRAR CONSULTA Y FICHA MEDICA
 # ============================================

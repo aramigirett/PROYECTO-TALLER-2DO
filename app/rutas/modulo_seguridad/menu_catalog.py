@@ -41,6 +41,7 @@ MODULOS = [
     {"modulo": "Referenciales Agendamiento", "icono": "fa-file-alt"},
     {"modulo": "Referenciales Consultorio", "icono": "fa-file-alt"},
     {"modulo": "Módulo Consultorio", "icono": "fa-file-medical"},
+    {"modulo": "Referenciales Facturación", "icono": "fa-file-invoice-dollar"},
     {"modulo": "Módulo Seguridad", "icono": "fa-user-shield"},
 ]
 
@@ -86,6 +87,10 @@ CATALOGO_MENU = [
     {"etiqueta": "Generar Orden de Estudios", "endpoint": "ordenestudio.ordenEstudioIndex", "icono": "fa-vial", "modulo": "Módulo Consultorio", "ventana": "ordenestudio", "acciones": ["ver", "nuevo", "anular", "estado"]},
     {"etiqueta": "Generar Orden de Análisis", "endpoint": "ordenanalisis.ordenAnalisisIndex", "icono": "fa-flask", "modulo": "Módulo Consultorio", "ventana": "ordenanalisis", "acciones": ["ver", "nuevo", "anular", "estado"]},
     {"etiqueta": "Generar Justificativo Médico", "endpoint": "justificativomedico.justificativoMedicoIndex", "icono": "fa-file-signature", "modulo": "Módulo Consultorio", "ventana": "justificativomedico", "acciones": ["ver", "nuevo", "anular"]},
+
+    # Referenciales Facturación
+    {"etiqueta": "Forma de Cobro", "endpoint": "formacobro.formaCobroIndex", "icono": "fa-money-bill-wave", "modulo": "Referenciales Facturación", "ventana": "formacobro", "acciones": ["ver", "nuevo", "editar", "anular"]},
+    {"etiqueta": "Marca de Tarjeta", "endpoint": "marcatarjeta.marcaTarjetaIndex", "icono": "fa-credit-card", "modulo": "Referenciales Facturación", "ventana": "marcatarjeta", "acciones": ["ver", "nuevo", "editar", "anular"]},
 
     # Módulo Seguridad
     {"etiqueta": "Gestión de Usuarios", "endpoint": "usuario.usuarioIndex", "icono": "fa-users-cog", "modulo": "Módulo Seguridad", "ventana": "usuario", "acciones": ["ver", "nuevo", "editar", "anular", "desbloquear"]},

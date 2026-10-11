@@ -1,0 +1,1135 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="OdontoClinic - Sistema de Gestión Dental">
+    <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
+
+    <title>{% block titulo %}OdontoClinic{% endblock %} — OdontoClinic</title>
+
+    {# ── FontAwesome local ───────────────────────────────────────── #}
+    <link href="{{ url_for('static', filename='vendor/fontawesome-free/css/all.min.css') }}"
+          rel="stylesheet" type="text/css">
+
+    {# ── Tabler 1.0.0 local ─────────────────────────────────────── #}
+    <link href="{{ url_for('static', filename='vendor/tabler/css/tabler.min.css') }}"
+          rel="stylesheet">
+
+    <style>
+        /* ════════════════════════════════════════════════════════════
+           TOKENS Y VARIABLES GLOBALES
+        ════════════════════════════════════════════════════════════ */
+        :root,
+        [data-bs-theme="light"],
+        [data-bs-theme="dark"] {
+            --tblr-primary:        #0e7c86;
+            --tblr-primary-rgb:    14, 124, 134;
+            --tblr-link-color:     #0e7c86;
+
+            --oc-primary:          #0e7c86;
+            --oc-primary-light:    #e6f6f7;
+            --oc-primary-hover:    #0b666e;
+            --oc-border:           #e2e8f0;
+            --oc-bg-body:          #ffffff;
+            --oc-text-main:        #0f172a;
+            --oc-text-muted:       #64748b;
+            --oc-sidebar-width:    260px;
+            --oc-topbar-height:    64px;
+        }
+
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--oc-bg-body);
+            color: var(--oc-text-main);
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+        }
+
+        /* ════════════════════════════════════════════════════════════
+           TOPBAR (Barra superior blanca limpia)
+        ════════════════════════════════════════════════════════════ */
+        .oc-topbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: var(--oc-topbar-height);
+            background: #ffffff;
+            border-bottom: 1px solid var(--oc-border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 1.5rem;
+            z-index: 1030;
+        }
+
+        /* Sección Izquierda: Toggle móvil + Logo + Divisor + Fecha */
+        .oc-topbar-left {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-shrink: 0;
+        }
+
+        .oc-sidebar-toggle-btn {
+            background: none;
+            border: 1px solid var(--oc-border);
+            border-radius: 8px;
+            color: var(--oc-text-muted);
+            width: 36px;
+            height: 36px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .oc-sidebar-toggle-btn:hover {
+            color: var(--oc-primary);
+            border-color: var(--oc-primary);
+            background: var(--oc-primary-light);
+        }
+
+        .oc-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            text-decoration: none;
+        }
+
+        .oc-brand-logo {
+            height: 36px;
+            width: auto;
+            object-fit: contain;
+            display: block;
+        }
+
+        .oc-brand-name {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: var(--oc-text-main);
+            letter-spacing: -0.02em;
+        }
+
+        .oc-topbar-divider {
+            width: 1px;
+            height: 28px;
+            background: var(--oc-border);
+        }
+
+        .oc-topbar-date {
+            font-size: 0.88rem;
+            font-weight: 500;
+            color: var(--oc-text-muted);
+            white-space: nowrap;
+        }
+
+        /* Sección Centro: Buscador tipo Command Palette */
+        .oc-topbar-center {
+            flex: 1;
+            max-width: 440px;
+            margin: 0 1.5rem;
+            position: relative;
+        }
+
+        .oc-search-box {
+            display: flex;
+            align-items: center;
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 0.35rem 0.6rem 0.35rem 0.8rem;
+            transition: all 0.2s ease;
+        }
+
+        .oc-search-box:focus-within {
+            border-color: var(--oc-primary);
+            box-shadow: 0 0 0 3px rgba(14, 124, 134, 0.12);
+        }
+
+        .oc-search-icon {
+            color: #94a3b8;
+            font-size: 0.9rem;
+            margin-right: 0.5rem;
+        }
+
+        .oc-search-input {
+            border: none;
+            outline: none;
+            background: transparent;
+            font-size: 0.88rem;
+            color: var(--oc-text-main);
+            flex: 1;
+            min-width: 80px;
+        }
+
+        .oc-search-input::placeholder {
+            color: #94a3b8;
+        }
+
+        .oc-search-badge {
+            display: inline-flex;
+            gap: 2px;
+            margin-right: 0.5rem;
+        }
+
+        .oc-search-badge kbd {
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            color: #64748b;
+            font-size: 0.72rem;
+            font-family: inherit;
+            padding: 0.15rem 0.35rem;
+            border-radius: 4px;
+            box-shadow: 0 1px 1px rgba(0,0,0,0.05);
+        }
+
+        .oc-search-pipe {
+            width: 1px;
+            height: 18px;
+            background: #e2e8f0;
+            margin: 0 0.5rem;
+        }
+
+        .oc-search-btn {
+            background: none;
+            border: none;
+            font-size: 0.82rem;
+            font-weight: 500;
+            color: #475569;
+            cursor: pointer;
+            padding: 0.1rem 0.3rem;
+            white-space: nowrap;
+            transition: color 0.15s;
+        }
+
+        .oc-search-btn:hover {
+            color: var(--oc-primary);
+        }
+
+        /* Dropdown de resultados de búsqueda */
+        .oc-search-results {
+            display: none;
+            position: absolute;
+            top: calc(100% + 6px);
+            left: 0;
+            right: 0;
+            background: #ffffff;
+            border: 1px solid var(--oc-border);
+            border-radius: 8px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+            max-height: 320px;
+            overflow-y: auto;
+            z-index: 1060;
+        }
+
+        .oc-search-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.65rem 1rem;
+            text-decoration: none;
+            color: var(--oc-text-main);
+            border-bottom: 1px solid #f1f5f9;
+            transition: background 0.12s;
+        }
+
+        .oc-search-item:last-child {
+            border-bottom: none;
+        }
+
+        .oc-search-item:hover {
+            background: var(--oc-primary-light);
+            color: var(--oc-primary);
+        }
+
+        .oc-search-item-left {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.88rem;
+            font-weight: 500;
+        }
+
+        .oc-search-item-left i {
+            color: var(--oc-primary);
+            width: 1.1rem;
+            text-align: center;
+        }
+
+        .oc-search-item small {
+            color: var(--oc-text-muted);
+            font-size: 0.75rem;
+        }
+
+        .oc-search-empty {
+            padding: 0.75rem 1rem;
+            color: var(--oc-text-muted);
+            font-size: 0.85rem;
+            text-align: center;
+        }
+
+        /* Sección Derecha: Campana + Fullscreen + Usuario */
+        .oc-topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-shrink: 0;
+        }
+
+        .oc-action-btn {
+            background: none;
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            color: #475569;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.15s;
+        }
+
+        .oc-action-btn:hover {
+            background: #f1f5f9;
+            color: var(--oc-primary);
+        }
+
+        /* Menú de Usuario */
+        .oc-user-dropdown-wrap {
+            position: relative;
+        }
+
+        .oc-user-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: none;
+            border: none;
+            padding: 0.4rem 0.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .oc-user-btn:hover {
+            background: #f1f5f9;
+        }
+
+        .oc-user-name {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #334155;
+            white-space: nowrap;
+        }
+
+        .oc-user-chevron {
+            font-size: 0.72rem;
+            color: #64748b;
+            transition: transform 0.2s ease;
+        }
+
+        .oc-user-dropdown-wrap.open .oc-user-chevron {
+            transform: rotate(180deg);
+        }
+
+        .oc-user-dropdown-menu {
+            display: none;
+            position: absolute;
+            top: calc(100% + 8px);
+            right: 0;
+            min-width: 220px;
+            background: #ffffff;
+            border: 1px solid var(--oc-border);
+            border-radius: 10px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+            padding: 0.5rem 0;
+            z-index: 1060;
+        }
+
+        .oc-user-dropdown-menu.show {
+            display: block;
+        }
+
+        .oc-user-dropdown-header {
+            padding: 0.65rem 1rem 0.5rem;
+        }
+
+        .oc-user-header-label {
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            color: var(--oc-primary);
+            text-transform: uppercase;
+        }
+
+        .oc-user-header-clinic {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #0f172a;
+            margin-top: 0.15rem;
+        }
+
+        .oc-user-header-role {
+            font-size: 0.75rem;
+            color: var(--oc-text-muted);
+            margin-top: 0.2rem;
+        }
+
+        .oc-dropdown-divider {
+            height: 1px;
+            background: #f1f5f9;
+            margin: 0.35rem 0;
+        }
+
+        .oc-dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            padding: 0.55rem 1rem;
+            color: #334155;
+            text-decoration: none;
+            font-size: 0.88rem;
+            transition: all 0.15s;
+            cursor: pointer;
+        }
+
+        .oc-dropdown-item:hover {
+            background: #f8fafc;
+            color: var(--oc-primary);
+        }
+
+        .oc-dropdown-item.oc-item-danger {
+            color: #dc2626;
+        }
+
+        .oc-dropdown-item.oc-item-danger:hover {
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+
+        /* ════════════════════════════════════════════════════════════
+           CONTENEDOR PRINCIPAL + SIDEBAR EN EL COSTADO
+        ════════════════════════════════════════════════════════════ */
+        .oc-layout-wrapper {
+            display: flex;
+            min-height: calc(100vh - var(--oc-topbar-height));
+            margin-top: var(--oc-topbar-height);
+        }
+
+        /* Sidebar lateral (costado) */
+        .oc-sidebar {
+            width: var(--oc-sidebar-width);
+            background: #ffffff;
+            border-right: 1px solid var(--oc-border);
+            position: fixed;
+            top: var(--oc-topbar-height);
+            bottom: 0;
+            left: 0;
+            z-index: 1020;
+            overflow-y: auto;
+            transition: transform 0.25s ease;
+        }
+
+        .oc-sidebar-inner {
+            padding: 1.25rem 0.75rem;
+        }
+
+        .oc-sidebar-section-title {
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            color: #94a3b8;
+            text-transform: uppercase;
+            padding: 0 0.75rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .oc-sidebar-nav {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+        }
+
+        .oc-sidebar-item {
+            position: relative;
+        }
+
+        /* Enlaces / Botones de Módulos */
+        .oc-sidebar-link {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            padding: 0.6rem 0.75rem;
+            border-radius: 8px;
+            color: #475569;
+            text-decoration: none;
+            font-size: 0.88rem;
+            font-weight: 500;
+            background: none;
+            border: none;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .oc-sidebar-link:hover {
+            background: #f8fafc;
+            color: var(--oc-primary);
+        }
+
+        .oc-sidebar-link.active,
+        .oc-sidebar-link.active-group {
+            color: var(--oc-primary);
+            font-weight: 600;
+            background: var(--oc-primary-light);
+        }
+
+        .oc-nav-icon {
+            font-size: 0.95rem;
+            width: 1.5rem;
+            text-align: center;
+            color: #64748b;
+            margin-right: 0.5rem;
+            flex-shrink: 0;
+            transition: color 0.15s;
+        }
+
+        .oc-sidebar-link:hover .oc-nav-icon,
+        .oc-sidebar-link.active .oc-nav-icon,
+        .oc-sidebar-link.active-group .oc-nav-icon {
+            color: var(--oc-primary);
+        }
+
+        .oc-nav-text {
+            flex: 1;
+            text-align: left;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .oc-arrow-icon {
+            font-size: 0.7rem;
+            color: #94a3b8;
+            transition: transform 0.2s ease;
+            margin-left: 0.5rem;
+        }
+
+        .oc-has-submenu.open > .oc-submenu-toggle .oc-arrow-icon {
+            transform: rotate(90deg);
+        }
+
+        /* Submenú desplegable del módulo */
+        .oc-sidebar-submenu {
+            display: none;
+            list-style: none;
+            margin: 0.2rem 0 0.4rem;
+            padding: 0;
+            padding-left: 1.5rem;
+        }
+
+        .oc-has-submenu.open > .oc-sidebar-submenu {
+            display: block;
+        }
+
+        .oc-sidebar-sublink {
+            display: flex;
+            align-items: center;
+            padding: 0.45rem 0.65rem;
+            border-radius: 6px;
+            color: #64748b;
+            text-decoration: none;
+            font-size: 0.82rem;
+            font-weight: 500;
+            transition: all 0.15s;
+        }
+
+        .oc-sidebar-sublink:hover {
+            color: var(--oc-primary);
+            background: #f8fafc;
+        }
+
+        .oc-sidebar-sublink.active {
+            color: var(--oc-primary);
+            background: var(--oc-primary-light);
+            font-weight: 600;
+        }
+
+        .oc-subnav-icon {
+            font-size: 0.75rem;
+            width: 1.25rem;
+            text-align: center;
+            margin-right: 0.4rem;
+            color: #94a3b8;
+            flex-shrink: 0;
+        }
+
+        .oc-sidebar-sublink.active .oc-subnav-icon {
+            color: var(--oc-primary);
+        }
+
+        /* ════════════════════════════════════════════════════════════
+           ÁREA PRINCIPAL DE CONTENIDO
+        ════════════════════════════════════════════════════════════ */
+        .oc-main-content {
+            flex: 1;
+            margin-left: var(--oc-sidebar-width);
+            display: flex;
+            flex-direction: column;
+            min-height: calc(100vh - var(--oc-topbar-height));
+            background: #ffffff;
+            transition: margin-left 0.25s ease;
+        }
+
+        .oc-page-body {
+            flex: 1;
+            padding: 1.75rem 2rem;
+            background: #ffffff;
+        }
+
+        /* ════════════════════════════════════════════════════════════
+           FOOTER
+        ════════════════════════════════════════════════════════════ */
+        .oc-footer {
+            padding: 0.85rem 2rem;
+            background: #ffffff;
+            border-top: 1px solid var(--oc-border);
+            font-size: 0.8rem;
+            color: var(--oc-text-muted);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        /* Overlay móvil para sidebar */
+        .oc-sidebar-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.4);
+            z-index: 1015;
+        }
+
+        /* ════════════════════════════════════════════════════════════
+           RESPONSIVE BREAKPOINTS
+        ════════════════════════════════════════════════════════════ */
+        @media (max-width: 1199.98px) {
+            .oc-topbar-date {
+                display: none;
+            }
+            .oc-topbar-divider {
+                display: none;
+            }
+        }
+
+        @media (max-width: 991.98px) {
+            .oc-sidebar-toggle-btn {
+                display: flex;
+            }
+            .oc-sidebar {
+                transform: translateX(-100%);
+                box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            }
+            .oc-sidebar.show {
+                transform: translateX(0);
+            }
+            .oc-sidebar-backdrop.show {
+                display: block;
+            }
+            .oc-main-content {
+                margin-left: 0;
+            }
+            .oc-page-body {
+                padding: 1.25rem 1rem;
+            }
+            .oc-search-badge {
+                display: none;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .oc-topbar {
+                padding: 0 1rem;
+            }
+            .oc-topbar-center {
+                display: none;
+            }
+            .oc-brand-name {
+                display: none;
+            }
+            .oc-footer {
+                flex-direction: column;
+                gap: 0.3rem;
+                text-align: center;
+            }
+        }
+    </style>
+
+    {% block css %}{% endblock %}
+</head>
+
+<body>
+
+    {# ══════════════════════════════════════════════════════════════
+       BARRA SUPERIOR (TOPBAR BLANCA)
+    ══════════════════════════════════════════════════════════════ #}
+    <header class="oc-topbar" role="banner">
+
+        {# Izquierda: Botón Móvil + Logo + Separador + Fecha #}
+        <div class="oc-topbar-left">
+            <button type="button" class="oc-sidebar-toggle-btn" id="oc-sidebar-toggle-btn" aria-label="Abrir menú">
+                <i class="fas fa-bars"></i>
+            </button>
+
+            <a class="oc-brand" href="{{ url_for('vista.vistaIndex') }}" aria-label="OdontoClinic Inicio">
+                <img src="{{ url_for('static', filename='img/logo_sistema.png') }}"
+                     alt="Logo Odontoclinic"
+                     class="oc-brand-logo">
+                <span class="oc-brand-name">Odontoclinic</span>
+            </a>
+
+            <div class="oc-topbar-divider"></div>
+
+            <div class="oc-topbar-date" id="oc-current-date">
+                {# Generado dinámicamente con JS en español #}
+                Cargando fecha…
+            </div>
+        </div>
+
+        {# Centro: Buscador con atajo Ctrl K #}
+        <div class="oc-topbar-center">
+            <div class="oc-search-box">
+                <i class="fas fa-search oc-search-icon" aria-hidden="true"></i>
+                <input
+                    type="text"
+                    class="oc-search-input"
+                    id="oc-search-input"
+                    placeholder="Buscar..."
+                    autocomplete="off"
+                    aria-label="Buscar en el sistema"
+                >
+                <span class="oc-search-badge" aria-hidden="true">
+                    <kbd>Ctrl</kbd><kbd>K</kbd>
+                </span>
+                <span class="oc-search-pipe"></span>
+                <button type="button" class="oc-search-btn" id="oc-search-btn-trigger">Buscar en</button>
+            </div>
+            <div class="oc-search-results" id="oc-search-results" role="listbox"></div>
+        </div>
+
+        {# Derecha: Campana + Fullscreen + Usuario #}
+        <div class="oc-topbar-right">
+            <button type="button" class="oc-action-btn" id="oc-bell-btn" title="Notificaciones">
+                <i class="fas fa-bell"></i>
+            </button>
+
+            <button type="button" class="oc-action-btn" id="oc-fullscreen-btn" title="Pantalla completa">
+                <i class="fas fa-expand"></i>
+            </button>
+
+            {# Dropdown de Usuario #}
+            <div class="oc-user-dropdown-wrap" id="oc-user-wrap">
+                <button type="button" class="oc-user-btn" id="oc-user-btn" aria-haspopup="true" aria-expanded="false">
+                    <span class="oc-user-name">
+                        {{ session.get('nombre_completo') or session.get('ci_ruc', 'Usuario') }}
+                    </span>
+                    <i class="fas fa-chevron-down oc-user-chevron"></i>
+                </button>
+
+                <div class="oc-user-dropdown-menu" id="oc-user-dropdown-menu">
+                    <div class="oc-user-dropdown-header">
+                        <div class="oc-user-header-label">CLÍNICA ACTUAL</div>
+                        <div class="oc-user-header-clinic">Odontoclinic</div>
+                        {% if session.get('nombre_rol') %}
+                        <div class="oc-user-header-role">
+                            <i class="fas fa-user-shield me-1"></i>{{ session.get('nombre_rol') }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="oc-dropdown-divider"></div>
+                    <a href="{{ url_for('vista.vistaIndex') }}" class="oc-dropdown-item">
+                        <i class="fas fa-user" style="width: 1.2rem; text-align: center;"></i>
+                        <span>Mi perfil</span>
+                    </a>
+                    <div class="oc-dropdown-divider"></div>
+                    <a href="#" class="oc-dropdown-item oc-item-danger" id="oc-logout-trigger">
+                        <i class="fas fa-sign-out-alt" style="width: 1.2rem; text-align: center;"></i>
+                        <span>Cerrar sesión</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+    </header>
+
+    {# Overlay para móvil #}
+    <div class="oc-sidebar-backdrop" id="oc-sidebar-backdrop"></div>
+
+    {# ══════════════════════════════════════════════════════════════
+       ESTRUCTURA PRINCIPAL: SIDEBAR EN EL COSTADO + CONTENIDO
+    ══════════════════════════════════════════════════════════════ #}
+    <div class="oc-layout-wrapper">
+
+        {# ── SIDEBAR LATERAL (EN EL COSTADO) ──────────────────────── #}
+        <aside class="oc-sidebar" id="oc-sidebar" aria-label="Menú lateral de módulos">
+            <div class="oc-sidebar-inner">
+                <div class="oc-sidebar-section-title">Navegación</div>
+                <ul class="oc-sidebar-nav">
+
+                    {# Ítem Fijo: Inicio / Panel General #}
+                    <li class="oc-sidebar-item">
+                        <a href="{{ url_for('vista.vistaIndex') }}"
+                           class="oc-sidebar-link {% if request.endpoint == 'vista.vistaIndex' %}active{% endif %}">
+                            <i class="fas fa-home oc-nav-icon"></i>
+                            <span class="oc-nav-text">Inicio</span>
+                        </a>
+                    </li>
+
+                    {# Módulos dinámicos filtrados por permisos del rol #}
+                    {% for modulo in menu_agrupado %}
+                        {% set ep_activo = namespace(found=false) %}
+                        {% for item in modulo.entradas %}
+                            {% if request.endpoint == item.endpoint %}{% set ep_activo.found = true %}{% endif %}
+                        {% endfor %}
+                        {% set es_seg_admin = modulo.modulo == 'Módulo Seguridad' and session.get('nombre_rol') == 'Administrador' %}
+                        {% if es_seg_admin and request.endpoint == 'permiso.permisoIndex' %}
+                            {% set ep_activo.found = true %}
+                        {% endif %}
+
+                        <li class="oc-sidebar-item oc-has-submenu {% if ep_activo.found %}open{% endif %}">
+                            <button type="button"
+                                    class="oc-sidebar-link oc-submenu-toggle {% if ep_activo.found %}active-group{% endif %}"
+                                    aria-expanded="{{ 'true' if ep_activo.found else 'false' }}">
+                                <i class="fas {{ modulo.icono }} oc-nav-icon"></i>
+                                <span class="oc-nav-text">{{ modulo.modulo | replace('Módulo ', '') }}</span>
+                                <i class="fas fa-chevron-right oc-arrow-icon"></i>
+                            </button>
+                            <ul class="oc-sidebar-submenu">
+                                {% for item in modulo.entradas %}
+                                <li>
+                                    <a href="{{ url_for(item.endpoint) }}"
+                                       class="oc-sidebar-sublink {% if request.endpoint == item.endpoint %}active{% endif %}">
+                                        <i class="fas {{ item.icono }} oc-subnav-icon"></i>
+                                        <span>{{ item.etiqueta }}</span>
+                                    </a>
+                                </li>
+                                {% endfor %}
+
+                                {# Ítem exclusivo Administrador: Roles y Permisos #}
+                                {% if es_seg_admin %}
+                                <li>
+                                    <a href="{{ url_for('permiso.permisoIndex') }}"
+                                       class="oc-sidebar-sublink {% if request.endpoint == 'permiso.permisoIndex' %}active{% endif %}">
+                                        <i class="fas fa-key oc-subnav-icon"></i>
+                                        <span>Roles y Permisos</span>
+                                    </a>
+                                </li>
+                                {% endif %}
+                            </ul>
+                        </li>
+                    {% endfor %}
+
+                </ul>
+            </div>
+        </aside>
+
+        {# ── ÁREA DE CONTENIDO PRINCIPAL ───────────────────────────── #}
+        <main class="oc-main-content">
+
+            <div class="oc-page-body">
+
+                {# ── Mensajes Flash de Flask (con clases Bootstrap 5) ── #}
+                {% with mensajes = get_flashed_messages(with_categories=true) %}
+                    {% if mensajes %}
+                    <div class="mb-3">
+                        {% for categoria, mensaje in mensajes %}
+                            {% set cat_bs = 'danger' if categoria == 'error' else ('info' if categoria == 'message' else categoria) %}
+                            <div class="alert alert-{{ cat_bs }} alert-dismissible fade show shadow-sm" role="alert">
+                                <div class="d-flex align-items-center">
+                                    {% if cat_bs == 'danger' %}
+                                        <i class="fas fa-exclamation-circle me-2 fs-5"></i>
+                                    {% elif cat_bs == 'warning' %}
+                                        <i class="fas fa-exclamation-triangle me-2 fs-5"></i>
+                                    {% elif cat_bs == 'success' %}
+                                        <i class="fas fa-check-circle me-2 fs-5"></i>
+                                    {% else %}
+                                        <i class="fas fa-info-circle me-2 fs-5"></i>
+                                    {% endif %}
+                                    <div>{{ mensaje }}</div>
+                                </div>
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+                            </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                {% endwith %}
+
+                {# ── Bloque principal de cada vista ─────────────────── #}
+                {% block contenido %}{% endblock %}
+
+            </div>
+
+            {# ── Footer ────────────────────────────────────────────── #}
+            <footer class="oc-footer">
+                <div>
+                    &copy; <span id="oc-year"></span> <strong>Odontoclinic</strong> &mdash; Sistema de Gestión Dental
+                </div>
+                <div>
+                    Desarrollado por <strong>AramiGirett</strong>
+                </div>
+            </footer>
+
+        </main>
+
+    </div>
+
+    {# ══════════════════════════════════════════════════════════════
+       MODAL DE CONFIRMACIÓN DE CIERRE DE SESIÓN
+    ══════════════════════════════════════════════════════════════ #}
+    <div class="modal fade" id="oc-logout-modal" tabindex="-1" aria-labelledby="oc-logout-label" aria-hidden="true">
+        <div class="modal-dialog modal-sm modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold" id="oc-logout-label">Cerrar sesión</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body text-center py-4">
+                    <div style="width:50px;height:50px;border-radius:50%;background:#fee2e2;display:flex;align-items:center;justify-content:center;margin:0 auto 0.75rem;">
+                        <i class="fas fa-sign-out-alt text-danger fa-lg"></i>
+                    </div>
+                    <p class="mb-0 text-muted" style="font-size:0.9rem;">
+                        ¿Estás seguro de que deseas cerrar sesión?
+                    </p>
+                </div>
+                <div class="modal-footer border-0 pt-0 justify-content-center gap-2 pb-3">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+                    <a href="{{ url_for('seguridad.logout') }}" class="btn btn-danger">
+                        Cerrar sesión
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ══════════════════════════════════════════════════════════════
+       SCRIPTS (LOCALES, SIN JQUERY)
+    ══════════════════════════════════════════════════════════════ #}
+    <script src="{{ url_for('static', filename='vendor/tabler/js/tabler.min.js') }}"></script>
+    <script>
+        /* Tabler 1.5.x (UMD) expone Bootstrap como tabler.bootstrap, no como window.bootstrap. */
+        window.bootstrap = window.bootstrap || (window.tabler && window.tabler.bootstrap);
+    </script>
+    <script src="{{ url_for('static', filename='vendor/sweetalert/sweetalert2@11.js') }}"></script>
+
+    <script>
+    /* ── 1. Fecha en Español dinámica en la Topbar ───────────── */
+    (function () {
+        var dateEl = document.getElementById('oc-current-date');
+        if (dateEl) {
+            try {
+                var now = new Date();
+                var options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+                var str = now.toLocaleDateString('es-ES', options);
+                str = str.charAt(0).toUpperCase() + str.slice(1);
+                dateEl.textContent = str;
+            } catch (e) {
+                dateEl.textContent = 'Odontoclinic';
+            }
+        }
+        var yearEl = document.getElementById('oc-year');
+        if (yearEl) {
+            yearEl.textContent = new Date().getFullYear();
+        }
+    })();
+
+    /* ── 2. Pantalla Completa ───────────────────────────────── */
+    (function () {
+        var fsBtn = document.getElementById('oc-fullscreen-btn');
+        if (fsBtn) {
+            fsBtn.addEventListener('click', function () {
+                if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen().catch(function () {});
+                    fsBtn.innerHTML = '<i class="fas fa-compress"></i>';
+                } else {
+                    document.exitFullscreen().catch(function () {});
+                    fsBtn.innerHTML = '<i class="fas fa-expand"></i>';
+                }
+            });
+        }
+    })();
+
+    /* ── 3. Buscador General con Debounce + Atajo Ctrl+K ────── */
+    (function () {
+        var input   = document.getElementById('oc-search-input');
+        var results = document.getElementById('oc-search-results');
+        var btn     = document.getElementById('oc-search-btn-trigger');
+        var timer   = null;
+
+        if (!input || !results) return;
+
+        function render(items) {
+            if (!items.length) {
+                results.innerHTML = '<div class="oc-search-empty"><i class="fas fa-search me-1"></i>Sin coincidencias</div>';
+            } else {
+                results.innerHTML = items.map(function (item) {
+                    return (
+                        '<a class="oc-search-item" href="' + item.url + '" role="option">' +
+                        '  <span class="oc-search-item-left"><i class="fas ' + item.icono + '"></i>' + item.etiqueta + '</span>' +
+                        '  <small>' + item.modulo + '</small>' +
+                        '</a>'
+                    );
+                }).join('');
+            }
+            results.style.display = 'block';
+        }
+
+        function ejecutarBusqueda() {
+            var q = input.value.trim();
+            clearTimeout(timer);
+            if (q.length < 2) {
+                results.style.display = 'none';
+                results.innerHTML = '';
+                return;
+            }
+            timer = setTimeout(function () {
+                fetch('/api/v1/menu/buscar?q=' + encodeURIComponent(q))
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        if (data && data.success) render(data.data);
+                    })
+                    .catch(function (e) { console.error('Buscador:', e); });
+            }, 220);
+        }
+
+        input.addEventListener('input', ejecutarBusqueda);
+
+        if (btn) {
+            btn.addEventListener('click', function () {
+                input.focus();
+                if (input.value.trim().length >= 2) ejecutarBusqueda();
+            });
+        }
+
+        /* Atajo de teclado: Ctrl+K o Cmd+K */
+        document.addEventListener('keydown', function (e) {
+            if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+                e.preventDefault();
+                input.focus();
+                input.select();
+            }
+            if (e.key === 'Escape') {
+                results.style.display = 'none';
+                input.blur();
+            }
+        });
+
+        /* Cerrar al hacer clic fuera */
+        document.addEventListener('click', function (e) {
+            if (!e.target.closest('.oc-topbar-center')) {
+                results.style.display = 'none';
+            }
+        });
+    })();
+
+    /* ── 4. Dropdown de Usuario ─────────────────────────────── */
+    (function () {
+        var wrap      = document.getElementById('oc-user-wrap');
+        var btn       = document.getElementById('oc-user-btn');
+        var menu      = document.getElementById('oc-user-dropdown-menu');
+        var logoutTrigger = document.getElementById('oc-logout-trigger');
+
+        if (!wrap || !btn || !menu) return;
+
+        btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            var isOpen = menu.classList.toggle('show');
+            wrap.classList.toggle('open', isOpen);
+            btn.setAttribute('aria-expanded', isOpen);
+        });
+
+        document.addEventListener('click', function (e) {
+            if (!e.target.closest('#oc-user-wrap')) {
+                menu.classList.remove('show');
+                wrap.classList.remove('open');
+                btn.setAttribute('aria-expanded', 'false');
+            }
+        });
+
+        if (logoutTrigger) {
+            logoutTrigger.addEventListener('click', function (e) {
+                e.preventDefault();
+                menu.classList.remove('show');
+                wrap.classList.remove('open');
+                var modalEl = document.getElementById('oc-logout-modal');
+                if (modalEl && window.bootstrap) {
+                    var modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+                    modal.show();
+                }
+            });
+        }
+    })();
+
+    /* ── 5. Sidebar en el Costado (Acordeón de Módulos + Móvil) ─ */
+    (function () {
+        var sidebar      = document.getElementById('oc-sidebar');
+        var toggleBtn    = document.getElementById('oc-sidebar-toggle-btn');
+        var backdrop     = document.getElementById('oc-sidebar-backdrop');
+        var submenuBtns  = Array.from(document.querySelectorAll('.oc-submenu-toggle'));
+
+        /* Acordeón de submódulos */
+        submenuBtns.forEach(function (b) {
+            b.addEventListener('click', function (e) {
+                e.preventDefault();
+                var item = b.closest('.oc-has-submenu');
+                if (!item) return;
+                var isOpen = item.classList.contains('open');
+
+                /* Opcional: para comportamiento de acordeón estricto, cerrar los otros */
+                document.querySelectorAll('.oc-has-submenu.open').forEach(function (other) {
+                    if (other !== item) {
+                        other.classList.remove('open');
+                        var otherBtn = other.querySelector('.oc-submenu-toggle');
+                        if (otherBtn) otherBtn.setAttribute('aria-expanded', 'false');
+                    }
+                });
+
+                item.classList.toggle('open', !isOpen);
+                b.setAttribute('aria-expanded', !isOpen);
+            });
+        });
+
+        /* Toggle Móvil */
+        function toggleSidebarMobile() {
+            if (!sidebar || !backdrop) return;
+            var isShown = sidebar.classList.toggle('show');
+            backdrop.classList.toggle('show', isShown);
+        }
+
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', toggleSidebarMobile);
+        }
+        if (backdrop) {
+            backdrop.addEventListener('click', toggleSidebarMobile);
+        }
+    })();
+    </script>
+
+    {# ── Bloque JS para scripts de cada vista ──────────────────── #}
+    {% block js %}{% endblock %}
+
+</body>
+</html>
