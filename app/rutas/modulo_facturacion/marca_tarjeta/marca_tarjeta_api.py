@@ -128,8 +128,8 @@ def deleteMarcaTarjeta(id_marca_tarjeta):
     try:
         registro = dao.getMarcaTarjetaById(id_marca_tarjeta)
         resultado = dao.deleteMarcaTarjeta(id_marca_tarjeta)
-        if resultado == "EN_USO":
-            return jsonify({'success': False, 'error': 'No se puede anular: esta marca de tarjeta está usada en una o más cobranzas.'}), 409
+        if isinstance(resultado, tuple):  # ("EN_USO", motivo)
+            return jsonify({'success': False, 'error': resultado[1]}), 409
         if resultado:
             descripcion = registro['descripcion'] if registro else 'seleccionada'
             auditar(id_marca_tarjeta, 'BAJA', f'Descripción: {descripcion}')

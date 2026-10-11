@@ -1,0 +1,270 @@
+{% extends 'base_tabler.html' %}
+
+{% block titulo %}Entidades Emisoras{% endblock %}
+
+{% block contenido %}
+<div class="page-header d-print-none mb-3">
+  <div class="row align-items-center">
+    <div class="col">
+      <div class="page-pretitle">Facturación · Referenciales</div>
+      <h2 class="page-title">Entidades Emisoras</h2>
+    </div>
+    {% if puede('entidademisora', 'nuevo') %}
+    <div class="col-auto ms-auto">
+      <button type="button" class="btn btn-primary" id="btnAgregar">
+        <i class="fas fa-plus me-2"></i>Agregar
+      </button>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table" id="tbl">
+      <thead>
+        <tr>
+          <th>Descripción</th>
+          <th>Dirección</th>
+          <th>Teléfono</th>
+          <th>Correo</th>
+          <th style="width: 100px;">Estado</th>
+          <th class="w-1">Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="tbodyEntidades">
+        <tr><td colspan="6" class="text-center text-muted py-4">Cargando…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# Modal Alta / Modificar #}
+<div class="modal modal-blur fade" id="modalFormulario" tabindex="-1" aria-labelledby="modalTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalTitle"></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <form id="formEntidad" novalidate>
+        <div class="modal-body">
+          <input type="hidden" id="txtId">
+          <div class="mb-3">
+            <label class="form-label required" for="txtDescripcion">Descripción</label>
+            <input type="text" class="form-control" id="txtDescripcion" maxlength="60"
+                   placeholder="Ej.: BANCO ITAÚ" autocomplete="off" style="text-transform: uppercase;">
+            <div class="invalid-feedback"></div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label required" for="txtDireccion">Dirección</label>
+            <input type="text" class="form-control" id="txtDireccion" maxlength="150" autocomplete="off">
+            <div class="invalid-feedback"></div>
+          </div>
+          <div class="row">
+            <div class="col-md-5 mb-3">
+              <label class="form-label required" for="txtTelefono">Teléfono</label>
+              <input type="text" class="form-control" id="txtTelefono" maxlength="20"
+                     placeholder="Ej.: +595 21 123456" autocomplete="off">
+              <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-md-7 mb-3">
+              <label class="form-label required" for="txtCorreo">Correo</label>
+              <input type="email" class="form-control" id="txtCorreo" maxlength="100" autocomplete="off">
+              <div class="invalid-feedback"></div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btnGuardar">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script src="{{ url_for('static', filename='js/facturacion-validadores.js') }}"></script>
+<script>
+(function () {
+  const API = '/api/v1/entidades-emisoras';
+  const V = window.FacturacionValidadores;
+  const PUEDE_EDITAR = {{ 'true' if puede('entidademisora', 'editar') else 'false' }};
+  const PUEDE_ANULAR = {{ 'true' if puede('entidademisora', 'anular') else 'false' }};
+
+  const tbody = document.getElementById('tbodyEntidades');
+  const modalEl = document.getElementById('modalFormulario');
+  const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+  const form = document.getElementById('formEntidad');
+  const inpId = document.getElementById('txtId');
+  const btnGuardar = document.getElementById('btnGuardar');
+  const campos = {
+    descripcion: document.getElementById('txtDescripcion'),
+    direccion: document.getElementById('txtDireccion'),
+    telefono: document.getElementById('txtTelefono'),
+    correo: document.getElementById('txtCorreo')
+  };
+  const validadores = { descripcion: V.descripcion, direccion: V.direccion, telefono: V.telefono, correo: V.correo };
+
+  const escapar = (t) => String(t).replace(/[&<>"']/g, (c) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  const limpiarErrores = () => Object.values(campos).forEach(V.limpiarCampo);
+
+  /* Valida todo el formulario; marca los campos con error y enfoca el primero. */
+  function validarFormulario() {
+    limpiarErrores();
+    let primero = null;
+    Object.keys(campos).forEach((k) => {
+      const msg = validadores[k](campos[k].value);
+      if (msg) { V.marcarCampo(campos[k], msg); primero = primero || campos[k]; }
+    });
+    if (primero) primero.focus();
+    return !primero;
+  }
+
+  async function pedir(url, opciones) {
+    const resp = await fetch(url, opciones);
+    let data = null;
+    try { data = await resp.json(); } catch (e) { /* respuesta no JSON (ej. 403 HTML) */ }
+    return { ok: resp.ok, status: resp.status, data };
+  }
+
+  async function cargar() {
+    try {
+      const { ok, data } = await pedir(API);
+      if (!ok || !data || !data.success) throw new Error();
+      if (!data.data.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">No hay entidades emisoras registradas.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = data.data.map((f) => {
+        const acciones = [];
+        if (PUEDE_EDITAR) acciones.push(`<button type="button" class="btn btn-sm btn-outline-primary" data-accion="editar" data-id="${f.id_entidad_emisora}" title="Editar"><i class="fas fa-edit"></i></button>`);
+        if (PUEDE_ANULAR) acciones.push(`<button type="button" class="btn btn-sm btn-outline-danger" data-accion="anular" data-id="${f.id_entidad_emisora}" data-desc="${escapar(f.descripcion)}" title="Anular"><i class="fas fa-ban"></i></button>`);
+        return `<tr>
+          <td>${escapar(f.descripcion)}</td>
+          <td>${escapar(f.direccion)}</td>
+          <td class="text-nowrap">${escapar(f.telefono)}</td>
+          <td>${escapar(f.correo)}</td>
+          <td><span class="badge bg-success-lt">Activo</span></td>
+          <td class="text-nowrap"><div class="btn-list flex-nowrap">${acciones.join('')}</div></td>
+        </tr>`;
+      }).join('');
+    } catch (e) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger py-4">No se pudo cargar el listado.</td></tr>';
+    }
+  }
+
+  function abrirModal(titulo, registro) {
+    document.getElementById('modalTitle').textContent = titulo;
+    inpId.value = registro ? registro.id_entidad_emisora : '';
+    campos.descripcion.value = registro ? registro.descripcion : '';
+    campos.direccion.value = registro ? registro.direccion : '';
+    campos.telefono.value = registro ? registro.telefono : '';
+    campos.correo.value = registro ? registro.correo : '';
+    limpiarErrores();
+    modal.show();
+  }
+
+  const btnAgregar = document.getElementById('btnAgregar');
+  if (btnAgregar) btnAgregar.addEventListener('click', () => abrirModal('Agregar Entidad Emisora'));
+
+  modalEl.addEventListener('shown.bs.modal', () => campos.descripcion.focus());
+  Object.values(campos).forEach((el) => el.addEventListener('input', () => V.limpiarCampo(el)));
+
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    if (!validarFormulario()) return;
+
+    const id = inpId.value;
+    if (id) {
+      const c = await Swal.fire({
+        title: '¿Guardar los cambios?',
+        text: 'Se modificarán los datos de esta entidad emisora.',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, guardar',
+        cancelButtonText: 'Cancelar'
+      });
+      if (!c.isConfirmed) return;
+    }
+
+    const payload = {};
+    Object.keys(campos).forEach((k) => { payload[k] = campos[k].value; });
+
+    btnGuardar.disabled = true;
+    try {
+      const { data } = await pedir(id ? `${API}/${id}` : API, {
+        method: id ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (data && data.success) {
+        modal.hide();
+        await cargar();
+        Swal.fire(id ? 'Actualizada' : 'Agregada', data.mensaje, 'success');
+      } else {
+        // La API indica el campo en error; si no, se muestra en la descripción.
+        const campo = campos[data && data.campo] || campos.descripcion;
+        V.marcarCampo(campo, (data && data.error) || 'No se pudo guardar la entidad emisora.');
+        campo.focus();
+      }
+    } catch (e) {
+      V.marcarCampo(campos.descripcion, 'Ocurrió un error de conexión. Intente nuevamente.');
+    } finally {
+      btnGuardar.disabled = false;
+    }
+  });
+
+  tbody.addEventListener('click', async (ev) => {
+    const btn = ev.target.closest('button[data-accion]');
+    if (!btn) return;
+    const id = btn.dataset.id;
+
+    if (btn.dataset.accion === 'editar') {
+      try {
+        const { data } = await pedir(`${API}/${id}`);
+        if (data && data.success) {
+          abrirModal('Editar Entidad Emisora', data.data);
+        } else {
+          Swal.fire('Error', (data && data.error) || 'No se pudo cargar la entidad emisora.', 'error');
+          cargar();
+        }
+      } catch (e) {
+        Swal.fire('Error', 'Ocurrió un error de conexión.', 'error');
+      }
+    }
+
+    if (btn.dataset.accion === 'anular') {
+      const c = await Swal.fire({
+        title: '¿Anular esta entidad emisora?',
+        text: btn.dataset.desc,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, anular',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#d63939'
+      });
+      if (!c.isConfirmed) return;
+      try {
+        const { data } = await pedir(`${API}/${id}`, { method: 'DELETE' });
+        if (data && data.success) {
+          await cargar();
+          Swal.fire('Anulada', data.mensaje, 'success');
+        } else {
+          Swal.fire('No se pudo anular', (data && data.error) || 'No se pudo anular la entidad emisora.', 'error');
+          cargar();
+        }
+      } catch (e) {
+        Swal.fire('Error', 'Ocurrió un error de conexión.', 'error');
+      }
+    }
+  });
+
+  cargar();
+})();
+</script>
+{% endblock %}

@@ -503,8 +503,24 @@ módulos grandes, que ya quedó resuelta.
   `esta_en_uso()` es stub: TODO consultar `cobro_tarjeta`). Helpers compartidos de las APIs
   de Facturación (`normalizar_descripcion`, `auditar`, `error_interno`) en
   `app/rutas/modulo_facturacion/utils.py`.
-- ⏳ Faltan 6 referenciales: Entidad Adherida, Entidad Emisora, Caja,
-  Tipo Ítems, Depósito, Cliente.
+- ✅ **Entidad Emisora** (banco; `entidad_emisora`, ventana `entidademisora`) y
+  **Entidad Adherida** (`entidad_adherida`, ventana `entidadadherida`: procesadora con
+  convenio con un banco para una marca, FK RESTRICT a emisora y marca; único parcial sobre
+  `(UPPER(descripcion), emisora, marca)`). Ambas con dirección, teléfono y correo obligatorios.
+  Datos iniciales de contacto: ficticios, de ejemplo.
+  - **Bloqueo de baja:** no se puede anular una emisora ni una marca con una adherida activa
+    (409 con mensaje específico). TODOs: `cobro_tarjeta` / `cobro_cheque`.
+  - `esta_en_uso()` ahora devuelve `False` o un texto con el motivo; `deleteX()` devuelve
+    `("EN_USO", motivo)`. La verificación y el UPDATE van en una transacción con la fila
+    bloqueada (`FOR UPDATE`); el alta/edición de Adherida toma `FOR SHARE` sobre emisora y
+    marca, para evitar carreras. Forma de Cobro todavía usa el protocolo viejo (`"EN_USO"`).
+  - **Validadores de formulario** (descripción, dirección, teléfono, correo) en
+    `app/rutas/modulo_facturacion/utils.py` **y duplicados** en
+    `app/static/js/facturacion-validadores.js`: si cambia una regla, cambiar los dos. Teléfono:
+    dígitos, espacios, guiones y `+` inicial; 6 a 20 caracteres y **al menos 6 dígitos reales**.
+    Correo: formato válido, se guarda en minúsculas. Reutilizar en Cliente.
+  - Las respuestas de error de validación incluyen `campo` para marcarlo en el formulario.
+- ⏳ Faltan 4 referenciales: Caja, Tipo Ítems, Depósito, Cliente.
 
 ### Pendiente de revisión previa (se mantiene)
 Cuando se llegue a este módulo: **revisar específicamente si sus 8

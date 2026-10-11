@@ -91,6 +91,8 @@ CATALOGO_MENU = [
     # Referenciales Facturación
     {"etiqueta": "Forma de Cobro", "endpoint": "formacobro.formaCobroIndex", "icono": "fa-money-bill-wave", "modulo": "Referenciales Facturación", "ventana": "formacobro", "acciones": ["ver", "nuevo", "editar", "anular"]},
     {"etiqueta": "Marca de Tarjeta", "endpoint": "marcatarjeta.marcaTarjetaIndex", "icono": "fa-credit-card", "modulo": "Referenciales Facturación", "ventana": "marcatarjeta", "acciones": ["ver", "nuevo", "editar", "anular"]},
+    {"etiqueta": "Entidad Emisora", "endpoint": "entidademisora.entidadEmisoraIndex", "icono": "fa-university", "modulo": "Referenciales Facturación", "ventana": "entidademisora", "acciones": ["ver", "nuevo", "editar", "anular"]},
+    {"etiqueta": "Entidad Adherida", "endpoint": "entidadadherida.entidadAdheridaIndex", "icono": "fa-handshake", "modulo": "Referenciales Facturación", "ventana": "entidadadherida", "acciones": ["ver", "nuevo", "editar", "anular"]},
 
     # Módulo Seguridad
     {"etiqueta": "Gestión de Usuarios", "endpoint": "usuario.usuarioIndex", "icono": "fa-users-cog", "modulo": "Módulo Seguridad", "ventana": "usuario", "acciones": ["ver", "nuevo", "editar", "anular", "desbloquear"]},

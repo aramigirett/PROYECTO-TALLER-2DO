@@ -131,37 +131,62 @@ class MarcaTarjetaDao:
             cur.close()
             con.close()
 
-    def esta_en_uso(self, id_marca_tarjeta):
-        """Indica si la marca de tarjeta está usada en algún cobro con tarjeta."""
+    def _motivo_en_uso(self, cur, id_marca_tarjeta):
+        """Devuelve el motivo (texto para el usuario) si la marca está en uso, o False."""
+        cur.execute(
+            "SELECT EXISTS(SELECT 1 FROM entidad_adherida WHERE id_marca_tarjeta = %s AND activo = true)",
+            (id_marca_tarjeta,))
+        if cur.fetchone()[0]:
+            return "No se puede dar de baja, la marca está asociada a una entidad adherida."
         # TODO: debe consultar cobro_tarjeta (WHERE id_marca_tarjeta = %s) cuando exista
-        # la tabla. Mientras tanto no hay nada que pueda referenciarla.
+        # la tabla. Mientras tanto no hay nada más que pueda referenciarla.
         return False
+
+    def esta_en_uso(self, id_marca_tarjeta):
+        """False si se puede anular; si no, el texto con el motivo (truthy)."""
+        conexion = Conexion()
+        con = conexion.getConexion()
+        cur = con.cursor()
+        try:
+            return self._motivo_en_uso(cur, id_marca_tarjeta)
+        except Exception as e:
+            app.logger.error(f"Error al verificar uso de marca de tarjeta: {str(e)}")
+            return "No se pudo verificar si la marca está en uso."  # ante la duda, bloquear
+        finally:
+            cur.close()
+            con.close()
 
     def deleteMarcaTarjeta(self, id_marca_tarjeta):
         """
-        Anula (baja lógica) una marca de tarjeta, validando antes que no esté en uso.
+        Anula (baja lógica) una marca de tarjeta. La verificación de uso y el UPDATE van en
+        la misma transacción, con la fila bloqueada, para que no se cuele una entidad
+        adherida nueva entre ambos pasos.
 
         Returns:
-            bool | str: True si se anuló, False si no existía o falló,
-            "EN_USO" si está usada en un cobro con tarjeta.
-        """
-        if self.esta_en_uso(id_marca_tarjeta):
-            app.logger.warning(f"No se puede anular marca de tarjeta {id_marca_tarjeta}: está en uso")
-            return "EN_USO"
-
-        sql = """
-        UPDATE marca_tarjeta
-        SET activo = false
-        WHERE id_marca_tarjeta = %s AND activo = true
+            bool | tuple: True si se anuló, False si no existía o falló,
+            ("EN_USO", motivo) si está en uso.
         """
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(sql, (id_marca_tarjeta,))
-            filas_afectadas = cur.rowcount
+            cur.execute(
+                "SELECT 1 FROM marca_tarjeta WHERE id_marca_tarjeta = %s AND activo = true FOR UPDATE",
+                (id_marca_tarjeta,))
+            if cur.fetchone() is None:
+                con.rollback()
+                return False
+
+            motivo = self._motivo_en_uso(cur, id_marca_tarjeta)
+            if motivo:
+                con.rollback()
+                app.logger.warning(f"No se puede anular marca de tarjeta {id_marca_tarjeta}: está en uso")
+                return ("EN_USO", motivo)
+
+            cur.execute("UPDATE marca_tarjeta SET activo = false WHERE id_marca_tarjeta = %s",
+                        (id_marca_tarjeta,))
             con.commit()
-            return filas_afectadas > 0
+            return True
         except Exception as e:
             app.logger.error(f"Error al anular marca de tarjeta: {str(e)}")
             con.rollback()

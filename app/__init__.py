@@ -234,11 +234,19 @@ from app.rutas.modulo_facturacion.forma_cobro.forma_cobro_routes import formacob
 from app.rutas.modulo_facturacion.forma_cobro.forma_cobro_api import formacobroapi
 from app.rutas.modulo_facturacion.marca_tarjeta.marca_tarjeta_routes import marcatarjetamod
 from app.rutas.modulo_facturacion.marca_tarjeta.marca_tarjeta_api import marcatarjetaapi
+from app.rutas.modulo_facturacion.entidad_emisora.entidad_emisora_routes import entidademisoramod
+from app.rutas.modulo_facturacion.entidad_emisora.entidad_emisora_api import entidademisoraapi
+from app.rutas.modulo_facturacion.entidad_adherida.entidad_adherida_routes import entidadadheridamod
+from app.rutas.modulo_facturacion.entidad_adherida.entidad_adherida_api import entidadadheridaapi
 
 app.register_blueprint(formacobromod, url_prefix='/referenciales/forma-cobro')
 app.register_blueprint(formacobroapi, url_prefix='/api/v1')
 app.register_blueprint(marcatarjetamod, url_prefix='/referenciales/marca-tarjeta')
 app.register_blueprint(marcatarjetaapi, url_prefix='/api/v1')
+app.register_blueprint(entidademisoramod, url_prefix='/referenciales/entidad-emisora')
+app.register_blueprint(entidademisoraapi, url_prefix='/api/v1')
+app.register_blueprint(entidadadheridamod, url_prefix='/referenciales/entidad-adherida')
+app.register_blueprint(entidadadheridaapi, url_prefix='/api/v1')
 
 
 ##REGISTRAR CONSULTA Y FICHA MEDICA
