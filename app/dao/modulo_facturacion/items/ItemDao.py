@@ -7,6 +7,12 @@ from app.conexion.Conexion import Conexion
 DUPLICADO = "DUPLICADO"
 TIPO_INVALIDO = "TIPO_INVALIDO"
 DEPOSITO_INVALIDO = "DEPOSITO_INVALIDO"
+NO_EXISTE = "NO_EXISTE"
+YA_ACTIVO = "YA_ACTIVO"
+TIPO_INACTIVO = "TIPO_INACTIVO"
+DEPOSITO_INACTIVO = "DEPOSITO_INACTIVO"
+# reactivarItem devuelve (STOCK_REINICIADO, stock_anterior) si tuvo que poner el stock en 0
+STOCK_REINICIADO = "STOCK_REINICIADO"
 
 _SELECT = """
 SELECT i.id_item, i.id_tipo_item, t.descripcion, t.controla_stock,
@@ -30,8 +36,8 @@ def _a_dict(f):
 
 class ItemDao:
 
-    def getItems(self):
-        sql = _SELECT + " WHERE i.activo = true ORDER BY i.descripcion"
+    def getItems(self, incluir_inactivos=False):
+        sql = _SELECT + ("" if incluir_inactivos else " WHERE i.activo = true") + " ORDER BY i.activo DESC, i.descripcion"
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
@@ -45,8 +51,8 @@ class ItemDao:
             cur.close()
             con.close()
 
-    def getItemById(self, id_item):
-        sql = _SELECT + " WHERE i.id_item = %s AND i.activo = true"
+    def getItemById(self, id_item, incluir_inactivos=False):
+        sql = _SELECT + " WHERE i.id_item = %s" + ("" if incluir_inactivos else " AND i.activo = true")
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
@@ -205,6 +211,67 @@ class ItemDao:
             return filas_afectadas > 0
         except Exception as e:
             app.logger.error(f"Error al anular ítem: {str(e)}")
+            con.rollback()
+            return False
+        finally:
+            cur.close()
+            con.close()
+
+    def reactivarItem(self, id_item):
+        """
+        Reactiva un ítem anulado. En una sola transacción: bloquea el ítem, bloquea (FOR SHARE) su tipo y su
+        depósito y exige que estén ACTIVOS, y que no haya otro ítem ACTIVO con la misma descripción.
+        Si el tipo ya no controla stock y el ítem conservaba cantidad, el stock se pone en 0 (regla de Ítems).
+
+        Returns:
+            bool | str | tuple: True si se reactivó; (STOCK_REINICIADO, stock_anterior) si se reactivó con el
+            stock puesto en 0; NO_EXISTE, YA_ACTIVO, TIPO_INACTIVO, DEPOSITO_INACTIVO o DUPLICADO;
+            False ante otro error.
+        """
+        conexion = Conexion()
+        con = conexion.getConexion()
+        cur = con.cursor()
+        try:
+            cur.execute("""
+                SELECT id_tipo_item, id_deposito, descripcion, cantidad_disponible, activo
+                FROM items WHERE id_item = %s FOR UPDATE
+            """, (id_item,))
+            fila = cur.fetchone()
+            if fila is None:
+                con.rollback()
+                return NO_EXISTE
+            id_tipo, id_deposito, descripcion, cantidad, activo = fila
+            if activo:
+                con.rollback()
+                return YA_ACTIVO
+
+            # mismo orden de bloqueo que guardarItem/updateItem: tipo y después depósito
+            cur.execute("SELECT activo, controla_stock FROM tipo_items WHERE id_tipo_item = %s FOR SHARE", (id_tipo,))
+            tipo_activo, controla_stock = cur.fetchone()
+            if not tipo_activo:
+                con.rollback()
+                return TIPO_INACTIVO
+            cur.execute("SELECT activo FROM deposito WHERE id_deposito = %s FOR SHARE", (id_deposito,))
+            if not cur.fetchone()[0]:
+                con.rollback()
+                return DEPOSITO_INACTIVO
+
+            cur.execute("SELECT 1 FROM items WHERE activo = true AND UPPER(descripcion) = UPPER(%s) AND id_item != %s",
+                        (descripcion, id_item))
+            if cur.fetchone() is not None:
+                con.rollback()
+                return DUPLICADO
+
+            reiniciar = (not controla_stock) and cantidad > 0
+            cur.execute("UPDATE items SET activo = true, cantidad_disponible = %s WHERE id_item = %s",
+                        (0 if reiniciar else cantidad, id_item))
+            con.commit()
+            return (STOCK_REINICIADO, cantidad) if reiniciar else True
+        except psycopg2.errors.UniqueViolation:
+            con.rollback()
+            return DUPLICADO
+        except Exception as e:
+            app.logger.error(f"Error al reactivar ítem: {str(e)}")
             con.rollback()
             return False
         finally:

@@ -1,4 +1,7 @@
 from flask import Blueprint, request, jsonify, current_app as app
+from app.rutas.modulo_seguridad.permisos_contexto import puede
+from app.rutas.modulo_facturacion.utils import respuesta_error
+from app.dao.modulo_facturacion.tipo_items.TipoItemDao import NO_EXISTE, YA_ACTIVO, DUPLICADO
 from app.dao.modulo_facturacion.tipo_items.TipoItemDao import TipoItemDao
 from app.rutas.modulo_facturacion.utils import (
     normalizar_descripcion, validar_booleano, detalle_cambios, respuesta_error,
@@ -39,8 +42,11 @@ def _para_detalle(d):
 @tipoitemapi.route('/tipos-item', methods=['GET'])
 @require_login  # lookup: alimenta combos de otras pantallas (Ítems)
 def getTiposItem():
+    incluir_inactivos = request.args.get('inactivos', '').lower() in ('1', 'true')
+    if incluir_inactivos and not puede('tipoitem', 'ver'):
+        return respuesta_error('No tiene permiso para ver los tipos de ítem inactivos.', 403)
     try:
-        return jsonify({'success': True, 'data': TipoItemDao().getTiposItem(), 'error': None}), 200
+        return jsonify({'success': True, 'data': TipoItemDao().getTiposItem(incluir_inactivos), 'error': None}), 200
     except Exception as e:
         app.logger.error(f"Error al obtener tipos de ítem: {str(e)}")
         return error_interno()
@@ -161,4 +167,31 @@ def deleteTipoItem(id_tipo_item):
         return respuesta_error('No se encontró el tipo de ítem con el ID proporcionado.', 404)
     except Exception as e:
         app.logger.error(f"Error al anular tipo de ítem: {str(e)}")
+        return error_interno()
+
+
+# -------------------------
+# Reactiva el tipo de ítem anulado (permiso: el mismo de editar)
+# -------------------------
+@tipoitemapi.route('/tipos-item/<int:id_tipo_item>/reactivar', methods=['PATCH'])
+@require_permiso('tipoitem', 'editar')
+def reactivarTipoItem(id_tipo_item):
+    dao = TipoItemDao()
+    try:
+        resultado = dao.reactivarTipoItem(id_tipo_item)
+        if resultado == NO_EXISTE:
+            return respuesta_error('No se encontró el tipo de ítem con el ID proporcionado.', 404)
+        if resultado == YA_ACTIVO:
+            return respuesta_error('El tipo de ítem ya está activo.', 409)
+        if resultado == DUPLICADO:
+            return respuesta_error('No se puede reactivar: ya existe un tipo de ítem activo con esa descripción.', 409)
+        if resultado:
+            obj = dao.getTipoItemById(id_tipo_item)
+            auditar(id_tipo_item, 'REACTIVACION', f'Descripción: {obj["descripcion"]}; Controla stock: ' + ('Sí' if obj['controla_stock'] else 'No'))
+            return jsonify({'success': True, 'data': obj,
+                            'mensaje': f'Tipo de ítem "{obj["descripcion"]}" reactivado correctamente.',
+                            'error': None}), 200
+        return respuesta_error('No se pudo reactivar el tipo de ítem. Consulte con el administrador.', 500)
+    except Exception as e:
+        app.logger.error(f"Error al reactivar tipo de ítem: {str(e)}")
         return error_interno()

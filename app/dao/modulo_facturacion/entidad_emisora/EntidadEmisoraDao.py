@@ -3,6 +3,11 @@ import psycopg2.errors
 from flask import current_app as app
 from app.conexion.Conexion import Conexion
 
+# Códigos de resultado (además de un ID o True)
+DUPLICADO = "DUPLICADO"
+NO_EXISTE = "NO_EXISTE"
+YA_ACTIVO = "YA_ACTIVO"
+
 _COLUMNAS = "id_entidad_emisora, descripcion, direccion, telefono, correo, activo"
 
 
@@ -15,8 +20,8 @@ def _a_dict(f):
 
 class EntidadEmisoraDao:
 
-    def getEntidadesEmisoras(self):
-        sql = f"SELECT {_COLUMNAS} FROM entidad_emisora WHERE activo = true ORDER BY descripcion"
+    def getEntidadesEmisoras(self, incluir_inactivos=False):
+        sql = f"SELECT {_COLUMNAS} FROM entidad_emisora" + ("" if incluir_inactivos else " WHERE activo = true") + " ORDER BY activo DESC, descripcion"
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
@@ -30,8 +35,8 @@ class EntidadEmisoraDao:
             cur.close()
             con.close()
 
-    def getEntidadEmisoraById(self, id_entidad_emisora):
-        sql = f"SELECT {_COLUMNAS} FROM entidad_emisora WHERE id_entidad_emisora = %s AND activo = true"
+    def getEntidadEmisoraById(self, id_entidad_emisora, incluir_inactivos=False):
+        sql = f"SELECT {_COLUMNAS} FROM entidad_emisora WHERE id_entidad_emisora = %s" + ("" if incluir_inactivos else " AND activo = true")
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
@@ -180,6 +185,50 @@ class EntidadEmisoraDao:
             return True
         except Exception as e:
             app.logger.error(f"Error al anular entidad emisora: {str(e)}")
+            con.rollback()
+            return False
+        finally:
+            cur.close()
+            con.close()
+
+    def reactivarEntidadEmisora(self, id_entidad_emisora):
+        """
+        Reactiva la entidad emisora anulada. En una sola transacción: bloquea el registro y valida que no haya otro
+        ACTIVO con la misma descripción.
+
+        Returns:
+            bool | str: True si se reactivó; NO_EXISTE, YA_ACTIVO o DUPLICADO; False ante otro error.
+        """
+        conexion = Conexion()
+        con = conexion.getConexion()
+        cur = con.cursor()
+        try:
+            cur.execute("SELECT descripcion, activo FROM entidad_emisora WHERE id_entidad_emisora = %s FOR UPDATE", (id_entidad_emisora,))
+            fila = cur.fetchone()
+            if fila is None:
+                con.rollback()
+                return NO_EXISTE
+            descripcion, activo = fila
+            if activo:
+                con.rollback()
+                return YA_ACTIVO
+
+            cur.execute("""
+                SELECT 1 FROM entidad_emisora
+                WHERE activo = true AND UPPER(descripcion) = UPPER(%s) AND id_entidad_emisora != %s
+            """, (descripcion, id_entidad_emisora))
+            if cur.fetchone() is not None:
+                con.rollback()
+                return DUPLICADO
+
+            cur.execute("UPDATE entidad_emisora SET activo = true WHERE id_entidad_emisora = %s", (id_entidad_emisora,))
+            con.commit()
+            return True
+        except psycopg2.errors.UniqueViolation:
+            con.rollback()
+            return DUPLICADO
+        except Exception as e:
+            app.logger.error(f"Error al reactivar la entidad emisora: {str(e)}")
             con.rollback()
             return False
         finally:

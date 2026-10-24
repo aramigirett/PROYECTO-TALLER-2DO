@@ -1,5 +1,8 @@
 from flask import Blueprint, request, jsonify, current_app as app
+from app.rutas.modulo_seguridad.permisos_contexto import puede
+from app.rutas.modulo_facturacion.utils import respuesta_error
 from app.dao.modulo_facturacion.marca_tarjeta.MarcaTarjetaDao import MarcaTarjetaDao
+from app.dao.modulo_facturacion.marca_tarjeta.MarcaTarjetaDao import NO_EXISTE, YA_ACTIVO, DUPLICADO
 from app.rutas.modulo_facturacion.utils import normalizar_descripcion, auditar as _auditar, error_interno
 from app.rutas.modulo_seguridad.decorators import require_permiso, require_login
 
@@ -18,8 +21,11 @@ def auditar(id_registro, accion, detalle):
 @marcatarjetaapi.route('/marcas-tarjeta', methods=['GET'])
 @require_login  # lookup: alimenta combos de otras pantallas (ej. Cobros)
 def getMarcasTarjeta():
+    incluir_inactivos = request.args.get('inactivos', '').lower() in ('1', 'true')
+    if incluir_inactivos and not puede('marcatarjeta', 'ver'):
+        return respuesta_error('No tiene permiso para ver las marcas de tarjeta inactivas.', 403)
     try:
-        return jsonify({'success': True, 'data': MarcaTarjetaDao().getMarcasTarjeta(), 'error': None}), 200
+        return jsonify({'success': True, 'data': MarcaTarjetaDao().getMarcasTarjeta(incluir_inactivos), 'error': None}), 200
     except Exception as e:
         app.logger.error(f"Error al obtener marcas de tarjeta: {str(e)}")
         return error_interno()
@@ -137,4 +143,31 @@ def deleteMarcaTarjeta(id_marca_tarjeta):
         return jsonify({'success': False, 'error': 'No se encontró la marca de tarjeta con el ID proporcionado.'}), 404
     except Exception as e:
         app.logger.error(f"Error al anular marca de tarjeta: {str(e)}")
+        return error_interno()
+
+
+# -------------------------
+# Reactiva la marca de tarjeta anulada (permiso: el mismo de editar)
+# -------------------------
+@marcatarjetaapi.route('/marcas-tarjeta/<int:id_marca_tarjeta>/reactivar', methods=['PATCH'])
+@require_permiso('marcatarjeta', 'editar')
+def reactivarMarcaTarjeta(id_marca_tarjeta):
+    dao = MarcaTarjetaDao()
+    try:
+        resultado = dao.reactivarMarcaTarjeta(id_marca_tarjeta)
+        if resultado == NO_EXISTE:
+            return respuesta_error('No se encontró la marca de tarjeta con el ID proporcionado.', 404)
+        if resultado == YA_ACTIVO:
+            return respuesta_error('La marca de tarjeta ya está activa.', 409)
+        if resultado == DUPLICADO:
+            return respuesta_error('No se puede reactivar: ya existe una marca de tarjeta activa con esa descripción.', 409)
+        if resultado:
+            obj = dao.getMarcaTarjetaById(id_marca_tarjeta)
+            auditar(id_marca_tarjeta, 'REACTIVACION', f'Descripción: {obj["descripcion"]}')
+            return jsonify({'success': True, 'data': obj,
+                            'mensaje': f'Marca de tarjeta "{obj["descripcion"]}" reactivada correctamente.',
+                            'error': None}), 200
+        return respuesta_error('No se pudo reactivar la marca de tarjeta. Consulte con el administrador.', 500)
+    except Exception as e:
+        app.logger.error(f"Error al reactivar marca de tarjeta: {str(e)}")
         return error_interno()

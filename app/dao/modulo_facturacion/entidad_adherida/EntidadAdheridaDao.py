@@ -7,6 +7,10 @@ from app.conexion.Conexion import Conexion
 DUPLICADO = "DUPLICADO"
 EMISORA_INVALIDA = "EMISORA_INVALIDA"
 MARCA_INVALIDA = "MARCA_INVALIDA"
+NO_EXISTE = "NO_EXISTE"
+YA_ACTIVO = "YA_ACTIVO"
+EMISORA_INACTIVA = "EMISORA_INACTIVA"
+MARCA_INACTIVA = "MARCA_INACTIVA"
 
 _SELECT = """
 SELECT a.id_entidad_adherida, a.id_entidad_emisora, e.descripcion,
@@ -30,8 +34,9 @@ def _a_dict(f):
 
 class EntidadAdheridaDao:
 
-    def getEntidadesAdheridas(self):
-        sql = _SELECT + " WHERE a.activo = true ORDER BY a.descripcion, e.descripcion, m.descripcion"
+    def getEntidadesAdheridas(self, incluir_inactivos=False):
+        sql = _SELECT + ("" if incluir_inactivos else " WHERE a.activo = true") + \
+              " ORDER BY a.activo DESC, a.descripcion, e.descripcion, m.descripcion"
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
@@ -45,8 +50,8 @@ class EntidadAdheridaDao:
             cur.close()
             con.close()
 
-    def getEntidadAdheridaById(self, id_entidad_adherida):
-        sql = _SELECT + " WHERE a.id_entidad_adherida = %s AND a.activo = true"
+    def getEntidadAdheridaById(self, id_entidad_adherida, incluir_inactivos=False):
+        sql = _SELECT + " WHERE a.id_entidad_adherida = %s" + ("" if incluir_inactivos else " AND a.activo = true")
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
@@ -206,6 +211,66 @@ class EntidadAdheridaDao:
             return filas_afectadas > 0
         except Exception as e:
             app.logger.error(f"Error al anular entidad adherida: {str(e)}")
+            con.rollback()
+            return False
+        finally:
+            cur.close()
+            con.close()
+
+    def reactivarEntidadAdherida(self, id_entidad_adherida):
+        """
+        Reactiva una entidad adherida anulada. En una sola transacción: bloquea la adherida, bloquea
+        (FOR SHARE) su emisora y su marca y exige que estén ACTIVAS (una baja de emisora o de marca solo se
+        bloquea con adheridas activas, así que una adherida inactiva puede tenerlas anuladas), y que no haya
+        otra adherida ACTIVA con la misma descripción, emisora y marca.
+
+        Returns:
+            bool | str: True si se reactivó; NO_EXISTE, YA_ACTIVO, EMISORA_INACTIVA, MARCA_INACTIVA o
+            DUPLICADO; False ante otro error.
+        """
+        conexion = Conexion()
+        con = conexion.getConexion()
+        cur = con.cursor()
+        try:
+            cur.execute("""
+                SELECT id_entidad_emisora, id_marca_tarjeta, descripcion, activo
+                FROM entidad_adherida WHERE id_entidad_adherida = %s FOR UPDATE
+            """, (id_entidad_adherida,))
+            fila = cur.fetchone()
+            if fila is None:
+                con.rollback()
+                return NO_EXISTE
+            id_emisora, id_marca, descripcion, activo = fila
+            if activo:
+                con.rollback()
+                return YA_ACTIVO
+
+            cur.execute("SELECT activo FROM entidad_emisora WHERE id_entidad_emisora = %s FOR SHARE", (id_emisora,))
+            if not cur.fetchone()[0]:
+                con.rollback()
+                return EMISORA_INACTIVA
+            cur.execute("SELECT activo FROM marca_tarjeta WHERE id_marca_tarjeta = %s FOR SHARE", (id_marca,))
+            if not cur.fetchone()[0]:
+                con.rollback()
+                return MARCA_INACTIVA
+
+            cur.execute("""
+                SELECT 1 FROM entidad_adherida
+                WHERE activo = true AND UPPER(descripcion) = UPPER(%s)
+                  AND id_entidad_emisora = %s AND id_marca_tarjeta = %s AND id_entidad_adherida != %s
+            """, (descripcion, id_emisora, id_marca, id_entidad_adherida))
+            if cur.fetchone() is not None:
+                con.rollback()
+                return DUPLICADO
+
+            cur.execute("UPDATE entidad_adherida SET activo = true WHERE id_entidad_adherida = %s", (id_entidad_adherida,))
+            con.commit()
+            return True
+        except psycopg2.errors.UniqueViolation:
+            con.rollback()
+            return DUPLICADO
+        except Exception as e:
+            app.logger.error(f"Error al reactivar entidad adherida: {str(e)}")
             con.rollback()
             return False
         finally:

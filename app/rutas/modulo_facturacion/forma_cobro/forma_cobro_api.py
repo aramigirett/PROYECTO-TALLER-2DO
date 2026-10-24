@@ -1,5 +1,8 @@
 from flask import Blueprint, request, jsonify, current_app as app
+from app.rutas.modulo_seguridad.permisos_contexto import puede
+from app.rutas.modulo_facturacion.utils import respuesta_error
 from app.dao.modulo_facturacion.forma_cobro.FormaCobroDao import FormaCobroDao
+from app.dao.modulo_facturacion.forma_cobro.FormaCobroDao import NO_EXISTE, YA_ACTIVO, DUPLICADO
 from app.rutas.modulo_facturacion.utils import normalizar_descripcion, auditar as _auditar, error_interno
 from app.rutas.modulo_seguridad.decorators import require_permiso, require_login
 
@@ -18,8 +21,11 @@ def auditar(id_registro, accion, detalle):
 @formacobroapi.route('/formas-cobro', methods=['GET'])
 @require_login  # lookup: alimenta combos de otras pantallas (ej. Cobros)
 def getFormasCobro():
+    incluir_inactivos = request.args.get('inactivos', '').lower() in ('1', 'true')
+    if incluir_inactivos and not puede('formacobro', 'ver'):
+        return respuesta_error('No tiene permiso para ver las formas de cobro inactivas.', 403)
     try:
-        return jsonify({'success': True, 'data': FormaCobroDao().getFormasCobro(), 'error': None}), 200
+        return jsonify({'success': True, 'data': FormaCobroDao().getFormasCobro(incluir_inactivos), 'error': None}), 200
     except Exception as e:
         app.logger.error(f"Error al obtener formas de cobro: {str(e)}")
         return error_interno()
@@ -128,8 +134,8 @@ def deleteFormaCobro(id_forma_cobro):
     try:
         registro = dao.getFormaCobroById(id_forma_cobro)
         resultado = dao.deleteFormaCobro(id_forma_cobro)
-        if resultado == "EN_USO":
-            return jsonify({'success': False, 'error': 'No se puede anular: esta forma de cobro está usada en una o más cobranzas.'}), 409
+        if isinstance(resultado, tuple):  # ("EN_USO", motivo)
+            return respuesta_error(resultado[1], 409)
         if resultado:
             descripcion = registro['descripcion'] if registro else 'seleccionada'
             auditar(id_forma_cobro, 'BAJA', f'Descripción: {descripcion}')
@@ -137,4 +143,31 @@ def deleteFormaCobro(id_forma_cobro):
         return jsonify({'success': False, 'error': 'No se encontró la forma de cobro con el ID proporcionado.'}), 404
     except Exception as e:
         app.logger.error(f"Error al anular forma de cobro: {str(e)}")
+        return error_interno()
+
+
+# -------------------------
+# Reactiva la forma de cobro anulada (permiso: el mismo de editar)
+# -------------------------
+@formacobroapi.route('/formas-cobro/<int:id_forma_cobro>/reactivar', methods=['PATCH'])
+@require_permiso('formacobro', 'editar')
+def reactivarFormaCobro(id_forma_cobro):
+    dao = FormaCobroDao()
+    try:
+        resultado = dao.reactivarFormaCobro(id_forma_cobro)
+        if resultado == NO_EXISTE:
+            return respuesta_error('No se encontró la forma de cobro con el ID proporcionado.', 404)
+        if resultado == YA_ACTIVO:
+            return respuesta_error('La forma de cobro ya está activa.', 409)
+        if resultado == DUPLICADO:
+            return respuesta_error('No se puede reactivar: ya existe una forma de cobro activa con esa descripción.', 409)
+        if resultado:
+            obj = dao.getFormaCobroById(id_forma_cobro)
+            auditar(id_forma_cobro, 'REACTIVACION', f'Descripción: {obj["descripcion"]}')
+            return jsonify({'success': True, 'data': obj,
+                            'mensaje': f'Forma de cobro "{obj["descripcion"]}" reactivada correctamente.',
+                            'error': None}), 200
+        return respuesta_error('No se pudo reactivar la forma de cobro. Consulte con el administrador.', 500)
+    except Exception as e:
+        app.logger.error(f"Error al reactivar forma de cobro: {str(e)}")
         return error_interno()

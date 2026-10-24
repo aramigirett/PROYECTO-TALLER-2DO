@@ -20,6 +20,12 @@
 </div>
 
 <div class="card">
+  <div class="card-header">
+    <label class="form-check form-switch mb-0">
+      <input class="form-check-input" type="checkbox" id="chkInactivos">
+      <span class="form-check-label">Mostrar inactivas</span>
+    </label>
+  </div>
   <div class="table-responsive">
     <table class="table table-vcenter card-table" id="tbl">
       <thead>
@@ -65,6 +71,7 @@
 {% endblock %}
 
 {% block js %}
+<script src="{{ url_for('static', filename='js/facturacion-listado.js') }}"></script>
 <script>
 (function () {
   const API = '/api/v1/formas-cobro';
@@ -72,6 +79,7 @@
   const PUEDE_ANULAR = {{ 'true' if puede('formacobro', 'anular') else 'false' }};
 
   const tbody = document.getElementById('tbodyFormas');
+  const chkInactivos = document.getElementById('chkInactivos');
   const modalEl = document.getElementById('modalFormulario');
   const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
   const form = document.getElementById('formFormaCobro');
@@ -80,8 +88,8 @@
   const errDesc = document.getElementById('errDescripcion');
   const btnGuardar = document.getElementById('btnGuardar');
 
-  const escapar = (t) => String(t).replace(/[&<>"']/g, (c) =>
-    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const L = window.FacturacionListado;
+  const { escapar, pedir } = L;
 
   const mostrarError = (msg) => {
     errDesc.textContent = msg;
@@ -92,29 +100,20 @@
     inpDesc.classList.remove('is-invalid');
   };
 
-  async function pedir(url, opciones) {
-    const resp = await fetch(url, opciones);
-    let data = null;
-    try { data = await resp.json(); } catch (e) { /* respuesta no JSON (ej. 403 HTML) */ }
-    return { ok: resp.ok, status: resp.status, data };
-  }
-
   async function cargar() {
     try {
-      const { ok, data } = await pedir(API);
+      const { ok, data } = await pedir(L.urlListado(API, chkInactivos));
       if (!ok || !data || !data.success) throw new Error();
       if (!data.data.length) {
         tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-4">No hay formas de cobro registradas.</td></tr>';
         return;
       }
       tbody.innerHTML = data.data.map((f) => {
-        const acciones = [];
-        if (PUEDE_EDITAR) acciones.push(`<button type="button" class="btn btn-sm btn-outline-primary" data-accion="editar" data-id="${f.id_forma_cobro}" title="Editar"><i class="fas fa-edit"></i></button>`);
-        if (PUEDE_ANULAR) acciones.push(`<button type="button" class="btn btn-sm btn-outline-danger" data-accion="anular" data-id="${f.id_forma_cobro}" data-desc="${escapar(f.descripcion)}" title="Anular"><i class="fas fa-ban"></i></button>`);
-        return `<tr>
+        const acciones = L.acciones({ activo: f.activo, id: f.id_forma_cobro, descripcion: f.descripcion, puedeEditar: PUEDE_EDITAR, puedeAnular: PUEDE_ANULAR });
+        return `<tr class="${L.claseFila(f.activo)}">
           <td>${escapar(f.descripcion)}</td>
-          <td><span class="badge bg-success-lt">Activo</span></td>
-          <td class="text-nowrap"><div class="btn-list flex-nowrap">${acciones.join('')}</div></td>
+          <td>${L.badgeEstado(f.activo)}</td>
+          <td class="text-nowrap"><div class="btn-list flex-nowrap">${acciones}</div></td>
         </tr>`;
       }).join('');
     } catch (e) {
@@ -198,31 +197,21 @@
     }
 
     if (btn.dataset.accion === 'anular') {
-      const c = await Swal.fire({
-        title: '¿Anular esta forma de cobro?',
-        text: btn.dataset.desc,
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonText: 'Sí, anular',
-        cancelButtonText: 'Cancelar',
-        confirmButtonColor: '#d63939'
+      await L.anular({
+        api: API, id, descripcion: btn.dataset.desc, titulo: '¿Anular esta forma de cobro?', exito: 'Anulada',
+        errorDefault: 'No se pudo anular la forma de cobro.', recargar: cargar
       });
-      if (!c.isConfirmed) return;
-      try {
-        const { data } = await pedir(`${API}/${id}`, { method: 'DELETE' });
-        if (data && data.success) {
-          await cargar();
-          Swal.fire('Anulada', data.mensaje, 'success');
-        } else {
-          Swal.fire('Error', (data && data.error) || 'No se pudo anular la forma de cobro.', 'error');
-          cargar();
-        }
-      } catch (e) {
-        Swal.fire('Error', 'Ocurrió un error de conexión.', 'error');
-      }
+    }
+
+    if (btn.dataset.accion === 'reactivar') {
+      await L.reactivar({
+        api: API, id, descripcion: btn.dataset.desc, titulo: '¿Reactivar esta forma de cobro?', exito: 'Reactivada',
+        errorDefault: 'No se pudo reactivar la forma de cobro.', recargar: cargar
+      });
     }
   });
 
+  chkInactivos.addEventListener('change', cargar);
   cargar();
 })();
 </script>

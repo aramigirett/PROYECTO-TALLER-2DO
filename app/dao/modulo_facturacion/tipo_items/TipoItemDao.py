@@ -3,6 +3,11 @@ import psycopg2.errors
 from flask import current_app as app
 from app.conexion.Conexion import Conexion
 
+# Códigos de resultado (además de un ID o True)
+DUPLICADO = "DUPLICADO"
+NO_EXISTE = "NO_EXISTE"
+YA_ACTIVO = "YA_ACTIVO"
+
 MSG_BAJA_EN_USO = "No se puede dar de baja, el tipo está asignado a uno o más ítems."
 MSG_STOCK_EN_USO = ("No se puede cambiar \"Controla stock\": el tipo está asignado a uno o más ítems. "
                     "Anule o reasigne esos ítems primero.")
@@ -16,8 +21,8 @@ def _a_dict(f):
 
 class TipoItemDao:
 
-    def getTiposItem(self):
-        sql = f"SELECT {_COLUMNAS} FROM tipo_items WHERE activo = true ORDER BY descripcion"
+    def getTiposItem(self, incluir_inactivos=False):
+        sql = f"SELECT {_COLUMNAS} FROM tipo_items" + ("" if incluir_inactivos else " WHERE activo = true") + " ORDER BY activo DESC, descripcion"
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
@@ -31,8 +36,8 @@ class TipoItemDao:
             cur.close()
             con.close()
 
-    def getTipoItemById(self, id_tipo_item):
-        sql = f"SELECT {_COLUMNAS} FROM tipo_items WHERE id_tipo_item = %s AND activo = true"
+    def getTipoItemById(self, id_tipo_item, incluir_inactivos=False):
+        sql = f"SELECT {_COLUMNAS} FROM tipo_items WHERE id_tipo_item = %s" + ("" if incluir_inactivos else " AND activo = true")
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
@@ -189,6 +194,50 @@ class TipoItemDao:
             return True
         except Exception as e:
             app.logger.error(f"Error al anular tipo de ítem: {str(e)}")
+            con.rollback()
+            return False
+        finally:
+            cur.close()
+            con.close()
+
+    def reactivarTipoItem(self, id_tipo_item):
+        """
+        Reactiva el tipo de ítem anulado. En una sola transacción: bloquea el registro y valida que no haya otro
+        ACTIVO con la misma descripción.
+
+        Returns:
+            bool | str: True si se reactivó; NO_EXISTE, YA_ACTIVO o DUPLICADO; False ante otro error.
+        """
+        conexion = Conexion()
+        con = conexion.getConexion()
+        cur = con.cursor()
+        try:
+            cur.execute("SELECT descripcion, activo FROM tipo_items WHERE id_tipo_item = %s FOR UPDATE", (id_tipo_item,))
+            fila = cur.fetchone()
+            if fila is None:
+                con.rollback()
+                return NO_EXISTE
+            descripcion, activo = fila
+            if activo:
+                con.rollback()
+                return YA_ACTIVO
+
+            cur.execute("""
+                SELECT 1 FROM tipo_items
+                WHERE activo = true AND UPPER(descripcion) = UPPER(%s) AND id_tipo_item != %s
+            """, (descripcion, id_tipo_item))
+            if cur.fetchone() is not None:
+                con.rollback()
+                return DUPLICADO
+
+            cur.execute("UPDATE tipo_items SET activo = true WHERE id_tipo_item = %s", (id_tipo_item,))
+            con.commit()
+            return True
+        except psycopg2.errors.UniqueViolation:
+            con.rollback()
+            return DUPLICADO
+        except Exception as e:
+            app.logger.error(f"Error al reactivar el tipo de ítem: {str(e)}")
             con.rollback()
             return False
         finally:

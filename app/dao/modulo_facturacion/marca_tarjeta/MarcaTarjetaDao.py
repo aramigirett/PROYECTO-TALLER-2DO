@@ -3,16 +3,19 @@ import psycopg2.errors
 from flask import current_app as app
 from app.conexion.Conexion import Conexion
 
+# Códigos de resultado (además de un ID o True)
+DUPLICADO = "DUPLICADO"
+NO_EXISTE = "NO_EXISTE"
+YA_ACTIVO = "YA_ACTIVO"
+
 
 class MarcaTarjetaDao:
 
-    def getMarcasTarjeta(self):
+    def getMarcasTarjeta(self, incluir_inactivos=False):
         sql = """
         SELECT id_marca_tarjeta, descripcion, activo
         FROM marca_tarjeta
-        WHERE activo = true
-        ORDER BY descripcion
-        """
+        """ + ("" if incluir_inactivos else " WHERE activo = true") + " ORDER BY activo DESC, descripcion"
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
@@ -29,12 +32,12 @@ class MarcaTarjetaDao:
             cur.close()
             con.close()
 
-    def getMarcaTarjetaById(self, id_marca_tarjeta):
+    def getMarcaTarjetaById(self, id_marca_tarjeta, incluir_inactivos=False):
         sql = """
         SELECT id_marca_tarjeta, descripcion, activo
         FROM marca_tarjeta
-        WHERE id_marca_tarjeta = %s AND activo = true
-        """
+        WHERE id_marca_tarjeta = %s
+        """ + ("" if incluir_inactivos else " AND activo = true")
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
@@ -189,6 +192,50 @@ class MarcaTarjetaDao:
             return True
         except Exception as e:
             app.logger.error(f"Error al anular marca de tarjeta: {str(e)}")
+            con.rollback()
+            return False
+        finally:
+            cur.close()
+            con.close()
+
+    def reactivarMarcaTarjeta(self, id_marca_tarjeta):
+        """
+        Reactiva la marca de tarjeta anulada. En una sola transacción: bloquea el registro y valida que no haya otro
+        ACTIVO con la misma descripción.
+
+        Returns:
+            bool | str: True si se reactivó; NO_EXISTE, YA_ACTIVO o DUPLICADO; False ante otro error.
+        """
+        conexion = Conexion()
+        con = conexion.getConexion()
+        cur = con.cursor()
+        try:
+            cur.execute("SELECT descripcion, activo FROM marca_tarjeta WHERE id_marca_tarjeta = %s FOR UPDATE", (id_marca_tarjeta,))
+            fila = cur.fetchone()
+            if fila is None:
+                con.rollback()
+                return NO_EXISTE
+            descripcion, activo = fila
+            if activo:
+                con.rollback()
+                return YA_ACTIVO
+
+            cur.execute("""
+                SELECT 1 FROM marca_tarjeta
+                WHERE activo = true AND UPPER(descripcion) = UPPER(%s) AND id_marca_tarjeta != %s
+            """, (descripcion, id_marca_tarjeta))
+            if cur.fetchone() is not None:
+                con.rollback()
+                return DUPLICADO
+
+            cur.execute("UPDATE marca_tarjeta SET activo = true WHERE id_marca_tarjeta = %s", (id_marca_tarjeta,))
+            con.commit()
+            return True
+        except psycopg2.errors.UniqueViolation:
+            con.rollback()
+            return DUPLICADO
+        except Exception as e:
+            app.logger.error(f"Error al reactivar la marca de tarjeta: {str(e)}")
             con.rollback()
             return False
         finally:

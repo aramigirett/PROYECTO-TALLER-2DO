@@ -1,5 +1,8 @@
 from flask import Blueprint, request, jsonify, current_app as app
+from app.rutas.modulo_seguridad.permisos_contexto import puede
+from app.rutas.modulo_facturacion.utils import respuesta_error
 from app.dao.modulo_facturacion.entidad_emisora.EntidadEmisoraDao import EntidadEmisoraDao
+from app.dao.modulo_facturacion.entidad_emisora.EntidadEmisoraDao import NO_EXISTE, YA_ACTIVO, DUPLICADO
 from app.rutas.modulo_facturacion.utils import (
     validar_datos_entidad, detalle_cambios, respuesta_error, auditar as _auditar, error_interno)
 from app.rutas.modulo_seguridad.decorators import require_permiso, require_login
@@ -21,8 +24,11 @@ def auditar(id_registro, accion, detalle):
 @entidademisoraapi.route('/entidades-emisoras', methods=['GET'])
 @require_login  # lookup: alimenta combos de otras pantallas (Entidad Adherida, Cobros)
 def getEntidadesEmisoras():
+    incluir_inactivos = request.args.get('inactivos', '').lower() in ('1', 'true')
+    if incluir_inactivos and not puede('entidademisora', 'ver'):
+        return respuesta_error('No tiene permiso para ver las entidades emisoras inactivas.', 403)
     try:
-        return jsonify({'success': True, 'data': EntidadEmisoraDao().getEntidadesEmisoras(), 'error': None}), 200
+        return jsonify({'success': True, 'data': EntidadEmisoraDao().getEntidadesEmisoras(incluir_inactivos), 'error': None}), 200
     except Exception as e:
         app.logger.error(f"Error al obtener entidades emisoras: {str(e)}")
         return error_interno()
@@ -141,4 +147,31 @@ def deleteEntidadEmisora(id_entidad_emisora):
         return respuesta_error('No se encontró la entidad emisora con el ID proporcionado.', 404)
     except Exception as e:
         app.logger.error(f"Error al anular entidad emisora: {str(e)}")
+        return error_interno()
+
+
+# -------------------------
+# Reactiva la entidad emisora anulada (permiso: el mismo de editar)
+# -------------------------
+@entidademisoraapi.route('/entidades-emisoras/<int:id_entidad_emisora>/reactivar', methods=['PATCH'])
+@require_permiso('entidademisora', 'editar')
+def reactivarEntidadEmisora(id_entidad_emisora):
+    dao = EntidadEmisoraDao()
+    try:
+        resultado = dao.reactivarEntidadEmisora(id_entidad_emisora)
+        if resultado == NO_EXISTE:
+            return respuesta_error('No se encontró la entidad emisora con el ID proporcionado.', 404)
+        if resultado == YA_ACTIVO:
+            return respuesta_error('La entidad emisora ya está activa.', 409)
+        if resultado == DUPLICADO:
+            return respuesta_error('No se puede reactivar: ya existe una entidad emisora activa con esa descripción.', 409)
+        if resultado:
+            obj = dao.getEntidadEmisoraById(id_entidad_emisora)
+            auditar(id_entidad_emisora, 'REACTIVACION', f'Descripción: {obj["descripcion"]}')
+            return jsonify({'success': True, 'data': obj,
+                            'mensaje': f'Entidad emisora "{obj["descripcion"]}" reactivada correctamente.',
+                            'error': None}), 200
+        return respuesta_error('No se pudo reactivar la entidad emisora. Consulte con el administrador.', 500)
+    except Exception as e:
+        app.logger.error(f"Error al reactivar entidad emisora: {str(e)}")
         return error_interno()

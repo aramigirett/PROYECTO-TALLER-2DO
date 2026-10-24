@@ -508,7 +508,9 @@ Todo referencial —nuevo o migrado— cumple estos 6 puntos. Implementación de
    defecto; `GET ...?inactivos=1` exige `ver`; sin el parámetro la API solo devuelve activos, porque la usan los
    combos de otras pantallas) y **botón "Reactivar"** con confirmación SweetAlert2 en las filas inactivas, con el
    permiso `editar`. Reactivar valida duplicados (y que los registros padre sigan existiendo/activos) en una sola
-   transacción y devuelve 409 con mensaje claro.
+   transacción y devuelve 409 con mensaje claro. La parte de interfaz se arma con
+   `app/static/js/facturacion-listado.js` (`FacturacionListado`: `pedir`, `escapar`, `urlListado`, `badgeEstado`,
+   `claseFila`, `acciones`, `anular`, `reactivar`); escrito en ES5 a propósito para poder probarlo fuera del navegador.
 5. **Baja bloqueada si está en uso**, con **409** y mensaje claro. `esta_en_uso()` devuelve `False` o el texto del
    motivo; `deleteX()` devuelve `("EN_USO", motivo)`; la verificación y el UPDATE van en la misma transacción con la
    fila bloqueada (`FOR UPDATE`; el alta/edición del hijo toma `FOR SHARE` sobre el padre). Cuando la tabla que
@@ -524,21 +526,23 @@ Además, como en todo endpoint: `@require_permiso(ventana, acción)`, botones en
 ### Estado actual de los referenciales frente al estándar (verificado en el código y en la base)
 | Módulo | Referencial | Borrado hoy | Vista | Falta |
 |---|---|---|---|---|
-| Facturación | Caja, Depósito, Cliente | **Lógico** | Tabler | — (cumplen los 6 puntos) |
-| Facturación | Forma de Cobro, Marca de Tarjeta, Entidad Emisora, Entidad Adherida, Tipo Ítems, Ítems | **Lógico** | Tabler | Punto 4 (Estado, "Mostrar inactivos", Reactivar) |
+| Facturación | Forma de Cobro, Marca de Tarjeta, Entidad Emisora, Entidad Adherida, Tipo Ítems, Ítems | **Lógico** | Tabler (con `facturacion-listado.js`) | — (cumplen los 6 puntos) |
+| Facturación | Caja, Depósito, Cliente | **Lógico** | Tabler (con su propia copia del código de listado) | — (cumplen los 6 puntos); falta migrarlas al helper y unificar `?inactivas` de Caja |
 | Consultorio | Tipo Tratamiento, Tipo Insumo Utilizado, Tipo Procedimiento Médico, Medicamentos, Tipo Estudio, Tipo Análisis | **Lógico** (`activo`, con único parcial) | SB Admin 2 | Vista Tabler, puntos 4 y 6 |
 | Consultorio | Tipo Diagnóstico, Síntomas | **Físico** (con `estaEnUso()` → 409) | SB Admin 2 | Pasar a lógico (agregar `activo`, único parcial) y puntos 1, 4 y 6 |
 | Agendamiento | Ciudad, Cargo, Consultorio, Disponibilidad Horaria, Especialidad, Día, Turno | **Físico** (con `estaEnUso()` → 409) | SB Admin 2 | Pasar a lógico (agregar `activo`, únicos parciales) y puntos 1, 4 y 6 |
 | Agendamiento | Paciente, Funcionario, Médico (datos maestros, no referenciales) | **Físico** (sin validar uso, salvo Paciente→cliente) | SB Admin 2 | Fuera de este estándar; ver riesgos de CASCADE más arriba |
 
 ## Pendientes de referenciales (en este orden)
-1. **Facturación — aplicar el punto 4** (columna Estado, switch "Mostrar inactivos", Reactivar con permiso `editar`
-   y `REACTIVACION` en la auditoría) a **Forma de Cobro, Marca de Tarjeta, Entidad Emisora, Entidad Adherida,
-   Tipo Ítems e Ítems** (después de Cliente, que ya está). Cada API necesita el `GET ?inactivos=1` y el
-   `PATCH .../reactivar`. Qué validar al reactivar: Forma de Cobro y Marca de Tarjeta, descripción duplicada;
-   Entidad Emisora, descripción duplicada; Entidad Adherida, duplicado de (descripción, emisora, marca) y que la
-   emisora y la marca estén activas; Tipo Ítems, descripción duplicada; Ítems, descripción duplicada y que el
-   tipo y el depósito estén activos. De paso, alinear Forma de Cobro al protocolo `esta_en_uso()` / `("EN_USO", motivo)`.
+1. **Facturación — migrar Caja, Depósito y Cliente a `facturacion-listado.js`** (hoy cada una tiene su propia copia de
+   `pedir`, `escapar`, el badge, los botones y los flujos de SweetAlert2) y **unificar el parámetro de Caja de
+   `?inactivas` a `?inactivos`** (el del estándar, que ya usan Depósito, Cliente y los otros 6). Verificado en el
+   código: ninguna otra pantalla usa `?inactivas`, solo la propia vista y API de Caja; aun así, al unificar, hacer que
+   la API de Caja acepte los dos nombres durante la transición y quitar `inactivas` cuando se confirme que nada lo usa
+   (el DAO de Caja también usa `incluir_inactivas`; renombrar a `incluir_inactivos`). Esas 3 vistas ya se probaron
+   a mano en el navegador: volver a probarlas después de migrarlas.
+   *(El punto 4 del estándar —Estado, "Mostrar inactivos", Reactivar— ya está aplicado a Forma de Cobro, Marca de
+   Tarjeta, Entidad Emisora, Entidad Adherida, Tipo Ítems e Ítems: ver "Módulo Facturación".)*
 2. **Consultorio — al migrar a Tabler, aplicar el estándar completo** a los 8 referenciales (vista Tabler,
    puntos 4 y 6; Tipo Diagnóstico y Síntomas además pasan de borrado físico a lógico). Los otros 6 ya tienen
    `activo` e índices únicos parciales y bloquean la baja en uso.
@@ -585,7 +589,7 @@ Además, como en todo endpoint: `@require_permiso(ventana, acción)`, botones en
   - `esta_en_uso()` ahora devuelve `False` o un texto con el motivo; `deleteX()` devuelve
     `("EN_USO", motivo)`. La verificación y el UPDATE van en una transacción con la fila
     bloqueada (`FOR UPDATE`); el alta/edición de Adherida toma `FOR SHARE` sobre emisora y
-    marca, para evitar carreras. Forma de Cobro todavía usa el protocolo viejo (`"EN_USO"`).
+    marca, para evitar carreras. Forma de Cobro ya fue alineada al mismo protocolo.
   - **Validadores de formulario** (descripción, dirección, teléfono, correo) en
     `app/rutas/modulo_facturacion/utils.py` **y duplicados** en
     `app/static/js/facturacion-validadores.js`: si cambia una regla, cambiar los dos. Teléfono:
@@ -657,6 +661,21 @@ Además, como en todo endpoint: `@require_permiso(ventana, acción)`, botones en
     (el riesgo de CASCADE al borrar un paciente con citas sigue sin resolverse, anotado más arriba).
 - ✅ **Referenciales de Facturación completos** (Forma de Cobro, Marca de Tarjeta, Entidad Emisora, Entidad Adherida,
   Tipo Ítems, Ítems, Caja, Depósito, Cliente). Siguen los movimientos de Facturación.
+- ✅ **Estado / "Mostrar inactivos" / Reactivar** (punto 4 del estándar) aplicado a **Forma de Cobro, Marca de Tarjeta,
+  Entidad Emisora, Entidad Adherida, Tipo Ítems e Ítems**, con el patrón de Caja: `GET ...?inactivos=1` (exige `ver`),
+  `PATCH .../reactivar` (permiso `editar`, acción `REACTIVACION`), `reactivarX()` en el DAO en una sola transacción
+  con la fila bloqueada, 409 con mensaje claro. No hizo falta SQL. Qué valida cada una al reactivar: descripción
+  duplicada entre las activas (todas); **Adherida**: además, que la emisora y la marca estén ACTIVAS (una baja de
+  emisora/marca solo se bloquea con adheridas *activas*, así que puede haber una adherida inactiva con el padre
+  anulado) y el duplicado de (descripción, emisora, marca); **Ítems**: que el tipo y el depósito estén ACTIVOS.
+  - **Ítems, stock al reactivar:** si el tipo dejó de controlar stock mientras el ítem estaba anulado (se permite: la
+    verificación solo mira ítems *activos*) y el ítem conservaba cantidad, **el stock se pone en 0** y se avisa en el
+    mensaje y en el detalle de auditoría (`Stock: N -> 0 (el tipo no controla stock)`). `reactivarItem` devuelve
+    `(STOCK_REINICIADO, stock_anterior)` en ese caso.
+  - **Forma de Cobro** pasó al protocolo `esta_en_uso()` (`False` o texto) / `deleteFormaCobro()` →
+    `("EN_USO", motivo)`, con la verificación y el UPDATE en una transacción (el TODO de `cobro_cabecera` quedó con su mensaje).
+  - Las 6 vistas usan `facturacion-listado.js`. Verificadas con un navegador real (Edge headless, `fetch` simulado):
+    switch, filas, badges, botón Reactivar, diálogos de SweetAlert2, PATCH/DELETE, recarga y los modales Agregar/Editar.
 
 ## Convenciones de código
 - SQL crudo con psycopg2, sin ORM.

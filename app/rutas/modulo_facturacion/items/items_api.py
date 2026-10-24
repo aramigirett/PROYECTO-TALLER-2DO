@@ -1,4 +1,7 @@
 from flask import Blueprint, request, jsonify, current_app as app
+from app.rutas.modulo_seguridad.permisos_contexto import puede
+from app.rutas.modulo_facturacion.utils import respuesta_error
+from app.dao.modulo_facturacion.items.ItemDao import NO_EXISTE, YA_ACTIVO, TIPO_INACTIVO, DEPOSITO_INACTIVO, STOCK_REINICIADO
 from app.dao.modulo_facturacion.items.ItemDao import ItemDao, DUPLICADO, TIPO_INVALIDO, DEPOSITO_INVALIDO
 from app.dao.modulo_facturacion.deposito.DepositoDao import DepositoDao
 from app.dao.modulo_facturacion.tipo_items.TipoItemDao import TipoItemDao
@@ -105,8 +108,11 @@ def respuesta_por_codigo(codigo):
 @itemapi.route('/items', methods=['GET'])
 @require_login  # lookup: alimenta combos de otras pantallas (Pedidos, Ventas)
 def getItems():
+    incluir_inactivos = request.args.get('inactivos', '').lower() in ('1', 'true')
+    if incluir_inactivos and not puede('item', 'ver'):
+        return respuesta_error('No tiene permiso para ver los ítems inactivos.', 403)
     try:
-        return jsonify({'success': True, 'data': ItemDao().getItems(), 'error': None}), 200
+        return jsonify({'success': True, 'data': ItemDao().getItems(incluir_inactivos), 'error': None}), 200
     except Exception as e:
         app.logger.error(f"Error al obtener ítems: {str(e)}")
         return error_interno()
@@ -225,4 +231,42 @@ def deleteItem(id_item):
         return respuesta_error('No se encontró el ítem con el ID proporcionado.', 404)
     except Exception as e:
         app.logger.error(f"Error al anular ítem: {str(e)}")
+        return error_interno()
+
+
+# -------------------------
+# Reactiva el ítem anulado (permiso: el mismo de editar)
+# -------------------------
+@itemapi.route('/items/<int:id_item>/reactivar', methods=['PATCH'])
+@require_permiso('item', 'editar')
+def reactivarItem(id_item):
+    dao = ItemDao()
+    try:
+        resultado = dao.reactivarItem(id_item)
+        if resultado == NO_EXISTE:
+            return respuesta_error('No se encontró el ítem con el ID proporcionado.', 404)
+        if resultado == YA_ACTIVO:
+            return respuesta_error('El ítem ya está activo.', 409)
+        if resultado == TIPO_INACTIVO:
+            return respuesta_error('No se puede reactivar: el tipo de ítem está anulado. Reactívelo primero.', 409)
+        if resultado == DEPOSITO_INACTIVO:
+            return respuesta_error('No se puede reactivar: el depósito está anulado. Reactívelo primero.', 409)
+        if resultado == DUPLICADO:
+            return respuesta_error('No se puede reactivar: ya existe un ítem activo con esa descripción.', 409)
+        if isinstance(resultado, tuple) and resultado[0] == STOCK_REINICIADO:
+            obj = dao.getItemById(id_item)
+            auditar(id_item, 'REACTIVACION', f'Descripción: {obj["descripcion"]}; Tipo: {obj["tipo_item"]}; Depósito: {obj["deposito"]}' + f'; Stock: {resultado[1]} -> 0 (el tipo no controla stock)')
+            return jsonify({'success': True, 'data': obj,
+                            'mensaje': f'Ítem "{obj["descripcion"]}" reactivado correctamente. El stock se puso en 0 '
+                                       f'porque su tipo ya no controla stock (tenía {resultado[1]}).',
+                            'error': None}), 200
+        if resultado:
+            obj = dao.getItemById(id_item)
+            auditar(id_item, 'REACTIVACION', f'Descripción: {obj["descripcion"]}; Tipo: {obj["tipo_item"]}; Depósito: {obj["deposito"]}')
+            return jsonify({'success': True, 'data': obj,
+                            'mensaje': f'Ítem "{obj["descripcion"]}" reactivado correctamente.',
+                            'error': None}), 200
+        return respuesta_error('No se pudo reactivar el ítem. Consulte con el administrador.', 500)
+    except Exception as e:
+        app.logger.error(f"Error al reactivar ítem: {str(e)}")
         return error_interno()
