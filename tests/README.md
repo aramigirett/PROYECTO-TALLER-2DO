@@ -20,7 +20,7 @@ Get-ChildItem tests -Recurse -Filter smoke_*.py | ForEach-Object { "== $($_.Name
 | `facturacion/` | `browser_test.py` | Las 6 vistas con `facturacion-listado.js` en **Edge headless** (DOM y SweetAlert2 reales, `fetch` simulado) |
 | `facturacion/` | `run_js_validadores.js` + `comparar_js_py.py` | Que `facturacion-validadores.js` dé lo mismo que `utils.py` |
 | `agendamiento/` | `smoke_consultorio`, `smoke_paciente` | Regresión de Consultorio y Paciente (incluye los bloqueos por cajas y por cliente) |
-| `consultorio/` | `smoke_tipo_tratamiento` | Tipo Tratamiento con precio: alta, modificación, precio inválido, datos iniciales (relajado), migración idempotente (en una base temporal que crea y borra) y regresión de Gestionar Tratamientos. El resto del módulo Consultorio todavía no tiene tests |
+| `consultorio/` | `smoke_tipo_tratamiento` | Tipo Tratamiento con precio e IVA: alta, modificación, precio e IVA inválidos, datos iniciales (relajado), las dos migraciones idempotentes (en una base temporal que crea y borra, en ambos órdenes) y regresión de Gestionar Tratamientos. El resto del módulo Consultorio todavía no tiene tests |
 
 ## Navegador y espejo JS
 

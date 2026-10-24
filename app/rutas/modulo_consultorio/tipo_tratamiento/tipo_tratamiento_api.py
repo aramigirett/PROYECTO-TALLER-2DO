@@ -3,7 +3,7 @@ import re
 from app.dao.referenciales_consultorio.tipo_tratamiento.TipoTratamientoDao import TipoTratamientoDao
 from app.rutas.modulo_seguridad.decorators import require_permiso, require_login
 # validar_precio se comparte con Ítems (Facturación): entero en guaraníes, mayor a 0, máx. NUMERIC(12,0)
-from app.rutas.modulo_facturacion.utils import validar_precio
+from app.rutas.modulo_facturacion.utils import validar_precio, validar_iva
 
 tipotratamientoapi = Blueprint('tipotratamientoapi', __name__)
 
@@ -74,15 +74,19 @@ def addTipoTratamiento():
         # Un único mensaje para cualquier precio inválido (vacío, decimal, texto, <= 0, fuera de rango)
         return jsonify({'success': False, 'error': MSG_PRECIO, 'campo': 'precio'}), 400
 
+    iva, error_iva = validar_iva(data.get('iva'))
+    if error_iva:
+        return jsonify({'success': False, 'error': error_iva, 'campo': 'iva'}), 400
+
     try:
         if dao.existeDuplicado(descripcion):
             return jsonify({'success': False, 'error': 'Ya existe un tipo de tratamiento con esa descripción.'}), 400
 
-        nuevo_id = dao.guardarTipoTratamiento(descripcion, precio)
+        nuevo_id = dao.guardarTipoTratamiento(descripcion, precio, iva)
         if nuevo_id:
             return jsonify({
                 'success': True,
-                'data': {'id_tipo_tratamiento': nuevo_id, 'descripcion': descripcion, 'precio': precio},
+                'data': {'id_tipo_tratamiento': nuevo_id, 'descripcion': descripcion, 'precio': precio, 'iva': iva},
                 'error': None
             }), 201
         else:
@@ -114,14 +118,18 @@ def updateTipoTratamiento(id_tipo_tratamiento):
         # Un único mensaje para cualquier precio inválido (vacío, decimal, texto, <= 0, fuera de rango)
         return jsonify({'success': False, 'error': MSG_PRECIO, 'campo': 'precio'}), 400
 
+    iva, error_iva = validar_iva(data.get('iva'))
+    if error_iva:
+        return jsonify({'success': False, 'error': error_iva, 'campo': 'iva'}), 400
+
     try:
         if dao.existeDuplicado(descripcion, excluir_id=id_tipo_tratamiento):
             return jsonify({'success': False, 'error': 'Ya existe otro tipo de tratamiento con esa descripción.'}), 400
 
-        if dao.updateTipoTratamiento(id_tipo_tratamiento, descripcion, precio):
+        if dao.updateTipoTratamiento(id_tipo_tratamiento, descripcion, precio, iva):
             return jsonify({
                 'success': True,
-                'data': {'id_tipo_tratamiento': id_tipo_tratamiento, 'descripcion': descripcion, 'precio': precio},
+                'data': {'id_tipo_tratamiento': id_tipo_tratamiento, 'descripcion': descripcion, 'precio': precio, 'iva': iva},
                 'error': None
             }), 200
         else:

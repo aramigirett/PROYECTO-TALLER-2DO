@@ -10,10 +10,12 @@ from app.conexion.Conexion import Conexion
 
 RAIZ = pathlib.Path(__file__).resolve().parents[2]
 SQL_PRECIO = RAIZ / 'app' / 'dao' / 'referenciales_consultorio' / 'tipo_tratamiento' / 'schema_tipo_tratamiento_precio.sql'
+SQL_IVA = RAIZ / 'app' / 'dao' / 'referenciales_consultorio' / 'tipo_tratamiento' / 'schema_tipo_tratamiento_iva.sql'
 c = app.test_client()
 fallos = []
 creados = set()
 MSG = 'El precio debe ser un número entero mayor a 0.'
+MSG_IVA = 'El IVA debe ser Exenta (0), 5% o 10%.'
 SEEDS = ['LIMPIEZA DENTAL (PROFILAXIS)', 'SELLANTES DE FOSAS Y FISURAS', 'RESTAURACIÓN CON RESINA', 'EXTRACCIÓN SIMPLE',
          'EXTRACCIÓN DE TERCER MOLAR', 'TRATAMIENTO DE CONDUCTO', 'CORONA DE PORCELANA', 'BLANQUEAMIENTO DENTAL',
          'INSTALACIÓN DE BRACKETS', 'CONTROL DE ORTODONCIA', 'IMPLANTE DENTAL']
@@ -67,6 +69,11 @@ try:
     cu.execute("SELECT count(*) FROM tipos_tratamiento WHERE precio IS NULL OR precio <= 0"); chk('ninguna fila sin precio válido', cu.fetchone()[0] == 0)
     cu.execute("SELECT count(*) FROM (SELECT UPPER(descripcion) FROM tipos_tratamiento WHERE activo GROUP BY 1 HAVING count(*) > 1) x")
     chk('sin descripciones activas duplicadas', cu.fetchone()[0] == 0)
+    cu.execute("SELECT data_type, column_default, is_nullable FROM information_schema.columns WHERE table_name='tipos_tratamiento' AND column_name='iva'")
+    chk('columna iva SMALLINT NOT NULL DEFAULT 10', cu.fetchone() == ('smallint', '10', 'NO'))
+    cu.execute("SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname='chk_tipos_tratamiento_iva'")
+    fila = cu.fetchone(); chk('CHECK (iva IN (0, 5, 10)) existe', bool(fila) and '0, 5, 10' in fila[0])
+    cu.execute("SELECT count(*) FROM tipos_tratamiento WHERE iva NOT IN (0, 5, 10)"); chk('todas las filas con IVA 0, 5 o 10', cu.fetchone()[0] == 0)
 
     # ---------- migración idempotente, en una base TEMPORAL ----------
     sql = SQL_PRECIO.read_text(encoding='utf-8')
@@ -103,6 +110,31 @@ try:
             tc.execute("INSERT INTO tipos_tratamiento(descripcion) VALUES ('Y')"); t.commit(); chk('migración: NOT NULL rechaza precio vacío', False)
         except psycopg2.errors.NotNullViolation:
             t.rollback(); chk('migración: NOT NULL rechaza precio vacío', True)
+
+        # --- segunda migración: IVA (sobre la base ya migrada a precio)
+        sql_iva = SQL_IVA.read_text(encoding='utf-8')
+        def inst_iva(cur):
+            cur.execute("SELECT id_tipo_tratamiento, descripcion, precio, activo, iva FROM tipos_tratamiento ORDER BY 1"); return cur.fetchall()
+        tc.execute("SELECT count(*) FROM information_schema.columns WHERE table_name='tipos_tratamiento' AND column_name='iva'")
+        chk('IVA: antes de migrar la columna no existe', tc.fetchone()[0] == 0)
+        tc.execute(sql_iva); t.commit()
+        i1 = inst_iva(tc)
+        chk('IVA migración: las 12 filas existentes quedan en 10', len(i1) == 12 and all(r[4] == 10 for r in i1))
+        chk('IVA migración: lo anterior (descripción, precio, activo) no cambia', [r[:4] for r in i1] == a)
+        tc.execute(sql_iva); t.commit(); tc.execute(sql_iva); t.commit()
+        chk('IVA migración IDEMPOTENTE: la 2.ª y la 3.ª corrida no cambian nada', inst_iva(tc) == i1)
+        tc.execute("SELECT data_type, column_default, is_nullable FROM information_schema.columns WHERE table_name='tipos_tratamiento' AND column_name='iva'")
+        chk('IVA migración: SMALLINT NOT NULL DEFAULT 10', tc.fetchone() == ('smallint', '10', 'NO'))
+        tc.execute("SELECT count(*) FROM pg_constraint WHERE conname='chk_tipos_tratamiento_iva'"); chk('IVA migración: CHECK creado una sola vez', tc.fetchone()[0] == 1)
+        try:
+            tc.execute("INSERT INTO tipos_tratamiento(descripcion, precio, iva) VALUES ('X', 100, 7)"); t.commit(); chk('IVA migración: el CHECK rechaza IVA 7', False)
+        except psycopg2.errors.CheckViolation:
+            t.rollback(); chk('IVA migración: el CHECK rechaza IVA 7', True)
+        tc.execute("INSERT INTO tipos_tratamiento(descripcion, precio) VALUES ('SIN IVA EXPLICITO', 100) RETURNING iva"); chk('IVA migración: sin IVA explícito toma el default 10', tc.fetchone()[0] == 10); t.commit()
+        tc.execute("UPDATE tipos_tratamiento SET iva = 5 WHERE descripcion = 'EXTRACCIÓN SIMPLE'"); t.commit()
+        tc.execute(sql_iva); t.commit()
+        tc.execute("SELECT iva FROM tipos_tratamiento WHERE descripcion = 'EXTRACCIÓN SIMPLE'")
+        chk('IVA migración: volver a correrla no pisa un IVA ya editado (5)', tc.fetchone()[0] == 5)
         t.close()
 
         # una fila sin precio que NO es PRUEBA: la migración se corta con un mensaje claro y no deja nada a medias
@@ -117,6 +149,15 @@ try:
         tc.execute("SELECT count(*) FROM information_schema.columns WHERE table_name='tipos_tratamiento' AND column_name='precio'")
         chk('migración cortada: no quedó la columna ni cambios a medias (transaccional)', tc.fetchone()[0] == 0)
         tc.execute("SELECT count(*), count(*) FILTER (WHERE activo) FROM tipos_tratamiento"); chk('migración cortada: PRUEBA sigue activa y sin seeds', tc.fetchone() == (2, 2))
+        t.close()
+
+        # orden inverso: primero IVA y después precio (los datos iniciales de precio toman el IVA por defecto)
+        adm.cursor().execute(f'DROP DATABASE {tmp_db}'); adm.cursor().execute(f'CREATE DATABASE {tmp_db}')
+        t = conectar(tmp_db); tc = t.cursor()
+        tc.execute(LEGADO); tc.execute("INSERT INTO tipos_tratamiento(descripcion) VALUES ('PRUEBA')"); t.commit()
+        tc.execute(sql_iva); t.commit(); tc.execute(sql); t.commit(); tc.execute(sql); t.commit()
+        tc.execute("SELECT count(*), count(*) FILTER (WHERE iva = 10), count(*) FILTER (WHERE precio > 0) FROM tipos_tratamiento")
+        chk('orden inverso (IVA y después precio): 12 filas, todas con IVA 10 y precio > 0, e idempotente', tc.fetchone() == (12, 12, 12))
         t.close()
     finally:
         try:
@@ -134,33 +175,55 @@ try:
     chk('la lista trae solo activos (sin PRUEBA)', all(x['descripcion'] != 'PRUEBA' for x in d['data']))
 
     # alta válida
-    d = api('post', TT, 201, {'descripcion': ' zz tratamiento a ', 'precio': '250000'}, 'alta con precio (texto numérico)')
+    d = api('post', TT, 201, {'descripcion': ' zz tratamiento a ', 'iva': '10', 'precio': '250000'}, 'alta con precio (texto numérico)')
     a = d['data']['id_tipo_tratamiento']; creados.add(a)
-    chk('alta: descripción en mayúsculas y precio entero', d['data']['descripcion'] == 'ZZ TRATAMIENTO A' and d['data']['precio'] == 250000)
+    chk('alta: descripción en mayúsculas y precio entero', d['data']['descripcion'] == 'ZZ TRATAMIENTO A' and d['data']['precio'] == 250000 and d['data']['iva'] == 10)
     d = api('get', f'{TT}/{a}', 200, nombre='get por id'); chk('get trae el precio guardado', d['data']['precio'] == 250000)
     cu.execute("SELECT precio FROM tipos_tratamiento WHERE id_tipo_tratamiento=%s", (a,)); chk('en la base: precio 250000', cu.fetchone()[0] == 250000)
-    d = api('post', TT, 201, {'descripcion': 'zz tratamiento b', 'precio': 1}, 'alta con precio entero (mínimo, 1)'); b = d['data']['id_tipo_tratamiento']; creados.add(b)
-    d = api('post', TT, 201, {'descripcion': 'zz tratamiento c', 'precio': 999999999999}, 'alta con el precio máximo (NUMERIC(12,0))'); k = d['data']['id_tipo_tratamiento']; creados.add(k)
-    api('post', TT, 400, {'descripcion': 'zz tratamiento a', 'precio': 1000}, 'alta duplicada', contiene='Ya existe')
+    d = api('post', TT, 201, {'descripcion': 'zz tratamiento b', 'iva': 5, 'precio': 1}, 'alta con precio entero (mínimo, 1)'); b = d['data']['id_tipo_tratamiento']; creados.add(b); chk('alta con IVA 5%: devuelve iva 5', d['data']['iva'] == 5)
+    d = api('post', TT, 201, {'descripcion': 'zz tratamiento c', 'iva': 0, 'precio': 999999999999}, 'alta con el precio máximo (NUMERIC(12,0))'); k = d['data']['id_tipo_tratamiento']; creados.add(k); chk('alta con IVA exenta (0): devuelve iva 0', d['data']['iva'] == 0)
+    api('post', TT, 400, {'descripcion': 'zz tratamiento a', 'iva': 10, 'precio': 1000}, 'alta duplicada', contiene='Ya existe')
 
     # precio inválido: alta
     antes = contar_zz()
     for malo in [0, -5, '0', '-1', 15000.5, '15000.5', '15.000', 'abc', '', '   ', None, True, False, 10 ** 12, '1000000000000', [1], {'a': 1}]:
-        api('post', TT, 400, {'descripcion': 'zz precio malo', 'precio': malo}, f'alta con precio inválido {malo!r}', exacto=MSG, campo='precio')
+        api('post', TT, 400, {'descripcion': 'zz precio malo', 'iva': 10, 'precio': malo}, f'alta con precio inválido {malo!r}', exacto=MSG, campo='precio')
     api('post', TT, 400, {'descripcion': 'zz sin precio'}, 'alta sin la clave precio', exacto=MSG, campo='precio')
     chk('ninguno de los altas inválidas creó filas', contar_zz() == antes)
 
     # modificación
-    d = api('put', f'{TT}/{a}', 200, {'descripcion': 'zz tratamiento a', 'precio': '300000'}, 'modificación: nuevo precio')
+    d = api('put', f'{TT}/{a}', 200, {'descripcion': 'zz tratamiento a', 'iva': 10, 'precio': '300000'}, 'modificación: nuevo precio')
     chk('modificación: devuelve el precio nuevo', d['data']['precio'] == 300000)
     cu.execute("SELECT precio FROM tipos_tratamiento WHERE id_tipo_tratamiento=%s", (a,)); chk('en la base: precio 300000', cu.fetchone()[0] == 300000)
-    api('put', f'{TT}/{a}', 200, {'descripcion': 'zz tratamiento a renombrado', 'precio': 300000}, 'modificación: cambia la descripción conservando el precio')
+    api('put', f'{TT}/{a}', 200, {'descripcion': 'zz tratamiento a renombrado', 'iva': 10, 'precio': 300000}, 'modificación: cambia la descripción conservando el precio')
     for malo in [0, -1, '15000.5', 'abc', '', None, True, 10 ** 12]:
-        api('put', f'{TT}/{a}', 400, {'descripcion': 'zz tratamiento a renombrado', 'precio': malo}, f'modificación con precio inválido {malo!r}', exacto=MSG, campo='precio')
+        api('put', f'{TT}/{a}', 400, {'descripcion': 'zz tratamiento a renombrado', 'iva': 10, 'precio': malo}, f'modificación con precio inválido {malo!r}', exacto=MSG, campo='precio')
     api('put', f'{TT}/{a}', 400, {'descripcion': 'zz tratamiento a renombrado'}, 'modificación sin la clave precio', exacto=MSG, campo='precio')
     cu.execute("SELECT precio, descripcion FROM tipos_tratamiento WHERE id_tipo_tratamiento=%s", (a,)); chk('las modificaciones inválidas no cambiaron nada', cu.fetchone() == (300000, 'ZZ TRATAMIENTO A RENOMBRADO'))
-    api('put', f'{TT}/999999', 404, {'descripcion': 'zz x', 'precio': 1000}, 'modificación de un inexistente')
-    api('put', f'{TT}/{a}', 400, {'descripcion': 'implante dental', 'precio': 1000}, 'modificación con descripción duplicada', contiene='Ya existe')
+    api('put', f'{TT}/999999', 404, {'descripcion': 'zz x', 'iva': 10, 'precio': 1000}, 'modificación de un inexistente')
+    api('put', f'{TT}/{a}', 400, {'descripcion': 'implante dental', 'iva': 10, 'precio': 1000}, 'modificación con descripción duplicada', contiene='Ya existe')
+
+    # ---------- IVA ----------
+    d = api('get', TT, 200, nombre='lista (IVA)')
+    por_id = {x['id_tipo_tratamiento']: x for x in d['data']}
+    chk('la lista trae iva (0, 5 o 10) en todas las filas', all(x['iva'] in (0, 5, 10) for x in d['data']))
+    chk('la lista refleja los IVA de las altas (10, 5% y exenta)', (por_id[a]['iva'], por_id[b]['iva'], por_id[k]['iva']) == (10, 5, 0))
+    d = api('get', f'{TT}/{k}', 200, nombre='get por id (IVA exenta)'); chk('get trae iva 0', d['data']['iva'] == 0)
+    cu.execute("SELECT iva FROM tipos_tratamiento WHERE id_tipo_tratamiento=%s", (k,)); chk('en la base: iva 0', cu.fetchone()[0] == 0)
+    antes = contar_zz()
+    for malo in [7, -1, 15, 'abc', '', '  ', None, True, False, 10.5, '10.5', [10], {'a': 10}]:
+        api('post', TT, 400, {'descripcion': 'zz iva malo', 'precio': 1000, 'iva': malo}, f'alta con IVA inválido {malo!r}', exacto=MSG_IVA, campo='iva')
+    api('post', TT, 400, {'descripcion': 'zz sin iva', 'precio': 1000}, 'alta sin la clave iva', exacto=MSG_IVA, campo='iva')
+    chk('ningún alta con IVA inválido creó filas', contar_zz() == antes)
+    for valido, esperado_iva in [(5, 5), ('0', 0), (10, 10), ('5', 5)]:
+        d = api('put', f'{TT}/{a}', 200, {'descripcion': 'zz tratamiento a renombrado', 'precio': 300000, 'iva': valido}, f'modificación con IVA válido {valido!r}')
+        cu.execute("SELECT iva FROM tipos_tratamiento WHERE id_tipo_tratamiento=%s", (a,))
+        chk(f'modificación: el IVA queda en {esperado_iva} (respuesta y base)', d['data']['iva'] == esperado_iva and cu.fetchone()[0] == esperado_iva)
+    for malo in [7, -1, 'abc', '', None, True, 10.5]:
+        api('put', f'{TT}/{a}', 400, {'descripcion': 'zz tratamiento a renombrado', 'precio': 300000, 'iva': malo}, f'modificación con IVA inválido {malo!r}', exacto=MSG_IVA, campo='iva')
+    api('put', f'{TT}/{a}', 400, {'descripcion': 'zz tratamiento a renombrado', 'precio': 300000}, 'modificación sin la clave iva', exacto=MSG_IVA, campo='iva')
+    cu.execute("SELECT iva, precio FROM tipos_tratamiento WHERE id_tipo_tratamiento=%s", (a,)); chk('las modificaciones con IVA inválido no cambiaron nada', cu.fetchone() == (5, 300000))
+    api('put', f'{TT}/{a}', 400, {'descripcion': 'zz tratamiento a renombrado', 'precio': 0, 'iva': 7}, 'precio e IVA inválidos a la vez: manda el precio (se valida primero)', exacto=MSG, campo='precio')
 
     # baja (sigue funcionando)
     api('delete', f'{TT}/{b}', 200, nombre='baja de un tipo sin tratamientos', contiene='eliminado')
@@ -170,8 +233,11 @@ try:
     r = c.get('/referenciales/tipo-tratamiento/tipo-tratamiento-index')
     chk('vista Tipo Tratamiento: campo Precio y columna Precio',
         r.status_code == 200 and b'id="txtPrecio"' in r.data and b'Precio</th>' in r.data)
+    chk('vista Tipo Tratamiento: combo IVA (10%, 5%, Exenta), columna IVA y su mensaje',
+        b'id="selIva"' in r.data and b'<option value="10">10%</option>' in r.data and b'<option value="5">5%</option>' in r.data
+        and b'<option value="0">Exenta</option>' in r.data and b'IVA</th>' in r.data and MSG_IVA.encode() in r.data)
     chk('vista Tipo Tratamiento: carga facturacion-validadores.js y usa formatoGs', b'facturacion-validadores.js' in r.data and b'formatoGs' in r.data and MSG.encode() in r.data)
-    r = c.get('/static/js/facturacion-validadores.js'); chk('el JS compartido sigue servido (precio y formatoGs)', r.status_code == 200 and b'precio:' in r.data and b'formatoGs' in r.data)
+    r = c.get('/static/js/facturacion-validadores.js'); chk('el JS compartido sigue servido (precio y formatoGs)', r.status_code == 200 and b'precio:' in r.data and b'iva:' in r.data and b'formatoGs' in r.data)
 
     # ---------- regresión: Gestionar Tratamientos y demás lectores ----------
     cu.execute("""SELECT t.id_tratamiento, tt.descripcion, tt.activo FROM tratamientos t
@@ -202,8 +268,8 @@ try:
     with c.session_transaction() as s:
         s['id_rol'] = rol; s['nombre_rol'] = 'NoAdmin'
     try:
-        sin_permiso('nuevo'); api('post', TT, 403, {'descripcion': 'zz x', 'precio': 1000}, 'rol SIN "nuevo" no crea'); con_permiso('nuevo')
-        sin_permiso('editar'); api('put', f'{TT}/{a}', 403, {'descripcion': 'zz x', 'precio': 1000}, 'rol SIN "editar" no modifica'); con_permiso('editar')
+        sin_permiso('nuevo'); api('post', TT, 403, {'descripcion': 'zz x', 'iva': 10, 'precio': 1000}, 'rol SIN "nuevo" no crea'); con_permiso('nuevo')
+        sin_permiso('editar'); api('put', f'{TT}/{a}', 403, {'descripcion': 'zz x', 'iva': 10, 'precio': 1000}, 'rol SIN "editar" no modifica'); con_permiso('editar')
         api('get', TT, 200, nombre='el lookup sigue disponible con solo login')
     finally:
         for acc in ('ver', 'nuevo', 'editar', 'anular'):
