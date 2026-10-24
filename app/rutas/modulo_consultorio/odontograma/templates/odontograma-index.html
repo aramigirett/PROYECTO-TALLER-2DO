@@ -67,6 +67,7 @@ Odontogramas
         <div class="modal-body">
           <!-- Inputs hidden -->
           <input type="hidden" id="id_odontograma">
+          <input type="hidden" id="id_consulta_cab">
           <input type="hidden" id="id_paciente">
           <input type="hidden" id="id_medico">
 
@@ -79,9 +80,9 @@ Odontogramas
                 </div>
                 <div class="card-body">
                   <div class="form-group mb-2">
-                    <label class="font-weight-bold">Paciente: <span class="text-danger">*</span></label>
+                    <label class="font-weight-bold">Consulta / Paciente: <span class="text-danger">*</span></label>
                     <input type="text" class="form-control" id="txtPaciente" 
-                           placeholder="Click para seleccionar paciente" readonly>
+                           placeholder="Click para seleccionar la consulta" readonly>
                   </div>
                   <div class="row">
                     <div class="col-md-6">
@@ -106,7 +107,7 @@ Odontogramas
                   <div class="form-group mb-2">
                     <label class="font-weight-bold">Médico: <span class="text-danger">*</span></label>
                     <input type="text" class="form-control" id="txtMedico" 
-                           placeholder="Click para seleccionar médico" readonly>
+                           placeholder="Se toma de la consulta" readonly>
                   </div>
                   <div class="row">
                     <div class="col-md-6">
@@ -290,7 +291,7 @@ Odontogramas
       <div class="modal-content">
         <div class="modal-header bg-primary text-white">
           <h5 class="modal-title">
-            <i class="fas fa-user"></i> Seleccionar Paciente
+            <i class="fas fa-notes-medical"></i> Seleccionar Consulta
           </h5>
           <button type="button" class="close text-white" data-dismiss="modal">
             <span>&times;</span>
@@ -301,41 +302,9 @@ Odontogramas
             <table class="table table-hover" id="tblPacientes">
               <thead>
                 <tr>
-                  <th>Nombre</th>
-                  <th>Apellido</th>
-                  <th>Cédula</th>
-                  <th>Acciones</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ========================================
-       MODAL: SELECCIONAR MÉDICO
-       ======================================== -->
-  <div class="modal fade" id="modalMedico" tabindex="-1" role="dialog">
-    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
-      <div class="modal-content">
-        <div class="modal-header bg-info text-white">
-          <h5 class="modal-title">
-            <i class="fas fa-user-md"></i> Seleccionar Médico
-          </h5>
-          <button type="button" class="close text-white" data-dismiss="modal">
-            <span>&times;</span>
-          </button>
-        </div>
-        <div class="modal-body">
-          <div class="table-responsive">
-            <table class="table table-hover" id="tblMedicos">
-              <thead>
-                <tr>
-                  <th>Nombre</th>
-                  <th>Apellido</th>
+                  <th>Paciente</th>
+                  <th>Médico</th>
+                  <th>Fecha</th>
                   <th>Acciones</th>
                 </tr>
               </thead>
@@ -483,8 +452,7 @@ let estadoSeleccionado = null; // Estado actual seleccionado para pintar
 $(function() {
   cargarEstadosDentales();
   initDatatableOdontogramas();
-  initDatatablePacientes();
-  initDatatableMedicos();
+  initDatatableConsultas();
   
   // Eventos
   agregarNuevo();
@@ -493,9 +461,22 @@ $(function() {
   eliminar();
   ver();
   abrirModalPaciente();
-  abrirModalMedico();
   limpiarOdontograma();
-  
+
+  // Viene desde Registrar Consulta: ?consulta=<id> abre "Nuevo Odontograma" con la consulta cargada
+  const idConsultaParam = new URLSearchParams(window.location.search).get('consulta');
+  if (idConsultaParam) {
+    fetch(`/api/v1/consultas/${idConsultaParam}`)
+      .then(resp => resp.json())
+      .then(d => {
+        if (!d.success) return;
+        limpiarFormulario();
+        $('#modalOdontogramaTitle').html('<i class="fas fa-tooth"></i> Nuevo Odontograma');
+        $('#modalOdontograma').modal('show');
+        seleccionarConsulta(d.data);
+      });
+  }
+
   // Configurar fecha actual por defecto
   $('#fecha_registro').val(new Date().toISOString().split('T')[0]);
   
@@ -659,84 +640,80 @@ function initDatatableOdontogramas() {
 }
 
 // ========================================
-// DATATABLE: PACIENTES
+// DATATABLE: CONSULTAS (el odontograma se registra desde una Consulta)
 // ========================================
-function initDatatablePacientes() {
+function initDatatableConsultas() {
   $('#tblPacientes').DataTable({
     language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
-    ajax: { url: '/api/v1/pacientes', dataSrc: 'data' },
+    ajax: { url: '/api/v1/consultas/activas', dataSrc: 'data' },
     columns: [
-      { data: 'nombre' },
-      { data: 'apellido' },
-      { data: 'cedula_entidad' },
+      { data: 'nombre_paciente' },
+      { data: 'nombre_medico' },
+      { data: 'fecha_cita', render: (d) => d ? new Date(d + 'T00:00:00').toLocaleDateString('es-PY') : '' },
       {
         data: (row) => `
-          <button class="btn btn-primary btn-sm" name="btn_seleccionar_paciente"
-                  data-id="${row.id_paciente}"
-                  data-nombre="${row.nombre} ${row.apellido}"
-                  data-cedula="${row.cedula_entidad}"
-                  data-fecha-nacimiento="${row.fecha_nacimiento}">
+          <button class="btn btn-primary btn-sm" name="btn_seleccionar_consulta" data-id="${row.id_consulta_cab}">
             <i class="fas fa-check"></i> Seleccionar
           </button>
         `
       }
     ]
   });
-  
-  // Evento: Seleccionar paciente
-  $('#tblPacientes').on('click', 'button[name="btn_seleccionar_paciente"]', function() {
-    const id = $(this).data('id');
-    const nombre = $(this).data('nombre');
-    const cedula = $(this).data('cedula');
-    const fechaNac = $(this).data('fecha-nacimiento');
-    
-    $('#id_paciente').val(id);
-    $('#txtPaciente').val(nombre);
-    $('#txtCedula').val(cedula);
-    
-    // Calcular edad
-    if (fechaNac) {
-      const f = new Date(fechaNac);
-      const hoy = new Date();
-      let edad = hoy.getFullYear() - f.getFullYear();
-      const m = hoy.getMonth() - f.getMonth();
-      if (m < 0 || (m === 0 && hoy.getDate() < f.getDate())) edad--;
-      $('#txtEdad').val(edad + ' años');
-    }
-    
+
+  $('#tblPacientes').on('click', 'button[name="btn_seleccionar_consulta"]', function() {
+    const fila = $('#tblPacientes').DataTable().row($(this).closest('tr')).data();
     $('#modalPaciente').modal('hide');
+    seleccionarConsulta(fila);
   });
 }
 
-// ========================================
-// DATATABLE: MÉDICOS
-// ========================================
-function initDatatableMedicos() {
-  $('#tblMedicos').DataTable({
-    language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
-    ajax: { url: '/api/v1/medico', dataSrc: 'data' },
-    columns: [
-      { data: 'nombre' },
-      { data: 'apellido' },
-      {
-        data: (row) => `
-          <button class="btn btn-info btn-sm" name="btn_seleccionar_medico"
-                  data-id="${row.id_medico}"
-                  data-nombre="${row.nombre} ${row.apellido}">
-            <i class="fas fa-check"></i> Seleccionar
-          </button>
-        `
+// Carga en el formulario la consulta elegida (paciente y médico salen de ella) y
+// precarga el odontograma con el estado del vigente del paciente (el de su última consulta).
+function seleccionarConsulta(c) {
+  $('#id_consulta_cab').val(c.id_consulta_cab);
+  $('#id_paciente').val(c.id_paciente);
+  $('#id_medico').val(c.id_medico);
+  $('#txtPaciente').val(c.nombre_paciente);
+  $('#txtMedico').val(c.nombre_medico);
+  $('#txtCedula').val('');
+  $('#txtEdad').val('');
+
+  fetch(`/api/v1/pacientes/${c.id_paciente}`)
+    .then(resp => resp.json())
+    .then(d => {
+      if (!d.success) return;
+      $('#txtCedula').val(d.data.cedula_entidad || '');
+      if (d.data.fecha_nacimiento) {
+        const f = new Date(d.data.fecha_nacimiento);
+        const hoy = new Date();
+        let edad = hoy.getFullYear() - f.getFullYear();
+        const m = hoy.getMonth() - f.getMonth();
+        if (m < 0 || (m === 0 && hoy.getDate() < f.getDate())) edad--;
+        $('#txtEdad').val(edad + ' años');
       }
-    ]
-  });
-  
-  // Evento: Seleccionar médico
-  $('#tblMedicos').on('click', 'button[name="btn_seleccionar_medico"]', function() {
-    $('#id_medico').val($(this).data('id'));
-    $('#txtMedico').val($(this).data('nombre'));
-    $('#modalMedico').modal('hide');
-  });
+    });
+
+  // Precarga solo al crear (al editar se muestra lo guardado)
+  if ($('#id_odontograma').val()) return;
+  fetch(`/api/v1/odontogramas/precarga/${c.id_consulta_cab}`)
+    .then(resp => resp.json())
+    .then(d => {
+      $('.superficie-diente').attr('fill', 'white');
+      if (!d.success || !d.data.detalles.length) return;
+      d.data.detalles.forEach(detalle => {
+        const color = estadosDentales[detalle.id_estado_dental]?.color || '#FFFFFF';
+        $(`.diente-grupo[data-diente="${detalle.numero_diente}"] .superficie-diente[data-superficie="${detalle.superficie}"]`)
+          .attr('fill', color);
+      });
+      Swal.fire({
+        icon: 'info',
+        title: 'Odontograma precargado',
+        text: 'Se cargó el estado del odontograma anterior del paciente. Modifique lo que cambió en esta consulta.',
+        timer: 3000
+      });
+    });
 }
+
 
 // ========================================
 // FUNCIÓN: AGREGAR NUEVO
@@ -754,6 +731,7 @@ function agregarNuevo() {
 // ========================================
 function limpiarFormulario() {
   $('#id_odontograma').val('');
+  $('#id_consulta_cab').val('');
   $('#id_paciente').val('');
   $('#id_medico').val('');
   $('#txtPaciente').val('');
@@ -812,17 +790,10 @@ function recolectarDetallesOdontograma() {
 function guardar() {
   $('#btnGuardar').on('click', () => {
     const id_odontograma = $('#id_odontograma').val();
-    const id_paciente = $('#id_paciente').val();
-    const id_medico = $('#id_medico').val();
     
     // Validaciones
-    if (!id_paciente) {
-      Swal.fire('Error', 'Debe seleccionar un paciente', 'error');
-      return;
-    }
-    
-    if (!id_medico) {
-      Swal.fire('Error', 'Debe seleccionar un médico', 'error');
+    if (!id_odontograma && !$('#id_consulta_cab').val()) {
+      Swal.fire('Error', 'Debe seleccionar la consulta del odontograma', 'error');
       return;
     }
     
@@ -839,11 +810,11 @@ function guardar() {
         cancelButtonText: 'Cancelar'
       }).then(result => {
         if (result.isConfirmed) {
-          enviarOdontograma(id_odontograma, id_paciente, id_medico, detalles);
+          enviarOdontograma(id_odontograma, detalles);
         }
       });
     } else {
-      enviarOdontograma(id_odontograma, id_paciente, id_medico, detalles);
+      enviarOdontograma(id_odontograma, detalles);
     }
   });
 }
@@ -851,10 +822,9 @@ function guardar() {
 // ========================================
 // FUNCIÓN: ENVIAR ODONTOGRAMA AL SERVIDOR
 // ========================================
-function enviarOdontograma(id_odontograma, id_paciente, id_medico, detalles) {
+function enviarOdontograma(id_odontograma, detalles) {
   const payload = {
-    id_paciente: parseInt(id_paciente),
-    id_medico: parseInt(id_medico),
+    id_consulta_cab: parseInt($('#id_consulta_cab').val()),
     fecha_registro: $('#fecha_registro').val(),
     estado: $('#estado').val(),
     observaciones: $('#observaciones').val() || '',
@@ -947,6 +917,7 @@ function editar() {
           
           // Llenar formulario
           $('#id_odontograma').val(o.id_odontograma);
+          $('#id_consulta_cab').val(o.id_consulta_cab);
           $('#id_paciente').val(o.id_paciente);
           $('#id_medico').val(o.id_medico);
           $('#txtPaciente').val(o.paciente);
@@ -1183,6 +1154,7 @@ function eliminar() {
 // ========================================
 function abrirModalPaciente() {
   $('#txtPaciente').on('click', () => {
+    if ($('#id_odontograma').val()) return;   // la consulta de un odontograma existente no se cambia
     // Guardar el estado del scroll del modal principal
     const scrollTop = $('#modalOdontograma .modal-body').scrollTop();
     
@@ -1194,33 +1166,6 @@ function abrirModalPaciente() {
     
     // Restaurar scroll cuando se cierre el modal de paciente
     $('#modalPaciente').on('hidden.bs.modal', function () {
-      $('#modalOdontograma .modal-body').scrollTop(scrollTop);
-      
-      // Forzar que el modal principal mantenga el scroll
-      setTimeout(() => {
-        $('#modalOdontograma').css('overflow-y', 'auto');
-        $('body').addClass('modal-open');
-      }, 100);
-    });
-  });
-}
-
-// ========================================
-// FUNCIÓN: ABRIR MODAL MÉDICO (MEJORADO)
-// ========================================
-function abrirModalMedico() {
-  $('#txtMedico').on('click', () => {
-    // Guardar el estado del scroll del modal principal
-    const scrollTop = $('#modalOdontograma .modal-body').scrollTop();
-    
-    $('#modalMedico').modal('show');
-    
-    if ($.fn.DataTable.isDataTable('#tblMedicos')) {
-      $('#tblMedicos').DataTable().ajax.reload();
-    }
-    
-    // Restaurar scroll cuando se cierre el modal de médico
-    $('#modalMedico').on('hidden.bs.modal', function () {
       $('#modalOdontograma .modal-body').scrollTop(scrollTop);
       
       // Forzar que el modal principal mantenga el scroll

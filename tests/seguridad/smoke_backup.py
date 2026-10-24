@@ -222,10 +222,9 @@ try:
     rol = ejemplos[0][1]
     r = adm_c.post('/api/v1/permisos/matriz', json={'id_rol': rol, 'ventana': 'backup', 'accion': 'ver'})
     chk('intentar otorgar el permiso desde la API se rechaza (400)', r.status_code == 400)
-    ca.execute("INSERT INTO permisos(id_rol, ventana, accion) VALUES (%s, 'backup', 'ver') RETURNING id_permiso", (rol,)) if False else None
     ca.execute("SELECT column_name FROM information_schema.columns WHERE table_name='permisos' AND column_name LIKE 'id_%'"); cols = {x[0] for x in ca.fetchall()}
     idcol = 'id_permiso' if 'id_permiso' in cols else sorted(cols - {'id_rol', 'id_menu'})[0]
-    ca.execute(f"INSERT INTO permisos(id_rol, ventana, accion) VALUES (%s, 'backup', 'ver') RETURNING {idcol}", (rol,)); pid = ca.fetchone()[0]
+    ca.execute(f"INSERT INTO permisos(id_rol, id_menu, accion) SELECT %s, id_menu, 'ver' FROM menu WHERE clave='backup' AND activo RETURNING {idcol}", (rol,)); pid = ca.fetchone()[0]
     try:
         chk('aunque la fila exista en la base, ese rol sigue sin acceso (403)', cliente(ejemplos[0]).get('/referenciales/backup/backup-index').status_code == 403)
     finally:

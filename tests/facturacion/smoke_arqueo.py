@@ -198,7 +198,7 @@ try:
     cu.execute("SELECT array_agg(column_name::text ORDER BY ordinal_position) FROM information_schema.columns WHERE table_name='recaudacion_depositar'")
     chk('recaudacion_depositar: columnas del DER + id_cuenta_bancaria', cu.fetchone()[0] == ['id_recaudacion', 'id_arqueo', 'id_usuario', 'fecha_generacion', 'monto_efectivo', 'monto_cheque', 'total', 'estado', 'fecha_deposito', 'numero_boleta', 'id_cuenta_bancaria'])
     cu.execute("SELECT id_menu FROM menu WHERE clave='arqueo' AND activo"); chk('menu: existe la entrada "arqueo"', cu.fetchone() is not None)
-    cu.execute("SELECT array_agg(accion ORDER BY accion) FROM permisos p JOIN roles r USING(id_rol) WHERE r.nombre_rol='Cajero' AND ventana='arqueo'")
+    cu.execute("SELECT array_agg(accion ORDER BY accion) FROM permisos p JOIN roles r USING(id_rol) WHERE r.nombre_rol='Cajero' AND id_menu = (SELECT id_menu FROM menu WHERE clave='arqueo' AND activo = true)")
     chk('el Cajero tiene ver, nuevo, anular y estado sobre arqueo', cu.fetchone()[0] == ['anular', 'estado', 'nuevo', 'ver'])
     cu.execute("SELECT count(*) FROM permisos p JOIN roles r USING(id_rol) WHERE r.nombre_rol='Cajero'"); chk('el Cajero queda con 35 filas de permisos', cu.fetchone()[0] == 35)
 

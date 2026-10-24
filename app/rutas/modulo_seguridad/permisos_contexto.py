@@ -16,6 +16,20 @@ def _permisos_del_rol():
     return g.permisos_rol
 
 
+def id_funcionario_sesion():
+    """
+    id_funcionario vinculado al usuario de la sesión, o None si el usuario es
+    un Médico (vinculado a medico, no a funcionario) o no hay sesión. Se lee
+    de la base en cada request (no de la sesión) y se cachea en flask.g.
+    """
+    if not hasattr(g, 'id_funcionario_sesion'):
+        from app.dao.modulo_seguridad.UsuarioDao import UsuarioDao
+        id_usuario = session.get('id_usuario')
+        usuario = UsuarioDao().get_by_id(id_usuario) if id_usuario else None
+        g.id_funcionario_sesion = usuario['id_funcionario'] if usuario else None
+    return g.id_funcionario_sesion
+
+
 def puede(ventana, accion):
     """
     True si el rol de la sesión actual puede hacer <accion> en <ventana>.

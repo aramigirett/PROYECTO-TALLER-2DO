@@ -858,7 +858,7 @@ auditoría como siempre. Las URL siguen la convención del proyecto (`/referenci
   `ultimos_digitos`, `numero_autorizacion`; **la marca y la emisora salen de la adherida**) y `cobro_cheque` (`id_entidad_emisora`,
   `numero_cheque`, `titular`, `fecha_emision`, `fecha_cobro`). Scripts (idempotentes, en este orden):
   `01_migracion_der.sql` → `schema_cobranzas_columnas.sql` → `schema_cobranzas.sql` (objetos) en `app/dao/modulo_facturacion/`,
-  y `schema_permisos_id_menu.sql` → `schema_permisos_cobranzas.sql` → `schema_permisos_cajero.sql` en `app/dao/modulo_seguridad/`.
+  y `schema_permisos_cobranzas.sql` → `schema_permisos_cajero.sql` en `app/dao/modulo_seguridad/` (`schema_permisos_id_menu.sql` quedó obsoleto: ya solo elimina el trigger).
   - ⚠️ **Dos columnas NUEVAS que NO están en el DER de la tesis y hay que agregarlas al DER:**
     **`forma_cobro.tipo`** `VARCHAR(15) NOT NULL CHECK (tipo IN ('EFECTIVO','TARJETA','CHEQUE','TRANSFERENCIA'))` (define qué datos
     pide el cobro y qué cuenta como efectivo en el cierre; combo "Tipo" y columna en la pantalla de Formas de Cobro, obligatorio en la
@@ -1041,8 +1041,7 @@ EXISTS`), con comentarios de propósito, parámetros y excepciones, bloque `BEGI
   **`fn_total_recaudado(p_id_apertura)`** (todo lo cobrado), **`fn_total_efectivo_apertura(p_id_apertura)`** (solo efectivo),
   **`fn_siguiente_numero_recibo()`**, `fn_formato_gs(n)` y la vista **`v_resumen_caja`** (por apertura y forma de cobro). Todos con
   comentarios de propósito, parámetros y excepciones y `COMMENT ON`.
-- **`trg_permisos_resolver_menu`** (BEFORE INSERT en `permisos`, `schema_permisos_id_menu.sql`): completa `permisos.id_menu` desde
-  `menu.clave = ventana` (compatibilidad con la migración del DER; ver "Modelo de permisos").
+- ~~`trg_permisos_resolver_menu`~~ **eliminado por la migración 02** (`permisos.ventana` ya no existe; ver "Migración 02" y "Modelo de permisos").
 - ✅ **Hecho en la Etapa B de la tanda de cierre:** la app ya NO se conecta como `postgres` sino como `odontoclinic_app` (sin superusuario, sin UPDATE/DELETE en las auditorías, sin DDL); ver "Base de datos — tanda de cierre, Etapa B". Los tests siguen usando postgres para su limpieza, con `TEST_DB_*`.
 
 ## Tests (carpeta `tests/`, ver `tests/README.md`)
@@ -1246,6 +1245,52 @@ que ahora deja `auditoria_umbrales` en solo lectura para la app).
   (`GET /api/v1/auditoria/intentos/exportar`, permiso `ver` de `auditoria`, también auditada) y **enlace cruzado** en ambos sentidos con Auditoría de Cambios
   (llevan las fechas elegidas). En pantalla muestra hasta 1.000 intentos paginados de a 25; la exportación llega a 5.000.
 
+## Migración 02 (aplicada, rama `migracion-02`)
+Script: `migraciones/02_migracion_requiere_codigo.sql` (idempotente, una transacción, se corre con postgres después del
+backup; el original sin cambios queda en `02_migracion_requiere_codigo.original.sql`). Probada primero sobre una copia
+restaurada del backup (dos corridas), y recién después aplicada a `odontosisbd`. El código se ajustó en el mismo cambio.
+- **`diagnosticos`**: `id_consulta_detalle` → **`id_consulta_cab`** (NOT NULL, FK RESTRICT); se quitó `sintomas` (texto libre).
+  Los síntomas se guardan en **`diagnostico_sintoma`** (selección múltiple desde el referencial Síntomas, opcional): alta
+  transaccional, `GET` devuelve `sintomas: [{id_sintoma, descripcion_sintoma}]`. Paciente y médico **se derivan de la consulta**
+  (el body se ignora); la consulta tiene que estar activa y no finalizada. El diagnóstico se registra solo desde Registrar
+  Consulta (la pantalla exige `?consulta=`). `SintomaDao.estaEnUso` ahora también mira `diagnostico_sintoma`. Los DAO de
+  Receta, Órdenes, Justificativo, Tratamiento y Consulta validan el diagnóstico por `diagnosticos.id_consulta_cab` (antes por
+  `consultas_detalle`, que estaba vacía: hoy esos cruces andaban en falso).
+- **`odontograma`**: `id_funcionario` → **`id_consulta_cab`** (NOT NULL, FK RESTRICT). **Uno por consulta**: índice único
+  parcial `ux_odontograma_consulta_vigente (id_consulta_cab) WHERE estado <> 'Inactivo'` (la tabla no tiene `activo`: su baja
+  lógica es `estado = 'Inactivo'`). Paciente y médico salen de la consulta. El **vigente del paciente es el de su última
+  consulta** (`getOdontogramaVigentePaciente`); al crear uno nuevo la pantalla lo **precarga** con ese estado
+  (`GET /api/v1/odontogramas/precarga/<id_consulta>`). Entrada desde Registrar Consulta: tarjeta "Odontograma"
+  (`odontograma-index?consulta=<id>`). `GET /odontogramas/validar-paciente` pasó a `validar-consulta/<id>`.
+- **`consultas_cab.id_funcionario` obligatorio**: sale SIEMPRE de la sesión (`id_funcionario_sesion()` en
+  `permisos_contexto.py`); si el usuario no es funcionario (p. ej. un Médico) → 403 "Solo un funcionario puede registrar
+  consultas." La consulta la registra Recepción desde la cita; el médico es un dato de la consulta.
+- **`estado_dental.estado` → `activo`** (NOT NULL DEFAULT true; el JSON de `/estados-dentales` ahora trae `activo`).
+- **`permisos`**: sin `ventana`; ver "Modelo de permisos".
+- **Datos migrados:** consultas 6 y 17 → funcionario 3; los diagnósticos 2 y 10 y los odontogramas 8 y 9 (datos de prueba sin
+  consulta del mismo médico) se **borraron con sus dependientes** (5 detalles de odontograma). `permisos` conserva sus 339 filas.
+- `odontoclinic_app` conserva todos sus privilegios (verificado: SELECT/INSERT/UPDATE/DELETE en las tablas tocadas y en
+  `diagnostico_sintoma`). La auditoría y `trg_auditoria_inmutable` no se tocaron.
+- Test: `tests/consultorio/smoke_migracion02.py` (esquema, `PermisoDao`, Administrador/Cajero y URL directa, consulta con/sin
+  funcionario, diagnóstico con síntomas, odontograma único por consulta con precarga, consulta finalizada).
+- ⚠️ **Falta reflejar en el DER:** `diagnosticos` (+`id_consulta_cab`, −`id_consulta_detalle`, −`sintomas`; usa `diagnostico_sintoma`),
+  `odontograma` (+`id_consulta_cab`, −`id_funcionario`, único por consulta), `consultas_cab.id_funcionario` NOT NULL,
+  `estado_dental.estado` → `activo`, `permisos` sin `ventana` (identificada por `id_menu`). Y el análisis (CUS): Registrar
+  Consulta/Diagnóstico/Odontograma deben decir que el funcionario es la sesión, que el odontograma es uno por consulta con
+  precarga del anterior y que los síntomas del diagnóstico son una selección múltiple.
+- **Odontograma: igualarlo al estándar en la migración de Consultorio a Tabler.** Hoy NO tiene columna `activo`: su baja lógica es
+  `estado = 'Inactivo'` (CHECK Activo/Finalizado/Inactivo) y el único parcial es `ux_odontograma_consulta_vigente ... WHERE
+  estado <> 'Inactivo'`. Al migrarlo hay que agregar `activo BOOLEAN NOT NULL DEFAULT true` e índice único parcial
+  `WHERE activo = true` (conservando `estado` para Activo/Finalizado), y actualizar los filtros `estado <> 'Inactivo'` de
+  `OdontogramaDao` (listados, `existeOdontogramaConsulta`, `getOdontogramaVigentePaciente`, alta) y el test `smoke_migracion02`.
+- **Pendientes de Consultorio para la migración a Tabler** (relevados contra la base, no tienen script en el repo):
+  la base YA tiene `tratamientos.id_paciente` (sin espacio), `'cancelado'` en el CHECK de `tratamientos.estado`,
+  `sesiones_tratamiento.activo`, `sesion_insumos` con FK a `sesiones_tratamiento` (`tratamiento_insumos` ya no existe) y las
+  tablas `tipo_procedimiento_medico` y `medicamentos`. Lo que SIGUE sin hacer: **versionar el `CREATE TABLE`** de
+  `tipo_procedimiento_medico` y `medicamentos` (no hay ningún `CREATE TABLE` de Consultorio en el repo: ni de esas ni de
+  `sesiones_tratamiento`/`sesion_insumos`/`tratamientos`) y dejar un script idempotente que reproduzca esas correcciones en una
+  base nueva. Se hace junto con la migración de Consultorio a Tabler.
+
 ## Convenciones de código
 - SQL crudo con psycopg2, sin ORM.
 - Conexión vía `app/conexion/Conexion.py` — reusar esa clase, no crear una nueva.
@@ -1261,8 +1306,8 @@ que ahora deja `auditoria_umbrales` en solo lectura para la app).
 
 ## Modelo de permisos
 - **Permiso = rol + ventana + acción.** Acciones: `ver`, `nuevo`, `editar`, `anular`,
-  `estado`. Tabla `permisos` (FK a `roles`, único por rol+ventana+acción, CHECK de
-  acción). Administrador no necesita filas: siempre pasa (bypass en `puede()`).
+  `estado`. Tabla `permisos` (FK a `roles`, **`id_menu` FK a `menu`** —`menu.clave` = la ventana del catálogo—, único por
+  rol + id_menu + acción, CHECK de acción). **La columna `permisos.ventana` ya no existe** (migración 02). Administrador no necesita filas: siempre pasa (bypass en `puede()`).
 - **Catálogo único: `app/rutas/modulo_seguridad/menu_catalog.py`.** De ahí salen el
   sidebar, el buscador general y las filas de la matriz de Roles y Permisos. Cada
   entrada declara qué `acciones` expone la ventana. `en_menu: False` = pantalla
@@ -1299,13 +1344,17 @@ que ahora deja `auditoria_umbrales` en solo lectura para la app).
     Con `nuevo` en Cliente, el Cajero puede usar el buscador de pacientes (`/clientes/pacientes`) sin tener permiso
     sobre la ventana Pacientes (decisión confirmada).
   - Los tests que necesiten anular/crear un referencial deben usar la sesión del Administrador, no la del Cajero.
-- **Tabla `menu` y `permisos.id_menu` (DER):** `01_migracion_der.sql` creó la tabla `menu` (una fila por ventana, `clave` = la
-  ventana del catálogo) y volvió OBLIGATORIO `permisos.id_menu`. El código que inserta permisos por `(id_rol, ventana, accion)`
-  (PermisoDao, los `schema_permisos_*.sql` y los tests) sigue funcionando por el trigger `trg_permisos_resolver_menu`
-  (`schema_permisos_id_menu.sql`), que completa `id_menu` desde `menu.clave = ventana` y rechaza si no hay entrada de menú.
-  **Toda ventana NUEVA necesita su fila en `menu` antes de sembrar permisos** (los seeds nuevos la insertan con
-  `ON CONFLICT`/`WHERE NOT EXISTS`, ver `schema_permisos_cobranzas.sql`). El sidebar y el buscador siguen saliendo de
-  `menu_catalog.py`: la tabla `menu` todavía no los alimenta. Revertir el trigger: `DROP TRIGGER trg_permisos_resolver_menu ON permisos;`.
+- **Tabla `menu` y `permisos.id_menu` (DER, migración 02 aplicada):** los permisos se identifican por `permisos.id_menu` (FK a
+  `menu`, una fila por ventana, `clave` = la ventana del catálogo); `permisos.ventana` y el trigger de compatibilidad
+  `trg_permisos_resolver_menu` se eliminaron. `PermisoDao` lee/otorga/revoca por JOIN a `menu` (solo entradas `activo`) y sigue
+  devolviendo el set `(ventana, accion)`, así que `puede()`, `require_permiso`, el menú y el buscador no cambiaron. **Toda
+  ventana NUEVA necesita su fila en `menu` ANTES de sembrar permisos**, y los seeds `schema_permisos_*.sql` insertan por
+  `JOIN menu m ON m.clave = <ventana>` con `ON CONFLICT (id_rol, id_menu, accion)` (ver `schema_permisos_cobranzas.sql`; los
+  tests usan `id_menu = (SELECT id_menu FROM menu WHERE clave='x' AND activo = true)`). `PermisoDao.otorgar` devuelve False si
+  la ventana no tiene entrada de menú. `schema_permisos_matriz.sql` quedó como histórico (no volver a ejecutar). El sidebar y el
+  buscador siguen saliendo de `menu_catalog.py`: la tabla `menu` todavía no los alimenta. OJO: el catálogo tiene ventanas que
+  no están en `menu` (hoy `usuario` y `auditoria`, que son solo
+  Administrador): sin fila en `menu` no se les puede otorgar permisos.
 - **Roles y Permisos** (la matriz) queda con `@require_admin` fijo y fuera del
   catálogo, para que nadie pueda autoconcederse acceso.
 - **Páginas de error propias 403/404/500** (`app/rutas/errores.py`, plantillas en

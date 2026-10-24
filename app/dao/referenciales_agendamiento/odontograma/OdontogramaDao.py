@@ -22,9 +22,9 @@ class OdontogramaDao:
             descripcion,
             color,
             simbolo,
-            estado
+            activo
         FROM estado_dental
-        WHERE estado = TRUE
+        WHERE activo = TRUE
         ORDER BY descripcion
         """
         conexion = Conexion()
@@ -39,7 +39,7 @@ class OdontogramaDao:
                     'descripcion': r[1],
                     'color': r[2],
                     'simbolo': r[3],
-                    'estado': r[4]
+                    'activo': r[4]
                 } for r in rows
             ]
         except Exception as e:
@@ -57,7 +57,7 @@ class OdontogramaDao:
             descripcion,
             color,
             simbolo,
-            estado
+            activo
         FROM estado_dental
         WHERE id_estado_dental = %s
         """
@@ -73,7 +73,7 @@ class OdontogramaDao:
                     'descripcion': r[1],
                     'color': r[2],
                     'simbolo': r[3],
-                    'estado': r[4]
+                    'activo': r[4]
                 }
             return None
         except Exception as e:
@@ -103,7 +103,7 @@ class OdontogramaDao:
             o.fecha_registro,
             o.observaciones,
             o.estado,
-            o.id_funcionario,
+            o.id_consulta_cab,
             o.created_at,
             o.updated_at
         FROM odontograma o
@@ -130,7 +130,7 @@ class OdontogramaDao:
                     'fecha_registro': str(r[7]) if r[7] else None,
                     'observaciones': r[8],
                     'estado': r[9],
-                    'id_funcionario': r[10],
+                    'id_consulta_cab': r[10],
                     'created_at': str(r[11]) if r[11] else None,
                     'updated_at': str(r[12]) if r[12] else None
                 } for r in rows
@@ -158,7 +158,7 @@ class OdontogramaDao:
             o.fecha_registro,
             o.observaciones,
             o.estado,
-            o.id_funcionario,
+            o.id_consulta_cab,
             o.created_at,
             o.updated_at
         FROM odontograma o
@@ -184,7 +184,7 @@ class OdontogramaDao:
                     'fecha_registro': str(r[7]) if r[7] else None,
                     'observaciones': r[8],
                     'estado': r[9],
-                    'id_funcionario': r[10],
+                    'id_consulta_cab': r[10],
                     'created_at': str(r[11]) if r[11] else None,
                     'updated_at': str(r[12]) if r[12] else None
                 }
@@ -213,7 +213,7 @@ class OdontogramaDao:
             o.fecha_registro,
             o.observaciones,
             o.estado,
-            o.id_funcionario
+            o.id_consulta_cab
         FROM odontograma o
         JOIN paciente p ON o.id_paciente = p.id_paciente
         JOIN medico m ON o.id_medico = m.id_medico
@@ -238,7 +238,7 @@ class OdontogramaDao:
                     'fecha_registro': str(r[7]) if r[7] else None,
                     'observaciones': r[8],
                     'estado': r[9],
-                    'id_funcionario': r[10]
+                    'id_consulta_cab': r[10]
                 } for r in rows
             ]
         except Exception as e:
@@ -248,45 +248,101 @@ class OdontogramaDao:
             cur.close()
             con.close()
 
-    def guardarOdontograma(self, id_paciente, id_medico, id_funcionario, 
-                          fecha_registro, observaciones=None, estado='Activo'):
+    def guardarOdontograma(self, id_consulta_cab, fecha_registro,
+                           observaciones=None, estado='Activo'):
         """
-        Crea un nuevo odontograma (cabecera)
-        Retorna el ID del odontograma creado o False si falla
-        """
-        sql = """
-        INSERT INTO odontograma(
-            id_paciente, id_medico, id_funcionario,
-            fecha_registro, observaciones, estado
-        ) VALUES (%s, %s, %s, %s, %s, %s)
-        RETURNING id_odontograma
+        Crea un nuevo odontograma (cabecera) para una Consulta. Hay UNO por
+        consulta (único parcial ux_odontograma_consulta_vigente).
+
+        Paciente y Médico se derivan de la consulta (no se toman del
+        formulario). La consulta tiene que existir, estar activa y no estar
+        finalizada.
+
+        Retorna un dict: {'id_odontograma': N} o {'error': 'CONSULTA_NO_ENCONTRADA'
+        | 'CONSULTA_FINALIZADA' | 'YA_EXISTE' | 'ERROR_INTERNO'}
         """
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            app.logger.info(f"💾 Creando odontograma para paciente {id_paciente}")
-            
-            cur.execute(sql, (
-                id_paciente,
-                id_medico,
-                id_funcionario,
-                fecha_registro,
-                observaciones,
-                estado
-            ))
+            cur.execute("""
+                SELECT id_paciente, id_medico, estado
+                FROM consultas_cab
+                WHERE id_consulta_cab = %s AND activo = true
+                FOR UPDATE
+            """, (id_consulta_cab,))
+            consulta = cur.fetchone()
+            if not consulta:
+                con.rollback()
+                return {'error': 'CONSULTA_NO_ENCONTRADA'}
+            id_paciente, id_medico, estado_consulta = consulta
+            if estado_consulta == 'finalizada':
+                con.rollback()
+                return {'error': 'CONSULTA_FINALIZADA'}
+
+            cur.execute("""
+                SELECT 1 FROM odontograma
+                WHERE id_consulta_cab = %s AND estado <> 'Inactivo'
+            """, (id_consulta_cab,))
+            if cur.fetchone():
+                con.rollback()
+                return {'error': 'YA_EXISTE'}
+
+            cur.execute("""
+                INSERT INTO odontograma(
+                    id_paciente, id_medico, id_consulta_cab,
+                    fecha_registro, observaciones, estado
+                ) VALUES (%s, %s, %s, %s, %s, %s)
+                RETURNING id_odontograma
+            """, (id_paciente, id_medico, id_consulta_cab, fecha_registro, observaciones, estado))
             new_id = cur.fetchone()[0]
             con.commit()
-            
-            app.logger.info(f"✅ Odontograma creado con ID: {new_id}")
-            return new_id
+
+            app.logger.info(f"Odontograma creado con ID: {new_id}")
+            return {'id_odontograma': new_id}
         except Exception as e:
-            app.logger.error(f"❌ Error al guardar odontograma: {str(e)}")
+            app.logger.error(f"Error al guardar odontograma: {str(e)}")
             con.rollback()
-            return False
+            return {'error': 'ERROR_INTERNO'}
         finally:
             cur.close()
             con.close()
+
+    def getOdontogramaVigentePaciente(self, id_paciente, excluir_consulta=None):
+        """
+        Odontograma vigente de un paciente: el de su ÚLTIMA consulta (por fecha
+        y hora de la consulta) entre los que no están Inactivos. excluir_consulta
+        permite ignorar la consulta que se está registrando.
+        Devuelve la cabecera con sus 'detalles', o None si el paciente no tiene.
+        """
+        sql = """
+        SELECT o.id_odontograma
+        FROM odontograma o
+        JOIN consultas_cab c ON c.id_consulta_cab = o.id_consulta_cab
+        WHERE o.id_paciente = %s
+          AND o.estado <> 'Inactivo'
+          AND (%s::int IS NULL OR o.id_consulta_cab <> %s::int)
+        ORDER BY c.fecha_cita DESC, c.hora_cita DESC, o.id_odontograma DESC
+        LIMIT 1
+        """
+        conexion = Conexion()
+        con = conexion.getConexion()
+        cur = con.cursor()
+        try:
+            cur.execute(sql, (id_paciente, excluir_consulta, excluir_consulta))
+            fila = cur.fetchone()
+        except Exception as e:
+            app.logger.error(f"Error al buscar el odontograma vigente: {str(e)}")
+            return None
+        finally:
+            cur.close()
+            con.close()
+        if not fila:
+            return None
+        odontograma = self.getOdontogramaById(fila[0])
+        if odontograma:
+            odontograma['detalles'] = self.getDetallesPorOdontograma(fila[0])
+        return odontograma
 
     def updateOdontograma(self, id_odontograma, fecha_registro, 
                          observaciones=None, estado='Activo'):
@@ -599,32 +655,29 @@ class OdontogramaDao:
     # MÉTODOS AUXILIARES Y VALIDACIONES
     # ========================================
 
-    def existeOdontogramaPaciente(self, id_paciente, excluir_id=None):
+    def existeOdontogramaConsulta(self, id_consulta_cab, excluir_id=None):
         """
-        Verifica si un paciente ya tiene un odontograma activo
+        Verifica si una consulta ya tiene un odontograma vigente (no Inactivo).
         excluir_id: para excluir un odontograma específico (útil en edición)
         """
         sql = """
-        SELECT COUNT(*) 
-        FROM odontograma 
-        WHERE id_paciente = %s 
-          AND estado = 'Activo'
+        SELECT COUNT(*)
+        FROM odontograma
+        WHERE id_consulta_cab = %s
+          AND estado <> 'Inactivo'
         """
-        params = [id_paciente]
-        
+        params = [id_consulta_cab]
         if excluir_id:
-            sql += " AND id_odontograma != %s"
+            sql += " AND id_odontograma <> %s"
             params.append(excluir_id)
-
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(sql, tuple(params))
-            count = cur.fetchone()[0]
-            return count > 0
+            cur.execute(sql, params)
+            return cur.fetchone()[0] > 0
         except Exception as e:
-            app.logger.error(f"Error al verificar odontograma: {str(e)}")
+            app.logger.error(f"Error al verificar odontograma de la consulta: {str(e)}")
             return False
         finally:
             cur.close()

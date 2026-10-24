@@ -83,9 +83,9 @@ try:
                   FROM cuenta_bancaria c JOIN entidad_emisora e USING(id_entidad_emisora) WHERE numero_cuenta IN ('1020304050','2030405060') AND c.activo ORDER BY numero_cuenta""")
     chk('datos iniciales: CORRIENTE BANCO ITAÚ 1020304050 y CAJA DE AHORRO BANCO CONTINENTAL 2030405060, con la razón social como titular',
         cu.fetchall() == [('CORRIENTE', 'BANCO ITAÚ', '1020304050', True), ('CAJA DE AHORRO', 'BANCO CONTINENTAL', '2030405060', True)])
-    cu.execute("SELECT array_agg(accion ORDER BY accion) FROM permisos p JOIN roles r USING(id_rol) WHERE r.nombre_rol='Cajero' AND ventana='cuentabancaria'")
+    cu.execute("SELECT array_agg(accion ORDER BY accion) FROM permisos p JOIN roles r USING(id_rol) WHERE r.nombre_rol='Cajero' AND id_menu = (SELECT id_menu FROM menu WHERE clave='cuentabancaria' AND activo = true)")
     chk('el Cajero solo tiene "ver" sobre cuentabancaria', cu.fetchone()[0] == ['ver'])
-    cu.execute("SELECT count(*) FROM permisos WHERE ventana='cuentabancaria' AND id_rol IN (SELECT id_rol FROM roles WHERE nombre_rol NOT IN ('Cajero','Administrador'))")
+    cu.execute("SELECT count(*) FROM permisos WHERE id_menu = (SELECT id_menu FROM menu WHERE clave='cuentabancaria' AND activo = true) AND id_rol IN (SELECT id_rol FROM roles WHERE nombre_rol NOT IN ('Cajero','Administrador'))")
     chk('ningún otro rol recibió permisos por el seed', cu.fetchone()[0] == 0)
 
     # banco ZZ propio

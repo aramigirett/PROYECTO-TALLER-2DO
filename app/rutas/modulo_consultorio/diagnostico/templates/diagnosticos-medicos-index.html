@@ -110,7 +110,7 @@ Gestión de Diagnósticos
     </div>
 
     <div class="clinical-form-body">
-      <input type="hidden" id="id_consulta_detalle">
+      <input type="hidden" id="id_consulta_cab">
 
       <div class="row">
         <!-- COLUMNA IZQUIERDA: DATOS DEL PACIENTE Y MÉDICO -->
@@ -223,8 +223,10 @@ Gestión de Diagnósticos
                 <i class="fas fa-heartbeat text-danger mr-1"></i>
                 Síntomas
               </label>
-              <textarea id="sintomas" class="form-control-medical-textarea" rows="3"
-                        placeholder="Describa los síntomas del paciente..."></textarea>
+              <div id="sintomasLista" class="border rounded p-2 bg-white" style="max-height: 160px; overflow-y: auto;">
+                <span class="text-muted small">Cargando síntomas...</span>
+              </div>
+              <small class="text-muted">Seleccione uno o más síntomas del catálogo (opcional).</small>
             </div>
           </div>
         </div>
@@ -711,6 +713,28 @@ const idConsultaParam = urlParams.get('consulta');
 const idPacienteParam = urlParams.get('paciente');
 const idMedicoParam = urlParams.get('medico');
 
+// Catálogo de síntomas (selección múltiple; se guardan en diagnostico_sintoma)
+function cargarSintomas() {
+  fetch('/api/v1/sintomas')
+    .then(r => r.json())
+    .then(d => {
+      const cont = $('#sintomasLista').empty();
+      if (!d.success || !d.data.length) {
+        cont.append('<span class="text-muted small">No hay síntomas cargados en el catálogo.</span>');
+        return;
+      }
+      d.data.forEach(s => {
+        cont.append(
+          `<div class="custom-control custom-checkbox">
+             <input type="checkbox" class="custom-control-input chk-sintoma" id="sint_${s.id_sintoma}" value="${s.id_sintoma}">
+             <label class="custom-control-label" for="sint_${s.id_sintoma}"></label>
+           </div>`);
+        cont.find(`label[for="sint_${s.id_sintoma}"]`).text(s.descripcion_sintoma);
+      });
+    })
+    .catch(() => $('#sintomasLista').html('<span class="text-danger small">No se pudieron cargar los síntomas.</span>'));
+}
+
 // ============================================
 // FUNCIONES AUXILIARES
 // ============================================
@@ -908,22 +932,25 @@ function initDatatableMedico() {
 // ============================================
 // ABRIR MODALES DE SELECCIÓN
 // ============================================
-$('#txtPaciente').click(() => $('#modalBuscarPaciente').modal('show'));
-$('#txtMedico').click(() => $('#modalBuscarMedico').modal('show'));
+// Paciente y médico salen de la consulta: no se eligen a mano
+$('#txtPaciente').click(() => { if (!idConsultaParam) $('#modalBuscarPaciente').modal('show'); });
+$('#txtMedico').click(() => { if (!idConsultaParam) $('#modalBuscarMedico').modal('show'); });
 
 // ============================================
 // LIMPIAR FORMULARIO
 // ============================================
 function limpiarFormulario() {
-  $('#id_consulta_detalle').val('');
-  $('#id_paciente').val('');
-  $('#txtPaciente').val('');
-  $('#id_medico').val('');
-  $('#txtMedico').val('');
+  // La consulta (con su paciente y médico) viene en la URL: no se limpia
+  if (!idConsultaParam) {
+    $('#id_paciente').val('');
+    $('#txtPaciente').val('');
+    $('#id_medico').val('');
+    $('#txtMedico').val('');
+  }
   $('#id_tipo_diagnostico').val('');
   $('#pieza_dental').val('');
   $('#fecha_diagnostico').val('');
-  $('#sintomas').val('');
+  $('.chk-sintoma').prop('checked', false);
   $('#descripcion_diagnostico').val('');
   $('#observaciones').val('');
   $('.text-danger.small').hide();
@@ -950,14 +977,14 @@ $('#btnLimpiarFormulario').on('click', function() {
 $('#btnGuardarDiagnostico').on('click', function() {
   // Preparar datos
   const payload = {
-    id_consulta_detalle: $('#id_consulta_detalle').val() || null,
+    id_consulta_cab: parseInt($('#id_consulta_cab').val()),
     id_paciente: parseInt($('#id_paciente').val()),
     id_medico: parseInt($('#id_medico').val()),
     id_tipo_diagnostico: parseInt($('#id_tipo_diagnostico').val()),
     descripcion_diagnostico: $('#descripcion_diagnostico').val(),
     pieza_dental: $('#pieza_dental').val() || null,
     fecha_diagnostico: $('#fecha_diagnostico').val(),
-    sintomas: $('#sintomas').val() || null,
+    sintomas: $('.chk-sintoma:checked').map(function() { return parseInt(this.value); }).get(),
     observaciones: $('#observaciones').val() || null
   };
 
@@ -965,6 +992,10 @@ $('#btnGuardarDiagnostico').on('click', function() {
   let valido = true;
   $('.text-danger.small').hide();
   
+  if (!payload.id_consulta_cab) {
+    Swal.fire('Falta la consulta', 'El diagnóstico se registra desde una Consulta: use "Gestionar Diagnósticos" en Registrar Consulta.', 'warning');
+    return;
+  }
   if (!payload.id_paciente) { $('#error_txtPaciente').show(); valido = false; }
   if (!payload.id_medico) { $('#error_txtMedico').show(); valido = false; }
   if (!payload.id_tipo_diagnostico) { $('#error_id_tipo_diagnostico').show(); valido = false; }
@@ -989,7 +1020,7 @@ $('#btnGuardarDiagnostico').on('click', function() {
     if (d.success) {
       limpiarFormulario();
       $('#tblDiagnosticos').DataTable().ajax.reload();
-      Swal.fire('Éxito', 'Diagnóstico guardado correctamente', 'success');
+      Swal.fire('Éxito', `Diagnóstico ${d.data.codigo} guardado correctamente`, 'success');
     } else {
       Swal.fire('Error', d.error || 'No se pudo guardar', 'error');
     }
@@ -1017,7 +1048,7 @@ $('#tblDiagnosticos').on('click', 'button[name="btn_ver"]', function() {
         $('#verTipo').text(diag.tipo_diagnostico);
         $('#verFecha').text(formatDateForDisplay(diag.fecha_diagnostico));
         $('#verPieza').text(diag.pieza_dental || '-');
-        $('#verSintomas').text(diag.sintomas || '-');
+        $('#verSintomas').text((diag.sintomas || []).map(s => s.descripcion_sintoma).join(', ') || '-');
         $('#verDescripcion').text(diag.descripcion_diagnostico);
         $('#verObservaciones').text(diag.observaciones || '-');
         
@@ -1078,7 +1109,10 @@ $('#btnVerOdontograma').on('click', function() {
   }
   
   // Abrir odontograma en nueva pestaña
-  window.open(`/referenciales/odontograma/odontograma-index?paciente=${idPaciente}`, '_blank');
+  const idConsulta = $('#id_consulta_cab').val();
+  window.open(idConsulta
+    ? `/referenciales/odontograma/odontograma-index?consulta=${idConsulta}`
+    : '/referenciales/odontograma/odontograma-index', '_blank');
 });
 
 // ============================================
@@ -1086,7 +1120,7 @@ $('#btnVerOdontograma').on('click', function() {
 // ============================================
 function preCargarDatosConsulta() {
   if (idConsultaParam) {
-    $('#id_consulta_detalle').val(idConsultaParam);
+    $('#id_consulta_cab').val(idConsultaParam);
   }
   
   if (idPacienteParam) {
@@ -1137,6 +1171,7 @@ $(document).ready(function() {
   
   // Pre-cargar datos si viene desde consulta
   preCargarDatosConsulta();
+  cargarSintomas();
   
   console.log('✅ Módulo de Diagnósticos inicializado correctamente');
 });

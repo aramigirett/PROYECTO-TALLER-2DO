@@ -38,10 +38,10 @@ def reg(entidad, i):
     return i
 
 def sin_permiso(ventana, accion):
-    cu.execute("DELETE FROM permisos WHERE ventana=%s AND id_rol=%s AND accion=%s", (ventana, ROL, accion)); cx.commit()
+    cu.execute("DELETE FROM permisos WHERE id_menu = (SELECT id_menu FROM menu WHERE clave=%s AND activo = true) AND id_rol=%s AND accion=%s", (ventana, ROL, accion)); cx.commit()
 
 def con_permiso(ventana, accion):
-    cu.execute("INSERT INTO permisos (id_rol, ventana, accion) VALUES (%s,%s,%s) ON CONFLICT DO NOTHING", (ROL, ventana, accion)); cx.commit()
+    cu.execute("INSERT INTO permisos (id_rol, id_menu, accion) SELECT %s, id_menu, %s FROM menu WHERE clave=%s AND activo = true ON CONFLICT DO NOTHING", (ROL, accion, ventana)); cx.commit()
 
 def como_admin():
     with c.session_transaction() as s:

@@ -174,8 +174,7 @@ class RecetaDao:
                 cur.execute("""
                     SELECT 1
                     FROM diagnosticos d
-                    JOIN consultas_detalle cd ON d.id_consulta_detalle = cd.id_consulta_detalle
-                    WHERE d.id_diagnostico = %s AND cd.id_consulta_cab = %s AND d.activo = true
+                    WHERE d.id_diagnostico = %s AND d.id_consulta_cab = %s AND d.activo = true
                 """, (id_diagnostico, id_consulta_cab))
                 if not cur.fetchone():
                     return {'error': 'DIAGNOSTICO_INVALIDO'}

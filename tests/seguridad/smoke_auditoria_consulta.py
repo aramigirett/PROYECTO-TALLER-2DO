@@ -109,7 +109,7 @@ try:
         == (5, 3, 30, '07:00', '20:00', 6))
     cu.execute("SELECT count(*) FROM menu WHERE clave = 'auditoriacambios' AND activo = true")
     chk('fila en la tabla menu', cu.fetchone()[0] == 1)
-    cu.execute("SELECT count(*) FROM permisos WHERE ventana = 'auditoriacambios'")
+    cu.execute("SELECT count(*) FROM permisos WHERE id_menu = (SELECT id_menu FROM menu WHERE clave='auditoriacambios' AND activo = true)")
     chk('ningún rol tiene permisos sobre la ventana (solo Administrador)', cu.fetchone()[0] == 0)
 
     # La aplicación (odontoclinic_app): sigue pudiendo insertar y leer con las columnas nuevas, pero no UPDATE / DELETE, ni cambiar umbrales

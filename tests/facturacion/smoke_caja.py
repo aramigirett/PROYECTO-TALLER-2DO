@@ -131,9 +131,9 @@ try:
     # ---------- permisos ----------
     cu.execute("SELECT id_rol FROM roles WHERE nombre_rol <> 'Administrador' LIMIT 1"); rol = cu.fetchone()[0]
     def sin_permiso(accion):
-        cu.execute("DELETE FROM permisos WHERE ventana='caja' AND id_rol=%s AND accion=%s", (rol, accion)); cx.commit()
+        cu.execute("DELETE FROM permisos WHERE id_menu = (SELECT id_menu FROM menu WHERE clave='caja' AND activo = true) AND id_rol=%s AND accion=%s", (rol, accion)); cx.commit()
     def con_permiso(accion):
-        cu.execute("INSERT INTO permisos (id_rol, ventana, accion) VALUES (%s,'caja',%s) ON CONFLICT DO NOTHING", (rol, accion)); cx.commit()
+        cu.execute("INSERT INTO permisos (id_rol, id_menu, accion) SELECT %s, id_menu, %s FROM menu WHERE clave='caja' AND activo = true ON CONFLICT DO NOTHING", (rol, accion)); cx.commit()
     with c.session_transaction() as s:
         s['id_rol'] = rol; s['nombre_rol'] = 'NoAdmin'
     try:

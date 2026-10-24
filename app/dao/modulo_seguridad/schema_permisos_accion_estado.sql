@@ -7,9 +7,13 @@ ALTER TABLE permisos
 
 -- Los roles no-Administrador ya hacen hoy ese flujo en Cita y Avisos: se les
 -- otorga para no cortarlo.
-INSERT INTO permisos (id_rol, ventana, accion)
+INSERT INTO permisos (id_rol, id_menu, accion)
+SELECT x.id_rol, m.id_menu, x.accion
+FROM (
 SELECT r.id_rol, v.ventana, 'estado'
 FROM roles r
 CROSS JOIN (VALUES ('cita'), ('avisos')) AS v(ventana)
 WHERE r.nombre_rol <> 'Administrador'
-ON CONFLICT (id_rol, ventana, accion) DO NOTHING;
+) AS x(id_rol, ventana, accion)
+JOIN menu m ON m.clave = x.ventana AND m.activo = true
+ON CONFLICT (id_rol, id_menu, accion) DO NOTHING;

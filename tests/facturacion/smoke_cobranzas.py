@@ -1,6 +1,6 @@
 """Registrar Cobranzas por Forma de Cobro: columnas nuevas (forma_cobro.tipo, cobro_det.numero_referencia), cobros parcial,
 combinado (efectivo + tarjeta + cheque diferido + transferencia) y por saldo, validaciones, tarjeta con entidades inactivas,
-triggers (trg_aplicar_cobro, trg_validar_cobro, trg_permisos_resolver_menu), funciones (fn_total_recaudado,
+triggers (trg_aplicar_cobro, trg_validar_cobro), funciones (fn_total_recaudado,
 fn_total_efectivo_apertura, fn_siguiente_numero_recibo), vistas (v_resumen_caja, v_estado_cuenta_cliente), anulación (caja
 abierta/cerrada), cierre de caja con recaudado real, conexiones (Forma de Cobro, Marca, Adherida, Emisora, Venta, Apertura),
 concurrencia, recibo en PDF y permisos.
@@ -204,7 +204,7 @@ try:
         cu.execute("SELECT array_agg(column_name::text ORDER BY ordinal_position) FROM information_schema.columns WHERE table_name=%s", (tabla,))
         chk(f'{tabla}: columnas tal cual las creó el DER (+ las nuevas)', cu.fetchone()[0] == cols)
     cu.execute("SELECT tgname, tgdeferrable FROM pg_trigger WHERE NOT tgisinternal AND tgname IN ('trg_aplicar_cobro','trg_validar_cobro','trg_permisos_resolver_menu')")
-    tg = dict(cu.fetchall()); chk('triggers: trg_aplicar_cobro, trg_validar_cobro (diferido) y trg_permisos_resolver_menu', set(tg) == {'trg_aplicar_cobro', 'trg_validar_cobro', 'trg_permisos_resolver_menu'} and tg['trg_validar_cobro'])
+    tg = dict(cu.fetchall()); chk('triggers: trg_aplicar_cobro y trg_validar_cobro (diferido); trg_permisos_resolver_menu ya no existe (migración 02)', set(tg) == {'trg_aplicar_cobro', 'trg_validar_cobro'} and tg['trg_validar_cobro'])
     cu.execute("SELECT count(*) FROM pg_proc WHERE proname IN ('fn_total_recaudado','fn_total_efectivo_apertura','fn_siguiente_numero_recibo','fn_aplicar_cobro','fn_validar_cobro','fn_formato_gs') AND obj_description(oid,'pg_proc') IS NOT NULL")
     chk('las 6 funciones tienen COMMENT ON', cu.fetchone()[0] == 6)
     cu.execute("SELECT count(*) FROM pg_trigger t JOIN pg_description d ON d.objoid = t.oid WHERE t.tgname IN ('trg_aplicar_cobro','trg_validar_cobro')")
@@ -216,14 +216,19 @@ try:
         cu.fetchone()[0].startswith('id_cliente,cliente,ci_ruc,id_venta,numero_factura,fecha,condicion,total,saldo,estado_cuenta,fecha_vencimiento,saldo_total_cliente,total_cobrado,cantidad_cobros,fecha_ultimo_cobro'))
     cu.execute("SELECT fn_formato_gs(1234567), fn_formato_gs(0), fn_formato_gs(999)")
     chk('fn_formato_gs: puntos de miles', cu.fetchone() == ('1.234.567', '0', '999'))
-    # trg_permisos_resolver_menu: un INSERT sin id_menu lo resuelve por menu.clave = ventana; sin entrada de menú, rechaza
+    # permisos se identifica por id_menu (menu.clave = ventana del catálogo); la columna ventana y el trigger de compatibilidad ya no existen
     cu.execute("SELECT id_menu FROM menu WHERE clave='cobro' AND activo")
     ID_MENU_COBRO = cu.fetchone()
     chk('menu: existe la entrada "cobro" para la ventana nueva', ID_MENU_COBRO is not None)
-    msg = sql_en_txn("INSERT INTO permisos(id_rol, ventana, accion) VALUES (%s, 'zz_ventana_inexistente', 'ver')", (RECEP[1],))
-    chk('permisos: sin entrada de menú, el INSERT se rechaza con un mensaje claro', msg is not None and 'No existe una entrada de menú activa con la clave "zz_ventana_inexistente"' in msg)
-    r = sql_en_txn("INSERT INTO permisos(id_rol, ventana, accion) VALUES (%s, 'cobro', 'estado') RETURNING id_menu", (RECEP[1],), despues=("SELECT id_menu FROM permisos WHERE id_rol=%s AND ventana='cobro' AND accion='estado'", (RECEP[1],)))
-    chk('permisos: un INSERT sin id_menu lo completa desde menu.clave', isinstance(r, tuple) and r[0] == ID_MENU_COBRO[0])
+    cu.execute("SELECT count(*) FROM information_schema.columns WHERE table_name='permisos' AND column_name='ventana'")
+    chk('permisos: ya no tiene la columna ventana', cu.fetchone()[0] == 0)
+    msg = sql_en_txn("INSERT INTO permisos(id_rol, id_menu, accion) VALUES (%s, 2147483647, 'ver')", (RECEP[1],))
+    chk('permisos: un id_menu inexistente se rechaza (FK)', msg is not None)
+    msg = sql_en_txn("INSERT INTO permisos(id_rol, accion) VALUES (%s, 'ver')", (RECEP[1],))
+    chk('permisos: sin id_menu se rechaza (NOT NULL)', msg is not None)
+    r = sql_en_txn("INSERT INTO permisos(id_rol, id_menu, accion) VALUES (%s, %s, 'estado') RETURNING id_menu", (RECEP[1], ID_MENU_COBRO[0]),
+                   despues=("SELECT id_menu FROM permisos WHERE id_rol=%s AND id_menu=%s AND accion='estado'", (RECEP[1], ID_MENU_COBRO[0])))
+    chk('permisos: un INSERT por id_menu queda asociado a la ventana', isinstance(r, tuple) and r[0] == ID_MENU_COBRO[0])
 
     # =====================================================================================================================
     # 2. FORMA DE COBRO: tipo (API)

@@ -229,9 +229,9 @@ with c.session_transaction() as s:
     s['id_rol'] = rr[0]; s['nombre_rol'] = 'NoAdmin'
 for u in ['/referenciales/tipo-item/tipo-item-index', '/referenciales/item/item-index']:
     chk(f'rol no-admin entra {u}', c.get(u).status_code == 200)
-cu.execute("DELETE FROM permisos WHERE ventana='item' AND id_rol=%s AND accion='nuevo'", (rr[0],)); cx.commit()
+cu.execute("DELETE FROM permisos WHERE id_menu = (SELECT id_menu FROM menu WHERE clave='item' AND activo = true) AND id_rol=%s AND accion='nuevo'", (rr[0],)); cx.commit()
 api('post', IT, 403, ok_item, 'rol sin "nuevo" -> 403')
-cu.execute("INSERT INTO permisos (id_rol, ventana, accion) VALUES (%s,'item','nuevo') ON CONFLICT DO NOTHING", (rr[0],)); cx.commit()
+cu.execute("INSERT INTO permisos (id_rol, id_menu, accion) SELECT %s, id_menu, 'nuevo' FROM menu WHERE clave='item' AND activo = true ON CONFLICT DO NOTHING", (rr[0],)); cx.commit()
 
 # ---------- LIMPIEZA acotada a lo creado por este test ----------
 for ent in ['items', 'tipo_items']:

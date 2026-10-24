@@ -34,7 +34,7 @@ def esperado(e):
 
 cx = Conexion().getConexion(); cu = cx.cursor()
 cu.execute("SELECT id_rol FROM roles WHERE nombre_rol = 'Cajero'"); ROL = cu.fetchone()[0]
-cu.execute("SELECT ventana, accion FROM permisos WHERE id_rol = %s", (ROL,))
+cu.execute("SELECT m.clave, p.accion FROM permisos p JOIN menu m ON m.id_menu = p.id_menu WHERE p.id_rol = %s", (ROL,))
 actual = {}
 for v, a in cu.fetchall():
     actual.setdefault(v, set()).add(a)

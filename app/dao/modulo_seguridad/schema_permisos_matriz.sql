@@ -1,3 +1,6 @@
+-- HISTÓRICO - NO VOLVER A EJECUTAR. Creó la columna permisos.ventana, que la migración 02 eliminó (los permisos se
+-- identifican por permisos.id_menu). Además empieza con DELETE FROM permisos. Se conserva como registro del origen del modelo.
+-- Los seeds vigentes son los demás schema_permisos_*.sql.
 -- ============================================
 -- MODULO SEGURIDAD - CUS "Mantener Menú" (criterio "Accesibilidad")
 -- permisos pasa de (rol + nombre_permiso libre) a (rol + ventana + accion),

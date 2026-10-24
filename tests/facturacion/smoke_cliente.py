@@ -32,7 +32,6 @@ def api(metodo, url, esperado, json=None, nombre=None, campo=None, contiene=None
 CL = '/api/v1/clientes'
 cx = Conexion().getConexion(); cu = cx.cursor()
 cu.execute("SELECT id_ciudad FROM ciudades ORDER BY 1 LIMIT 1"); CIUDAD = cu.fetchone()[0]
-cu.execute("SELECT id_paciente, nombre, apellido, cedula_entidad FROM paciente ORDER BY id_paciente LIMIT 1"); PAC1 = cu.fetchone()
 
 def nuevo_paciente(nombre, apellido, cedula, tel, correo):
     cu.execute("""INSERT INTO paciente(nombre, apellido, cedula_entidad, telefono, correo, id_ciudad)
@@ -70,19 +69,12 @@ try:
     r = c.get('/static/js/facturacion-validadores.js')
     chk('js: ciRuc, calcularDvRuc, nombre', all(x in r.data for x in (b'ciRuc:', b'calcularDvRuc', b'nombre:', b'telefonoOpcional')))
 
-    # ---------- seeds ----------
+    # ---------- seed del sistema (único dato que el test espera ya cargado; el resto lo crea el propio test con prefijo ZZ) ----------
     d = api('get', CL, 200, nombre='lista')
     por_ruc = {x['ci_ruc']: x for x in d['data']}
     cf = por_ruc.get('44444401-7')
     chk('seed SIN NOMBRE (consumidor final, sin apellido/teléfono/correo, sin paciente)',
         cf and cf['nombre'] == 'SIN NOMBRE' and not cf['apellido'] and not cf['telefono'] and not cf['correo'] and cf['id_paciente'] is None and cf['es_consumidor_final'])
-    m = por_ruc.get('3456789'); chk('seed MARÍA GONZÁLEZ', m and (m['nombre'], m['apellido'], m['telefono'], m['correo'], m['id_paciente']) == ('MARÍA', 'GONZÁLEZ', '0981 123456', 'maria.gonzalez@ejemplo.com', None))
-    m = por_ruc.get('4567890'); chk('seed CARLOS BENÍTEZ', m and (m['nombre'], m['apellido'], m['telefono'], m['correo']) == ('CARLOS', 'BENÍTEZ', '0971 654321', 'carlos.benitez@ejemplo.com'))
-    m = por_ruc.get('80012345-0'); chk('seed LABORATORIO DENTAL SONRISA S.A. (RUC con verificador correcto)', m and m['nombre'] == 'LABORATORIO DENTAL SONRISA S.A.' and not m['apellido'] and m['telefono'] == '021 555123' and m['correo'] == 'facturacion@sonrisa.com.py')
-    if PAC1:
-        m = por_ruc.get(PAC1[3])
-        chk('seed: el primer paciente existente como cliente vinculado', m and m['id_paciente'] == PAC1[0] and m['es_paciente'] and m['nombre'] == PAC1[1].upper() and m['apellido'] == PAC1[2].upper())
-    chk('todos los seeds tienen CI/RUC válida (salvo el vinculado, copia tal cual)', all(utils.validar_ci_ruc(x['ci_ruc'])[1] is None for x in d['data'] if not x['es_paciente']))
 
     # ---------- buscador de pacientes ----------
     zp = nuevo_paciente('ZZLUCÍA', 'ZZPÉREZ', '9990001', '0981999001', 'zz.lucia@test.invalid')
@@ -96,9 +88,6 @@ try:
     chk('trae nombre, apellido, cédula, teléfono y correo', (x['nombre'], x['apellido'], x['cedula'], x['telefono'], x['correo']) == ('ZZLUCÍA', 'ZZPÉREZ', '9990001', '0981999001', 'zz.lucia@test.invalid'))
     d = api('get', f'{CL}/pacientes?q=%25%25', 200, nombre='buscador: % no actúa como comodín'); chk('sin resultados con %%', d['data'] == [])
     d = api('get', f'{CL}/pacientes?q=' + '5' * 2 + '0', 200, nombre='buscador: otra consulta'); chk('máx. 20 resultados', len(d['data']) <= 20)
-    if PAC1:
-        d = api('get', f'{CL}/pacientes?q={PAC1[3][:4]}', 200, nombre='buscador: paciente que ya es cliente')
-        chk('marca ya_es_cliente=True', [y for y in d['data'] if y['id_paciente'] == PAC1[0]][0]['ya_es_cliente'] is True)
 
     # ---------- validaciones ----------
     base = {'nombre': ' zz  juan ', 'apellido': ' zz  pérez ', 'ci_ruc': '9991111', 'telefono': '0981 000111', 'correo': 'Juan@Test.COM'}
@@ -146,7 +135,7 @@ try:
     api('put', f'{CL}/{m1}', 400, {**base, 'ci_ruc': '80069563-1'}, 'mod con CI/RUC de otro cliente', campo='ci_ruc', exacto=MSG_CI)
     api('put', f'{CL}/{m1}', 400, {**base, 'ci_ruc': '80069563-2'}, 'mod con RUC inválido', campo='ci_ruc')
     api('put', f'{CL}/{m1}', 400, {**base, 'id_paciente': zp}, 'mod: no se puede vincular un paciente después del alta', campo='id_paciente', exacto='El paciente vinculado no se puede cambiar.')
-    api('put', f'{CL}/{p1}', 400, {'nombre': 'zzlucía', 'ci_ruc': '9990001', 'id_paciente': PAC1[0] if PAC1 else 999999}, 'mod: no se puede cambiar el paciente vinculado', campo='id_paciente')
+    api('put', f'{CL}/{p1}', 400, {'nombre': 'zzlucía', 'ci_ruc': '9990001', 'id_paciente': 999999}, 'mod: no se puede cambiar el paciente vinculado', campo='id_paciente')
     d = api('put', f'{CL}/{p1}', 200, {'nombre': 'zzlucía', 'apellido': 'zzpérez', 'ci_ruc': '9990001', 'telefono': '0981999001', 'correo': 'zz.lucia@test.invalid', 'id_paciente': zp}, 'mod del cliente-paciente (mismo id_paciente permitido)')
     chk('sigue vinculado', d['data']['id_paciente'] == zp)
     api('put', f'{CL}/{cf["id_cliente"]}', 409, {'nombre': 'otro', 'ci_ruc': '44444401-7'}, 'MODIFICAR SIN NOMBRE -> bloqueado', exacto='El consumidor final no se puede modificar.')
@@ -184,9 +173,6 @@ try:
     cu.execute("UPDATE cliente SET activo=false WHERE id_paciente=%s", (zp,)); cx.commit()
     api('delete', f'/api/v1/pacientes/{zp}', 409, nombre='eliminar paciente cuyo cliente está INACTIVO (FK física)', exacto='No se puede eliminar, el paciente está registrado como cliente.')
     cu.execute("SELECT count(*) FROM paciente WHERE id_paciente=%s", (zp,)); chk('el paciente sigue existiendo', cu.fetchone()[0] == 1)
-    if PAC1:
-        api('delete', f'/api/v1/pacientes/{PAC1[0]}', 409, nombre='paciente real protegido (es cliente)', exacto='No se puede eliminar, el paciente está registrado como cliente.')
-        cu.execute("SELECT count(*) FROM paciente WHERE id_paciente=%s", (PAC1[0],)); chk('paciente real intacto', cu.fetchone()[0] == 1)
 
     # ---------- auditoría ----------
     cu.execute("SELECT id_registro, accion, id_usuario, ip, detalle FROM auditoria_cambios WHERE entidad='cliente' AND id_registro = ANY(%s) ORDER BY id_auditoria_cambio", (list(clientes),))
@@ -201,9 +187,9 @@ try:
     # ---------- permisos ----------
     cu.execute("SELECT id_rol FROM roles WHERE nombre_rol <> 'Administrador' LIMIT 1"); rol = cu.fetchone()[0]
     def sin_permiso(a):
-        cu.execute("DELETE FROM permisos WHERE ventana='cliente' AND id_rol=%s AND accion=%s", (rol, a)); cx.commit()
+        cu.execute("DELETE FROM permisos WHERE id_menu = (SELECT id_menu FROM menu WHERE clave='cliente' AND activo = true) AND id_rol=%s AND accion=%s", (rol, a)); cx.commit()
     def con_permiso(a):
-        cu.execute("INSERT INTO permisos (id_rol, ventana, accion) VALUES (%s,'cliente',%s) ON CONFLICT DO NOTHING", (rol, a)); cx.commit()
+        cu.execute("INSERT INTO permisos (id_rol, id_menu, accion) SELECT %s, id_menu, %s FROM menu WHERE clave='cliente' AND activo = true ON CONFLICT DO NOTHING", (rol, a)); cx.commit()
     with c.session_transaction() as s:
         s['id_rol'] = rol; s['nombre_rol'] = 'NoAdmin'
     try:

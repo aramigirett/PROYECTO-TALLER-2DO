@@ -69,15 +69,15 @@ try:
 
     # rol sin 'anular' -> 403 (el decorador sigue funcionando)
     cu.execute("SELECT id_rol FROM roles WHERE nombre_rol <> 'Administrador' LIMIT 1"); rol = cu.fetchone()[0]
-    cu.execute("SELECT count(*) FROM permisos WHERE ventana='consultorio' AND id_rol=%s AND accion='anular'", (rol,)); tenia = cu.fetchone()[0]
-    cu.execute("DELETE FROM permisos WHERE ventana='consultorio' AND id_rol=%s AND accion='anular'", (rol,)); cx.commit()
+    cu.execute("SELECT count(*) FROM permisos WHERE id_menu = (SELECT id_menu FROM menu WHERE clave='consultorio' AND activo = true) AND id_rol=%s AND accion='anular'", (rol,)); tenia = cu.fetchone()[0]
+    cu.execute("DELETE FROM permisos WHERE id_menu = (SELECT id_menu FROM menu WHERE clave='consultorio' AND activo = true) AND id_rol=%s AND accion='anular'", (rol,)); cx.commit()
     try:
         with c.session_transaction() as s:
             s['id_rol'] = rol; s['nombre_rol'] = 'NoAdmin'
         api('delete', f'{CO}/999999', 403, nombre='rol sin anular -> 403')
     finally:
         if tenia:
-            cu.execute("INSERT INTO permisos (id_rol, ventana, accion) VALUES (%s,'consultorio','anular') ON CONFLICT DO NOTHING", (rol,)); cx.commit()
+            cu.execute("INSERT INTO permisos (id_rol, id_menu, accion) SELECT %s, id_menu, 'anular' FROM menu WHERE clave='consultorio' AND activo = true ON CONFLICT DO NOTHING", (rol,)); cx.commit()
 
     # motivoEnUso para usos NO relacionados con cajas (sin tocar datos): texto distinto
     with app.app_context():

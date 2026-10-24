@@ -126,13 +126,16 @@ class SintomaDao:
             con.close()
 
     def estaEnUso(self, id_sintoma):
-        """Indica si el síntoma está referenciado en algún detalle de consulta."""
-        sql = "SELECT EXISTS(SELECT 1 FROM consultas_detalle WHERE id_sintoma = %s)"
+        """Indica si el síntoma está referenciado en algún detalle de consulta o en un diagnóstico."""
+        sql = """
+            SELECT EXISTS(SELECT 1 FROM consultas_detalle WHERE id_sintoma = %s)
+                OR EXISTS(SELECT 1 FROM diagnostico_sintoma WHERE id_sintoma = %s)
+        """
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(sql, (id_sintoma,))
+            cur.execute(sql, (id_sintoma, id_sintoma))
             return cur.fetchone()[0]
         except Exception as e:
             app.logger.error(f"Error al verificar uso del síntoma: {str(e)}")

@@ -192,11 +192,11 @@ try:
     chk('fn_siguiente_numero_remision: formato REM-0000000 (7 dígitos)', re.fullmatch(r'REM-\d{7}', cu.fetchone()[0]) is not None)
     cu.execute("SELECT id_menu FROM menu WHERE clave='remision' AND activo"); MENU = cu.fetchone()
     chk('menu: existe la entrada "remision"', MENU is not None)
-    cu.execute("SELECT array_agg(accion ORDER BY accion) FROM permisos p JOIN roles r USING(id_rol) WHERE r.nombre_rol='Cajero' AND ventana='remision'")
+    cu.execute("SELECT array_agg(accion ORDER BY accion) FROM permisos p JOIN roles r USING(id_rol) WHERE r.nombre_rol='Cajero' AND id_menu = (SELECT id_menu FROM menu WHERE clave='remision' AND activo = true)")
     chk('el Cajero tiene ver, nuevo y anular sobre remision', cu.fetchone()[0] == ['anular', 'nuevo', 'ver'])
     cu.execute("SELECT count(*) FROM permisos p JOIN roles r USING(id_rol) WHERE r.nombre_rol='Cajero'")
     chk('el Cajero conserva sus permisos (al menos las 27 filas con remision; smoke_permisos_cajero verifica el total)', cu.fetchone()[0] >= 27)
-    cu.execute("SELECT count(*) FROM permisos WHERE ventana='remision' AND id_menu = %s", (MENU[0],))
+    cu.execute("SELECT count(*) FROM permisos WHERE id_menu = (SELECT id_menu FROM menu WHERE clave='remision' AND activo = true) AND id_menu = %s", (MENU[0],))
     chk('permisos.id_menu de remision se completó solo (trigger)', cu.fetchone()[0] == 3)
 
     # v_pendientes_entrega antes de remitir

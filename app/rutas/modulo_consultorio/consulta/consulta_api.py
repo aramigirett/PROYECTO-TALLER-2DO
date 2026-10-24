@@ -8,6 +8,7 @@ Descripción: Endpoints REST para gestionar consultas médicas
 from flask import Blueprint, request, jsonify, current_app as app
 from app.dao.referenciales_consultorio.consulta.ConsultaDao  import ConsultaDao
 from app.rutas.modulo_seguridad.decorators import require_permiso, require_login
+from app.rutas.modulo_seguridad.permisos_contexto import id_funcionario_sesion
 
 # Crear Blueprint
 consultaapi = Blueprint('consultaapi', __name__)
@@ -123,7 +124,6 @@ def addConsulta():
     Body JSON:
     {
         "id_cita": 1,
-        "id_funcionario": 1,
         "duracion_minutos": 30,
         "estado": "programada"
     }
@@ -137,10 +137,17 @@ def addConsulta():
             'error': 'El campo id_cita es obligatorio: la consulta debe partir de una Cita Confirmada.'
         }), 400
 
+    # El funcionario sale SIEMPRE de la sesión (lo registra Recepción desde la cita); el body no lo define.
+    id_funcionario = id_funcionario_sesion()
+    if not id_funcionario:
+        return jsonify({'success': False, 'error': 'Solo un funcionario puede registrar consultas.'}), 403
+    data['id_funcionario'] = id_funcionario
+
     ERRORES = {
         'CITA_NO_ENCONTRADA': (404, 'No se encontró la cita seleccionada.'),
         'CITA_NO_CONFIRMADA': (409, 'La cita no está en estado Confirmado.'),
         'CITA_YA_TIENE_CONSULTA': (409, 'Esta cita ya tiene una consulta registrada.'),
+        'SIN_FUNCIONARIO': (403, 'Solo un funcionario puede registrar consultas.'),
         'ERROR_INTERNO': (500, 'Ocurrió un error interno. Consulte con el administrador.'),
     }
 

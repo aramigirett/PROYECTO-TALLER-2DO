@@ -8,6 +8,16 @@ Descripción: Manejo de diagnósticos médicos
 from flask import current_app as app
 from app.conexion.Conexion import Conexion
 
+# Síntomas del diagnóstico (tabla diagnostico_sintoma) como JSON: [{id_sintoma, descripcion_sintoma}, ...]
+SQL_SINTOMAS = """COALESCE((
+                SELECT json_agg(json_build_object('id_sintoma', s.id_sintoma,
+                                                  'descripcion_sintoma', s.descripcion_sintoma)
+                                ORDER BY s.descripcion_sintoma)
+                FROM diagnostico_sintoma ds
+                JOIN sintoma s ON s.id_sintoma = ds.id_sintoma
+                WHERE ds.id_diagnostico = d.id_diagnostico), '[]'::json)"""
+
+
 class DiagnosticoDao:
 
     def getDiagnosticos(self):
@@ -18,7 +28,7 @@ class DiagnosticoDao:
         SELECT 
             d.id_diagnostico,
             d.codigo,
-            d.id_consulta_detalle,
+            d.id_consulta_cab,
             d.id_paciente,
             CONCAT(p.nombre, ' ', p.apellido) as nombre_paciente,
             d.id_medico,
@@ -28,7 +38,7 @@ class DiagnosticoDao:
             d.descripcion_diagnostico,
             d.pieza_dental,
             d.fecha_diagnostico,
-            d.sintomas,
+            {SQL_SINTOMAS},
             d.observaciones,
             d.fecha_registro
         FROM diagnosticos d
@@ -37,7 +47,7 @@ class DiagnosticoDao:
         INNER JOIN tipo_diagnostico td ON d.id_tipo_diagnostico = td.id_tipo_diagnostico
         WHERE d.activo = true
         ORDER BY d.fecha_diagnostico DESC, d.fecha_registro DESC
-        """
+        """.format(SQL_SINTOMAS=SQL_SINTOMAS)
         
         conexion = Conexion()
         con = conexion.getConexion()
@@ -50,7 +60,7 @@ class DiagnosticoDao:
             return [{
                 'id_diagnostico': d[0],
                 'codigo': d[1],
-                'id_consulta_detalle': d[2],
+                'id_consulta_cab': d[2],
                 'id_paciente': d[3],
                 'nombre_paciente': d[4],
                 'id_medico': d[5],
@@ -60,7 +70,7 @@ class DiagnosticoDao:
                 'descripcion_diagnostico': d[9],
                 'pieza_dental': d[10],
                 'fecha_diagnostico': d[11].isoformat() if d[11] else None,
-                'sintomas': d[12],
+                'sintomas': d[12] or [],
                 'observaciones': d[13],
                 'fecha_registro': d[14].isoformat() if d[14] else None
             } for d in diagnosticos]
@@ -81,7 +91,7 @@ class DiagnosticoDao:
         SELECT 
             d.id_diagnostico,
             d.codigo,
-            d.id_consulta_detalle,
+            d.id_consulta_cab,
             d.id_paciente,
             CONCAT(p.nombre, ' ', p.apellido) as nombre_paciente,
             d.id_medico,
@@ -91,7 +101,7 @@ class DiagnosticoDao:
             d.descripcion_diagnostico,
             d.pieza_dental,
             d.fecha_diagnostico,
-            d.sintomas,
+            {SQL_SINTOMAS},
             d.observaciones,
             d.fecha_registro
         FROM diagnosticos d
@@ -99,7 +109,7 @@ class DiagnosticoDao:
         INNER JOIN medico m ON d.id_medico = m.id_medico
         INNER JOIN tipo_diagnostico td ON d.id_tipo_diagnostico = td.id_tipo_diagnostico
         WHERE d.id_diagnostico = %s AND d.activo = true
-        """
+        """.format(SQL_SINTOMAS=SQL_SINTOMAS)
         
         conexion = Conexion()
         con = conexion.getConexion()
@@ -113,7 +123,7 @@ class DiagnosticoDao:
                 return {
                     'id_diagnostico': d[0],
                     'codigo': d[1],
-                    'id_consulta_detalle': d[2],
+                    'id_consulta_cab': d[2],
                     'id_paciente': d[3],
                     'nombre_paciente': d[4],
                     'id_medico': d[5],
@@ -123,7 +133,7 @@ class DiagnosticoDao:
                     'descripcion_diagnostico': d[9],
                     'pieza_dental': d[10],
                     'fecha_diagnostico': d[11].isoformat() if d[11] else None,
-                    'sintomas': d[12],
+                    'sintomas': d[12] or [],
                     'observaciones': d[13],
                     'fecha_registro': d[14].isoformat() if d[14] else None
                 }
@@ -187,7 +197,7 @@ class DiagnosticoDao:
     def getDiagnosticosByConsulta(self, id_consulta_cab):
         """
         Obtiene los diagnósticos activos vinculados a una consulta específica
-        (vía consultas_detalle).
+        (diagnosticos.id_consulta_cab).
         """
         diagnosticoSQL = """
         SELECT
@@ -196,9 +206,8 @@ class DiagnosticoDao:
             d.descripcion_diagnostico,
             td.descripcion_diagnostico as tipo_diagnostico
         FROM diagnosticos d
-        JOIN consultas_detalle cd ON d.id_consulta_detalle = cd.id_consulta_detalle
         JOIN tipo_diagnostico td ON d.id_tipo_diagnostico = td.id_tipo_diagnostico
-        WHERE cd.id_consulta_cab = %s AND d.activo = true
+        WHERE d.id_consulta_cab = %s AND d.activo = true
         ORDER BY d.fecha_registro DESC
         """
         conexion = Conexion()
@@ -258,56 +267,88 @@ class DiagnosticoDao:
             cur.close()
             con.close()
 
-    def guardarDiagnostico(self, datos):
+    def guardarDiagnostico(self, datos, id_usuario=None):
         """
-        Inserta un nuevo diagnóstico
+        Inserta un nuevo diagnóstico de una Consulta, con sus síntomas
+        (diagnostico_sintoma), todo en una transacción.
+
+        Paciente y Médico se derivan de la consulta (el formulario no los
+        define). La consulta tiene que existir, estar activa y no finalizada.
+        datos['sintomas'] = lista de id_sintoma (selección múltiple, puede ir vacía).
+
+        Retorna un dict: {'id_diagnostico': N} o {'error': 'CONSULTA_NO_ENCONTRADA'
+        | 'CONSULTA_FINALIZADA' | 'SINTOMA_INVALIDO' | 'ERROR_INTERNO'}
         """
-        # Generar código automáticamente
-        codigo = self.generarCodigo()
-        
-        insertSQL = """
-        INSERT INTO diagnosticos(
-            codigo,
-            id_consulta_detalle,
-            id_paciente,
-            id_medico,
-            id_tipo_diagnostico,
-            descripcion_diagnostico,
-            pieza_dental,
-            fecha_diagnostico,
-            sintomas,
-            observaciones
-        ) VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        RETURNING id_diagnostico
-        """
-        
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
-        
+
         try:
-            cur.execute(insertSQL, (
+            cur.execute("""
+                SELECT id_paciente, id_medico, estado
+                FROM consultas_cab
+                WHERE id_consulta_cab = %s AND activo = true
+                FOR SHARE
+            """, (datos['id_consulta_cab'],))
+            consulta = cur.fetchone()
+            if not consulta:
+                con.rollback()
+                return {'error': 'CONSULTA_NO_ENCONTRADA'}
+            id_paciente, id_medico, estado_consulta = consulta
+            if estado_consulta == 'finalizada':
+                con.rollback()
+                return {'error': 'CONSULTA_FINALIZADA'}
+
+            ids_sintomas = sorted(set(datos.get('sintomas') or []))
+            if ids_sintomas:
+                cur.execute("SELECT count(*) FROM sintoma WHERE id_sintoma = ANY(%s)", (ids_sintomas,))
+                if cur.fetchone()[0] != len(ids_sintomas):
+                    con.rollback()
+                    return {'error': 'SINTOMA_INVALIDO'}
+
+            # el código se calcula en la misma transacción que el INSERT (bloqueo asesor: sin duplicados)
+            cur.execute("SELECT pg_advisory_xact_lock(hashtext('diagnosticos_codigo'))")
+            cur.execute(r"""
+                SELECT COALESCE(MAX(CAST(SUBSTRING(codigo FROM 'DX-(\d+)') AS INTEGER)), 0) + 1
+                FROM diagnosticos WHERE codigo LIKE 'DX-%'
+            """)
+            codigo = f"DX-{str(cur.fetchone()[0]).zfill(4)}"
+
+            cur.execute("""
+                INSERT INTO diagnosticos(
+                    codigo, id_consulta_cab, id_paciente, id_medico, id_tipo_diagnostico,
+                    descripcion_diagnostico, pieza_dental, fecha_diagnostico, observaciones,
+                    id_usuario_registro
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id_diagnostico
+            """, (
                 codigo,
-                datos.get('id_consulta_detalle'),
-                datos['id_paciente'],
-                datos['id_medico'],
+                datos['id_consulta_cab'],
+                id_paciente,
+                id_medico,
                 datos['id_tipo_diagnostico'],
                 datos['descripcion_diagnostico'],
                 datos.get('pieza_dental'),
                 datos['fecha_diagnostico'],
-                datos.get('sintomas'),
-                datos.get('observaciones')
+                datos.get('observaciones'),
+                id_usuario
             ))
-            
             diagnostico_id = cur.fetchone()[0]
+
+            for id_sintoma in ids_sintomas:
+                cur.execute(
+                    "INSERT INTO diagnostico_sintoma (id_diagnostico, id_sintoma) VALUES (%s, %s)",
+                    (diagnostico_id, id_sintoma)
+                )
+
             con.commit()
-            return diagnostico_id
-            
+            return {'id_diagnostico': diagnostico_id, 'codigo': codigo}
+
         except Exception as e:
             app.logger.error(f"Error al guardar diagnóstico: {str(e)}")
             con.rollback()
-            return None
-            
+            return {'error': 'ERROR_INTERNO'}
+
         finally:
             cur.close()
             con.close()
@@ -334,8 +375,7 @@ class DiagnosticoDao:
                     EXISTS(SELECT 1 FROM tratamientos WHERE id_diagnostico = %s) AS tiene_tratamiento,
                     EXISTS(
                         SELECT 1 FROM diagnosticos d
-                        JOIN consultas_detalle cd ON d.id_consulta_detalle = cd.id_consulta_detalle
-                        JOIN consultas_cab cc ON cd.id_consulta_cab = cc.id_consulta_cab
+                        JOIN consultas_cab cc ON d.id_consulta_cab = cc.id_consulta_cab
                         WHERE d.id_diagnostico = %s AND cc.estado = 'finalizada'
                     ) AS consulta_finalizada
             """, (id_diagnostico, id_diagnostico))

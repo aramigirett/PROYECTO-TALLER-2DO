@@ -220,7 +220,7 @@ Gestión de Consultas Médicas
         <!-- SECCIÓN: ASIGNACIÓN (lo único que se elige a mano) -->
         <div class="section-medical mb-4">
           <div class="section-header-medical">
-            <i class="fas fa-user-tie"></i> Funcionario que Atiende (Opcional)
+            <i class="fas fa-user-tie"></i> Funcionario que Registra
           </div>
           <div class="section-body-medical">
             <div class="row">
@@ -228,10 +228,10 @@ Gestión de Consultas Médicas
                 <input type="hidden" id="id_funcionario">
                 <div class="input-group input-group-medical">
                   <input type="text" id="txtFuncionario" class="form-control form-control-medical"
-                         placeholder="Click para seleccionar" readonly>
+                         placeholder="Se registra con su usuario (solo un funcionario puede registrar consultas)" readonly>
                   <div class="input-group-append">
                     <span class="input-group-text input-group-text-medical">
-                      <i class="fas fa-search"></i>
+                      <i class="fas fa-user-tie"></i>
                     </span>
                   </div>
                 </div>
@@ -370,6 +370,17 @@ Gestión de Consultas Médicas
                         </div>
                         <div class="action-card-title">Diagnósticos</div>
                         <div class="action-card-desc">Gestionar diagnósticos detallados</div>
+                      </div>
+                    </div>{% endif %}
+
+                    <!-- Card Odontograma -->
+                    {% if puede('odontograma','ver') %}<div class="col-md-3 mb-3">
+                      <div class="action-card-medical action-card-info" id="btnGestionarOdontograma">
+                        <div class="action-card-icon">
+                          <i class="fas fa-tooth"></i>
+                        </div>
+                        <div class="action-card-title">Odontograma</div>
+                        <div class="action-card-desc">Registrar el odontograma de esta consulta</div>
                       </div>
                     </div>{% endif %}
 
@@ -1763,12 +1774,7 @@ $('#txtCita').click(() => {
     $('#modalBuscarCita').modal('show');
   }
 });
-$('#txtFuncionario').click(() => {
-  // El funcionario solo se asigna al crear la consulta, no se puede reasignar al editar
-  if (!$('#txtIdConsulta').val()) {
-    $('#modalBuscarFuncionario').modal('show');
-  }
-});
+// El funcionario (consultas_cab.id_funcionario) lo define el servidor con el usuario de la sesión: no se elige.
 $('#txtSintoma').click(() => $('#modalBuscarSintoma').modal('show'));
 
 // ============================================
@@ -1817,7 +1823,6 @@ $('#btnGuardar').on('click', function() {
       }
     : {
         id_cita: $('#id_cita').val() ? parseInt($('#id_cita').val()) : null,
-        id_funcionario: $('#id_funcionario').val() ? parseInt($('#id_funcionario').val()) : null,
         duracion_minutos: $('#duracion_minutos').val() ? parseInt($('#duracion_minutos').val()) : null,
         estado: $('#estado').val()
       };
@@ -2399,6 +2404,17 @@ $('#btnAnularFichaMedica').on('click', function() {
       });
     }
   });
+});
+
+// ============================================
+// BOTÓN: GESTIONAR ODONTOGRAMA (uno por consulta)
+// ============================================
+$('#btnGestionarOdontograma').on('click', function() {
+  if (!consultaActualId) {
+    Swal.fire('Error', 'No se ha seleccionado una consulta', 'error');
+    return;
+  }
+  window.location.href = `/referenciales/odontograma/odontograma-index?consulta=${consultaActualId}`;
 });
 
 // ============================================

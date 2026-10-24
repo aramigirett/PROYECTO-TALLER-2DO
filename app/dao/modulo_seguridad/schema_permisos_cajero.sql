@@ -34,11 +34,15 @@ quitar AS (
     DELETE FROM permisos p
     USING cajero c
     WHERE p.id_rol = c.id_rol
-      AND NOT EXISTS (SELECT 1 FROM deseado d WHERE d.ventana = p.ventana AND d.accion = p.accion)
+      AND NOT EXISTS (
+          SELECT 1 FROM deseado d
+          JOIN menu m ON m.clave = d.ventana
+          WHERE m.id_menu = p.id_menu AND d.accion = p.accion)
     RETURNING p.id_rol
 )
-INSERT INTO permisos (id_rol, ventana, accion)
-SELECT c.id_rol, d.ventana, d.accion
+INSERT INTO permisos (id_rol, id_menu, accion)
+SELECT c.id_rol, m.id_menu, d.accion
 FROM cajero c
 CROSS JOIN deseado d
-ON CONFLICT (id_rol, ventana, accion) DO NOTHING;
+JOIN menu m ON m.clave = d.ventana AND m.activo = true
+ON CONFLICT (id_rol, id_menu, accion) DO NOTHING;

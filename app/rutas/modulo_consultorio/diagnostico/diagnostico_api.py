@@ -5,7 +5,7 @@ Descripción: Endpoints REST para diagnósticos médicos
 =====================================================
 """
 
-from flask import Blueprint, request, jsonify, current_app as app
+from flask import Blueprint, request, jsonify, session, current_app as app
 from app.dao.referenciales_consultorio.diagnostico.DiagnosticoDao import DiagnosticoDao
 from app.rutas.modulo_seguridad.decorators import require_permiso, require_login
 
@@ -149,48 +149,60 @@ def addDiagnosticoMedico():
     
     Body JSON:
     {
-        "id_consulta_detalle": 1,
-        "id_paciente": 5,
-        "id_medico": 3,
+        "id_consulta_cab": 1,
         "id_tipo_diagnostico": 2,
         "descripcion_diagnostico": "Caries dental profunda",
         "pieza_dental": "18",
         "fecha_diagnostico": "2025-10-22",
-        "sintomas": "Dolor intenso al masticar",
+        "sintomas": [1, 4],
         "observaciones": "Requiere tratamiento urgente"
     }
+    Paciente y médico se derivan de la consulta (no se toman del body).
+    `sintomas` es la lista de id_sintoma elegidos del referencial Síntomas.
     """
-    data = request.get_json()
+    data = request.get_json(silent=True) or {}
     diagnosticoDao = DiagnosticoDao()
 
     # ========== VALIDACIONES ==========
-    campos_requeridos = ['id_paciente', 'id_medico', 'id_tipo_diagnostico', 'descripcion_diagnostico', 'fecha_diagnostico']
+    campos_requeridos = ['id_consulta_cab', 'id_tipo_diagnostico', 'descripcion_diagnostico', 'fecha_diagnostico']
 
     for campo in campos_requeridos:
-        if campo not in data or data[campo] is None:
+        if data.get(campo) in (None, ''):
             return jsonify({
                 'success': False,
                 'error': f'El campo {campo} es obligatorio y no puede estar vacío.'
             }), 400
 
+    sintomas = data.get('sintomas') or []
+    if not isinstance(sintomas, list) or any(isinstance(s, bool) or not isinstance(s, int) for s in sintomas):
+        return jsonify({
+            'success': False,
+            'error': 'Los síntomas deben enviarse como una lista de IDs.'
+        }), 400
+
+    ERRORES = {
+        'CONSULTA_NO_ENCONTRADA': (404, 'No se encontró la consulta seleccionada.'),
+        'CONSULTA_FINALIZADA': (409, 'No se puede registrar: la consulta ya está finalizada.'),
+        'SINTOMA_INVALIDO': (400, 'Alguno de los síntomas seleccionados no existe.'),
+        'ERROR_INTERNO': (500, 'No se pudo guardar el diagnóstico. Consulte con el administrador.'),
+    }
+
     try:
-        # Guardar diagnóstico
-        diagnostico_id = diagnosticoDao.guardarDiagnostico(data)
-        
-        if diagnostico_id is not None:
+        resultado = diagnosticoDao.guardarDiagnostico(data, session.get('id_usuario'))
+
+        if 'id_diagnostico' in resultado:
             return jsonify({
                 'success': True,
                 'data': {
-                    'id_diagnostico': diagnostico_id,
+                    'id_diagnostico': resultado['id_diagnostico'],
+                    'codigo': resultado['codigo'],
                     'mensaje': 'Diagnóstico registrado correctamente'
                 },
                 'error': None
             }), 201
-        else:
-            return jsonify({
-                'success': False,
-                'error': 'No se pudo guardar el diagnóstico. Consulte con el administrador.'
-            }), 500
+
+        codigo, mensaje = ERRORES.get(resultado.get('error'), ERRORES['ERROR_INTERNO'])
+        return jsonify({'success': False, 'error': mensaje}), codigo
 
     except Exception as e:
         app.logger.error(f"Error al agregar diagnóstico: {str(e)}")

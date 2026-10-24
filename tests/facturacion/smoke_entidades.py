@@ -145,10 +145,10 @@ with c.session_transaction() as s:
     s['id_rol'] = rr[0]; s['nombre_rol'] = 'NoAdmin'
 for u in ['/referenciales/entidad-emisora/entidad-emisora-index', '/referenciales/entidad-adherida/entidad-adherida-index']:
     chk(f'rol no-admin entra {u}', c.get(u).status_code == 200)
-cur.execute("DELETE FROM permisos WHERE ventana='entidademisora' AND id_rol=%s AND accion='anular'", (rr[0],))  # simular rol sin 'anular'
+cur.execute("DELETE FROM permisos WHERE id_menu = (SELECT id_menu FROM menu WHERE clave='entidademisora' AND activo = true) AND id_rol=%s AND accion='anular'", (rr[0],))  # simular rol sin 'anular'
 con.commit()
 api('delete', f'{EM}/{e2}', 403, nombre='rol sin anular -> 403')
-cur.execute("INSERT INTO permisos (id_rol, ventana, accion) VALUES (%s,'entidademisora','anular') ON CONFLICT DO NOTHING", (rr[0],))
+cur.execute("INSERT INTO permisos (id_rol, id_menu, accion) SELECT %s, id_menu, 'anular' FROM menu WHERE clave='entidademisora' AND activo = true ON CONFLICT DO NOTHING", (rr[0],))
 con.commit()
 
 # ---------- LIMPIEZA acotada a lo creado por este test ----------

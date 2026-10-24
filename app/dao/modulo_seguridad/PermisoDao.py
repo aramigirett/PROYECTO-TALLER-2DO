@@ -11,7 +11,12 @@ class PermisoDao:
         para cachear en flask.g (una sola consulta por request, ver
         permisos_contexto.py) como para poblar la matriz de Roles y Permisos.
         """
-        sql = "SELECT ventana, accion FROM permisos WHERE id_rol = %s"
+        sql = """
+            SELECT m.clave, p.accion
+            FROM permisos p
+            JOIN menu m ON m.id_menu = p.id_menu
+            WHERE p.id_rol = %s AND m.activo = true
+        """
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
@@ -27,15 +32,23 @@ class PermisoDao:
 
     def otorgar(self, id_rol, ventana, accion):
         sql = """
-            INSERT INTO permisos (id_rol, ventana, accion)
-            VALUES (%s, %s, %s)
-            ON CONFLICT (id_rol, ventana, accion) DO NOTHING
+            INSERT INTO permisos (id_rol, id_menu, accion)
+            SELECT %s, m.id_menu, %s
+            FROM menu m
+            WHERE m.clave = %s AND m.activo = true
+            ON CONFLICT (id_rol, id_menu, accion) DO NOTHING
         """
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(sql, (id_rol, ventana, accion))
+            cur.execute(sql, (id_rol, accion, ventana))
+            if cur.rowcount == 0:
+                cur.execute("SELECT 1 FROM permisos p JOIN menu m ON m.id_menu = p.id_menu WHERE p.id_rol = %s AND m.clave = %s AND p.accion = %s", (id_rol, ventana, accion))
+                if cur.fetchone() is None:
+                    con.rollback()
+                    app.logger.error(f"Error al otorgar permiso: no hay una entrada de menu activa con clave {ventana}")
+                    return False
             con.commit()
             return True
         except Exception as e:
@@ -47,12 +60,16 @@ class PermisoDao:
             con.close()
 
     def revocar(self, id_rol, ventana, accion):
-        sql = "DELETE FROM permisos WHERE id_rol = %s AND ventana = %s AND accion = %s"
+        sql = """
+            DELETE FROM permisos
+            WHERE id_rol = %s AND accion = %s
+              AND id_menu = (SELECT id_menu FROM menu WHERE clave = %s AND activo = true)
+        """
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(sql, (id_rol, ventana, accion))
+            cur.execute(sql, (id_rol, accion, ventana))
             con.commit()
             return True
         except Exception as e:

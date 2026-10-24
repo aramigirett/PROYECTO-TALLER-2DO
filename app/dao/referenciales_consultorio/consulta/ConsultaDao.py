@@ -197,9 +197,13 @@ class ConsultaDao:
 
         Retorna un dict:
           {'id_consulta_cab': N}  en éxito
-          {'error': 'CITA_NO_ENCONTRADA' | 'CITA_NO_CONFIRMADA' | 'CITA_YA_TIENE_CONSULTA' | 'ERROR_INTERNO'}
+          {'error': 'SIN_FUNCIONARIO' | 'CITA_NO_ENCONTRADA' | 'CITA_NO_CONFIRMADA' | 'CITA_YA_TIENE_CONSULTA' | 'ERROR_INTERNO'}
         """
         id_cita = datos.get('id_cita')
+
+        # consultas_cab.id_funcionario es obligatorio: lo registra Recepción (un funcionario) desde la cita
+        if not datos.get('id_funcionario'):
+            return {'error': 'SIN_FUNCIONARIO'}
 
         conexion = Conexion()
         con = conexion.getConexion()
@@ -324,8 +328,7 @@ class ConsultaDao:
                     EXISTS(SELECT 1 FROM ficha_medica_consulta WHERE id_consulta_cab = %s AND activo = true) AS tiene_ficha,
                     EXISTS(
                         SELECT 1 FROM diagnosticos d
-                        JOIN consultas_detalle cd ON d.id_consulta_detalle = cd.id_consulta_detalle
-                        WHERE cd.id_consulta_cab = %s AND d.activo = true
+                        WHERE d.id_consulta_cab = %s AND d.activo = true
                     ) AS tiene_diagnostico,
                     EXISTS(SELECT 1 FROM tratamientos WHERE id_consulta_cab = %s) AS tiene_tratamiento
             """, (id_consulta_cab, id_consulta_cab, id_consulta_cab))

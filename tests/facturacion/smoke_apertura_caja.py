@@ -103,9 +103,9 @@ try:
     cu.execute(sql); cx.commit(); cu.execute(sql); cx.commit()
     cu.execute("SELECT count(*) FROM pg_indexes WHERE tablename='apertura_cierre_caja'")
     chk('la migración es IDEMPOTENTE (re-ejecutada 2 veces: mismos índices, sin errores)', cu.fetchone()[0] == antes)
-    cu.execute("SELECT string_agg(accion, ',' ORDER BY accion) FROM permisos p JOIN roles r USING(id_rol) WHERE ventana='aperturacaja' AND r.nombre_rol='Cajero'")
+    cu.execute("SELECT string_agg(accion, ',' ORDER BY accion) FROM permisos p JOIN roles r USING(id_rol) WHERE id_menu = (SELECT id_menu FROM menu WHERE clave='aperturacaja' AND activo = true) AND r.nombre_rol='Cajero'")
     chk('permisos: el Cajero tiene ver, nuevo, anular y estado', cu.fetchone()[0] == 'anular,estado,nuevo,ver')
-    cu.execute("SELECT count(*) FROM permisos p JOIN roles r USING(id_rol) WHERE ventana='aperturacaja' AND r.nombre_rol='Medico'")
+    cu.execute("SELECT count(*) FROM permisos p JOIN roles r USING(id_rol) WHERE id_menu = (SELECT id_menu FROM menu WHERE clave='aperturacaja' AND activo = true) AND r.nombre_rol='Medico'")
     chk('permisos: el Médico no recibe nada por el seed', cu.fetchone()[0] == 0)
     ent = [e for e in CATALOGO_MENU if e['ventana'] == 'aperturacaja']
     chk('catálogo: "Apertura y Cierre de Caja" en el Módulo Facturación (no en Referenciales) con ver/nuevo/anular/estado',
@@ -133,7 +133,7 @@ try:
 
     # a Recepción se le dan permisos SOLO durante el test (para tener un segundo cajero con acceso)
     for acc in ('ver', 'nuevo', 'anular', 'estado'):
-        cu.execute("INSERT INTO permisos (id_rol, ventana, accion) VALUES (%s,'aperturacaja',%s) ON CONFLICT DO NOTHING RETURNING accion", (OTRO[1], acc))
+        cu.execute("INSERT INTO permisos (id_rol, id_menu, accion) SELECT %s, id_menu, %s FROM menu WHERE clave='aperturacaja' AND activo = true ON CONFLICT DO NOTHING RETURNING accion", (OTRO[1], acc))
         if cu.fetchone():
             permisos_agregados.append(acc)
     cx.commit()
@@ -289,11 +289,11 @@ try:
     chk('los intentos rechazados NO se auditan (solo hechos consumados)', cu.fetchone()[0] == 2 * len(aperturas))   # cada apertura finalizada: ALTA + (BAJA o CIERRE)
 
     # ---------- PERMISOS POR ACCIÓN (Cajero) ----------
-    cu.execute("SELECT accion FROM permisos WHERE ventana='aperturacaja' AND id_rol=%s", (CAJERO[1],)); tenia = [r[0] for r in cu.fetchall()]
+    cu.execute("SELECT accion FROM permisos WHERE id_menu = (SELECT id_menu FROM menu WHERE clave='aperturacaja' AND activo = true) AND id_rol=%s", (CAJERO[1],)); tenia = [r[0] for r in cu.fetchall()]
     def sin_permiso(acc):
-        cu.execute("DELETE FROM permisos WHERE ventana='aperturacaja' AND id_rol=%s AND accion=%s", (CAJERO[1], acc)); cx.commit()
+        cu.execute("DELETE FROM permisos WHERE id_menu = (SELECT id_menu FROM menu WHERE clave='aperturacaja' AND activo = true) AND id_rol=%s AND accion=%s", (CAJERO[1], acc)); cx.commit()
     def con_permiso(acc):
-        cu.execute("INSERT INTO permisos (id_rol, ventana, accion) VALUES (%s,'aperturacaja',%s) ON CONFLICT DO NOTHING", (CAJERO[1], acc)); cx.commit()
+        cu.execute("INSERT INTO permisos (id_rol, id_menu, accion) SELECT %s, id_menu, %s FROM menu WHERE clave='aperturacaja' AND activo = true ON CONFLICT DO NOTHING", (CAJERO[1], acc)); cx.commit()
     try:
         como(ADMIN)
         k = abrir(OTRO, 'A', 0, 409, nombre='(control) la caja A ya no está activa', exacto=MSG_CAJA_INVALIDA) if False else None
@@ -328,6 +328,6 @@ finally:
         borrar_auditoria(cu, 'caja', list(cajas.values()))
         cu.execute("DELETE FROM caja WHERE id_caja = ANY(%s)", (list(cajas.values()),))
     for acc in permisos_agregados:
-        cu.execute("DELETE FROM permisos WHERE ventana='aperturacaja' AND id_rol=%s AND accion=%s", (OTRO[1], acc))
+        cu.execute("DELETE FROM permisos WHERE id_menu = (SELECT id_menu FROM menu WHERE clave='aperturacaja' AND activo = true) AND id_rol=%s AND accion=%s", (OTRO[1], acc))
     cx.commit(); cu.close(); cx.close()
 print('FALLOS:', fallos or 'ninguno')

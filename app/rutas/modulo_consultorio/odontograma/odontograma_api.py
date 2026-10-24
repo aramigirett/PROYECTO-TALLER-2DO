@@ -1,23 +1,11 @@
 from flask import Blueprint, request, jsonify, current_app as app
 from app.dao.referenciales_agendamiento.odontograma.OdontogramaDao import OdontogramaDao
 from datetime import date
+from app.conexion.Conexion import Conexion
 from app.rutas.modulo_seguridad.decorators import require_permiso, require_login
 
 # Crear Blueprint para la API de Odontogramas
 odontogramaapi = Blueprint('odontogramaapi', __name__)
-
-# ========================================
-# HELPERS
-# ========================================
-
-def obtener_id_funcionario_actual():
-    """
-    Obtiene el ID del funcionario logueado desde la sesión
-    TODO: Implementar según tu sistema de autenticación
-    Por ahora retorna 1 como valor por defecto
-    """
-    # Ejemplo: return session.get('id_funcionario', 3)
-    return 3  # Cambiar por tu lógica de sesión
 
 # ========================================
 # API - ESTADOS DENTALES
@@ -137,8 +125,7 @@ def addOdontograma():
     Crea un nuevo odontograma
     Endpoint: POST /api/v1/odontogramas
     Body: {
-        "id_paciente": int,
-        "id_medico": int,
+        "id_consulta_cab": int,
         "fecha_registro": "YYYY-MM-DD" (opcional),
         "observaciones": string (opcional),
         "estado": "Activo" (opcional),
@@ -157,46 +144,36 @@ def addOdontograma():
     
     odontograma_dao = OdontogramaDao()
     
-    # Validar campos obligatorios
-    if 'id_paciente' not in data or data['id_paciente'] in (None, "", "null"):
+    # Validar campos obligatorios: el odontograma cuelga de una Consulta (paciente y
+    # médico se derivan de ella; lo que mande el navegador para eso se ignora)
+    data = data or {}
+    try:
+        id_consulta_cab = int(data.get('id_consulta_cab'))
+    except (TypeError, ValueError):
         return jsonify({
             'success': False,
-            'error': 'El campo id_paciente es obligatorio.'
+            'error': 'El campo id_consulta_cab es obligatorio: el odontograma se registra desde una Consulta.'
         }), 400
-    
-    if 'id_medico' not in data or data['id_medico'] in (None, "", "null"):
-        return jsonify({
-            'success': False,
-            'error': 'El campo id_medico es obligatorio.'
-        }), 400
+
+    ERRORES = {
+        'CONSULTA_NO_ENCONTRADA': (404, 'No se encontró la consulta seleccionada.'),
+        'CONSULTA_FINALIZADA': (409, 'No se puede registrar: la consulta ya está finalizada.'),
+        'YA_EXISTE': (409, 'Esta consulta ya tiene un odontograma. Puede editarlo o anularlo antes de crear uno nuevo.'),
+        'ERROR_INTERNO': (500, 'No se pudo crear el odontograma.'),
+    }
 
     try:
-        # Verificar si ya existe un odontograma activo para este paciente (OPCIONAL)
-        # Si quieres permitir múltiples odontogramas activos, comenta estas líneas
-        if odontograma_dao.existeOdontogramaPaciente(data['id_paciente']):
-            return jsonify({
-                'success': False,
-                'error': 'El paciente ya tiene un odontograma activo. Puede editarlo o inactivarlo antes de crear uno nuevo.'
-            }), 409
-
-        # Obtener ID del funcionario logueado
-        id_funcionario = obtener_id_funcionario_actual()
-
-        # Crear odontograma (cabecera)
-        id_odontograma = odontograma_dao.guardarOdontograma(
-            id_paciente=data['id_paciente'],
-            id_medico=data['id_medico'],
-            id_funcionario=id_funcionario,
-            fecha_registro=data.get('fecha_registro', str(date.today())),
+        resultado = odontograma_dao.guardarOdontograma(
+            id_consulta_cab=id_consulta_cab,
+            fecha_registro=data.get('fecha_registro') or str(date.today()),
             observaciones=data.get('observaciones', ''),
             estado=data.get('estado', 'Activo')
         )
-        
-        if not id_odontograma:
-            return jsonify({
-                'success': False,
-                'error': 'No se pudo crear el odontograma.'
-            }), 500
+
+        if 'id_odontograma' not in resultado:
+            codigo, mensaje = ERRORES.get(resultado.get('error'), ERRORES['ERROR_INTERNO'])
+            return jsonify({'success': False, 'error': mensaje}), codigo
+        id_odontograma = resultado['id_odontograma']
 
         # Guardar detalles si vienen en la petición
         detalles_insertados = []
@@ -210,8 +187,7 @@ def addOdontograma():
             'success': True,
             'data': {
                 'id_odontograma': id_odontograma,
-                'id_paciente': data['id_paciente'],
-                'id_medico': data['id_medico'],
+                'id_consulta_cab': id_consulta_cab,
                 'fecha_registro': data.get('fecha_registro', str(date.today())),
                 'observaciones': data.get('observaciones', ''),
                 'estado': data.get('estado', 'Activo'),
@@ -528,16 +504,16 @@ def deleteDetalle(id_detalle):
 # API - UTILIDADES
 # ========================================
 
-@odontogramaapi.route('/odontogramas/validar-paciente/<int:id_paciente>', methods=['GET'])
+@odontogramaapi.route('/odontogramas/validar-consulta/<int:id_consulta_cab>', methods=['GET'])
 @require_permiso('odontograma', 'ver')
-def validarPaciente(id_paciente):
+def validarConsulta(id_consulta_cab):
     """
-    Verifica si un paciente ya tiene un odontograma activo
-    Endpoint: GET /api/v1/odontogramas/validar-paciente/{id_paciente}
+    Verifica si una consulta ya tiene un odontograma vigente (uno por consulta)
+    Endpoint: GET /api/v1/odontogramas/validar-consulta/{id_consulta_cab}
     """
     odontograma_dao = OdontogramaDao()
     try:
-        existe = odontograma_dao.existeOdontogramaPaciente(id_paciente)
+        existe = odontograma_dao.existeOdontogramaConsulta(id_consulta_cab)
         return jsonify({
             'success': True,
             'data': {
@@ -546,8 +522,39 @@ def validarPaciente(id_paciente):
             'error': None
         }), 200
     except Exception as e:
-        app.logger.error(f"Error al validar paciente: {str(e)}")
+        app.logger.error(f"Error al validar consulta: {str(e)}")
         return jsonify({
             'success': False,
             'error': 'Ocurrió un error al validar.'
         }), 500
+
+
+@odontogramaapi.route('/odontogramas/precarga/<int:id_consulta_cab>', methods=['GET'])
+@require_permiso('odontograma', 'nuevo')
+def getPrecarga(id_consulta_cab):
+    """
+    Estado del odontograma vigente del paciente de la consulta (el de su última
+    consulta anterior), para precargar el odontograma nuevo.
+    Endpoint: GET /api/v1/odontogramas/precarga/{id_consulta_cab}
+    data = {'detalles': [...], 'fecha_registro': ...} o {'detalles': []} si no hay previo.
+    """
+    odontograma_dao = OdontogramaDao()
+    try:
+        con = Conexion().getConexion()
+        cur = con.cursor()
+        try:
+            cur.execute("SELECT id_paciente FROM consultas_cab WHERE id_consulta_cab = %s AND activo = true",
+                        (id_consulta_cab,))
+            fila = cur.fetchone()
+        finally:
+            cur.close()
+            con.close()
+        if not fila:
+            return jsonify({'success': False, 'error': 'No se encontró la consulta seleccionada.'}), 404
+        previo = odontograma_dao.getOdontogramaVigentePaciente(fila[0], excluir_consulta=id_consulta_cab)
+        data = ({'detalles': previo['detalles'], 'fecha_registro': previo['fecha_registro']}
+                if previo else {'detalles': []})
+        return jsonify({'success': True, 'data': data, 'error': None}), 200
+    except Exception as e:
+        app.logger.error(f"Error al obtener la precarga del odontograma: {str(e)}")
+        return jsonify({'success': False, 'error': 'Ocurrió un error al consultar el odontograma previo.'}), 500
