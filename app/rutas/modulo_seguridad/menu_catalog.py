@@ -106,6 +106,7 @@ CATALOGO_MENU = [
     {"etiqueta": "Registrar Ventas", "endpoint": "venta.ventaIndex", "icono": "fa-file-invoice-dollar", "modulo": "Módulo Facturación", "ventana": "venta", "acciones": ["ver", "nuevo", "anular"]},
     {"etiqueta": "Registrar Cobranzas", "endpoint": "cobro.cobroIndex", "icono": "fa-hand-holding-usd", "modulo": "Módulo Facturación", "ventana": "cobro", "acciones": ["ver", "nuevo", "anular"]},
     {"etiqueta": "Registrar Nota de Remisión", "endpoint": "remision.remisionIndex", "icono": "fa-truck", "modulo": "Módulo Facturación", "ventana": "remision", "acciones": ["ver", "nuevo", "anular"]},
+    {"etiqueta": "Notas de Crédito y Débito", "endpoint": "notacd.notaIndex", "icono": "fa-file-invoice", "modulo": "Módulo Facturación", "ventana": "notacd", "acciones": ["ver", "nuevo", "anular"]},
 
     # Módulo Seguridad
     {"etiqueta": "Gestión de Usuarios", "endpoint": "usuario.usuarioIndex", "icono": "fa-users-cog", "modulo": "Módulo Seguridad", "ventana": "usuario", "acciones": ["ver", "nuevo", "editar", "anular", "desbloquear"]},

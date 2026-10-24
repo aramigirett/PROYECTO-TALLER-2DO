@@ -1,0 +1,583 @@
+{% extends 'base_tabler.html' %}
+
+{% block titulo %}Notas de Crédito y Débito{% endblock %}
+
+{% block css %}
+<link href="{{ url_for('static', filename='css/facturacion.css') }}" rel="stylesheet">
+{% endblock %}
+
+{% block contenido %}
+{# ══════════════════ LISTADO DE NOTAS ══════════════════ #}
+<div id="seccionListado">
+  <div class="page-header d-print-none mb-3">
+    <div class="row align-items-center">
+      <div class="col">
+        <div class="page-pretitle text-muted">Facturación &bull; Ventas</div>
+        <h2 class="page-title fw-bold" style="color: var(--fc-text-main, #0f172a);">Notas de Crédito y Débito</h2>
+      </div>
+      {% if puede('notacd', 'nuevo') %}
+      <div class="col-auto">
+        <button type="button" class="btn btn-primary px-3 rounded-pill" id="btnNuevo"><i class="fas fa-plus me-2"></i>Nueva Nota</button>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card border shadow-sm rounded-3">
+    <div class="card-header bg-white py-3 border-bottom">
+      <div class="row g-2 align-items-end w-100">
+        <div class="col-6 col-md-2">
+          <label class="form-label small fw-semibold text-muted mb-1" for="filtroTipo">Tipo</label>
+          <select class="form-select form-select-sm" id="filtroTipo">
+            <option value="">Todas</option><option value="CREDITO">Crédito</option><option value="DEBITO">Débito</option>
+          </select>
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label small fw-semibold text-muted mb-1" for="filtroEstado">Estado</label>
+          <select class="form-select form-select-sm" id="filtroEstado">
+            <option value="">Todas</option><option value="EMITIDA">Emitida</option><option value="ANULADA">Anulada</option>
+          </select>
+        </div>
+        <div class="col-12 col-md-3">
+          <label class="form-label small fw-semibold text-muted mb-1" for="filtroCliente">Cliente, N.º de factura o de nota</label>
+          <input type="text" class="form-control form-control-sm" id="filtroCliente" maxlength="80" placeholder="Nombre, CI/RUC o N.º" autocomplete="off">
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label small fw-semibold text-muted mb-1" for="filtroDesde">Desde</label>
+          <input type="date" class="form-control form-control-sm" id="filtroDesde">
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label small fw-semibold text-muted mb-1" for="filtroHasta">Hasta</label>
+          <input type="date" class="form-control form-control-sm" id="filtroHasta">
+        </div>
+        <div class="col-12 col-md-1">
+          <button type="button" class="btn btn-sm btn-outline-secondary w-100" id="btnLimpiarFiltros" title="Limpiar filtros"><i class="fas fa-eraser"></i></button>
+        </div>
+      </div>
+      <div class="text-danger small mt-2 w-100" id="errFiltros" style="display: none;"></div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-vcenter table-hover card-table mb-0">
+        <thead class="bg-light text-muted small text-uppercase">
+          <tr>
+            <th class="ps-3 py-3">N.º nota</th><th class="py-3">Tipo</th><th class="py-3">Fecha</th><th class="py-3">Cliente</th><th class="py-3">Factura</th>
+            <th class="py-3 text-end">Total</th><th class="py-3 text-end">Reintegro</th>
+            <th class="py-3 text-center" style="width: 110px;">Estado</th><th class="pe-3 py-3 text-end w-1">Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="tbodyNotas">
+          <tr><td colspan="9" class="text-center text-muted py-4"><div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>Cargando notas…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{# ══════════════════ NUEVA NOTA ══════════════════ #}
+<div id="seccionNuevo" style="display: none;">
+  <div class="page-header d-print-none mb-3">
+    <div class="row align-items-center">
+      <div class="col">
+        <div class="page-pretitle text-muted">Notas de Crédito y Débito</div>
+        <h2 class="page-title fw-bold" style="color: var(--fc-text-main, #0f172a);">Nueva Nota</h2>
+      </div>
+      <div class="col-auto"><button type="button" class="btn btn-outline-secondary" id="btnVolverListado"><i class="fas fa-arrow-left me-2"></i>Volver al listado</button></div>
+    </div>
+  </div>
+
+  <div class="card fc-hero-card mb-3" id="tarjetaCaja"><div class="card-body p-3" id="cuerpoCaja"></div></div>
+
+  <form id="formNota" novalidate>
+    <div class="card border shadow-sm rounded-3 mb-3">
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-12 col-md-4">
+            <label class="form-label required fw-semibold d-block">Tipo de nota</label>
+            <div class="btn-group w-100" role="group">
+              <input type="radio" class="btn-check" name="tipoNota" id="tipoCredito" value="CREDITO" checked>
+              <label class="btn btn-outline-primary" for="tipoCredito">Crédito</label>
+              <input type="radio" class="btn-check" name="tipoNota" id="tipoDebito" value="DEBITO">
+              <label class="btn btn-outline-primary" for="tipoDebito">Débito</label>
+            </div>
+          </div>
+          <div class="col-12 col-md-8 position-relative">
+            <label class="form-label required fw-semibold" for="txtFactura">Factura</label>
+            <input type="text" class="form-control" id="txtFactura" placeholder="Buscar por N.º de factura o cliente (nombre o CI/RUC)…" autocomplete="off">
+            <div class="invalid-feedback"></div>
+            <div class="list-group fc-autocomplete-list position-absolute shadow" id="resFactura" style="z-index: 1050; display: none; left: 0.75rem; right: 0.75rem;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="bloqueFactura" style="display: none;">
+      <div class="card border shadow-sm rounded-3 mb-3">
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-12 col-md-4"><div class="text-muted small text-uppercase fw-semibold">Cliente</div>
+              <div class="fw-bold text-dark" id="lblCliente"></div><div class="text-muted small font-monospace" id="lblCiRuc"></div></div>
+            <div class="col-6 col-md-2"><div class="text-muted small text-uppercase fw-semibold">Factura</div><div class="fw-bold font-monospace text-primary" id="lblFactura"></div><div class="text-muted small" id="lblFecha"></div></div>
+            <div class="col-6 col-md-2"><div class="text-muted small text-uppercase fw-semibold">Total factura</div><div class="font-monospace" id="lblTotal"></div></div>
+            <div class="col-6 col-md-2"><div class="text-muted small text-uppercase fw-semibold">Saldo</div><div class="font-monospace fw-bold text-dark" id="lblSaldo"></div><div id="lblEstadoCuenta"></div></div>
+            <div class="col-6 col-md-2"><div class="text-muted small text-uppercase fw-semibold">Notas previas</div>
+              <div class="small">Créditos: <span class="font-monospace" id="lblCreditos"></span></div><div class="small">Débitos: <span class="font-monospace" id="lblDebitos"></span></div></div>
+          </div>
+          <div class="mt-3 pt-3 border-top" id="avisoMaximo"></div>
+        </div>
+      </div>
+
+      <div class="card border shadow-sm rounded-3 mb-3">
+        <div class="card-header bg-white"><h3 class="card-title mb-0">Motivo y renglones</h3></div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label required" for="txtMotivo">Motivo</label>
+              <input type="text" class="form-control" id="txtMotivo" maxlength="200" autocomplete="off" placeholder="Ej.: devolución de mercadería, descuento posterior, ajuste de precio…">
+              <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-12" id="bloqueDevolucion" style="display: none;">
+              <label class="form-check">
+                <input type="checkbox" class="form-check-input" id="chkDevolucion">
+                <span class="form-check-label fw-semibold">Devolución de mercadería <span class="text-muted fw-normal">(repone el stock de los ítems devueltos)</span></span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div id="panelLibre">
+          <div class="card-header bg-white border-top d-flex justify-content-between align-items-center">
+            <h4 class="card-title mb-0 fs-4">Renglones</h4>
+            <button type="button" class="btn btn-sm btn-outline-primary" id="btnAgregarRenglon"><i class="fas fa-plus me-1"></i>Agregar renglón</button>
+          </div>
+          <div class="card-body" id="gridLibre"></div>
+        </div>
+
+        <div id="panelDevolucion" style="display: none;">
+          <div class="table-responsive border-top">
+            <table class="table table-vcenter card-table mb-0">
+              <thead class="bg-light text-muted small text-uppercase">
+                <tr><th class="ps-3 py-2">Ítem</th><th class="py-2 text-end">Precio</th><th class="py-2 text-end">Facturado</th><th class="py-2 text-end">Ya devuelto</th>
+                    <th class="py-2 text-end">Pendiente</th><th class="pe-3 py-2 text-end" style="width: 140px;">A devolver</th></tr>
+              </thead>
+              <tbody id="tbodyDevolucion"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card-footer">
+          <div class="row g-3 justify-content-end">
+            <div class="col-12 col-md-6 col-lg-5">
+              <table class="table table-sm table-borderless mb-0">
+                <tr><td class="text-muted">Exentas</td><td class="text-end font-monospace" id="resExentas">Gs. 0</td></tr>
+                <tr><td class="text-muted">Gravadas 5%</td><td class="text-end font-monospace" id="resG5">Gs. 0</td></tr>
+                <tr><td class="text-muted">Gravadas 10%</td><td class="text-end font-monospace" id="resG10">Gs. 0</td></tr>
+                <tr><td class="text-muted">IVA liquidado (5% + 10%)</td><td class="text-end font-monospace" id="resIva">Gs. 0</td></tr>
+                <tr class="border-top"><td class="fw-bold fs-3 text-dark">Total de la nota</td><td class="text-end font-monospace fw-bold fs-3 text-primary" id="resTotal">Gs. 0</td></tr>
+                <tr><td class="text-muted" id="lblEfecto">Efecto en el saldo</td><td class="text-end font-monospace fw-bold" id="resEfecto"></td></tr>
+                <tr id="filaReintegro" style="display: none;"><td class="text-muted">Reintegro en efectivo al cliente</td><td class="text-end font-monospace fw-bold text-danger" id="resReintegro"></td></tr>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="text-danger small mb-2" id="errNota" style="display: none;"></div>
+    <div class="d-flex justify-content-end gap-2">
+      <button type="button" class="btn btn-link link-secondary" id="btnCancelarNuevo">Cancelar</button>
+      <button type="submit" class="btn btn-primary" id="btnGuardar" disabled><i class="fas fa-file-invoice me-2"></i>Registrar Nota</button>
+    </div>
+  </form>
+</div>
+
+{# ══════════════════ MODAL: VER ══════════════════ #}
+<div class="modal modal-blur fade" id="modalVer" tabindex="-1" aria-labelledby="modalVerTitulo" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header border-bottom"><h5 class="modal-title fw-bold" id="modalVerTitulo">Nota</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+      <div class="modal-body p-4" id="cuerpoVer"></div>
+      <div class="modal-footer border-top bg-light py-2">
+        <a class="btn btn-outline-primary" id="btnVerPdf" target="_blank" rel="noopener"><i class="fas fa-file-pdf me-2"></i>PDF</a>
+        <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script src="{{ url_for('static', filename='js/facturacion-listado.js') }}"></script>
+<script src="{{ url_for('static', filename='js/facturacion-validadores.js') }}"></script>
+<script>
+(function () {
+  const API = '/api/v1/notas-credito-debito';
+  const { escapar, pedir } = window.FacturacionListado;
+  const V = window.FacturacionValidadores;
+  const PUEDE_ANULAR = {{ 'true' if puede('notacd', 'anular') else 'false' }};
+  const MSG_SIN_CAJA = 'Debe abrir la caja antes de registrar una nota.';
+  const ETIQUETA = { CREDITO: 'Nota de Crédito', DEBITO: 'Nota de Débito' };
+
+  const $ = (id) => document.getElementById(id);
+  const seccionListado = $('seccionListado'), seccionNuevo = $('seccionNuevo'), tbody = $('tbodyNotas'), errFiltros = $('errFiltros');
+  const filtroTipo = $('filtroTipo'), filtroEstado = $('filtroEstado'), filtroCliente = $('filtroCliente'), filtroDesde = $('filtroDesde'), filtroHasta = $('filtroHasta');
+  const txtFactura = $('txtFactura'), resFactura = $('resFactura'), btnGuardar = $('btnGuardar'), errNota = $('errNota');
+  const modalVer = bootstrap.Modal.getOrCreateInstance($('modalVer'));
+
+  const gs = (n) => (n === null || n === undefined) ? '—' : V.formatoGs(n);
+  const num = (n) => V.formatoGs(n).replace('Gs. ', '');
+  const fecha = (s, conHora) => {
+    if (!s) return '—';
+    const m = /^(\d{4})-(\d{2})-(\d{2})(?: (\d{2}):(\d{2}))?/.exec(s);
+    return m ? `${m[3]}/${m[2]}/${m[1]}` + (conHora && m[4] ? ` ${m[4]}:${m[5]}` : '') : s;
+  };
+  const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+  const badge = (e) => e === 'EMITIDA'
+    ? '<span class="fc-badge fc-badge-open"><span class="fc-status-dot fc-status-dot-green"></span>Emitida</span>'
+    : (e === 'ANULADA' ? '<span class="fc-badge fc-badge-anulada"><span class="fc-status-dot fc-status-dot-red"></span>Anulada</span>'
+      : `<span class="fc-badge fc-badge-neutral"><span class="fc-status-dot fc-status-dot-gray"></span>${escapar(e)}</span>`);
+  const badgeTipo = (t) => t === 'CREDITO' ? '<span class="badge bg-green-lt">Crédito</span>' : '<span class="badge bg-orange-lt">Débito</span>';
+
+  /* ---------- listado ---------- */
+  function urlListado() {
+    const p = [];
+    if (filtroTipo.value) p.push('tipo=' + encodeURIComponent(filtroTipo.value));
+    if (filtroEstado.value) p.push('estado=' + encodeURIComponent(filtroEstado.value));
+    if (filtroCliente.value.trim()) p.push('cliente=' + encodeURIComponent(filtroCliente.value.trim()));
+    if (filtroDesde.value) p.push('desde=' + encodeURIComponent(filtroDesde.value));
+    if (filtroHasta.value) p.push('hasta=' + encodeURIComponent(filtroHasta.value));
+    return p.length ? `${API}?${p.join('&')}` : API;
+  }
+
+  async function cargarListado() {
+    errFiltros.style.display = 'none';
+    if (filtroDesde.value && filtroHasta.value && filtroDesde.value > filtroHasta.value) {
+      errFiltros.textContent = 'La fecha "desde" no puede ser posterior a "hasta".'; errFiltros.style.display = 'block'; return;
+    }
+    try {
+      const { ok, data } = await pedir(urlListado());
+      if (!ok || !data || !data.success) throw new Error((data && data.error) || '');
+      if (!data.data.length) {
+        tbody.innerHTML = `<tr><td colspan="9" class="p-0"><div class="fc-empty-state"><div class="fc-empty-icon-circle"><i class="fas fa-file-invoice"></i></div>
+          <h6 class="fw-bold text-dark mb-1">No hay notas para mostrar</h6><p class="text-muted small mb-0">Probá ajustando los filtros o registrá una nueva nota.</p></div></td></tr>`;
+        return;
+      }
+      tbody.innerHTML = data.data.map((n) => {
+        const acc = [`<button type="button" class="btn btn-sm btn-outline-secondary" data-accion="ver" data-id="${n.id_nota}" title="Ver nota"><i class="fas fa-eye"></i></button>`,
+                     `<a class="btn btn-sm btn-outline-primary" href="${API}/${n.id_nota}/pdf" target="_blank" rel="noopener" title="Nota en PDF"><i class="fas fa-file-pdf"></i></a>`];
+        if (PUEDE_ANULAR && n.estado === 'EMITIDA') {
+          acc.push(n.estado_apertura === 'ABIERTA'
+            ? `<button type="button" class="btn btn-sm btn-outline-danger" data-accion="anular" data-id="${n.id_nota}" data-info="${escapar(ETIQUETA[n.tipo_nota] + ' ' + n.numero_nota + ' de ' + n.cliente)}" title="Anular nota"><i class="fas fa-ban"></i></button>`
+            : '<span class="btn btn-sm btn-outline-secondary disabled" title="La caja de esta nota ya fue cerrada; no se puede anular."><i class="fas fa-lock"></i></span>');
+        }
+        return `<tr class="${n.estado === 'ANULADA' ? 'text-muted' : ''}">
+          <td class="ps-3 font-monospace fw-bold text-primary">${escapar(n.numero_nota)}</td><td>${badgeTipo(n.tipo_nota)}</td>
+          <td class="text-nowrap">${fecha(n.fecha, true)}</td>
+          <td><span class="fw-semibold text-dark">${escapar(n.cliente)}</span><div class="text-muted small font-monospace">${escapar(n.ci_ruc)}</div></td>
+          <td class="font-monospace">${escapar(n.numero_factura)}</td>
+          <td class="text-end text-nowrap font-monospace fw-bold text-dark">${n.tipo_nota === 'CREDITO' ? '−' : ''}${gs(n.total)}</td>
+          <td class="text-end text-nowrap font-monospace">${n.monto_reintegro ? gs(n.monto_reintegro) : '—'}</td>
+          <td class="text-center">${badge(n.estado)}</td>
+          <td class="pe-3 text-end text-nowrap"><div class="btn-list flex-nowrap justify-content-end">${acc.join('')}</div></td></tr>`;
+      }).join('');
+    } catch (e) {
+      tbody.innerHTML = `<tr><td colspan="9" class="text-center text-danger py-4">${escapar(e.message || 'No se pudo cargar el listado.')}</td></tr>`;
+    }
+  }
+
+  /* ---------- ver nota ---------- */
+  async function verNota(id) {
+    try {
+      const { data } = await pedir(`${API}/${id}`);
+      if (!data || !data.success) { Swal.fire('Error', (data && data.error) || 'No se pudo cargar la nota.', 'error'); return; }
+      const n = data.data, t = n.totales;
+      $('modalVerTitulo').textContent = `${ETIQUETA[n.tipo_nota]} ${n.numero_nota}`;
+      $('btnVerPdf').href = `${API}/${n.id_nota}/pdf`;
+      $('cuerpoVer').innerHTML = `
+        ${n.estado === 'ANULADA' ? '<div class="alert alert-danger py-2 text-center fw-bold">*** ANULADA ***</div>' : ''}
+        <div class="row g-2 mb-3">
+          <div class="col-12 col-md-6"><div class="text-muted small text-uppercase fw-semibold">Cliente</div><div class="fw-bold text-dark">${escapar(n.cliente)} <span class="text-muted font-monospace">(${escapar(n.ci_ruc)})</span></div></div>
+          <div class="col-6 col-md-3"><div class="text-muted small text-uppercase fw-semibold">Fecha</div><div>${fecha(n.fecha, true)}</div></div>
+          <div class="col-6 col-md-3"><div class="text-muted small text-uppercase fw-semibold">Estado</div><div>${badge(n.estado)}</div></div>
+          <div class="col-6 col-md-3"><div class="text-muted small text-uppercase fw-semibold">Factura</div><div class="font-monospace">${escapar(n.numero_factura)}</div><div class="text-muted small">${fecha(n.fecha_factura)}</div></div>
+          <div class="col-6 col-md-3"><div class="text-muted small text-uppercase fw-semibold">Cajero</div><div>${escapar(n.cajero)}</div></div>
+          <div class="col-6 col-md-3"><div class="text-muted small text-uppercase fw-semibold">Caja</div><div>${escapar(n.caja)}</div></div>
+          <div class="col-6 col-md-3"><div class="text-muted small text-uppercase fw-semibold">Timbrado</div><div class="font-monospace">${escapar(n.timbrado.numero)}</div></div>
+          <div class="col-12"><div class="text-muted small text-uppercase fw-semibold">Motivo</div><div>${escapar(n.motivo)}</div></div>
+          ${n.es_devolucion ? '<div class="col-12"><span class="badge bg-blue-lt">Incluye devolución de mercadería</span></div>' : ''}
+          ${n.monto_reintegro ? `<div class="col-12"><div class="alert alert-warning py-2 mb-0">Reintegro en efectivo al cliente: <strong class="font-monospace">${gs(n.monto_reintegro)}</strong> (la factura ya estaba pagada).</div></div>` : ''}
+        </div>
+        <div class="table-responsive mb-3 border rounded-3"><table class="table table-sm card-table mb-0">
+          <thead class="bg-light text-muted small text-uppercase"><tr><th class="ps-3 py-2">Descripción</th><th class="py-2 text-end">Cant.</th><th class="py-2 text-end">Precio</th><th class="py-2 text-end">IVA</th><th class="pe-3 py-2 text-end">Subtotal</th></tr></thead>
+          <tbody>${n.detalle.map((d) => `<tr><td class="ps-3 fw-semibold">${escapar(d.descripcion)}</td><td class="text-end font-monospace">${d.cantidad}</td><td class="text-end font-monospace">${gs(d.precio_unitario)}</td>
+            <td class="text-end">${d.iva === 0 ? 'Exenta' : d.iva + '%'}</td><td class="pe-3 text-end text-nowrap font-monospace fw-bold">${gs(d.subtotal)}</td></tr>`).join('')}</tbody></table></div>
+        <div class="d-flex justify-content-between flex-wrap gap-2">
+          <div class="text-muted small">Exentas ${gs(t.exentas)} &bull; Gravadas 5% ${gs(t.gravadas_5)} &bull; Gravadas 10% ${gs(t.gravadas_10)} &bull; IVA ${gs(t.total_iva)}</div>
+          <div class="fs-3 fw-bold">Total: <span class="font-monospace text-primary">${gs(n.total)}</span></div></div>`;
+      modalVer.show();
+    } catch (e) { Swal.fire('Error', 'Ocurrió un error de conexión.', 'error'); }
+  }
+
+  /* ---------- anular ---------- */
+  async function anularNota(id, info) {
+    const c = await Swal.fire({
+      title: '¿Anular esta nota?',
+      text: `Se anulará la ${info}. Se revierte su efecto en el saldo de la factura (y en el stock y la caja si corresponde). Esta acción no se puede deshacer.`,
+      icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí, anular', cancelButtonText: 'Cancelar', confirmButtonColor: '#d63939'
+    });
+    if (!c.isConfirmed) return;
+    try {
+      const { data } = await pedir(`${API}/${id}`, { method: 'DELETE' });
+      await cargarListado();
+      if (data && data.success) Swal.fire('Nota anulada', data.mensaje, 'success');
+      else Swal.fire('No se pudo anular', (data && data.error) || 'Ocurrió un error.', 'error');
+    } catch (e) { Swal.fire('Error', 'Ocurrió un error de conexión.', 'error'); }
+  }
+
+  /* ---------- nueva nota ---------- */
+  let facturaSel = null, cajaAbierta = false, efectivoDisponible = 0, renglones = [], devuelto = {}, uid = 0;
+
+  const tipoActual = () => document.querySelector('input[name="tipoNota"]:checked').value;
+  const modoDevolucion = () => tipoActual() === 'CREDITO' && $('chkDevolucion').checked && facturaSel && facturaSel.items.length > 0;
+  const mostrarNuevo = (si) => { seccionNuevo.style.display = si ? 'block' : 'none'; seccionListado.style.display = si ? 'none' : 'block'; };
+  const montoDe = (r) => /^\d+$/.test(String(r.monto).trim()) ? parseInt(r.monto, 10) : 0;
+
+  /* líneas efectivas de la nota: { iva, subtotal } */
+  function lineasActuales() {
+    if (modoDevolucion()) {
+      return facturaSel.items.filter((i) => /^\d+$/.test(String(devuelto[i.id_item] || '').trim()) && parseInt(devuelto[i.id_item], 10) > 0)
+        .map((i) => ({ iva: i.iva, subtotal: i.precio_unitario * parseInt(devuelto[i.id_item], 10) }));
+    }
+    return renglones.map((r) => ({ iva: Number(r.iva), subtotal: montoDe(r) })).filter((l) => l.subtotal > 0);
+  }
+
+  function pintarTotales() {
+    const ls = lineasActuales(), suma = (iva) => ls.filter((l) => l.iva === iva).reduce((s, l) => s + l.subtotal, 0);
+    const ex = suma(0), g5 = suma(5), g10 = suma(10), total = ex + g5 + g10, iva = Math.round(g5 / 21) + Math.round(g10 / 11);
+    $('resExentas').textContent = gs(ex); $('resG5').textContent = gs(g5); $('resG10').textContent = gs(g10); $('resIva').textContent = gs(iva); $('resTotal').textContent = gs(total);
+    const credito = tipoActual() === 'CREDITO', saldo = facturaSel ? facturaSel.saldo : 0;
+    let reintegro = 0;
+    if (credito) {
+      const reduce = Math.min(total, saldo); reintegro = Math.max(total - saldo, 0);
+      $('lblEfecto').textContent = 'Reduce el saldo en'; $('resEfecto').textContent = gs(reduce);
+    } else {
+      $('lblEfecto').textContent = 'Aumenta el saldo en'; $('resEfecto').textContent = gs(total);
+    }
+    $('filaReintegro').style.display = reintegro > 0 ? 'table-row' : 'none'; $('resReintegro').textContent = gs(reintegro);
+    return { total, reintegro };
+  }
+
+  const actualizarBoton = () => { btnGuardar.disabled = !(cajaAbierta && facturaSel); };
+
+  function pintarMaximo() {
+    const f = facturaSel; if (!f) return;
+    const aviso = $('avisoMaximo');
+    if (tipoActual() === 'CREDITO') {
+      aviso.innerHTML = `<span class="text-muted">Máximo permitido para esta nota de crédito:</span> <strong class="font-monospace">${gs(f.max_credito)}</strong>
+        <span class="text-muted small">(total de la factura − créditos anteriores)</span>${f.max_credito <= 0 ? ' <span class="badge bg-red-lt ms-2">Sin crédito disponible</span>' : ''}`;
+    } else {
+      aviso.innerHTML = '<span class="text-muted">Una nota de débito suma al saldo; si la cuenta estaba pagada vuelve a PENDIENTE. No tiene tope.</span>';
+    }
+  }
+
+  function pintarModo() {
+    const credito = tipoActual() === 'CREDITO', puedeDevolver = credito && facturaSel && facturaSel.items.length > 0;
+    $('bloqueDevolucion').style.display = puedeDevolver ? 'block' : 'none';
+    if (!puedeDevolver) $('chkDevolucion').checked = false;
+    const dev = modoDevolucion();
+    $('panelDevolucion').style.display = dev ? 'block' : 'none'; $('panelLibre').style.display = dev ? 'none' : 'block';
+    pintarMaximo();
+    if (dev) pintarDevolucion(); else pintarLibre();
+    pintarTotales();
+  }
+
+  function pintarLibre() {
+    const cont = $('gridLibre');
+    if (!renglones.length) { cont.innerHTML = '<div class="text-center text-muted py-3">Agregue al menos un renglón con el botón "Agregar renglón".</div>'; return; }
+    cont.innerHTML = renglones.map((r, n) => `<div class="row g-2 align-items-start mb-2" data-fila="${r.uid}">
+      <div class="col-12 col-md-6"><label class="form-label small mb-1">${n + 1}. Descripción</label><input type="text" class="form-control form-control-sm" data-uid="${r.uid}" data-campo="descripcion" maxlength="200" value="${escapar(r.descripcion)}" autocomplete="off"></div>
+      <div class="col-6 col-md-3"><label class="form-label small mb-1">Monto (Gs., IVA incluido)</label><input type="text" inputmode="numeric" class="form-control form-control-sm font-monospace text-end" data-uid="${r.uid}" data-campo="monto" maxlength="12" value="${escapar(r.monto)}" autocomplete="off"></div>
+      <div class="col-4 col-md-2"><label class="form-label small mb-1">IVA</label><select class="form-select form-select-sm" data-uid="${r.uid}" data-campo="iva">
+        <option value="10" ${String(r.iva) === '10' ? 'selected' : ''}>10%</option><option value="5" ${String(r.iva) === '5' ? 'selected' : ''}>5%</option><option value="0" ${String(r.iva) === '0' ? 'selected' : ''}>Exenta</option></select></div>
+      <div class="col-2 col-md-1 pt-md-4"><button type="button" class="btn btn-sm btn-outline-danger" data-quitar="${r.uid}" title="Quitar"><i class="fas fa-trash-alt"></i></button></div>
+      <div class="col-12 text-danger small" data-error-fila="${r.uid}" style="display:none;"></div></div>`).join('');
+  }
+
+  function pintarDevolucion() {
+    const its = facturaSel.items;
+    $('tbodyDevolucion').innerHTML = its.length ? its.map((i) => `<tr>
+      <td class="ps-3 fw-semibold text-dark">${escapar(i.item)}<div class="text-danger small" data-error-item="${i.id_item}" style="display:none;"></div></td>
+      <td class="text-end font-monospace">${gs(i.precio_unitario)}</td><td class="text-end font-monospace">${num(i.facturado)}</td><td class="text-end font-monospace">${num(i.devuelto)}</td>
+      <td class="text-end font-monospace fw-bold ${i.pendiente > 0 ? 'text-dark' : 'text-muted'}">${num(i.pendiente)}</td>
+      <td class="pe-3"><input type="text" inputmode="numeric" class="form-control form-control-sm font-monospace text-end" data-item="${i.id_item}" maxlength="9" value="${escapar(devuelto[i.id_item] || '')}" ${i.pendiente > 0 ? '' : 'disabled'} placeholder="0" autocomplete="off"></td></tr>`).join('')
+      : '<tr><td colspan="6" class="text-center text-muted py-3">La factura no tiene ítems que repongan stock.</td></tr>';
+  }
+
+  $('btnAgregarRenglon').addEventListener('click', () => {
+    renglones.push({ uid: ++uid, descripcion: '', monto: '', iva: '10' }); errNota.style.display = 'none'; pintarLibre(); pintarTotales();
+    const inp = $('gridLibre').querySelector(`input[data-uid="${uid}"][data-campo="descripcion"]`); if (inp) inp.focus();
+  });
+  $('gridLibre').addEventListener('input', (ev) => {
+    const el = ev.target.closest('[data-campo]'); if (!el) return;
+    const r = renglones.find((x) => String(x.uid) === el.dataset.uid); if (!r) return;
+    r[el.dataset.campo] = el.value; el.classList.remove('is-invalid'); errNota.style.display = 'none'; pintarTotales();
+  });
+  $('gridLibre').addEventListener('change', (ev) => { const el = ev.target.closest('select[data-campo]'); if (el) el.dispatchEvent(new Event('input', { bubbles: true })); });
+  $('gridLibre').addEventListener('click', (ev) => {
+    const b = ev.target.closest('button[data-quitar]'); if (!b) return;
+    renglones = renglones.filter((r) => String(r.uid) !== b.dataset.quitar); pintarLibre(); pintarTotales();
+  });
+  $('tbodyDevolucion').addEventListener('input', (ev) => {
+    const el = ev.target.closest('input[data-item]'); if (!el) return;
+    devuelto[el.dataset.item] = el.value; el.classList.remove('is-invalid'); errNota.style.display = 'none';
+    const e = document.querySelector(`[data-error-item="${el.dataset.item}"]`); if (e) e.style.display = 'none';
+    pintarTotales();
+  });
+  document.querySelectorAll('input[name="tipoNota"]').forEach((r) => r.addEventListener('change', () => { errNota.style.display = 'none'; pintarModo(); }));
+  $('chkDevolucion').addEventListener('change', () => { errNota.style.display = 'none'; pintarModo(); });
+
+  async function cargarCaja() {
+    const tarjeta = $('tarjetaCaja'), cuerpo = $('cuerpoCaja');
+    try {
+      const { data } = await pedir(`${API}/caja-actual`);
+      const a = data && data.success ? data.data : null;
+      cajaAbierta = !!a; efectivoDisponible = a ? a.efectivo_disponible : 0;
+      if (a) {
+        tarjeta.className = 'card fc-hero-card fc-hero-card-open mb-3';
+        cuerpo.innerHTML = `<span class="fc-badge fc-badge-open me-2"><span class="fc-status-dot fc-status-dot-green"></span>Caja abierta</span><strong>${escapar(a.caja)}</strong>
+          <span class="text-muted ms-2">desde ${fecha(a.fecha_apertura, true)} &bull; efectivo disponible para reintegros: <span class="font-monospace fw-semibold text-dark">${gs(a.efectivo_disponible)}</span></span>`;
+      } else {
+        tarjeta.className = 'card fc-hero-card fc-hero-card-closed mb-3';
+        cuerpo.innerHTML = `<span class="fc-badge fc-badge-neutral me-2"><span class="fc-status-dot fc-status-dot-gray"></span>Sin caja abierta</span><span class="text-danger fw-semibold">${MSG_SIN_CAJA}</span>`;
+      }
+    } catch (e) { cajaAbierta = false; cuerpo.innerHTML = '<span class="text-danger">No se pudo verificar la caja.</span>'; }
+    actualizarBoton();
+  }
+
+  /* --- factura --- */
+  function elegirFactura(f) {
+    facturaSel = f; renglones = []; devuelto = {}; txtFactura.value = `${f.numero_factura} — ${f.cliente}`; txtFactura.readOnly = true; V.limpiarCampo(txtFactura);
+    $('lblCliente').textContent = f.cliente; $('lblCiRuc').textContent = f.ci_ruc; $('lblFactura').textContent = f.numero_factura; $('lblFecha').textContent = fecha(f.fecha);
+    $('lblTotal').textContent = gs(f.total); $('lblSaldo').textContent = gs(f.saldo);
+    $('lblEstadoCuenta').innerHTML = f.estado_cuenta === 'PAGADA' ? '<span class="badge bg-green-lt">Pagada</span>' : '<span class="badge bg-yellow-lt">Pendiente</span>';
+    $('lblCreditos').textContent = gs(f.creditos_previos); $('lblDebitos').textContent = gs(f.debitos_previos);
+    $('bloqueFactura').style.display = 'block'; errNota.style.display = 'none';
+    renglones.push({ uid: ++uid, descripcion: '', monto: '', iva: '10' });
+    pintarModo(); actualizarBoton();
+  }
+
+  let resultados = [], indice = -1;
+  const buscarFactura = debounce(async () => {
+    if (facturaSel) return;
+    try {
+      const { data } = await pedir(`${API}/facturas?q=${encodeURIComponent(txtFactura.value.trim())}`);
+      resultados = (data && data.success) ? data.data : []; indice = -1;
+      resFactura.innerHTML = resultados.length ? resultados.map((f, i) => `
+        <button type="button" class="list-group-item list-group-item-action fc-autocomplete-item py-2" data-idx="${i}">
+          <div class="d-flex justify-content-between align-items-center"><span><span class="font-monospace fw-bold text-primary">${escapar(f.numero_factura)}</span> <span class="fw-bold text-dark">${escapar(f.cliente)}</span></span>
+            <span class="font-monospace fw-bold">${gs(f.total)}</span></div>
+          <div class="text-muted small">${escapar(f.ci_ruc)} &bull; ${fecha(f.fecha)} &bull; saldo ${gs(f.saldo)} &bull; ${f.estado_cuenta === 'PAGADA' ? 'pagada' : 'pendiente'} &bull; crédito máx. ${gs(f.max_credito)}</div></button>`).join('')
+        : '<div class="list-group-item text-muted small p-3">No hay facturas que coincidan.</div>';
+      resFactura.style.display = 'block';
+    } catch (e) { resFactura.style.display = 'none'; }
+  }, 220);
+  txtFactura.addEventListener('input', () => { V.limpiarCampo(txtFactura); buscarFactura(); });
+  txtFactura.addEventListener('focus', buscarFactura);
+  txtFactura.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter') ev.preventDefault();   // Enter nunca envía el formulario desde el buscador
+    if (resFactura.style.display !== 'block' || !resultados.length) return;
+    const items = resFactura.querySelectorAll('.fc-autocomplete-item');
+    if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+      ev.preventDefault(); indice = (indice + (ev.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+      items.forEach((it, i) => it.classList.toggle('active', i === indice)); items[indice].scrollIntoView({ block: 'nearest' });
+    } else if (ev.key === 'Enter') { const t = indice >= 0 ? items[indice] : items[0]; if (t) t.click(); }
+    else if (ev.key === 'Escape') resFactura.style.display = 'none';
+  });
+  resFactura.addEventListener('click', async (ev) => {
+    const b = ev.target.closest('button[data-idx]'); if (!b) return; resFactura.style.display = 'none';
+    try {
+      const { data } = await pedir(`${API}/facturas/${resultados[Number(b.dataset.idx)].id_cuenta}`);
+      if (!data || !data.success) { errNota.textContent = (data && data.error) || 'No se pudo cargar la factura.'; errNota.style.display = 'block'; return; }
+      elegirFactura(data.data);
+    } catch (e) { errNota.textContent = 'No se pudo cargar la factura.'; errNota.style.display = 'block'; }
+  });
+  document.addEventListener('click', (ev) => { if (!ev.target.closest('#resFactura, #txtFactura')) resFactura.style.display = 'none'; });
+
+  function abrirNuevo() {
+    facturaSel = null; renglones = []; devuelto = {}; txtFactura.value = ''; txtFactura.readOnly = false; V.limpiarCampo(txtFactura);
+    $('bloqueFactura').style.display = 'none'; errNota.style.display = 'none'; $('txtMotivo').value = ''; V.limpiarCampo($('txtMotivo'));
+    $('tipoCredito').checked = true; $('chkDevolucion').checked = false;
+    mostrarNuevo(true); cargarCaja(); txtFactura.focus();
+  }
+
+  /* --- validación en el formulario (el servidor valida siempre; esto solo avisa antes de enviar) --- */
+  function validar() {
+    if (!cajaAbierta) return MSG_SIN_CAJA;
+    if (!facturaSel) { V.marcarCampo(txtFactura, 'Debe seleccionar una factura.'); txtFactura.focus(); return 'cancelar'; }
+    const em = V.texto($('txtMotivo').value, 'motivo', 200);
+    if (em) { V.marcarCampo($('txtMotivo'), em); $('txtMotivo').focus(); return 'cancelar'; }
+    document.querySelectorAll('[data-error-fila],[data-error-item]').forEach((e) => { e.style.display = 'none'; });
+    if (modoDevolucion()) {
+      for (const i of facturaSel.items) {
+        const t = String(devuelto[i.id_item] || '').trim(); if (t === '' || /^0+$/.test(t)) continue;
+        let m = V.cantidadPositiva(t);
+        if (!m && parseInt(t, 10) > i.pendiente) m = `Cantidad a devolver de ${i.item} supera lo facturado pendiente de devolución: ${i.pendiente}.`;
+        if (m) { const c = document.querySelector(`[data-error-item="${i.id_item}"]`); if (c) { c.textContent = m; c.style.display = 'block'; } return m; }
+      }
+      if (!lineasActuales().length) return 'Debe indicar al menos un ítem a devolver.';
+    } else {
+      if (!renglones.length) return 'Debe agregar al menos un renglón a la nota.';
+      for (let n = 0; n < renglones.length; n++) {
+        const r = renglones[n]; const e = V.texto(r.descripcion, 'descripción', 200) || V.montoPositivo(r.monto);
+        if (e) { const c = document.querySelector(`[data-error-fila="${r.uid}"]`); if (c) { c.textContent = `Renglón ${n + 1}: ${e}`; c.style.display = 'block'; } return `Renglón ${n + 1}: ${e}`; }
+      }
+    }
+    const { total, reintegro } = pintarTotales();
+    if (tipoActual() === 'CREDITO') {
+      if (total > facturaSel.max_credito) return `El total de la nota de crédito (${gs(total)}) supera el máximo permitido (${gs(facturaSel.max_credito)}).`;
+      if (reintegro > efectivoDisponible) return `No hay efectivo suficiente en la caja para el reintegro (disponible ${gs(Math.max(efectivoDisponible, 0))}).`;
+    }
+    return '';
+  }
+
+  $('formNota').addEventListener('submit', async (ev) => {
+    ev.preventDefault(); errNota.style.display = 'none';
+    const err = validar();
+    if (err === 'cancelar') return;
+    if (err) { errNota.textContent = err; errNota.style.display = 'block'; return; }
+    const dev = modoDevolucion();
+    const cuerpo = { tipo: tipoActual(), id_cuenta: facturaSel.id_cuenta, motivo: $('txtMotivo').value, devolucion: dev,
+      renglones: dev ? facturaSel.items.filter((i) => /^[1-9]\d*$/.test(String(devuelto[i.id_item] || '').trim())).map((i) => ({ id_item: i.id_item, cantidad: String(devuelto[i.id_item]).trim() }))
+                     : renglones.map((r) => ({ descripcion: r.descripcion, monto: r.monto, iva: r.iva })) };
+    btnGuardar.disabled = true;
+    try {
+      const { data } = await pedir(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo) });
+      if (data && data.success) {
+        mostrarNuevo(false); await cargarListado();
+        const r = await Swal.fire({ title: 'Nota registrada', text: data.mensaje, icon: 'success', showCancelButton: true, confirmButtonText: 'Ver nota (PDF)', cancelButtonText: 'Cerrar' });
+        if (r.isConfirmed) window.open(`${API}/${data.data.id_nota}/pdf`, '_blank');
+      } else {
+        errNota.textContent = (data && data.error) || 'Ocurrió un error. Intente nuevamente.'; errNota.style.display = 'block';
+        Swal.fire('No se pudo registrar la nota', errNota.textContent, 'error'); await cargarCaja();
+      }
+    } catch (e) { Swal.fire('Error', 'Ocurrió un error de conexión. Intente nuevamente.', 'error'); }
+    finally { actualizarBoton(); }
+  });
+
+  /* ---------- eventos ---------- */
+  const btnNuevo = $('btnNuevo'); if (btnNuevo) btnNuevo.addEventListener('click', abrirNuevo);
+  $('btnVolverListado').addEventListener('click', () => mostrarNuevo(false));
+  $('btnCancelarNuevo').addEventListener('click', () => mostrarNuevo(false));
+  document.addEventListener('click', (ev) => {
+    const btn = ev.target.closest('button[data-accion]'); if (!btn) return;
+    if (btn.dataset.accion === 'ver') verNota(btn.dataset.id);
+    if (btn.dataset.accion === 'anular') anularNota(btn.dataset.id, btn.dataset.info);
+  });
+  [filtroTipo, filtroEstado, filtroDesde, filtroHasta].forEach((el) => el.addEventListener('change', cargarListado));
+  filtroCliente.addEventListener('input', debounce(cargarListado, 300));
+  $('btnLimpiarFiltros').addEventListener('click', () => { filtroTipo.value = ''; filtroEstado.value = ''; filtroCliente.value = ''; filtroDesde.value = ''; filtroHasta.value = ''; cargarListado(); });
+
+  cargarListado();
+})();
+</script>
+{% endblock %}

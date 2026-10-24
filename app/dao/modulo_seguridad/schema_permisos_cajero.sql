@@ -2,7 +2,7 @@
 -- falta, en una sola sentencia. Solo toca las filas del rol Cajero (los demás roles no se modifican).
 --
 -- Regla:
---   * Módulo Facturación (movimientos: hoy aperturacaja, pedidocliente, venta, cobro y remision): TODAS las acciones de la ventana.
+--   * Módulo Facturación (movimientos: hoy aperturacaja, pedidocliente, venta, cobro, remision y notacd): TODAS las acciones de la ventana.
 --   * Cliente: ver, nuevo y editar (sin anular).
 --   * Referenciales de Facturación (Forma de Cobro, Marca de Tarjeta, Entidad Emisora, Entidad Adherida, Caja,
 --     Depósito, Tipo Ítems e Ítems): solo ver.
@@ -22,6 +22,7 @@ deseado(ventana, accion) AS (
         ('venta', 'ver'), ('venta', 'nuevo'), ('venta', 'anular'),
         ('cobro', 'ver'), ('cobro', 'nuevo'), ('cobro', 'anular'),
         ('remision', 'ver'), ('remision', 'nuevo'), ('remision', 'anular'),
+        ('notacd', 'ver'), ('notacd', 'nuevo'), ('notacd', 'anular'),
         -- Cliente
         ('cliente', 'ver'), ('cliente', 'nuevo'), ('cliente', 'editar'),
         -- Referenciales de Facturación: solo ver

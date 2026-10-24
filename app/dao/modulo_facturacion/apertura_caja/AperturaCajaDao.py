@@ -219,6 +219,10 @@ class AperturaCajaDao:
         if cur.fetchone():
             return MSG_ANULAR_CON_MOVIMIENTOS
         cur.execute("SELECT 1 FROM cobro_cab WHERE id_apertura = %s AND estado = 'EMITIDO' LIMIT 1", (id_apertura,))
+        if cur.fetchone():
+            return MSG_ANULAR_CON_MOVIMIENTOS
+        # Las notas de crédito/débito toman la apertura FOR UPDATE al emitirse, así que tampoco pueden colarse.
+        cur.execute("SELECT 1 FROM nota_credito_debito_cab WHERE id_apertura = %s AND estado = 'EMITIDA' LIMIT 1", (id_apertura,))
         return MSG_ANULAR_CON_MOVIMIENTOS if cur.fetchone() else False
 
     def _total_recaudado(self, cur, id_apertura):
@@ -241,13 +245,16 @@ class AperturaCajaDao:
     def _totales_cierre(self, cur, id_apertura, monto_apertura):
         """
         Importes del cierre, calculados por el servidor: total_recaudado = todo lo cobrado (todas las formas);
-        monto_cierre = monto_apertura + solo lo cobrado en EFECTIVO (tarjetas, cheques y transferencias no son plata
-        en el cajón; su desglose va en `resumen`).
+        monto_cierre = monto_apertura + el EFECTIVO neto (efectivo cobrado MENOS los reintegros en efectivo de las notas de crédito;
+        tarjetas, cheques y transferencias no son plata en el cajón; su desglose va en `resumen`).
         """
         total = self._total_recaudado(cur, id_apertura)
         efectivo = self._total_efectivo(cur, id_apertura)
-        return {'monto_apertura': monto_apertura, 'total_recaudado': total, 'efectivo': efectivo,
-                'monto_cierre': monto_apertura + efectivo, 'resumen': self._resumen_por_forma(cur, id_apertura)}
+        cur.execute("SELECT fn_total_reintegros(%s)", (id_apertura,))
+        reintegros = int(cur.fetchone()[0])
+        return {'monto_apertura': monto_apertura, 'total_recaudado': total, 'efectivo': efectivo, 'reintegros': reintegros,
+                'efectivo_cobrado': efectivo + reintegros, 'monto_cierre': monto_apertura + efectivo,
+                'resumen': self._resumen_por_forma(cur, id_apertura)}
     # ------------------------------------------------------------------ anulación
     def anularApertura(self, id_apertura, id_usuario, es_admin):
         """

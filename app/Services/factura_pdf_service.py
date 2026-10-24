@@ -151,19 +151,24 @@ def _cabecera(c, datos, copia):
     c.setFont('Helvetica', 8)
     c.drawCentredString(xc, top - 1.55 * cm, f"Vigencia: {datos['timbrado']['vigencia']}")
     c.setFont('Helvetica-Bold', 16)
-    c.drawCentredString(xc, top - 2.4 * cm, 'FACTURA')
+    c.drawCentredString(xc, top - 2.4 * cm, datos.get('titulo', 'FACTURA'))   # las notas de crédito/débito reutilizan este diseño
     c.setFont('Helvetica-Bold', 12)
     c.drawCentredString(xc, top - 3.1 * cm, datos['numero_factura'])
 
     y = top - 4.3 * cm
     c.setFont('Helvetica', 9.5)
     c.drawString(MARGEN, y, f"Fecha de emisión: {datos['fecha_emision']}")
-    condicion = datos['condicion'] + (f"  (vence {datos['vencimiento']})" if datos['vencimiento'] else '')
-    c.drawString(MARGEN + 9.2 * cm, y, f"Condición de venta: {condicion}")
+    if datos.get('mostrar_condicion', True):
+        condicion = datos['condicion'] + (f"  (vence {datos['vencimiento']})" if datos['vencimiento'] else '')
+        c.drawString(MARGEN + 9.2 * cm, y, f"Condición de venta: {condicion}")
     y -= 0.55 * cm
     c.drawString(MARGEN, y, f"Nombre o razón social: {datos['cliente']}")
     y -= 0.55 * cm
     c.drawString(MARGEN, y, f"CI/RUC: {datos['ci_ruc']}")
+    for texto in datos.get('lineas_extra', []):   # notas de crédito/débito: factura de referencia, motivo, reintegro
+        for linea in _partir(texto, 'Helvetica', 9.5, DER - MARGEN):
+            y -= 0.5 * cm
+            c.drawString(MARGEN, y, linea)
     return y - 1.0 * cm
 
 
@@ -210,7 +215,7 @@ def _pie(c, datos, y):
     c.drawRightString(X_G10_DER, y, s['gravada_10'])
     y -= 0.75 * cm
     c.setFont('Helvetica-Bold', 11)
-    c.drawString(X_DESC, y, 'TOTAL A PAGAR')
+    c.drawString(X_DESC, y, datos.get('etiqueta_total', 'TOTAL A PAGAR'))
     c.drawRightString(DER, y, f"Gs. {datos['total']}")
     y -= 0.7 * cm
     c.setFont('Helvetica', 9)

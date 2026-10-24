@@ -60,9 +60,13 @@ def primero(rol):
 ADMIN, CAJERO, RECEP = primero('Administrador'), primero('Cajero'), primero('Recepcion')
 if not (ADMIN and CAJERO and RECEP):
     print('ABORTADO: se necesitan un usuario Administrador, uno Cajero y uno de Recepción.'); sys.exit(1)
-cu.execute("SELECT count(*) FROM apertura_cierre_caja WHERE estado='ABIERTA' AND id_usuario = %s", (ADMIN[0],))
-if cu.fetchone()[0]:
-    print('ABORTADO: el Administrador tiene una caja ABIERTA real; ciérrela antes de correr este test.'); sys.exit(1)
+# CAJ = el usuario que cobra y abre las cajas de prueba: un Cajero o Administrador SIN caja abierta (así el test no toca ninguna caja real
+# ni depende de que alguien la tenga cerrada). El Administrador se usa para lo que pide ese rol (formas de cobro, anular, cerrar).
+cu.execute("SELECT id_usuario FROM apertura_cierre_caja WHERE estado='ABIERTA'")
+_ocupados = {r_[0] for r_ in cu.fetchall()}
+CAJ = next((u for u in usuarios if u[2] in ('Cajero', 'Administrador') and u[0] not in _ocupados), None)
+if CAJ is None:
+    print('ABORTADO: no hay un Cajero o Administrador sin caja abierta para cobrar en el test.'); sys.exit(1)
 
 
 def como(u):
@@ -128,7 +132,7 @@ def ch(monto, emisora=None, numero='CH001', titular='juan perez', emision=None, 
 
 
 def cobrar(cuenta, formas, esperado=201, obs=None, usuario=None, **kw):
-    como(usuario or ADMIN)
+    como(usuario or CAJ)
     cuerpo = {'id_cuenta': cuenta, 'formas': formas}
     if obs is not None:
         cuerpo['observacion'] = obs
@@ -208,8 +212,8 @@ try:
     cu.execute("SELECT count(*) FROM pg_description d WHERE d.objoid IN ('v_resumen_caja'::regclass, 'v_estado_cuenta_cliente'::regclass) AND d.objsubid = 0")
     chk('las 2 vistas tienen COMMENT ON', cu.fetchone()[0] == 2)
     cu.execute("SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_name='v_estado_cuenta_cliente'")
-    chk('v_estado_cuenta_cliente: conserva las 12 columnas y suma total_cobrado, cantidad_cobros y fecha_ultimo_cobro al final',
-        cu.fetchone()[0] == 'id_cliente,cliente,ci_ruc,id_venta,numero_factura,fecha,condicion,total,saldo,estado_cuenta,fecha_vencimiento,saldo_total_cliente,total_cobrado,cantidad_cobros,fecha_ultimo_cobro')
+    chk('v_estado_cuenta_cliente: conserva las 12 columnas originales, sigue con total_cobrado, cantidad_cobros y fecha_ultimo_cobro y termina con las de las notas',
+        cu.fetchone()[0].startswith('id_cliente,cliente,ci_ruc,id_venta,numero_factura,fecha,condicion,total,saldo,estado_cuenta,fecha_vencimiento,saldo_total_cliente,total_cobrado,cantidad_cobros,fecha_ultimo_cobro'))
     cu.execute("SELECT fn_formato_gs(1234567), fn_formato_gs(0), fn_formato_gs(999)")
     chk('fn_formato_gs: puntos de miles', cu.fetchone() == ('1.234.567', '0', '999'))
     # trg_permisos_resolver_menu: un INSERT sin id_menu lo resuelve por menu.clave = ventana; sin entrada de menú, rechaza
@@ -257,7 +261,7 @@ try:
     cobrar(cta0, [ef(1000)], 409, nombre='cobro SIN caja abierta', exacto='Debe abrir la caja antes de registrar un cobro.')
     chk('sin caja: la cuenta no se tocó', saldo(cta0) == (100000, 'PENDIENTE'))
     with app.app_context():
-        AP1 = AperturaCajaDao().abrirCaja(ADMIN[0], ids['caja'], 100000)
+        AP1 = AperturaCajaDao().abrirCaja(CAJ[0], ids['caja'], 100000)
     ids['ap'].append(AP1); chk('apertura de caja ZZ abierta (Administrador)', isinstance(AP1, int))
     api('get', f'{COB}/caja-actual', 200, nombre='caja-actual')
 
@@ -265,7 +269,7 @@ try:
     # 4. VALIDACIONES
     # =====================================================================================================================
     v1, C1 = nueva_cuenta(1000000)
-    como(ADMIN)
+    como(CAJ)
     def val(cuerpo, msg, camp, nombre, code=400):
         api('post', COB, code, cuerpo, nombre=f'validación: {nombre}', exacto=msg, campo=camp)
     base = {'id_cuenta': C1}
@@ -310,17 +314,17 @@ try:
     # =====================================================================================================================
     # 5. COBRO PARCIAL, COMBINADO Y POR SALDO
     # =====================================================================================================================
-    como(ADMIN)
+    como(CAJ)
     d = cobrar(C1, [ef(400000)], nombre='cobro PARCIAL en efectivo (400.000 de 1.000.000)', obs='  primera   cuota ')
     P1 = d['data']; ID1 = P1['id_cobro']
     chk("el recibo tiene formato REC-0000001 (7 dígitos)", re.fullmatch(r'REC-\d{7}', P1['numero_recibo']) is not None)
-    chk('cabecera: EMITIDO, total 400.000, cajero y apertura de la SESIÓN, observación normalizada', (P1['estado'], P1['total'], P1['id_usuario'], P1['id_apertura'], P1['observacion']) == ('EMITIDO', 400000, ADMIN[0], AP1, 'primera cuota'))
+    chk('cabecera: EMITIDO, total 400.000, cajero y apertura de la SESIÓN, observación normalizada', (P1['estado'], P1['total'], P1['id_usuario'], P1['id_apertura'], P1['observacion']) == ('EMITIDO', 400000, CAJ[0], AP1, 'primera cuota'))
     chk('trigger: el saldo bajó a 600.000 y la cuenta sigue PENDIENTE', saldo(C1) == (600000, 'PENDIENTE'))
     chk('el cliente sale de la cuenta (no del cobro): el cobro lo informa', P1['cliente'] == 'ZZ CLIENTE COBRO' and P1['numero_factura'].startswith('ZZC'))
     cuerpo = {'id_cuenta': C1, 'formas': [ef(1000)], 'total': 999999, 'id_usuario': CAJERO[0], 'id_apertura': 1, 'id_cliente': 1, 'estado': 'ANULADO', 'numero_recibo': 'REC-9999999'}
     d = api('post', COB, 201, cuerpo, nombre='cobro con datos falsificados por el navegador')
     cobros.add(d['data']['id_cobro']); numeros.append(d['data']['numero_recibo']); ledger[d['data']['id_cobro']] = [(1000, 'EFECTIVO')]
-    chk('se ignoran total, usuario, apertura, cliente, estado y recibo enviados', (d['data']['total'], d['data']['id_usuario'], d['data']['id_apertura'], d['data']['estado'], d['data']['numero_recibo']) == (1000, ADMIN[0], AP1, 'EMITIDO', numeros[-1]) and d['data']['numero_recibo'] != 'REC-9999999')
+    chk('se ignoran total, usuario, apertura, cliente, estado y recibo enviados', (d['data']['total'], d['data']['id_usuario'], d['data']['id_apertura'], d['data']['estado'], d['data']['numero_recibo']) == (1000, CAJ[0], AP1, 'EMITIDO', numeros[-1]) and d['data']['numero_recibo'] != 'REC-9999999')
     chk('recibos consecutivos y sin huecos', int(numeros[1][4:]) == int(numeros[0][4:]) + 1)
     IDF = d['data']['id_cobro']
     anular(IDF, nombre='anular el cobro de prueba de 1.000')
@@ -491,7 +495,7 @@ try:
         return {'id_forma_cobro': F['EF'], 'tipo': 'EFECTIVO', 'monto': monto, 'numero_referencia': None, 'tarjeta': None, 'cheque': None}
     def hilo_cobro(i):
         with app.app_context():
-            barrera.wait(); res[i] = CobroDao().guardarCobro(ADMIN[0], C4, None, [forma_dao(100000)])
+            barrera.wait(); res[i] = CobroDao().guardarCobro(CAJ[0], C4, None, [forma_dao(100000)])
     ts = [threading.Thread(target=hilo_cobro, args=(i,)) for i in range(3)]; [t.start() for t in ts]; [t.join(60) for t in ts]
     oks = [r for r in res if isinstance(r, int)]; cobros.update(oks)
     chk('concurrencia: 3 cobros por todo el saldo a la vez -> exactamente 1 gana', len(oks) == 1 and sum(isinstance(r, tuple) and r[0] == CUENTA_NO_PENDIENTE for r in res) == 2)
@@ -506,7 +510,7 @@ try:
     res = [None] * 4; barrera = threading.Barrier(4)
     def hilo_dist(i):
         with app.app_context():
-            barrera.wait(); res[i] = CobroDao().guardarCobro(ADMIN[0], C4, None, [forma_dao(30000)])
+            barrera.wait(); res[i] = CobroDao().guardarCobro(CAJ[0], C4, None, [forma_dao(30000)])
     ts = [threading.Thread(target=hilo_dist, args=(i,)) for i in range(4)]; [t.start() for t in ts]; [t.join(60) for t in ts]
     oks2 = [r for r in res if isinstance(r, int)]; cobros.update(oks2)
     cu.execute("SELECT array_agg(numero_recibo ORDER BY id_cobro) FROM cobro_cab WHERE id_cobro = ANY(%s)", (oks2,)); nums = cu.fetchone()[0]
@@ -550,7 +554,7 @@ try:
     cu.execute("SELECT total_recaudado, monto_cierre, estado FROM apertura_cierre_caja WHERE id_apertura=%s", (AP1,))
     f = cu.fetchone(); chk('cierre: total_recaudado = todo lo cobrado y monto_cierre = apertura + solo efectivo (guardados)', (int(f[0]), int(f[1]), f[2]) == (esperado_total, 100000 + esperado_efectivo, 'CERRADA'))
     cu.execute("SELECT detalle FROM auditoria_cambios WHERE entidad='apertura_cierre_caja' AND id_registro=%s AND accion='CIERRE'", (AP1,))
-    chk('auditoría CIERRE: incluye total recaudado, efectivo y monto de cierre', 'Efectivo:' in cu.fetchone()[0])
+    chk('auditoría CIERRE: incluye total recaudado, efectivo y monto de cierre', 'Efectivo' in cu.fetchone()[0])
     anular(ID_CERRADO, 409, nombre='anular un cobro con la caja CERRADA', exacto='La caja de este cobro ya fue cerrada; utilice una Nota de Crédito.')
     cu.execute("SELECT estado FROM cobro_cab WHERE id_cobro=%s", (ID_CERRADO,)); chk('caja cerrada: el cobro sigue EMITIDO', cu.fetchone()[0] == 'EMITIDO')
     chk('caja cerrada: el saldo no se repuso', saldo(C4) == (0, 'PAGADA'))
@@ -561,7 +565,7 @@ try:
     # 15. APERTURA CON COBROS (sin ventas) no se anula
     # =====================================================================================================================
     with app.app_context():
-        AP2 = AperturaCajaDao().abrirCaja(ADMIN[0], ids['caja'], 0)
+        AP2 = AperturaCajaDao().abrirCaja(CAJ[0], ids['caja'], 0)
     ids['ap'].append(AP2)
     d = cobrar(C2, [ef(20000)], nombre='cobro en la segunda apertura (la apertura no tiene ventas)'); ID7 = d['data']['id_cobro']
     api('delete', f'{APE}/{AP2}', 409, nombre='apertura 2: no se anula con un cobro EMITIDO', exacto='La apertura tiene movimientos registrados; debe cerrarse en lugar de anularse.')

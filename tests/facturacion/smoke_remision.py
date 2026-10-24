@@ -195,7 +195,7 @@ try:
     cu.execute("SELECT array_agg(accion ORDER BY accion) FROM permisos p JOIN roles r USING(id_rol) WHERE r.nombre_rol='Cajero' AND ventana='remision'")
     chk('el Cajero tiene ver, nuevo y anular sobre remision', cu.fetchone()[0] == ['anular', 'nuevo', 'ver'])
     cu.execute("SELECT count(*) FROM permisos p JOIN roles r USING(id_rol) WHERE r.nombre_rol='Cajero'")
-    chk('el Cajero queda con 27 filas de permisos', cu.fetchone()[0] == 27)
+    chk('el Cajero conserva sus permisos (al menos las 27 filas con remision; smoke_permisos_cajero verifica el total)', cu.fetchone()[0] >= 27)
     cu.execute("SELECT count(*) FROM permisos WHERE ventana='remision' AND id_menu = %s", (MENU[0],))
     chk('permisos.id_menu de remision se completó solo (trigger)', cu.fetchone()[0] == 3)
 

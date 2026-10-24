@@ -396,7 +396,8 @@
                <div class="mb-3 text-muted fw-bold">${escapar(d.caja)} &bull; ${escapar(d.consultorio)}</div>
                <table class="table table-sm mb-3">
                  <tr><td>Monto de apertura</td><td class="text-end font-monospace">${gs(d.monto_apertura)}</td></tr>
-                 <tr><td>+ Efectivo cobrado</td><td class="text-end font-monospace">${gs(d.efectivo)}</td></tr>
+                 <tr><td>+ Efectivo cobrado</td><td class="text-end font-monospace">${gs(d.efectivo_cobrado !== undefined ? d.efectivo_cobrado : d.efectivo)}</td></tr>
+                 ${d.reintegros ? `<tr><td>&minus; Reintegros en efectivo (notas de crédito)</td><td class="text-end font-monospace text-danger">${gs(d.reintegros)}</td></tr>` : ''}
                  <tr class="fw-bold table-light"><td>= Monto de cierre</td><td class="text-end font-monospace text-primary fs-4">${gs(d.monto_cierre)}</td></tr>
                </table>
                <div class="text-muted small fw-semibold text-uppercase mb-1">Cobrado por forma de cobro</div>

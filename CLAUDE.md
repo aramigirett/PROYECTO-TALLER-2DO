@@ -579,7 +579,7 @@ Además, como en todo endpoint: `@require_permiso(ventana, acción)`, botones en
    tratamientos no copian el precio ni el IVA del tipo; si cambian, cambian para todos).
 5. **Facturación — nuevo referencial "Mantener Timbrado"** (*pendiente de definir en el análisis*): no programarlo
    hasta tener el CUS (campos, validaciones y reglas de uso). Cuando se programe, cumple el estándar completo.
-6. **Facturación — movimientos**: ✅ Registrar Apertura y Cierre de Caja y ✅ Registrar Pedido Cliente y ✅ Registrar Ventas (etapas 1 y 2) y ✅ Registrar Cobranzas y ✅ Registrar Nota de Remisión (ver
+6. **Facturación — movimientos**: ✅ Registrar Apertura y Cierre de Caja y ✅ Registrar Pedido Cliente y ✅ Registrar Ventas (etapas 1 y 2) y ✅ Registrar Cobranzas y ✅ Registrar Nota de Remisión y ✅ Registrar Notas de Crédito y Débito (ver
    "Movimientos de Facturación");
    el resto de los movimientos (sin empezar) se programa después de los puntos anteriores.
 
@@ -923,6 +923,54 @@ auditoría como siempre. Las URL siguen la convención del proyecto (`/referenci
   - Tests: `tests/facturacion/smoke_remision.py` (158 chequeos; no depende de que alguien tenga una caja abierta: la apertura de prueba se crea por SQL a
     nombre de un usuario libre).
   - **Pendiente:** Nota de Crédito/Débito (`nota_credito_debito_*` ya existe en el DER) y Arqueo de Caja.
+- ✅ **Registrar Notas de Crédito y Débito** (`nota_credito_debito_cab` + `nota_credito_debito_det` del DER, ventana `notacd`, acciones `ver`,
+  `nuevo`, `anular`; el Cajero las recibe todas y queda con 30 filas). Scripts (idempotentes, en este orden): `schema_notas_columnas.sql`,
+  `schema_notas.sql` (en `app/dao/modulo_facturacion/`; funciones, triggers y vistas), `schema_permisos_notas.sql` (fila `notacd` en `menu` + permisos
+  del Cajero) y `schema_permisos_cajero.sql`. Aplicar con `PGCLIENTENCODING=UTF8`.
+  - ⚠️ **Dos columnas NUEVAS en `nota_credito_debito_cab` que NO están en el DER y hay que agregarlas al DER** (junto con `forma_cobro.tipo` y
+    `cobro_det.numero_referencia` de Cobranzas): **`id_apertura`** `INT NOT NULL` FK a `apertura_cierre_caja` (RESTRICT; la caja en que se emitió la nota:
+    toda nota, de crédito o de débito, exige caja ABIERTA del cajero) y **`monto_reintegro`** `NUMERIC(12,0) NOT NULL DEFAULT 0` (parte de la nota de
+    crédito devuelta en efectivo; CHECK: 0 <= reintegro <= total y 0 en los débitos). Sin ellas no se podía anular "solo con la caja de la nota abierta"
+    ni restar el reintegro del cierre. La "devolución de mercadería" no necesita bandera: un renglón con `id_item` ES una devolución.
+  - **Nota:** toda nota se vincula a una **venta EMITIDA** (por su cuenta a cobrar) y lleva motivo obligatorio (máx. 200) y renglones con descripción,
+    monto (IVA incluido) e IVA 0/5/10; **el servidor calcula totales e IVA como en la factura** (`calcular_totales`) y el número, el reintegro, el usuario
+    y la caja salen del servidor/sesión (lo que mande el navegador se ignora). Un renglón libre se guarda con cantidad 1 y precio = monto.
+  - **Numeración** `001-001-0000001` (establecimiento y punto del **timbrado activo vigente**), **propia por tipo** (CRÉDITO y DÉBITO llevan cada uno la
+    suya), correlativa y **sin huecos** (`fn_siguiente_numero_nota(tipo)`: mayor número del tipo + 1 bajo un bloqueo asesor). No consume el rango de las
+    facturas (`timbrado.numero_actual`); solo exige vigencia ("No hay timbrado activo", "aún no está vigente", "está vencido").
+  - **CRÉDITO:** el total no puede superar (total de la factura − créditos EMITIDOS anteriores) ("El total de la nota de crédito (Gs. A) supera el máximo
+    permitido (Gs. B)."). **Primero reduce el saldo pendiente; si la factura ya estaba pagada (o el crédito excede el saldo) el excedente es un REINTEGRO EN
+    EFECTIVO** al cliente: sale de la caja, se registra en `monto_reintegro` y **RESTA del efectivo del cierre**. Se **bloquea** si no hay efectivo en
+    la caja: "No hay efectivo suficiente en la caja para el reintegro (disponible Gs. N)." (disponible = monto de apertura + efectivo cobrado − reintegros
+    previos; se atienden en orden por el bloqueo `FOR UPDATE` de la apertura). **Devolución de mercadería** (opción del crédito sobre ventas de ítems): repone el
+    stock de los ítems devueltos en la misma transacción; solo ítems de la factura cuyo tipo controla stock y sin superar lo facturado menos lo ya devuelto
+    ("Cantidad a devolver de <ÍTEM> supera lo facturado pendiente de devolución: N."); el precio e IVA salen de la FACTURA.
+  - **DÉBITO:** suma al saldo y, si la cuenta estaba PAGADA, vuelve a PENDIENTE; sin tope.
+  - **Anular** (`DELETE /notas-credito-debito/<id>`, cualquiera con `anular`): **solo con la caja de la nota ABIERTA** ("La caja de esta nota ya fue cerrada; no
+    se puede anular."); revierte el efecto en el saldo (crédito: devuelve lo que había reducido; el reintegro vuelve a la caja solo, porque las funciones de
+    caja cuentan únicamente notas EMITIDAS), el stock (se descuenta lo repuesto; si ya no alcanza, 409) y el reintegro. Un **débito** con cobros posteriores
+    que dejarían el saldo negativo no se anula. Una nota anulada no se reactiva y su número no se reutiliza.
+  - **Objetos de BD** (todos con comentarios y `COMMENT ON`): `fn_siguiente_numero_nota`, `trg_preparar_nota` (BEFORE INSERT: caja abierta —la bloquea—,
+    venta EMITIDA, máximo del crédito, cálculo y control del reintegro), `trg_aplicar_nota` (AFTER INSERT/UPDATE de estado: aplica o revierte sobre
+    `cuenta_cobrar`), `trg_validar_nota_det` (devolución de mercadería), `trg_validar_nota` (diferido: tiene renglones y totales por tasa coinciden),
+    `trg_bloquear_anular_venta_con_notas`, `fn_total_reintegros`; **actualizadas**: `fn_total_recaudado` (cobrado − reintegros), `fn_total_efectivo_apertura`
+    (efectivo cobrado − reintegros), `v_resumen_caja` (+ una fila `REINTEGRO` en negativo), `v_estado_cuenta_cliente` (+ `total_notas_credito`,
+    `total_notas_debito`, `cantidad_notas` al final) y `v_libro_ventas` (+ las notas, el crédito en NEGATIVO, columna `comprobante` al final).
+  - **Cierre de caja:** `monto_cierre = monto_apertura + efectivo cobrado − reintegros`; el detalle muestra "Efectivo cobrado", "Reintegros en efectivo" y el
+    desglose por forma con la fila de reintegro; la auditoría del cierre menciona los reintegros.
+  - **Conexiones:** anular una **venta** con notas EMITIDAS se bloquea (409 "No es posible anular, existen notas de crédito o débito emitidas. Anúlelas
+    primero.", también en la base); anular una **apertura** con notas se bloquea; una venta ANULADA no admite notas. El mensaje "utilice una Nota de Crédito"
+    de ventas y cobros con la caja cerrada ya tiene a dónde apuntar.
+  - **PDF** (`app/Services/nota_pdf_service.py`): reutiliza el diseño de la factura (`calcular_datos_factura` + `dibujar_factura`, parametrizados con
+    `titulo`, `etiqueta_total`, `mostrar_condicion` y `lineas_extra`: factura de referencia, motivo, devolución y reintegro); ORIGINAL y DUPLICADO,
+    marca "ANULADA"; `GET /notas-credito-debito/<id>/pdf`.
+  - **Pantalla** `nota-index.html`: listado con filtros (tipo, estado, cliente/N.º de factura/N.º de nota, fechas), Ver/PDF/Anular (candado si la caja se
+    cerró); Nueva Nota: tipo (crédito/débito), buscar la factura (total, saldo, notas previas y **máximo permitido**), caja con el efectivo disponible,
+    motivo, renglones libres o devolución de mercadería (facturado / ya devuelto / pendiente / a devolver) y totales en vivo con el efecto en el saldo y el reintegro.
+  - Tests: `tests/facturacion/smoke_notas.py` (205 chequeos; usa como emisor a un Cajero/Administrador SIN caja abierta y una apertura ZZ por SQL: no toca ninguna
+    caja real). `smoke_cobranzas.py` ahora también cobra con un usuario sin caja abierta (ya no aborta por la caja real del Administrador).
+  - **Pendiente:** Arqueo de Caja (`arqueo_caja_det` ya existe en el DER).
+
 ### Objetos de base de datos (rúbricas de Base de Datos II: procedimientos almacenados, triggers y vistas)
 Todos viven en `app/dao/modulo_facturacion/schema_objetos_bd.sql` (idempotente: `CREATE OR REPLACE` y `DROP TRIGGER IF
 EXISTS`), con comentarios de propósito, parámetros y excepciones, bloque `BEGIN … EXCEPTION` y `COMMENT ON`.
@@ -945,6 +993,7 @@ EXISTS`), con comentarios de propósito, parámetros y excepciones, bloque `BEGI
   cuenta, vencimiento) más `saldo_total_cliente` (suma de los saldos PENDIENTES del cliente, sin las cuentas anuladas) y,
   **completada con Cobranzas**, `total_cobrado`, `cantidad_cobros` y `fecha_ultimo_cobro` (cobros EMITIDOS). `schema_objetos_bd.sql` la crea
   solo si no existe y `schema_cobranzas.sql` la completa (`CREATE OR REPLACE` agregando columnas al final).
+- **Notas de Crédito y Débito**: ver la sección "Registrar Notas de Crédito y Débito" (`schema_notas.sql` actualiza `fn_total_recaudado`, `fn_total_efectivo_apertura`, `v_resumen_caja`, `v_estado_cuenta_cliente` y `v_libro_ventas`; correrlo DESPUÉS de `schema_cobranzas.sql`).
 - **Cobranzas** (`schema_cobranzas.sql`, solo funciones, triggers y vistas; ninguna tabla): **`trg_aplicar_cobro`** (AFTER INSERT/UPDATE de
   `estado` en `cobro_cab`, función `fn_aplicar_cobro`: descuenta o repone el saldo y pasa la cuenta a PAGADA/PENDIENTE; rechaza
   cuenta no pendiente, total mayor al saldo y reactivar un cobro anulado); **`trg_validar_cobro`** (trigger de restricción DIFERIDO,
@@ -1011,10 +1060,10 @@ EXISTS`), con comentarios de propósito, parámetros y excepciones, bloque `BEGI
   Si hay que delegarlo, se agrega `editar` a la ventana en el catálogo y al seed.
 - **Permisos del rol Cajero** (`app/dao/modulo_seguridad/schema_permisos_cajero.sql`, idempotente; define el conjunto
   COMPLETO del Cajero: quita lo que sobra e inserta lo que falta, y solo toca ese rol):
-  - **Módulo Facturación (movimientos, hoy `aperturacaja`, `pedidocliente`, `venta`, `cobro` y `remision`): todas las acciones de la ventana.**
+  - **Módulo Facturación (movimientos, hoy `aperturacaja`, `pedidocliente`, `venta`, `cobro`, `remision` y `notacd`): todas las acciones de la ventana.**
   - **Cliente: `ver`, `nuevo`, `editar`** (sin `anular`).
   - **Forma de Cobro, Marca de Tarjeta, Entidad Emisora, Entidad Adherida, Caja, Depósito, Tipo Ítems e Ítems: solo `ver`.**
-  - **Agendamiento, Consultorio y Seguridad: ningún permiso.** El Cajero queda con 27 filas de permisos (15 + las 3 de `pedidocliente` + las 3 de `venta` + las 3 de `cobro` + las 3 de `remision`).
+  - **Agendamiento, Consultorio y Seguridad: ningún permiso.** El Cajero queda con 30 filas de permisos (15 + las 3 de `pedidocliente` + las 3 de `venta` + las 3 de `cobro` + las 3 de `remision` + las 3 de `notacd`).
   - **Cada movimiento NUEVO de Facturación debe sumar su ventana (con todas sus acciones) a ese seed**, y todo
     referencial nuevo de Facturación entra con `ver`. `tests/facturacion/smoke_permisos_cajero.py` falla si el
     catálogo tiene una ventana de "Módulo Facturación" que el Cajero no puede usar por completo.

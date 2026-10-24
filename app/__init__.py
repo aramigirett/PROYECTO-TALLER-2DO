@@ -258,6 +258,8 @@ from app.rutas.modulo_facturacion.cobro.cobro_routes import cobromod
 from app.rutas.modulo_facturacion.cobro.cobro_api import cobroapi
 from app.rutas.modulo_facturacion.remision.remision_routes import remisionmod
 from app.rutas.modulo_facturacion.remision.remision_api import remisionapi
+from app.rutas.modulo_facturacion.nota_credito_debito.nota_routes import notacdmod
+from app.rutas.modulo_facturacion.nota_credito_debito.nota_api import notacdapi
 
 app.register_blueprint(formacobromod, url_prefix='/referenciales/forma-cobro')
 app.register_blueprint(formacobroapi, url_prefix='/api/v1')
@@ -287,6 +289,8 @@ app.register_blueprint(cobromod, url_prefix='/referenciales/cobro')
 app.register_blueprint(cobroapi, url_prefix='/api/v1')
 app.register_blueprint(remisionmod, url_prefix='/referenciales/remision')
 app.register_blueprint(remisionapi, url_prefix='/api/v1')
+app.register_blueprint(notacdmod, url_prefix='/referenciales/nota-credito-debito')
+app.register_blueprint(notacdapi, url_prefix='/api/v1')
 
 
 ##REGISTRAR CONSULTA Y FICHA MEDICA

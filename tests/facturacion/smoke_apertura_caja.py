@@ -251,7 +251,8 @@ try:
     # el fondo suma al cierre; el total recaudado (hoy 0) también cuando exista
     d = abrir(CAJERO, 'A', 150000, nombre='el Cajero abre de nuevo (ya cerró la anterior) con 150.000'); a2 = d['data']['id_apertura']
     d = api('get', f'{AP}/{a2}/cierre', 200, nombre='detalle: fondo 150.000'); chk('150.000 + 0 = 150.000', (d['data']['monto_apertura'], d['data']['total_recaudado'], d['data']['monto_cierre']) == (150000, 0, 150000))
-    with mock.patch.object(AperturaCajaDao, '_total_recaudado', return_value=250000):
+    # Desde Cobranzas el cierre suma solo el EFECTIVO: se simulan 250.000 recaudados, todos en efectivo.
+    with mock.patch.object(AperturaCajaDao, '_total_recaudado', return_value=250000), mock.patch.object(AperturaCajaDao, '_total_efectivo', return_value=250000):
         d = api('get', f'{AP}/{a2}/cierre', 200, nombre='detalle con 250.000 recaudados (simulado)')
         chk('apertura + recaudado = cierre: 150.000 + 250.000 = 400.000', (d['data']['monto_apertura'], d['data']['total_recaudado'], d['data']['monto_cierre']) == (150000, 250000, 400000))
         como(ADMIN)

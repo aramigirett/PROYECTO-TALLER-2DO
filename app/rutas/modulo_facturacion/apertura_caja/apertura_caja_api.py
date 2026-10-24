@@ -210,7 +210,8 @@ def cerrarApertura(id_apertura):
                     f'Caja: {apertura["caja"]}; Cajero: {apertura["cajero"]}; '
                     f'Monto de apertura: {_gs(resultado["monto_apertura"])}; '
                     f'Total recaudado: {_gs(resultado["total_recaudado"])}; '
-                    f'Efectivo: {_gs(resultado["efectivo"])}; '
+                    f'Efectivo (neto de reintegros): {_gs(resultado["efectivo"])}; ' + (f'Reintegros: {_gs(resultado["reintegros"])}; ' if resultado['reintegros'] else '') +
+                    f''
                     f'Monto de cierre: {_gs(resultado["monto_cierre"])}')
             return jsonify({'success': True, 'data': apertura,
                             'mensaje': f'Caja "{apertura["caja"]}" cerrada correctamente. '
