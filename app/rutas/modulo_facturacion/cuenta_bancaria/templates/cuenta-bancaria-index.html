@@ -1,0 +1,254 @@
+{% extends 'base_tabler.html' %}
+
+{% block titulo %}Cuentas Bancarias{% endblock %}
+
+{% block contenido %}
+<div class="page-header d-print-none mb-3">
+  <div class="row align-items-center">
+    <div class="col">
+      <div class="page-pretitle">Facturación · Referenciales</div>
+      <h2 class="page-title">Cuentas Bancarias</h2>
+    </div>
+    {% if puede('cuentabancaria', 'nuevo') %}
+    <div class="col-auto ms-auto">
+      <button type="button" class="btn btn-primary" id="btnAgregar">
+        <i class="fas fa-plus me-2"></i>Agregar
+      </button>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <label class="form-check form-switch mb-0">
+      <input class="form-check-input" type="checkbox" id="chkInactivos">
+      <span class="form-check-label">Mostrar inactivas</span>
+    </label>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table" id="tbl">
+      <thead>
+        <tr>
+          <th>Banco</th>
+          <th>Tipo de cuenta</th>
+          <th>Número de cuenta</th>
+          <th>Titular</th>
+          <th style="width: 100px;">Estado</th>
+          <th class="w-1">Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="tbodyCuentas">
+        <tr><td colspan="6" class="text-center text-muted py-4">Cargando…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# Modal Alta / Modificar #}
+<div class="modal modal-blur fade" id="modalFormulario" tabindex="-1" aria-labelledby="modalTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalTitle"></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <form id="formCuenta" novalidate>
+        <div class="modal-body">
+          <input type="hidden" id="txtId">
+          <div class="mb-3">
+            <label class="form-label required" for="selEmisora">Banco (entidad emisora)</label>
+            <select class="form-select" id="selEmisora"></select>
+            <div class="invalid-feedback"></div>
+          </div>
+          <div class="row">
+            <div class="col-md-5 mb-3">
+              <label class="form-label required" for="selTipo">Tipo de cuenta</label>
+              <select class="form-select" id="selTipo">
+                <option value="">Seleccione…</option>
+                <option value="CORRIENTE">Corriente</option>
+                <option value="CAJA DE AHORRO">Caja de ahorro</option>
+              </select>
+              <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-md-7 mb-3">
+              <label class="form-label required" for="txtNumero">Número de cuenta</label>
+              <input type="text" class="form-control font-monospace" id="txtNumero" maxlength="30" placeholder="Ej.: 1020304050" autocomplete="off">
+              <div class="invalid-feedback"></div>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label required" for="txtTitular">Titular</label>
+            <input type="text" class="form-control" id="txtTitular" maxlength="80" autocomplete="off" style="text-transform: uppercase;">
+            <div class="invalid-feedback"></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btnGuardar">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script src="{{ url_for('static', filename='js/facturacion-listado.js') }}"></script>
+<script src="{{ url_for('static', filename='js/facturacion-validadores.js') }}"></script>
+<script>
+(function () {
+  const API = '/api/v1/cuentas-bancarias';
+  const API_EMISORAS = '/api/v1/entidades-emisoras';   // lookup: solo bancos activos
+  const V = window.FacturacionValidadores;
+  const PUEDE_EDITAR = {{ 'true' if puede('cuentabancaria', 'editar') else 'false' }};
+  const PUEDE_ANULAR = {{ 'true' if puede('cuentabancaria', 'anular') else 'false' }};
+
+  const tbody = document.getElementById('tbodyCuentas');
+  const chkInactivos = document.getElementById('chkInactivos');
+  const modalEl = document.getElementById('modalFormulario');
+  const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+  const form = document.getElementById('formCuenta');
+  const inpId = document.getElementById('txtId');
+  const btnGuardar = document.getElementById('btnGuardar');
+  const campos = {
+    id_entidad_emisora: document.getElementById('selEmisora'),
+    tipo_cuenta: document.getElementById('selTipo'),
+    numero_cuenta: document.getElementById('txtNumero'),
+    titular: document.getElementById('txtTitular')
+  };
+  const requerido = (msg) => (v) => (v ? '' : msg);
+  const validadores = {
+    id_entidad_emisora: requerido('Debe seleccionar un banco (entidad emisora).'),
+    tipo_cuenta: requerido('El tipo de cuenta debe ser Corriente o Caja de ahorro.'),
+    numero_cuenta: V.numeroCuenta,
+    titular: (v) => V.nombre(v, 'titular', true)
+  };
+
+  const L = window.FacturacionListado;
+  const { escapar, pedir } = L;
+  const limpiarErrores = () => Object.values(campos).forEach(V.limpiarCampo);
+
+  function validarFormulario() {
+    limpiarErrores();
+    let primero = null;
+    Object.keys(campos).forEach((k) => {
+      const msg = validadores[k](campos[k].value);
+      if (msg) { V.marcarCampo(campos[k], msg); primero = primero || campos[k]; }
+    });
+    if (primero) primero.focus();
+    return !primero;
+  }
+
+  async function llenarBancos() {
+    const { data } = await pedir(API_EMISORAS);
+    if (!data || !data.success) throw new Error('No se pudo cargar los bancos');
+    campos.id_entidad_emisora.innerHTML = '<option value="">Seleccione un banco…</option>' +
+      data.data.map((r) => `<option value="${r.id_entidad_emisora}">${escapar(r.descripcion)}</option>`).join('');
+  }
+
+  async function cargar() {
+    try {
+      const { ok, data } = await pedir(L.urlListado(API, chkInactivos));
+      if (!ok || !data || !data.success) throw new Error();
+      if (!data.data.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">No hay cuentas bancarias registradas.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = data.data.map((f) => {
+        const acciones = L.acciones({ activo: f.activo, id: f.id_cuenta_bancaria, descripcion: f.descripcion, puedeEditar: PUEDE_EDITAR, puedeAnular: PUEDE_ANULAR });
+        return `<tr class="${L.claseFila(f.activo)}">
+          <td>${escapar(f.entidad_emisora)}</td>
+          <td>${f.tipo_cuenta === 'CORRIENTE' ? 'Corriente' : 'Caja de ahorro'}</td>
+          <td class="font-monospace">${escapar(f.numero_cuenta)}</td>
+          <td>${escapar(f.titular)}</td>
+          <td>${L.badgeEstado(f.activo)}</td>
+          <td class="text-nowrap"><div class="btn-list flex-nowrap">${acciones}</div></td>
+        </tr>`;
+      }).join('');
+    } catch (e) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger py-4">No se pudo cargar el listado.</td></tr>';
+    }
+  }
+
+  /* El combo de bancos se recarga cada vez que se abre el modal: así solo aparecen bancos activos al día. */
+  async function abrirModal(titulo, registro) {
+    try { await llenarBancos(); }
+    catch (e) { Swal.fire('Error', 'No se pudieron cargar los bancos. Intente nuevamente.', 'error'); return; }
+    document.getElementById('modalTitle').textContent = titulo;
+    inpId.value = registro ? registro.id_cuenta_bancaria : '';
+    campos.id_entidad_emisora.value = registro ? registro.id_entidad_emisora : '';
+    campos.tipo_cuenta.value = registro ? registro.tipo_cuenta : '';
+    campos.numero_cuenta.value = registro ? registro.numero_cuenta : '';
+    campos.titular.value = registro ? registro.titular : '';
+    limpiarErrores();
+    modal.show();
+  }
+
+  const btnAgregar = document.getElementById('btnAgregar');
+  if (btnAgregar) btnAgregar.addEventListener('click', () => abrirModal('Agregar Cuenta Bancaria'));
+
+  modalEl.addEventListener('shown.bs.modal', () => campos.id_entidad_emisora.focus());
+  Object.values(campos).forEach((el) => {
+    el.addEventListener('input', () => V.limpiarCampo(el));
+    el.addEventListener('change', () => V.limpiarCampo(el));
+  });
+
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    if (!validarFormulario()) return;
+    const id = inpId.value;
+    if (id) {
+      const c = await Swal.fire({ title: '¿Guardar los cambios?', text: 'Se modificarán los datos de esta cuenta bancaria.', icon: 'question',
+        showCancelButton: true, confirmButtonText: 'Sí, guardar', cancelButtonText: 'Cancelar' });
+      if (!c.isConfirmed) return;
+    }
+    const payload = {};
+    Object.keys(campos).forEach((k) => { payload[k] = campos[k].value; });
+    btnGuardar.disabled = true;
+    try {
+      const { data } = await pedir(id ? `${API}/${id}` : API, {
+        method: id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+      });
+      if (data && data.success) {
+        modal.hide();
+        await cargar();
+        Swal.fire(id ? 'Actualizada' : 'Agregada', data.mensaje, 'success');
+      } else {
+        const campo = campos[data && data.campo] || campos.numero_cuenta;
+        V.marcarCampo(campo, (data && data.error) || 'No se pudo guardar la cuenta bancaria.');
+        campo.focus();
+      }
+    } catch (e) {
+      V.marcarCampo(campos.numero_cuenta, 'Ocurrió un error de conexión. Intente nuevamente.');
+    } finally {
+      btnGuardar.disabled = false;
+    }
+  });
+
+  tbody.addEventListener('click', async (ev) => {
+    const btn = ev.target.closest('button[data-accion]');
+    if (!btn) return;
+    const id = btn.dataset.id;
+    if (btn.dataset.accion === 'editar') {
+      try {
+        const { data } = await pedir(`${API}/${id}`);
+        if (data && data.success) await abrirModal('Editar Cuenta Bancaria', data.data);
+        else { Swal.fire('Error', (data && data.error) || 'No se pudo cargar la cuenta bancaria.', 'error'); cargar(); }
+      } catch (e) { Swal.fire('Error', 'Ocurrió un error de conexión.', 'error'); }
+    }
+    if (btn.dataset.accion === 'anular') {
+      await L.anular({ api: API, id, descripcion: btn.dataset.desc, titulo: '¿Anular esta cuenta bancaria?', exito: 'Anulada',
+        errorDefault: 'No se pudo anular la cuenta bancaria.', recargar: cargar });
+    }
+    if (btn.dataset.accion === 'reactivar') {
+      await L.reactivar({ api: API, id, descripcion: btn.dataset.desc, titulo: '¿Reactivar esta cuenta bancaria?', exito: 'Reactivada',
+        errorDefault: 'No se pudo reactivar la cuenta bancaria.', recargar: cargar });
+    }
+  });
+
+  chkInactivos.addEventListener('change', cargar);
+  cargar();
+})();
+</script>
+{% endblock %}

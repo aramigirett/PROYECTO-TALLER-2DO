@@ -260,6 +260,10 @@ from app.rutas.modulo_facturacion.remision.remision_routes import remisionmod
 from app.rutas.modulo_facturacion.remision.remision_api import remisionapi
 from app.rutas.modulo_facturacion.nota_credito_debito.nota_routes import notacdmod
 from app.rutas.modulo_facturacion.nota_credito_debito.nota_api import notacdapi
+from app.rutas.modulo_facturacion.cuenta_bancaria.cuenta_bancaria_routes import cuentabancariamod
+from app.rutas.modulo_facturacion.cuenta_bancaria.cuenta_bancaria_api import cuentabancariaapi
+from app.rutas.modulo_facturacion.arqueo.arqueo_routes import arqueomod
+from app.rutas.modulo_facturacion.arqueo.arqueo_api import arqueoapi
 
 app.register_blueprint(formacobromod, url_prefix='/referenciales/forma-cobro')
 app.register_blueprint(formacobroapi, url_prefix='/api/v1')
@@ -291,6 +295,10 @@ app.register_blueprint(remisionmod, url_prefix='/referenciales/remision')
 app.register_blueprint(remisionapi, url_prefix='/api/v1')
 app.register_blueprint(notacdmod, url_prefix='/referenciales/nota-credito-debito')
 app.register_blueprint(notacdapi, url_prefix='/api/v1')
+app.register_blueprint(cuentabancariamod, url_prefix='/referenciales/cuenta-bancaria')
+app.register_blueprint(cuentabancariaapi, url_prefix='/api/v1')
+app.register_blueprint(arqueomod, url_prefix='/referenciales/arqueo')
+app.register_blueprint(arqueoapi, url_prefix='/api/v1')
 
 
 ##REGISTRAR CONSULTA Y FICHA MEDICA

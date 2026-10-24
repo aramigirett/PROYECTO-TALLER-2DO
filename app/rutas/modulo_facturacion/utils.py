@@ -29,6 +29,7 @@ _RE_RUC = re.compile(r'^(\d{5,10})-(\d)$')
 _RE_CONTROL = re.compile(r'[\x00-\x1f\x7f]')
 _RE_CODIGO = re.compile(r'^[A-Z0-9][A-Z0-9 ._/\-]*$')
 _RE_ULTIMOS_DIGITOS = re.compile(r'^\d{4}$')
+_RE_NUMERO_CUENTA = re.compile(r'^\d[\d\-]{4,29}$')
 _RE_TELEFONO = re.compile(r'^\+?[0-9][0-9 \-]*$')
 _RE_CORREO = re.compile(r'^[a-z0-9._%+\-]+@[a-z0-9\-]+(\.[a-z0-9\-]+)*\.[a-z]{2,}$')
 
@@ -224,6 +225,15 @@ def validar_codigo(valor, nombre, max_len, obligatorio=True):
         return None, f'El campo {nombre} no puede superar los {max_len} caracteres.'
     if not _RE_CODIGO.match(texto):
         return None, f'El campo {nombre} solo puede contener letras, números, espacios y los símbolos . _ / -'
+    return texto, None
+
+
+def validar_numero_cuenta(valor):
+    """Número de cuenta bancaria: solo dígitos y guiones, de 5 a 30 caracteres, empezando por un dígito. Un único mensaje para
+    cualquier valor inválido. Devuelve (texto, error)."""
+    texto = _como_texto(valor) if isinstance(valor, str) else (str(valor) if isinstance(valor, int) and not isinstance(valor, bool) else '')
+    if not _RE_NUMERO_CUENTA.match(texto):
+        return None, 'El número de cuenta debe tener entre 5 y 30 caracteres: solo números y guiones.'
     return texto, None
 
 

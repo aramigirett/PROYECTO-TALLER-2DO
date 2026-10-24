@@ -136,6 +136,9 @@ class EntidadEmisoraDao:
             (id_entidad_emisora,))
         if cur.fetchone()[0]:
             return "No se puede dar de baja, el banco está asociado a una entidad adherida."
+        cur.execute("SELECT EXISTS(SELECT 1 FROM cuenta_bancaria WHERE id_entidad_emisora = %s AND activo = true)", (id_entidad_emisora,))
+        if cur.fetchone()[0]:
+            return "No se puede dar de baja, el banco tiene cuentas bancarias asociadas."
         # Cobranzas EMITIDAS con tarjeta (la emisora sale de la entidad adherida) o con cheque de este banco.
         cur.execute("""SELECT 1 FROM cobro_tarjeta t
                        JOIN entidad_adherida ea ON ea.id_entidad_adherida = t.id_entidad_adherida

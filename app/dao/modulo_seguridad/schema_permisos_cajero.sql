@@ -2,10 +2,10 @@
 -- falta, en una sola sentencia. Solo toca las filas del rol Cajero (los demás roles no se modifican).
 --
 -- Regla:
---   * Módulo Facturación (movimientos: hoy aperturacaja, pedidocliente, venta, cobro, remision y notacd): TODAS las acciones de la ventana.
+--   * Módulo Facturación (movimientos: hoy aperturacaja, pedidocliente, venta, cobro, remision, notacd y arqueo): TODAS las acciones de la ventana.
 --   * Cliente: ver, nuevo y editar (sin anular).
 --   * Referenciales de Facturación (Forma de Cobro, Marca de Tarjeta, Entidad Emisora, Entidad Adherida, Caja,
---     Depósito, Tipo Ítems e Ítems): solo ver.
+--     Depósito, Tipo Ítems, Ítems y Cuenta Bancaria): solo ver.
 --   * Agendamiento, Consultorio y Seguridad: ningún permiso.
 --
 -- IMPORTANTE: cada movimiento NUEVO de Facturación debe agregarse acá con todas sus acciones (y todo referencial
@@ -23,11 +23,12 @@ deseado(ventana, accion) AS (
         ('cobro', 'ver'), ('cobro', 'nuevo'), ('cobro', 'anular'),
         ('remision', 'ver'), ('remision', 'nuevo'), ('remision', 'anular'),
         ('notacd', 'ver'), ('notacd', 'nuevo'), ('notacd', 'anular'),
+        ('arqueo', 'ver'), ('arqueo', 'nuevo'), ('arqueo', 'anular'), ('arqueo', 'estado'),
         -- Cliente
         ('cliente', 'ver'), ('cliente', 'nuevo'), ('cliente', 'editar'),
         -- Referenciales de Facturación: solo ver
         ('formacobro', 'ver'), ('marcatarjeta', 'ver'), ('entidademisora', 'ver'), ('entidadadherida', 'ver'),
-        ('caja', 'ver'), ('deposito', 'ver'), ('tipoitem', 'ver'), ('item', 'ver')
+        ('caja', 'ver'), ('deposito', 'ver'), ('tipoitem', 'ver'), ('item', 'ver'), ('cuentabancaria', 'ver')
 ),
 quitar AS (
     DELETE FROM permisos p

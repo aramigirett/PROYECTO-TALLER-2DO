@@ -19,6 +19,7 @@ def py(tipo, entrada):
     if tipo == 'montoPos': return u.validar_monto_positivo(entrada)[1] or ''
     if tipo == 'codigo': return (u.validar_codigo(entrada, 'referencia', 30, True)[1] or '') + '|' + (u.validar_codigo(entrada, 'referencia', 30, False)[1] or '')
     if tipo == 'ultDig': return u.validar_ultimos_digitos(entrada)[1] or ''
+    if tipo == 'nroCuenta': return u.validar_numero_cuenta(entrada)[1] or ''
     if tipo == 'ubicacion': return None
 for f in filas:
     tipo, entrada, js = f[0], f[1], (f[2].rstrip('\r') if len(f) > 2 else '')

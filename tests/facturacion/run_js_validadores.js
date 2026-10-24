@@ -37,6 +37,8 @@ var cods = ['', '   ', 'abc123', 'REF-2026/01', 'a b.c_d', 'con%raro', '-empieza
 for (var a2 = 0; a2 < cods.length; a2++) out.push('codigo\t' + cods[a2] + '\t' + V.codigo(cods[a2], 'referencia', 30, true) + '|' + V.codigo(cods[a2], 'referencia', 30, false));
 var uds = ['1234', '0000', '123', '12345', 'abcd', '', ' 1234 ', '12 4'];
 for (var a3 = 0; a3 < uds.length; a3++) out.push('ultDig\t' + uds[a3] + '\t' + V.ultimosDigitos(uds[a3]));
+var ncs = ['1020304050', '12345', '1234', '123-456-78', '-12345', 'abc12345', '12 345', '', '   ', '12345678901234567890123456789', '123456789012345678901234567890', '1234567890123456789012345678901'];
+for (var a4 = 0; a4 < ncs.length; a4++) out.push('nroCuenta\t' + ncs[a4] + '\t' + V.numeroCuenta(ncs[a4]));
 out.push('ubicacion\tPLANTA\t' + V.ubicacion('PLANTA') + '|' + V.ubicacion('') );
 // salida en UTF-8 sin BOM vía ADODB
 var so = new ActiveXObject('ADODB.Stream'); so.Type = 2; so.Charset = 'utf-8'; so.Open();

@@ -94,6 +94,7 @@ CATALOGO_MENU = [
     {"etiqueta": "Marca de Tarjeta", "endpoint": "marcatarjeta.marcaTarjetaIndex", "icono": "fa-credit-card", "modulo": "Referenciales Facturación", "ventana": "marcatarjeta", "acciones": ["ver", "nuevo", "editar", "anular"]},
     {"etiqueta": "Entidad Emisora", "endpoint": "entidademisora.entidadEmisoraIndex", "icono": "fa-university", "modulo": "Referenciales Facturación", "ventana": "entidademisora", "acciones": ["ver", "nuevo", "editar", "anular"]},
     {"etiqueta": "Entidad Adherida", "endpoint": "entidadadherida.entidadAdheridaIndex", "icono": "fa-handshake", "modulo": "Referenciales Facturación", "ventana": "entidadadherida", "acciones": ["ver", "nuevo", "editar", "anular"]},
+    {"etiqueta": "Cuenta Bancaria", "endpoint": "cuentabancaria.cuentaBancariaIndex", "icono": "fa-piggy-bank", "modulo": "Referenciales Facturación", "ventana": "cuentabancaria", "acciones": ["ver", "nuevo", "editar", "anular"]},
     {"etiqueta": "Tipo Ítems", "endpoint": "tipoitem.tipoItemIndex", "icono": "fa-tags", "modulo": "Referenciales Facturación", "ventana": "tipoitem", "acciones": ["ver", "nuevo", "editar", "anular"]},
     {"etiqueta": "Ítems", "endpoint": "item.itemIndex", "icono": "fa-boxes", "modulo": "Referenciales Facturación", "ventana": "item", "acciones": ["ver", "nuevo", "editar", "anular"]},
     {"etiqueta": "Caja", "endpoint": "caja.cajaIndex", "icono": "fa-cash-register", "modulo": "Referenciales Facturación", "ventana": "caja", "acciones": ["ver", "nuevo", "editar", "anular"]},
@@ -107,6 +108,7 @@ CATALOGO_MENU = [
     {"etiqueta": "Registrar Cobranzas", "endpoint": "cobro.cobroIndex", "icono": "fa-hand-holding-usd", "modulo": "Módulo Facturación", "ventana": "cobro", "acciones": ["ver", "nuevo", "anular"]},
     {"etiqueta": "Registrar Nota de Remisión", "endpoint": "remision.remisionIndex", "icono": "fa-truck", "modulo": "Módulo Facturación", "ventana": "remision", "acciones": ["ver", "nuevo", "anular"]},
     {"etiqueta": "Notas de Crédito y Débito", "endpoint": "notacd.notaIndex", "icono": "fa-file-invoice", "modulo": "Módulo Facturación", "ventana": "notacd", "acciones": ["ver", "nuevo", "anular"]},
+    {"etiqueta": "Arqueo de Caja", "endpoint": "arqueo.arqueoIndex", "icono": "fa-calculator", "modulo": "Módulo Facturación", "ventana": "arqueo", "acciones": ["ver", "nuevo", "anular", "estado"]},
 
     # Módulo Seguridad
     {"etiqueta": "Gestión de Usuarios", "endpoint": "usuario.usuarioIndex", "icono": "fa-users-cog", "modulo": "Módulo Seguridad", "ventana": "usuario", "acciones": ["ver", "nuevo", "editar", "anular", "desbloquear"]},

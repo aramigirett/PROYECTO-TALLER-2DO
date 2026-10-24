@@ -550,6 +550,7 @@ Además, como en todo endpoint: `@require_permiso(ventana, acción)`, botones en
 | Módulo | Referencial | Borrado hoy | Vista | Falta |
 |---|---|---|---|---|
 | Facturación | Forma de Cobro, Marca de Tarjeta, Entidad Emisora, Entidad Adherida, Tipo Ítems, Ítems | **Lógico** | Tabler (con `facturacion-listado.js`) | — (cumplen los 6 puntos) |
+| Facturación | Cuenta Bancaria | **Lógico** | Tabler (con `facturacion-listado.js`) | — (cumple los 6 puntos) |
 | Facturación | Caja, Depósito, Cliente | **Lógico** | Tabler (con su propia copia del código de listado) | — (cumplen los 6 puntos); falta migrarlas al helper y unificar `?inactivas` de Caja |
 | Consultorio | Tipo Tratamiento, Tipo Insumo Utilizado, Tipo Procedimiento Médico, Medicamentos, Tipo Estudio, Tipo Análisis | **Lógico** (`activo`, con único parcial) | SB Admin 2 | Vista Tabler, puntos 4 y 6 |
 | Consultorio | Tipo Diagnóstico, Síntomas | **Físico** (con `estaEnUso()` → 409) | SB Admin 2 | Pasar a lógico (agregar `activo`, único parcial) y puntos 1, 4 y 6 |
@@ -579,7 +580,7 @@ Además, como en todo endpoint: `@require_permiso(ventana, acción)`, botones en
    tratamientos no copian el precio ni el IVA del tipo; si cambian, cambian para todos).
 5. **Facturación — nuevo referencial "Mantener Timbrado"** (*pendiente de definir en el análisis*): no programarlo
    hasta tener el CUS (campos, validaciones y reglas de uso). Cuando se programe, cumple el estándar completo.
-6. **Facturación — movimientos**: ✅ Registrar Apertura y Cierre de Caja y ✅ Registrar Pedido Cliente y ✅ Registrar Ventas (etapas 1 y 2) y ✅ Registrar Cobranzas y ✅ Registrar Nota de Remisión y ✅ Registrar Notas de Crédito y Débito (ver
+6. **Facturación — movimientos**: ✅ Registrar Apertura y Cierre de Caja y ✅ Registrar Pedido Cliente y ✅ Registrar Ventas (etapas 1 y 2) y ✅ Registrar Cobranzas y ✅ Registrar Nota de Remisión y ✅ Registrar Notas de Crédito y Débito y ✅ Mantener Cuenta Bancaria + ✅ Registrar Arqueo de Caja (ver
    "Movimientos de Facturación");
    el resto de los movimientos (sin empezar) se programa después de los puntos anteriores.
 
@@ -890,7 +891,7 @@ auditoría como siempre. Las URL siguen la convención del proyecto (`/referenci
     `V.montoPositivo`, `validar_codigo` / `V.codigo`, `validar_ultimos_digitos` / `V.ultimosDigitos`.
   - Tests: `tests/facturacion/smoke_cobranzas.py` (usa como cajero al Administrador y un timbrado ZZ INACTIVO: no consume números reales y
     no depende de la caja del Cajero real) y el helper `tests/facturacion/_pdf.py` (leer PDFs de ReportLab sin librerías).
-  - **Pendiente:** Nota de Crédito (anular con la caja cerrada), Arqueo de Caja (`arqueo_caja_det` ya existe en el DER) y, cuando exista,
+  - **Pendiente:** cobrar en el momento de la venta de contado sin pasar por la pantalla de cobros (la Nota de Crédito y el Arqueo ya existen) y, cuando exista,
     cobrar en el momento de la venta de contado sin pasar por la pantalla de cobros.
 
 - ✅ **Registrar Nota de Remisión** (`nota_remision_cab` + `nota_remision_det` del DER, usadas **tal cual**, ventana `remision`, acciones `ver`,
@@ -922,7 +923,7 @@ auditoría como siempre. Las URL siguen la convención del proyecto (`/referenci
     que no tienen), datos del traslado y grilla facturado / ya remitido / pendiente / a remitir, con "Remitir todo lo pendiente".
   - Tests: `tests/facturacion/smoke_remision.py` (158 chequeos; no depende de que alguien tenga una caja abierta: la apertura de prueba se crea por SQL a
     nombre de un usuario libre).
-  - **Pendiente:** Nota de Crédito/Débito (`nota_credito_debito_*` ya existe en el DER) y Arqueo de Caja.
+  - **Pendiente:** ninguno propio (la Nota de Crédito/Débito y el Arqueo de Caja ya están hechos).
 - ✅ **Registrar Notas de Crédito y Débito** (`nota_credito_debito_cab` + `nota_credito_debito_det` del DER, ventana `notacd`, acciones `ver`,
   `nuevo`, `anular`; el Cajero las recibe todas y queda con 30 filas). Scripts (idempotentes, en este orden): `schema_notas_columnas.sql`,
   `schema_notas.sql` (en `app/dao/modulo_facturacion/`; funciones, triggers y vistas), `schema_permisos_notas.sql` (fila `notacd` en `menu` + permisos
@@ -969,7 +970,44 @@ auditoría como siempre. Las URL siguen la convención del proyecto (`/referenci
     motivo, renglones libres o devolución de mercadería (facturado / ya devuelto / pendiente / a devolver) y totales en vivo con el efecto en el saldo y el reintegro.
   - Tests: `tests/facturacion/smoke_notas.py` (205 chequeos; usa como emisor a un Cajero/Administrador SIN caja abierta y una apertura ZZ por SQL: no toca ninguna
     caja real). `smoke_cobranzas.py` ahora también cobra con un usuario sin caja abierta (ya no aborta por la caja real del Administrador).
-  - **Pendiente:** Arqueo de Caja (`arqueo_caja_det` ya existe en el DER).
+  - **Pendiente:** ninguno propio (el Arqueo de Caja ya está hecho; ver abajo).
+
+- ✅ **Mantener Cuenta Bancaria** (referencial nuevo, ventana `cuentabancaria` en "Referenciales Facturación"; el Cajero solo `ver`): la cuenta del **banco** donde
+  se DEPOSITA el dinero de la recaudación (distinta de la tabla `deposito`, que es el depósito físico de productos). Script (idempotente):
+  `app/dao/modulo_facturacion/schema_cuenta_bancaria.sql` + `app/dao/modulo_seguridad/schema_permisos_cuenta_bancaria.sql`.
+  - ⚠️ **Hay que sumar al DER:** la tabla **`cuenta_bancaria`** (`id_cuenta_bancaria`, `id_entidad_emisora` FK RESTRICT al banco, `tipo_cuenta` CHECK
+    `CORRIENTE`/`CAJA DE AHORRO`, `numero_cuenta` VARCHAR(30), `titular` VARCHAR(100), `activo`) y la columna **`recaudacion_depositar.id_cuenta_bancaria`**
+    (INT NULL, FK RESTRICT, más el CHECK `ck_recaudacion_cuenta`: una recaudación DEPOSITADA exige cuenta).
+  - Estándar completo: único parcial `(id_entidad_emisora, numero_cuenta) WHERE activo`, titular en MAYÚSCULAS, Estado / "Mostrar inactivos" / Reactivar (valida banco
+    activo y duplicado), auditoría. Validador compartido nuevo en espejo: `validar_numero_cuenta` / `V.numeroCuenta` (solo dígitos y guiones, 5 a 30). Datos
+    iniciales: CORRIENTE BANCO ITAÚ 1020304050 y CAJA DE AHORRO BANCO CONTINENTAL 2030405060, con la razón social como titular.
+  - **En uso:** la baja se bloquea si la cuenta recibió el depósito de una recaudación no anulada, y entonces tampoco se pueden cambiar su banco, tipo ni
+    número (solo el titular). `EntidadEmisoraDao._motivo_en_uso` suma las cuentas bancarias activas del banco ("el banco tiene cuentas bancarias asociadas").
+  - Tests: `tests/facturacion/smoke_cuenta_bancaria.py` (84 chequeos).
+
+- ✅ **Registrar Arqueo de Caja (con Recaudación a depositar)** (`arqueo_caja` + `arqueo_caja_det` + `recaudacion_depositar` del DER, **usadas tal cual**; ventana `arqueo`,
+  acciones `ver`, `nuevo`, `anular` y `estado` = marcar depositada; el Cajero las recibe todas). Scripts (idempotentes, en este orden): `schema_cuenta_bancaria.sql` →
+  `schema_arqueo.sql` (en `app/dao/modulo_facturacion/`; funciones, procedimiento, triggers y vista) → `schema_permisos_arqueo.sql` → `schema_permisos_cajero.sql`.
+  - **Control POSTERIOR al cierre:** se elige una apertura **CERRADA** sin arqueo REGISTRADO (una sola por apertura; si el arqueo se anula se puede arquear de nuevo).
+    **Nadie arquea su propia caja** ("No puede arquear su propia caja; el arqueo debe hacerlo otro usuario."): lo valida la API, `sp_registrar_arqueo` y el trigger
+    `trg_validar_arqueo`; el Administrador arquea cualquier apertura salvo las suyas, y el listado de aperturas pendientes ya excluye las del usuario.
+  - **Detalle por forma de cobro:** monto del SISTEMA (lo calcula la base con `fn_formas_arqueo` desde `v_resumen_caja`: en la primera forma EFECTIVO suma el fondo
+    inicial y resta los reintegros de las notas de crédito), monto CONTADO (lo ingresa quien arquea) y diferencia (sobrante +, faltante −). Se cuentan las formas con
+    movimiento más la EFECTIVO; hay que contarlas todas. **Observación obligatoria si ALGUNA forma tiene diferencia** (aunque el total cuadre).
+  - **Recaudación a depositar (PENDIENTE):** efectivo contado − fondo inicial (mínimo 0) + cheques contados; tarjetas y transferencias no se depositan; si no hay nada que
+    depositar no se genera. **Marcar DEPOSITADA** (permiso `estado`): cuenta bancaria ACTIVA (`FOR SHARE`), N.º de boleta y fecha (ni futura ni anterior al arqueo); una
+    recaudación depositada o anulada no cambia de estado. **Anular el arqueo** (permiso `anular`): solo si su recaudación sigue PENDIENTE, y la anula también.
+  - **Objetos de BD** (con comentarios y `COMMENT ON`): procedimiento **`sp_registrar_arqueo`** (una transacción: arqueo, detalle y recaudación, con validaciones y bloque
+    `EXCEPTION`; se llama con `CALL sp_registrar_arqueo(apertura, usuario, formas[], contados[], observación, NULL, NULL)`), `fn_formas_arqueo`, `fn_forma_efectivo_arqueo`,
+    `trg_validar_arqueo` (apertura CERRADA y no propia), `trg_arqueo_estado`, `trg_recaudacion_estado` y la vista **`v_arqueos_diferencias`** (por arqueo: apertura, cajero,
+    arqueador, fechas, total sistema, total contado, diferencia y `resultado` CUADRA/SOBRANTE/FALTANTE) para el control del Administrador.
+  - **Conexiones:** el listado de aperturas de caja muestra "Con arqueo" / "Sin arqueo" en las CERRADAS (`tiene_arqueo`); `GET /arqueos/aperturas` alimenta la pantalla.
+  - **PDF** (`app/Services/arqueo_pdf_service.py`, mismo patrón que recibo y factura): ORIGINAL y DUPLICADO, formas con sistema / contado / diferencia, resultado,
+    observación y recaudación (con la cuenta y la boleta si ya se depositó); marca "ANULADO".
+  - **Pantalla** `arqueo-index.html`: listado de arqueos con filtros y badge cuadra / sobrante / faltante; sección **Recaudaciones a depositar** con estado y la acción
+    "Marcar depositada" (modal con cuenta, boleta y fecha); Nuevo Arqueo con la grilla sistema / contado / diferencia en vivo y la recaudación resultante.
+  - Tests: `tests/facturacion/smoke_arqueo.py` (166 chequeos; construye aperturas ZZ CERRADAS con cobros y un reintegro por SQL y no depende de ninguna caja abierta).
+  - **Pendiente:** ninguno propio. **Con esto quedan completos los movimientos del Módulo Facturación.**
 
 ### Objetos de base de datos (rúbricas de Base de Datos II: procedimientos almacenados, triggers y vistas)
 Todos viven en `app/dao/modulo_facturacion/schema_objetos_bd.sql` (idempotente: `CREATE OR REPLACE` y `DROP TRIGGER IF
@@ -993,6 +1031,7 @@ EXISTS`), con comentarios de propósito, parámetros y excepciones, bloque `BEGI
   cuenta, vencimiento) más `saldo_total_cliente` (suma de los saldos PENDIENTES del cliente, sin las cuentas anuladas) y,
   **completada con Cobranzas**, `total_cobrado`, `cantidad_cobros` y `fecha_ultimo_cobro` (cobros EMITIDOS). `schema_objetos_bd.sql` la crea
   solo si no existe y `schema_cobranzas.sql` la completa (`CREATE OR REPLACE` agregando columnas al final).
+- **Arqueo de Caja**: procedimiento `sp_registrar_arqueo`, `fn_formas_arqueo`, 3 triggers y la vista `v_arqueos_diferencias` (`schema_arqueo.sql`; ver la sección "Registrar Arqueo de Caja").
 - **Notas de Crédito y Débito**: ver la sección "Registrar Notas de Crédito y Débito" (`schema_notas.sql` actualiza `fn_total_recaudado`, `fn_total_efectivo_apertura`, `v_resumen_caja`, `v_estado_cuenta_cliente` y `v_libro_ventas`; correrlo DESPUÉS de `schema_cobranzas.sql`).
 - **Cobranzas** (`schema_cobranzas.sql`, solo funciones, triggers y vistas; ninguna tabla): **`trg_aplicar_cobro`** (AFTER INSERT/UPDATE de
   `estado` en `cobro_cab`, función `fn_aplicar_cobro`: descuenta o repone el saldo y pasa la cuenta a PAGADA/PENDIENTE; rechaza
@@ -1060,10 +1099,10 @@ EXISTS`), con comentarios de propósito, parámetros y excepciones, bloque `BEGI
   Si hay que delegarlo, se agrega `editar` a la ventana en el catálogo y al seed.
 - **Permisos del rol Cajero** (`app/dao/modulo_seguridad/schema_permisos_cajero.sql`, idempotente; define el conjunto
   COMPLETO del Cajero: quita lo que sobra e inserta lo que falta, y solo toca ese rol):
-  - **Módulo Facturación (movimientos, hoy `aperturacaja`, `pedidocliente`, `venta`, `cobro`, `remision` y `notacd`): todas las acciones de la ventana.**
+  - **Módulo Facturación (movimientos, hoy `aperturacaja`, `pedidocliente`, `venta`, `cobro`, `remision`, `notacd` y `arqueo`): todas las acciones de la ventana.**
   - **Cliente: `ver`, `nuevo`, `editar`** (sin `anular`).
-  - **Forma de Cobro, Marca de Tarjeta, Entidad Emisora, Entidad Adherida, Caja, Depósito, Tipo Ítems e Ítems: solo `ver`.**
-  - **Agendamiento, Consultorio y Seguridad: ningún permiso.** El Cajero queda con 30 filas de permisos (15 + las 3 de `pedidocliente` + las 3 de `venta` + las 3 de `cobro` + las 3 de `remision` + las 3 de `notacd`).
+  - **Forma de Cobro, Marca de Tarjeta, Entidad Emisora, Entidad Adherida, Caja, Depósito, Tipo Ítems, Ítems y Cuenta Bancaria: solo `ver`.**
+  - **Agendamiento, Consultorio y Seguridad: ningún permiso.** El Cajero queda con 35 filas de permisos (15 + las 3 de `pedidocliente` + las 3 de `venta` + las 3 de `cobro` + las 3 de `remision` + las 3 de `notacd` + las 4 de `arqueo` + `cuentabancaria` ver).
   - **Cada movimiento NUEVO de Facturación debe sumar su ventana (con todas sus acciones) a ese seed**, y todo
     referencial nuevo de Facturación entra con `ver`. `tests/facturacion/smoke_permisos_cajero.py` falla si el
     catálogo tiene una ventana de "Módulo Facturación" que el Cajero no puede usar por completo.

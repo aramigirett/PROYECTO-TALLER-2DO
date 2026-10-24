@@ -19,7 +19,7 @@ def chk(nombre, cond):
     if not cond:
         fallos.append(nombre)
 
-SOLO_VER = {'formacobro', 'marcatarjeta', 'entidademisora', 'entidadadherida', 'caja', 'deposito', 'tipoitem', 'item'}
+SOLO_VER = {'formacobro', 'marcatarjeta', 'entidademisora', 'entidadadherida', 'caja', 'deposito', 'tipoitem', 'item', 'cuentabancaria'}
 MODULOS_SIN_ACCESO = {'Agendamiento', 'Referenciales Agendamiento', 'Referenciales Consultorio',
                       'Módulo Consultorio', 'Módulo Seguridad'}
 

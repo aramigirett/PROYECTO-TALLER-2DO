@@ -26,7 +26,8 @@ _INDICES = {
 _SELECT = """
 SELECT a.id_apertura, a.id_caja, c.descripcion, k.codigo, k.nombre_consultorio,
        a.id_usuario, COALESCE(f.nombre || ' ' || f.apellido, m.nombre || ' ' || m.apellido),
-       a.fecha_apertura, a.monto_apertura, a.fecha_cierre, a.total_recaudado, a.monto_cierre, a.estado
+       a.fecha_apertura, a.monto_apertura, a.fecha_cierre, a.total_recaudado, a.monto_cierre, a.estado,
+       EXISTS (SELECT 1 FROM arqueo_caja q WHERE q.id_apertura = a.id_apertura AND q.estado = 'REGISTRADO')
 FROM apertura_cierre_caja a
 JOIN caja c ON c.id_caja = a.id_caja
 JOIN consultorio k ON k.codigo = c.id_consultorio
@@ -53,6 +54,7 @@ def _a_dict(f):
         'fecha_apertura': _fecha(f[7]), 'monto_apertura': _entero(f[8]),
         'fecha_cierre': _fecha(f[9]), 'total_recaudado': _entero(f[10]), 'monto_cierre': _entero(f[11]),
         'estado': f[12],
+        'tiene_arqueo': bool(f[13]),   # solo tiene sentido en una apertura CERRADA (el arqueo es un control posterior al cierre)
     }
 
 

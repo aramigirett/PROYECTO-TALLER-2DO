@@ -1,0 +1,531 @@
+{% extends 'base_tabler.html' %}
+
+{% block titulo %}Arqueo de Caja{% endblock %}
+
+{% block css %}
+<link href="{{ url_for('static', filename='css/facturacion.css') }}" rel="stylesheet">
+{% endblock %}
+
+{% block contenido %}
+{# ══════════════════ LISTADO DE ARQUEOS Y RECAUDACIONES ══════════════════ #}
+<div id="seccionListado">
+  <div class="page-header d-print-none mb-3">
+    <div class="row align-items-center">
+      <div class="col">
+        <div class="page-pretitle text-muted">Facturación &bull; Control de caja</div>
+        <h2 class="page-title fw-bold" style="color: var(--fc-text-main, #0f172a);">Arqueo de Caja</h2>
+      </div>
+      {% if puede('arqueo', 'nuevo') %}
+      <div class="col-auto">
+        <button type="button" class="btn btn-primary px-3 rounded-pill" id="btnNuevo"><i class="fas fa-plus me-2"></i>Nuevo Arqueo</button>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card border shadow-sm rounded-3 mb-4">
+    <div class="card-header bg-white py-3 border-bottom">
+      <div class="row g-2 align-items-end w-100">
+        <div class="col-6 col-md-2">
+          <label class="form-label small fw-semibold text-muted mb-1" for="filtroResultado">Resultado</label>
+          <select class="form-select form-select-sm" id="filtroResultado">
+            <option value="">Todos</option><option value="CUADRA">Cuadra</option><option value="SOBRANTE">Sobrante</option><option value="FALTANTE">Faltante</option>
+          </select>
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label small fw-semibold text-muted mb-1" for="filtroEstado">Estado</label>
+          <select class="form-select form-select-sm" id="filtroEstado">
+            <option value="">Todos</option><option value="REGISTRADO">Registrado</option><option value="ANULADO">Anulado</option>
+          </select>
+        </div>
+        <div class="col-12 col-md-3">
+          <label class="form-label small fw-semibold text-muted mb-1" for="filtroTexto">Caja, cajero o quien arqueó</label>
+          <input type="text" class="form-control form-control-sm" id="filtroTexto" maxlength="80" autocomplete="off">
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label small fw-semibold text-muted mb-1" for="filtroDesde">Desde</label>
+          <input type="date" class="form-control form-control-sm" id="filtroDesde">
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label small fw-semibold text-muted mb-1" for="filtroHasta">Hasta</label>
+          <input type="date" class="form-control form-control-sm" id="filtroHasta">
+        </div>
+        <div class="col-12 col-md-1">
+          <button type="button" class="btn btn-sm btn-outline-secondary w-100" id="btnLimpiarFiltros" title="Limpiar filtros"><i class="fas fa-eraser"></i></button>
+        </div>
+      </div>
+      <div class="text-danger small mt-2 w-100" id="errFiltros" style="display: none;"></div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-vcenter table-hover card-table mb-0">
+        <thead class="bg-light text-muted small text-uppercase">
+          <tr>
+            <th class="ps-3 py-3">Arqueo</th><th class="py-3">Fecha</th><th class="py-3">Caja / Cajero</th><th class="py-3">Arqueó</th>
+            <th class="py-3 text-end">Sistema</th><th class="py-3 text-end">Contado</th><th class="py-3 text-center">Resultado</th>
+            <th class="py-3 text-center">Recaudación</th><th class="pe-3 py-3 text-end w-1">Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="tbodyArqueos">
+          <tr><td colspan="9" class="text-center text-muted py-4"><div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>Cargando arqueos…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card border shadow-sm rounded-3">
+    <div class="card-header bg-white py-3 border-bottom d-flex flex-wrap gap-2 align-items-center justify-content-between">
+      <h3 class="card-title mb-0">Recaudaciones a depositar</h3>
+      <div style="min-width: 200px;">
+        <select class="form-select form-select-sm" id="filtroEstadoRec" aria-label="Estado de la recaudación">
+          <option value="">Pendientes y depositadas</option><option value="PENDIENTE">Pendientes</option><option value="DEPOSITADA">Depositadas</option><option value="ANULADA">Anuladas</option>
+        </select>
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-vcenter table-hover card-table mb-0">
+        <thead class="bg-light text-muted small text-uppercase">
+          <tr>
+            <th class="ps-3 py-3">Generada</th><th class="py-3">Caja</th><th class="py-3 text-end">Efectivo</th><th class="py-3 text-end">Cheques</th>
+            <th class="py-3 text-end">Total</th><th class="py-3 text-center">Estado</th><th class="py-3">Depósito</th><th class="pe-3 py-3 text-end w-1">Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="tbodyRecaudaciones">
+          <tr><td colspan="8" class="text-center text-muted py-4">Cargando recaudaciones…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{# ══════════════════ NUEVO ARQUEO ══════════════════ #}
+<div id="seccionNuevo" style="display: none;">
+  <div class="page-header d-print-none mb-3">
+    <div class="row align-items-center">
+      <div class="col">
+        <div class="page-pretitle text-muted">Arqueo de Caja</div>
+        <h2 class="page-title fw-bold" style="color: var(--fc-text-main, #0f172a);">Nuevo Arqueo</h2>
+      </div>
+      <div class="col-auto"><button type="button" class="btn btn-outline-secondary" id="btnVolverListado"><i class="fas fa-arrow-left me-2"></i>Volver al listado</button></div>
+    </div>
+  </div>
+
+  <form id="formArqueo" novalidate>
+    <div class="card border shadow-sm rounded-3 mb-3">
+      <div class="card-body">
+        <label class="form-label required fw-semibold" for="selApertura">Apertura de caja a arquear</label>
+        <select class="form-select" id="selApertura"></select>
+        <div class="invalid-feedback"></div>
+        <div class="form-hint text-muted small mt-1">Solo se listan aperturas CERRADAS sin arqueo, sin las suyas: nadie arquea su propia caja.</div>
+      </div>
+    </div>
+
+    <div id="bloqueApertura" style="display: none;">
+      <div class="card border shadow-sm rounded-3 mb-3">
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-6 col-md-3"><div class="text-muted small text-uppercase fw-semibold">Caja</div><div class="fw-bold text-dark" id="lblCaja"></div></div>
+            <div class="col-6 col-md-3"><div class="text-muted small text-uppercase fw-semibold">Cajero</div><div class="fw-bold text-dark" id="lblCajero"></div></div>
+            <div class="col-6 col-md-3"><div class="text-muted small text-uppercase fw-semibold">Apertura → cierre</div><div class="small" id="lblFechas"></div></div>
+            <div class="col-6 col-md-3"><div class="text-muted small text-uppercase fw-semibold">Fondo inicial</div><div class="font-monospace fw-bold" id="lblFondo"></div>
+              <div class="text-muted small" id="lblReintegros"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card border shadow-sm rounded-3 mb-3">
+        <div class="card-header bg-white"><h3 class="card-title mb-0">Conteo por forma de cobro</h3></div>
+        <div class="table-responsive">
+          <table class="table table-vcenter card-table mb-0">
+            <thead class="bg-light text-muted small text-uppercase">
+              <tr><th class="ps-3 py-2">Forma de cobro</th><th class="py-2 text-end">Según el sistema</th><th class="py-2 text-end" style="width: 190px;">Monto contado</th><th class="pe-3 py-2 text-end">Diferencia</th></tr>
+            </thead>
+            <tbody id="tbodyConteo"></tbody>
+            <tfoot>
+              <tr class="fw-bold"><td class="ps-3">TOTAL</td><td class="text-end font-monospace" id="totSistema">Gs. 0</td><td class="text-end font-monospace" id="totContado">Gs. 0</td><td class="pe-3 text-end font-monospace" id="totDiferencia">Gs. 0</td></tr>
+            </tfoot>
+          </table>
+        </div>
+        <div class="card-footer">
+          <div class="row g-3 align-items-end">
+            <div class="col-12 col-md-7">
+              <label class="form-label small fw-semibold text-muted mb-1" for="txtObservacion" id="lblObservacion">Observación (obligatoria si hay diferencia)</label>
+              <input type="text" class="form-control form-control-sm" id="txtObservacion" maxlength="200" autocomplete="off">
+              <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-12 col-md-5">
+              <div class="small text-muted">Recaudación a depositar (efectivo contado − fondo inicial + cheques contados)</div>
+              <div class="fs-3 fw-bold font-monospace text-primary" id="resRecaudacion">Gs. 0</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="text-danger small mb-2" id="errArqueo" style="display: none;"></div>
+    <div class="d-flex justify-content-end gap-2">
+      <button type="button" class="btn btn-link link-secondary" id="btnCancelarNuevo">Cancelar</button>
+      <button type="submit" class="btn btn-primary" id="btnGuardar" disabled><i class="fas fa-calculator me-2"></i>Registrar Arqueo</button>
+    </div>
+  </form>
+</div>
+
+{# ══════════════════ MODAL: VER ══════════════════ #}
+<div class="modal modal-blur fade" id="modalVer" tabindex="-1" aria-labelledby="modalVerTitulo" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header border-bottom"><h5 class="modal-title fw-bold" id="modalVerTitulo">Arqueo</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+      <div class="modal-body p-4" id="cuerpoVer"></div>
+      <div class="modal-footer border-top bg-light py-2">
+        <a class="btn btn-outline-primary" id="btnVerPdf" target="_blank" rel="noopener"><i class="fas fa-file-pdf me-2"></i>PDF</a>
+        <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ══════════════════ MODAL: MARCAR DEPOSITADA ══════════════════ #}
+<div class="modal modal-blur fade" id="modalDeposito" tabindex="-1" aria-labelledby="modalDepositoTitulo" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header border-bottom"><h5 class="modal-title fw-bold" id="modalDepositoTitulo">Marcar como depositada</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+      <form id="formDeposito" novalidate>
+        <div class="modal-body">
+          <input type="hidden" id="depId">
+          <div class="alert alert-info py-2" id="depResumen"></div>
+          <div class="mb-3">
+            <label class="form-label required" for="selCuenta">Cuenta bancaria</label>
+            <select class="form-select" id="selCuenta"></select>
+            <div class="invalid-feedback"></div>
+          </div>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label required" for="txtBoleta">N.º de boleta</label>
+              <input type="text" class="form-control font-monospace" id="txtBoleta" maxlength="30" autocomplete="off">
+              <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label required" for="txtFechaDeposito">Fecha del depósito</label>
+              <input type="date" class="form-control" id="txtFechaDeposito">
+              <div class="invalid-feedback"></div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btnDepositar"><i class="fas fa-university me-2"></i>Marcar depositada</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script src="{{ url_for('static', filename='js/facturacion-listado.js') }}"></script>
+<script src="{{ url_for('static', filename='js/facturacion-validadores.js') }}"></script>
+<script>
+(function () {
+  const API = '/api/v1/arqueos';
+  const API_REC = '/api/v1/recaudaciones';
+  const API_CUENTAS = '/api/v1/cuentas-bancarias';
+  const { escapar, pedir } = window.FacturacionListado;
+  const V = window.FacturacionValidadores;
+  const PUEDE_ANULAR = {{ 'true' if puede('arqueo', 'anular') else 'false' }};
+  const PUEDE_ESTADO = {{ 'true' if puede('arqueo', 'estado') else 'false' }};
+
+  const $ = (id) => document.getElementById(id);
+  const seccionListado = $('seccionListado'), seccionNuevo = $('seccionNuevo'), tbody = $('tbodyArqueos'), tbodyRec = $('tbodyRecaudaciones');
+  const filtroResultado = $('filtroResultado'), filtroEstado = $('filtroEstado'), filtroTexto = $('filtroTexto'), filtroDesde = $('filtroDesde'), filtroHasta = $('filtroHasta');
+  const errFiltros = $('errFiltros'), selApertura = $('selApertura'), btnGuardar = $('btnGuardar'), errArqueo = $('errArqueo');
+  const modalVer = bootstrap.Modal.getOrCreateInstance($('modalVer')), modalDeposito = bootstrap.Modal.getOrCreateInstance($('modalDeposito'));
+
+  const gs = (n) => (n === null || n === undefined) ? '—' : V.formatoGs(n);
+  const gsSigno = (n) => (n > 0 ? '+' : (n < 0 ? '−' : '')) + V.formatoGs(Math.abs(n));
+  const fecha = (s, conHora) => {
+    if (!s) return '—';
+    const m = /^(\d{4})-(\d{2})-(\d{2})(?: (\d{2}):(\d{2}))?/.exec(s);
+    return m ? `${m[3]}/${m[2]}/${m[1]}` + (conHora && m[4] ? ` ${m[4]}:${m[5]}` : '') : s;
+  };
+  const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+  const hoy = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+  const badgeResultado = (r, dif) => r === 'CUADRA' ? '<span class="badge bg-green-lt">Cuadra</span>'
+    : (r === 'SOBRANTE' ? `<span class="badge bg-blue-lt">Sobrante ${gs(Math.abs(dif))}</span>` : `<span class="badge bg-red-lt">Faltante ${gs(Math.abs(dif))}</span>`);
+  const badgeRecaudacion = (e) => e === 'PENDIENTE' ? '<span class="badge bg-yellow-lt">Pendiente</span>' : (e === 'DEPOSITADA' ? '<span class="badge bg-green-lt">Depositada</span>'
+    : (e === 'ANULADA' ? '<span class="badge bg-red-lt">Anulada</span>' : '<span class="text-muted small">—</span>'));
+  const badgeEstado = (e) => e === 'REGISTRADO' ? '<span class="fc-badge fc-badge-open"><span class="fc-status-dot fc-status-dot-green"></span>Registrado</span>'
+    : '<span class="fc-badge fc-badge-anulada"><span class="fc-status-dot fc-status-dot-red"></span>Anulado</span>';
+
+  /* ---------- listado de arqueos ---------- */
+  function urlListado() {
+    const p = [];
+    if (filtroResultado.value) p.push('resultado=' + encodeURIComponent(filtroResultado.value));
+    if (filtroEstado.value) p.push('estado=' + encodeURIComponent(filtroEstado.value));
+    if (filtroTexto.value.trim()) p.push('texto=' + encodeURIComponent(filtroTexto.value.trim()));
+    if (filtroDesde.value) p.push('desde=' + encodeURIComponent(filtroDesde.value));
+    if (filtroHasta.value) p.push('hasta=' + encodeURIComponent(filtroHasta.value));
+    return p.length ? `${API}?${p.join('&')}` : API;
+  }
+
+  async function cargarListado() {
+    errFiltros.style.display = 'none';
+    if (filtroDesde.value && filtroHasta.value && filtroDesde.value > filtroHasta.value) {
+      errFiltros.textContent = 'La fecha "desde" no puede ser posterior a "hasta".'; errFiltros.style.display = 'block'; return;
+    }
+    try {
+      const { ok, data } = await pedir(urlListado());
+      if (!ok || !data || !data.success) throw new Error((data && data.error) || '');
+      if (!data.data.length) {
+        tbody.innerHTML = `<tr><td colspan="9" class="p-0"><div class="fc-empty-state"><div class="fc-empty-icon-circle"><i class="fas fa-calculator"></i></div>
+          <h6 class="fw-bold text-dark mb-1">No hay arqueos para mostrar</h6><p class="text-muted small mb-0">Probá ajustando los filtros o registrá un nuevo arqueo.</p></div></td></tr>`;
+        return;
+      }
+      tbody.innerHTML = data.data.map((a) => {
+        const acc = [`<button type="button" class="btn btn-sm btn-outline-secondary" data-accion="ver" data-id="${a.id_arqueo}" title="Ver arqueo"><i class="fas fa-eye"></i></button>`,
+                     `<a class="btn btn-sm btn-outline-primary" href="${API}/${a.id_arqueo}/pdf" target="_blank" rel="noopener" title="Arqueo en PDF"><i class="fas fa-file-pdf"></i></a>`];
+        if (PUEDE_ANULAR && a.estado === 'REGISTRADO') {
+          acc.push(a.estado_recaudacion === 'DEPOSITADA'
+            ? '<span class="btn btn-sm btn-outline-secondary disabled" title="No se puede anular: su recaudación ya fue depositada."><i class="fas fa-lock"></i></span>'
+            : `<button type="button" class="btn btn-sm btn-outline-danger" data-accion="anular" data-id="${a.id_arqueo}" data-info="${escapar('arqueo de la caja ' + a.caja + ' (' + a.cajero + ')')}" title="Anular arqueo"><i class="fas fa-ban"></i></button>`);
+        }
+        return `<tr class="${a.estado === 'ANULADO' ? 'text-muted' : ''}">
+          <td class="ps-3 font-monospace fw-bold text-primary">N.º ${a.id_arqueo}${a.estado === 'ANULADO' ? ' ' + badgeEstado(a.estado) : ''}</td>
+          <td class="text-nowrap">${fecha(a.fecha_arqueo, true)}</td>
+          <td><span class="fw-semibold text-dark">${escapar(a.caja)}</span><div class="text-muted small">${escapar(a.cajero)}</div></td>
+          <td>${escapar(a.arqueador)}</td>
+          <td class="text-end text-nowrap font-monospace">${gs(a.total_sistema)}</td><td class="text-end text-nowrap font-monospace fw-bold text-dark">${gs(a.total_contado)}</td>
+          <td class="text-center">${badgeResultado(a.resultado, a.diferencia)}</td>
+          <td class="text-center">${a.estado_recaudacion ? badgeRecaudacion(a.estado_recaudacion) + `<div class="small font-monospace">${gs(a.total_recaudacion)}</div>` : '<span class="text-muted small">Sin recaudación</span>'}</td>
+          <td class="pe-3 text-end text-nowrap"><div class="btn-list flex-nowrap justify-content-end">${acc.join('')}</div></td></tr>`;
+      }).join('');
+    } catch (e) {
+      tbody.innerHTML = `<tr><td colspan="9" class="text-center text-danger py-4">${escapar(e.message || 'No se pudo cargar el listado.')}</td></tr>`;
+    }
+  }
+
+  /* ---------- recaudaciones ---------- */
+  async function cargarRecaudaciones() {
+    try {
+      const est = $('filtroEstadoRec').value;
+      const { ok, data } = await pedir(est ? `${API_REC}?estado=${encodeURIComponent(est)}` : API_REC);
+      if (!ok || !data || !data.success) throw new Error((data && data.error) || '');
+      if (!data.data.length) { tbodyRec.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No hay recaudaciones para mostrar.</td></tr>'; return; }
+      tbodyRec.innerHTML = data.data.map((r) => `<tr class="${r.estado === 'ANULADA' ? 'text-muted' : ''}">
+        <td class="ps-3 text-nowrap">${fecha(r.fecha_generacion, true)}<div class="text-muted small">Arqueo N.º ${r.id_arqueo}</div></td><td>${escapar(r.caja)}</td>
+        <td class="text-end text-nowrap font-monospace">${gs(r.monto_efectivo)}</td><td class="text-end text-nowrap font-monospace">${gs(r.monto_cheque)}</td>
+        <td class="text-end text-nowrap font-monospace fw-bold text-dark">${gs(r.total)}</td><td class="text-center">${badgeRecaudacion(r.estado)}</td>
+        <td class="small">${r.estado === 'DEPOSITADA' ? `${escapar(r.cuenta)}<div class="text-muted">Boleta ${escapar(r.numero_boleta)} &bull; ${fecha(r.fecha_deposito)}</div>` : '—'}</td>
+        <td class="pe-3 text-end text-nowrap">${PUEDE_ESTADO && r.estado === 'PENDIENTE'
+          ? `<button type="button" class="btn btn-sm btn-outline-success" data-accion="depositar" data-id="${r.id_recaudacion}" data-total="${r.total}" data-info="${escapar('Arqueo N.º ' + r.id_arqueo + ' — ' + r.caja)}"><i class="fas fa-university me-1"></i>Marcar depositada</button>` : ''}</td></tr>`).join('');
+    } catch (e) {
+      tbodyRec.innerHTML = `<tr><td colspan="8" class="text-center text-danger py-4">${escapar(e.message || 'No se pudieron cargar las recaudaciones.')}</td></tr>`;
+    }
+  }
+
+  async function abrirDeposito(id, total, info) {
+    try {
+      const { data } = await pedir(API_CUENTAS);
+      const cuentas = (data && data.success) ? data.data : [];
+      $('selCuenta').innerHTML = '<option value="">Seleccione una cuenta…</option>' + cuentas.map((c) => `<option value="${c.id_cuenta_bancaria}">${escapar(c.descripcion)}</option>`).join('');
+    } catch (e) { Swal.fire('Error', 'No se pudieron cargar las cuentas bancarias.', 'error'); return; }
+    $('depId').value = id; $('depResumen').textContent = `${info}: se depositan ${gs(parseInt(total, 10))}.`;
+    $('txtBoleta').value = ''; $('txtFechaDeposito').value = hoy(); $('txtFechaDeposito').max = hoy();
+    [$('selCuenta'), $('txtBoleta'), $('txtFechaDeposito')].forEach(V.limpiarCampo);
+    modalDeposito.show();
+  }
+
+  $('formDeposito').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    [$('selCuenta'), $('txtBoleta'), $('txtFechaDeposito')].forEach(V.limpiarCampo);
+    let primero = null;
+    if (!$('selCuenta').value) { V.marcarCampo($('selCuenta'), 'Debe seleccionar la cuenta bancaria del depósito.'); primero = primero || $('selCuenta'); }
+    const eb = V.codigo($('txtBoleta').value, 'número de boleta', 30, true); if (eb) { V.marcarCampo($('txtBoleta'), eb); primero = primero || $('txtBoleta'); }
+    const f = $('txtFechaDeposito').value;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(f)) { V.marcarCampo($('txtFechaDeposito'), 'La fecha del depósito no es válida (use AAAA-MM-DD).'); primero = primero || $('txtFechaDeposito'); }
+    else if (f > hoy()) { V.marcarCampo($('txtFechaDeposito'), 'La fecha del depósito no puede ser posterior a hoy.'); primero = primero || $('txtFechaDeposito'); }
+    if (primero) { primero.focus(); return; }
+    $('btnDepositar').disabled = true;
+    try {
+      const { data } = await pedir(`${API_REC}/${$('depId').value}/depositar`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_cuenta_bancaria: $('selCuenta').value, numero_boleta: $('txtBoleta').value, fecha_deposito: f }) });
+      if (data && data.success) { modalDeposito.hide(); await Promise.all([cargarRecaudaciones(), cargarListado()]); Swal.fire('Depositada', data.mensaje, 'success'); }
+      else {
+        const campo = { id_cuenta_bancaria: $('selCuenta'), numero_boleta: $('txtBoleta'), fecha_deposito: $('txtFechaDeposito') }[data && data.campo] || $('txtBoleta');
+        V.marcarCampo(campo, (data && data.error) || 'No se pudo marcar la recaudación como depositada.'); campo.focus();
+      }
+    } catch (e) { V.marcarCampo($('txtBoleta'), 'Ocurrió un error de conexión. Intente nuevamente.'); }
+    finally { $('btnDepositar').disabled = false; }
+  });
+
+  /* ---------- ver arqueo ---------- */
+  async function verArqueo(id) {
+    try {
+      const { data } = await pedir(`${API}/${id}`);
+      if (!data || !data.success) { Swal.fire('Error', (data && data.error) || 'No se pudo cargar el arqueo.', 'error'); return; }
+      const a = data.data, r = a.recaudacion;
+      $('modalVerTitulo').textContent = `Arqueo N.º ${a.id_arqueo}`;
+      $('btnVerPdf').href = `${API}/${a.id_arqueo}/pdf`;
+      $('cuerpoVer').innerHTML = `
+        ${a.estado === 'ANULADO' ? '<div class="alert alert-danger py-2 text-center fw-bold">*** ANULADO ***</div>' : ''}
+        <div class="row g-2 mb-3">
+          <div class="col-6 col-md-3"><div class="text-muted small text-uppercase fw-semibold">Caja</div><div class="fw-bold text-dark">${escapar(a.caja)}</div></div>
+          <div class="col-6 col-md-3"><div class="text-muted small text-uppercase fw-semibold">Cajero</div><div>${escapar(a.cajero)}</div></div>
+          <div class="col-6 col-md-3"><div class="text-muted small text-uppercase fw-semibold">Arqueó</div><div>${escapar(a.arqueador)}</div></div>
+          <div class="col-6 col-md-3"><div class="text-muted small text-uppercase fw-semibold">Fecha del arqueo</div><div>${fecha(a.fecha_arqueo, true)}</div></div>
+          <div class="col-12 col-md-6"><div class="text-muted small text-uppercase fw-semibold">Apertura → cierre</div><div>${fecha(a.fecha_apertura, true)} → ${fecha(a.fecha_cierre, true)}</div></div>
+          <div class="col-6 col-md-3"><div class="text-muted small text-uppercase fw-semibold">Fondo inicial</div><div class="font-monospace">${gs(a.monto_apertura)}</div></div>
+          <div class="col-6 col-md-3"><div class="text-muted small text-uppercase fw-semibold">Resultado</div><div>${badgeResultado(a.resultado, a.diferencia)}</div></div>
+          ${a.observacion ? `<div class="col-12"><div class="text-muted small text-uppercase fw-semibold">Observación</div><div>${escapar(a.observacion)}</div></div>` : ''}
+        </div>
+        <div class="table-responsive mb-3 border rounded-3"><table class="table table-sm card-table mb-0">
+          <thead class="bg-light text-muted small text-uppercase"><tr><th class="ps-3 py-2">Forma de cobro</th><th class="py-2 text-end">Sistema</th><th class="py-2 text-end">Contado</th><th class="pe-3 py-2 text-end">Diferencia</th></tr></thead>
+          <tbody>${a.detalle.map((d) => `<tr><td class="ps-3 fw-semibold">${escapar(d.forma_cobro)}</td><td class="text-end font-monospace">${gs(d.monto_sistema)}</td><td class="text-end font-monospace">${gs(d.monto_contado)}</td>
+            <td class="pe-3 text-end font-monospace ${d.diferencia < 0 ? 'text-danger' : (d.diferencia > 0 ? 'text-primary' : '')}">${d.diferencia ? gsSigno(d.diferencia) : '0'}</td></tr>`).join('')}</tbody>
+          <tfoot><tr class="fw-bold"><td class="ps-3">TOTAL</td><td class="text-end font-monospace">${gs(a.total_sistema)}</td><td class="text-end font-monospace">${gs(a.total_contado)}</td><td class="pe-3 text-end font-monospace">${a.diferencia ? gsSigno(a.diferencia) : '0'}</td></tr></tfoot></table></div>
+        <div class="border rounded-3 p-3"><div class="text-muted small text-uppercase fw-semibold mb-1">Recaudación a depositar</div>
+          ${r ? `<div class="d-flex flex-wrap gap-3 align-items-center"><span>Efectivo <strong class="font-monospace">${gs(r.monto_efectivo)}</strong></span><span>Cheques <strong class="font-monospace">${gs(r.monto_cheque)}</strong></span>
+            <span>Total <strong class="font-monospace text-primary">${gs(r.total)}</strong></span>${badgeRecaudacion(r.estado)}</div>
+            ${r.estado === 'DEPOSITADA' ? `<div class="small mt-1">Depositada el ${fecha(r.fecha_deposito)} en ${escapar(r.cuenta)} (boleta ${escapar(r.numero_boleta)})</div>` : ''}`
+            : '<span class="text-muted">No hay nada que depositar (sin efectivo sobre el fondo inicial ni cheques).</span>'}</div>`;
+      modalVer.show();
+    } catch (e) { Swal.fire('Error', 'Ocurrió un error de conexión.', 'error'); }
+  }
+
+  /* ---------- anular ---------- */
+  async function anularArqueo(id, info) {
+    const c = await Swal.fire({
+      title: '¿Anular este arqueo?',
+      text: `Se anulará el ${info}. Su recaudación a depositar (pendiente) también se anula y la apertura podrá arquearse de nuevo. Esta acción no se puede deshacer.`,
+      icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí, anular', cancelButtonText: 'Cancelar', confirmButtonColor: '#d63939'
+    });
+    if (!c.isConfirmed) return;
+    try {
+      const { data } = await pedir(`${API}/${id}`, { method: 'DELETE' });
+      await Promise.all([cargarListado(), cargarRecaudaciones()]);
+      if (data && data.success) Swal.fire('Arqueo anulado', data.mensaje, 'success');
+      else Swal.fire('No se pudo anular', (data && data.error) || 'Ocurrió un error.', 'error');
+    } catch (e) { Swal.fire('Error', 'Ocurrió un error de conexión.', 'error'); }
+  }
+
+  /* ---------- nuevo arqueo ---------- */
+  let apertura = null, formas = [], contados = {};
+  const mostrarNuevo = (si) => { seccionNuevo.style.display = si ? 'block' : 'none'; seccionListado.style.display = si ? 'none' : 'block'; };
+  const montoDe = (id) => /^\d+$/.test(String(contados[id] === undefined ? '' : contados[id]).trim()) ? parseInt(contados[id], 10) : null;
+  const hayDiferencia = () => formas.some((f) => montoDe(f.id_forma_cobro) !== null && montoDe(f.id_forma_cobro) !== f.monto_sistema);
+  const actualizarBoton = () => { btnGuardar.disabled = !(apertura && !apertura.propia && formas.length); };
+
+  function pintarTotales() {
+    let sis = 0, con = 0, ef = 0, ch = 0;
+    formas.forEach((f) => {
+      const c = montoDe(f.id_forma_cobro); sis += f.monto_sistema; con += (c || 0);
+      if (f.tipo === 'EFECTIVO') ef += (c || 0); if (f.tipo === 'CHEQUE') ch += (c || 0);
+      const dif = (c === null ? null : c - f.monto_sistema), cel = document.querySelector(`[data-dif="${f.id_forma_cobro}"]`);
+      if (cel) { cel.textContent = dif === null ? '—' : (dif ? gsSigno(dif) : '0'); cel.className = 'pe-3 text-end font-monospace fw-bold ' + (dif === null || dif === 0 ? '' : (dif < 0 ? 'text-danger' : 'text-primary')); }
+    });
+    $('totSistema').textContent = gs(sis); $('totContado').textContent = gs(con);
+    const d = con - sis; $('totDiferencia').textContent = d ? gsSigno(d) : 'Gs. 0';
+    $('resRecaudacion').textContent = gs(Math.max(ef - (apertura ? apertura.monto_apertura : 0), 0) + ch);
+    $('lblObservacion').innerHTML = hayDiferencia() ? 'Observación <span class="text-danger">(obligatoria: hay diferencia)</span>' : 'Observación (obligatoria si hay diferencia)';
+  }
+
+  function pintarConteo() {
+    $('tbodyConteo').innerHTML = formas.map((f) => `<tr>
+      <td class="ps-3 fw-semibold text-dark">${escapar(f.forma_cobro)}<div class="text-muted small">${escapar(f.tipo === 'EFECTIVO' ? 'Efectivo (incluye el fondo inicial y descuenta reintegros)' : f.tipo.charAt(0) + f.tipo.slice(1).toLowerCase())}</div>
+        <div class="text-danger small" data-error-forma="${f.id_forma_cobro}" style="display:none;"></div></td>
+      <td class="text-end font-monospace">${gs(f.monto_sistema)}</td>
+      <td><input type="text" inputmode="numeric" class="form-control form-control-sm font-monospace text-end" data-forma="${f.id_forma_cobro}" maxlength="12" value="${escapar(contados[f.id_forma_cobro] === undefined ? '' : contados[f.id_forma_cobro])}" placeholder="0" autocomplete="off"></td>
+      <td class="pe-3 text-end font-monospace fw-bold" data-dif="${f.id_forma_cobro}">—</td></tr>`).join('');
+    pintarTotales();
+  }
+
+  $('tbodyConteo').addEventListener('input', (ev) => {
+    const el = ev.target.closest('input[data-forma]'); if (!el) return;
+    contados[el.dataset.forma] = el.value; el.classList.remove('is-invalid'); errArqueo.style.display = 'none';
+    const e = document.querySelector(`[data-error-forma="${el.dataset.forma}"]`); if (e) e.style.display = 'none';
+    pintarTotales();
+  });
+  $('txtObservacion').addEventListener('input', () => { V.limpiarCampo($('txtObservacion')); errArqueo.style.display = 'none'; });
+
+  async function cargarAperturas() {
+    const { data } = await pedir(`${API}/aperturas`);
+    const lista = (data && data.success) ? data.data : [];
+    selApertura.innerHTML = '<option value="">' + (lista.length ? 'Seleccione una apertura…' : 'No hay aperturas cerradas pendientes de arqueo') + '</option>' +
+      lista.map((a) => `<option value="${a.id_apertura}">${escapar(a.caja)} — ${escapar(a.cajero)} — cierre ${fecha(a.fecha_cierre, true)} — cierre de caja ${gs(a.monto_cierre)}</option>`).join('');
+  }
+
+  selApertura.addEventListener('change', async () => {
+    V.limpiarCampo(selApertura); errArqueo.style.display = 'none'; apertura = null; formas = []; contados = {};
+    if (!selApertura.value) { $('bloqueApertura').style.display = 'none'; actualizarBoton(); return; }
+    try {
+      const { data } = await pedir(`${API}/aperturas/${selApertura.value}/formas`);
+      if (!data || !data.success) { V.marcarCampo(selApertura, (data && data.error) || 'No se pudo cargar la apertura.'); $('bloqueApertura').style.display = 'none'; return; }
+      apertura = data.data; formas = apertura.formas;
+    } catch (e) { V.marcarCampo(selApertura, 'No se pudo cargar la apertura.'); return; }
+    if (apertura.propia) { V.marcarCampo(selApertura, 'No puede arquear su propia caja; el arqueo debe hacerlo otro usuario.'); $('bloqueApertura').style.display = 'none'; actualizarBoton(); return; }
+    $('lblCaja').textContent = apertura.caja; $('lblCajero').textContent = apertura.cajero;
+    $('lblFechas').textContent = `${fecha(apertura.fecha_apertura, true)} → ${fecha(apertura.fecha_cierre, true)}`;
+    $('lblFondo').textContent = gs(apertura.monto_apertura); $('lblReintegros').textContent = apertura.reintegros ? `Reintegros en efectivo: ${gs(apertura.reintegros)}` : '';
+    $('txtObservacion').value = ''; V.limpiarCampo($('txtObservacion'));
+    $('bloqueApertura').style.display = 'block'; pintarConteo(); actualizarBoton();
+  });
+
+  async function abrirNuevo() {
+    apertura = null; formas = []; contados = {}; errArqueo.style.display = 'none'; $('bloqueApertura').style.display = 'none'; V.limpiarCampo(selApertura);
+    mostrarNuevo(true); actualizarBoton();
+    try { await cargarAperturas(); } catch (e) { errArqueo.textContent = 'No se pudieron cargar las aperturas.'; errArqueo.style.display = 'block'; }
+  }
+
+  function validar() {
+    if (!apertura) { V.marcarCampo(selApertura, 'Debe seleccionar una apertura de caja.'); selApertura.focus(); return 'cancelar'; }
+    for (const f of formas) {
+      const t = String(contados[f.id_forma_cobro] === undefined ? '' : contados[f.id_forma_cobro]).trim();
+      const m = t === '' ? 'Ingrese el monto contado (0 si no hay).' : V.monto(t);
+      if (m) { const c = document.querySelector(`[data-error-forma="${f.id_forma_cobro}"]`); if (c) { c.textContent = m; c.style.display = 'block'; } return `${f.forma_cobro}: ${m}`; }
+    }
+    if (hayDiferencia()) { const eo = V.texto($('txtObservacion').value, 'observación', 200); if (eo) { V.marcarCampo($('txtObservacion'), 'Debe ingresar una observación: el arqueo tiene diferencias.'); $('txtObservacion').focus(); return 'cancelar'; } }
+    const eo2 = V.observacion($('txtObservacion').value); if (eo2) { V.marcarCampo($('txtObservacion'), eo2); return 'cancelar'; }
+    return '';
+  }
+
+  $('formArqueo').addEventListener('submit', async (ev) => {
+    ev.preventDefault(); errArqueo.style.display = 'none';
+    const err = validar(); if (err === 'cancelar') return;
+    if (err) { errArqueo.textContent = err; errArqueo.style.display = 'block'; return; }
+    btnGuardar.disabled = true;
+    try {
+      const { data } = await pedir(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+        id_apertura: apertura.id_apertura, observacion: $('txtObservacion').value,
+        formas: formas.map((f) => ({ id_forma_cobro: f.id_forma_cobro, monto_contado: String(contados[f.id_forma_cobro]).trim() })) }) });
+      if (data && data.success) {
+        mostrarNuevo(false); await Promise.all([cargarListado(), cargarRecaudaciones()]);
+        const r = await Swal.fire({ title: 'Arqueo registrado', text: data.mensaje, icon: 'success', showCancelButton: true, confirmButtonText: 'Ver arqueo (PDF)', cancelButtonText: 'Cerrar' });
+        if (r.isConfirmed) window.open(`${API}/${data.data.id_arqueo}/pdf`, '_blank');
+      } else {
+        errArqueo.textContent = (data && data.error) || 'Ocurrió un error. Intente nuevamente.'; errArqueo.style.display = 'block';
+        Swal.fire('No se pudo registrar el arqueo', errArqueo.textContent, 'error');
+      }
+    } catch (e) { Swal.fire('Error', 'Ocurrió un error de conexión. Intente nuevamente.', 'error'); }
+    finally { actualizarBoton(); }
+  });
+
+  /* ---------- eventos ---------- */
+  const btnNuevo = $('btnNuevo'); if (btnNuevo) btnNuevo.addEventListener('click', abrirNuevo);
+  $('btnVolverListado').addEventListener('click', () => mostrarNuevo(false));
+  $('btnCancelarNuevo').addEventListener('click', () => mostrarNuevo(false));
+  document.addEventListener('click', (ev) => {
+    const btn = ev.target.closest('button[data-accion]'); if (!btn) return;
+    if (btn.dataset.accion === 'ver') verArqueo(btn.dataset.id);
+    if (btn.dataset.accion === 'anular') anularArqueo(btn.dataset.id, btn.dataset.info);
+    if (btn.dataset.accion === 'depositar') abrirDeposito(btn.dataset.id, btn.dataset.total, btn.dataset.info);
+  });
+  [filtroResultado, filtroEstado, filtroDesde, filtroHasta].forEach((el) => el.addEventListener('change', cargarListado));
+  filtroTexto.addEventListener('input', debounce(cargarListado, 300));
+  $('filtroEstadoRec').addEventListener('change', cargarRecaudaciones);
+  $('btnLimpiarFiltros').addEventListener('click', () => { filtroResultado.value = ''; filtroEstado.value = ''; filtroTexto.value = ''; filtroDesde.value = ''; filtroHasta.value = ''; cargarListado(); });
+
+  cargarListado();
+  cargarRecaudaciones();
+})();
+</script>
+{% endblock %}

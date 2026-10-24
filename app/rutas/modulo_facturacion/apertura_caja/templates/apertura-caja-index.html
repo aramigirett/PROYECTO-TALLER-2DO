@@ -298,7 +298,7 @@
           <td class="text-nowrap">${fecha(a.fecha_cierre)}</td>
           <td class="text-end text-nowrap font-monospace fw-semibold">${gs(a.monto_apertura)}</td>
           <td class="text-end text-nowrap font-monospace fw-semibold">${gs(a.monto_cierre)}</td>
-          <td class="text-center">${badge(a.estado)}</td>
+          <td class="text-center">${badge(a.estado)}${a.estado === 'CERRADA' ? (a.tiene_arqueo ? '<div class="small text-success mt-1"><i class="fas fa-check-double me-1"></i>Con arqueo</div>' : '<div class="small text-muted mt-1">Sin arqueo</div>') : ''}</td>
           <td class="pe-3 text-end text-nowrap"><div class="btn-list flex-nowrap justify-content-end">${acciones.join('')}</div></td>
         </tr>`;
       }).join('');

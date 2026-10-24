@@ -176,6 +176,12 @@
     return '';
   }
 
+  /* Número de cuenta bancaria: dígitos y guiones, de 5 a 30 caracteres. Espejo de validar_numero_cuenta. */
+  function numeroCuenta(v) {
+    var t = typeof v === 'number' ? String(v) : limpiar(v);
+    return /^\d[\d\-]{4,29}$/.test(t) ? '' : 'El número de cuenta debe tener entre 5 y 30 caracteres: solo números y guiones.';
+  }
+
   /* Últimos 4 dígitos de la tarjeta. Espejo de validar_ultimos_digitos. */
   function ultimosDigitos(v) {
     return /^\d{4}$/.test(String(v === null || v === undefined ? '' : v).trim()) ? '' : 'Los últimos dígitos de la tarjeta deben ser 4 números.';
@@ -210,7 +216,7 @@
     ciRuc: ciRuc, calcularDvRuc: calcularDvRuc, nombre: nombre,
     telefonoOpcional: telefonoOpcional, correoOpcional: correoOpcional,
     precio: precio, monto: monto, iva: iva, cantidad: cantidad, cantidadPositiva: cantidadPositiva,
-    observacion: observacion, montoPositivo: montoPositivo, codigo: codigo, ultimosDigitos: ultimosDigitos, formatoGs: formatoGs,
+    observacion: observacion, montoPositivo: montoPositivo, codigo: codigo, ultimosDigitos: ultimosDigitos, numeroCuenta: numeroCuenta, formatoGs: formatoGs,
     marcarCampo: marcarCampo, limpiarCampo: limpiarCampo
   };
 })(window);
