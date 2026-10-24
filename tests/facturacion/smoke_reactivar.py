@@ -2,6 +2,7 @@
 import sys
 from unittest import mock
 sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parents[2]))
+from tests.facturacion._limpieza import borrar_auditoria
 from app import app
 from app.conexion.Conexion import Conexion
 
@@ -238,7 +239,7 @@ finally:
     for ent in orden:
         ids = list(creados.get(ent, []))
         if ids:
-            cu.execute("DELETE FROM auditoria_cambios WHERE entidad=%s AND id_registro = ANY(%s)", (ent, ids))
+            borrar_auditoria(cu, ent, ids)
     for ent in orden:
         ids = list(creados.get(ent, []))
         if ids:

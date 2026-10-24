@@ -103,6 +103,7 @@ CATALOGO_MENU = [
     # Módulo Facturación (movimientos)
     {"etiqueta": "Apertura y Cierre de Caja", "endpoint": "aperturacaja.aperturaCajaIndex", "icono": "fa-cash-register", "modulo": "Módulo Facturación", "ventana": "aperturacaja", "acciones": ["ver", "nuevo", "anular", "estado"]},
     {"etiqueta": "Registrar Pedido Cliente", "endpoint": "pedidocliente.pedidoClienteIndex", "icono": "fa-clipboard-list", "modulo": "Módulo Facturación", "ventana": "pedidocliente", "acciones": ["ver", "nuevo", "anular"]},
+    {"etiqueta": "Registrar Ventas", "endpoint": "venta.ventaIndex", "icono": "fa-file-invoice-dollar", "modulo": "Módulo Facturación", "ventana": "venta", "acciones": ["ver", "nuevo", "anular"]},
 
     # Módulo Seguridad
     {"etiqueta": "Gestión de Usuarios", "endpoint": "usuario.usuarioIndex", "icono": "fa-users-cog", "modulo": "Módulo Seguridad", "ventana": "usuario", "acciones": ["ver", "nuevo", "editar", "anular", "desbloquear"]},

@@ -19,6 +19,7 @@ deseado(ventana, accion) AS (
         -- Módulo Facturación (movimientos)
         ('aperturacaja', 'ver'), ('aperturacaja', 'nuevo'), ('aperturacaja', 'anular'), ('aperturacaja', 'estado'),
         ('pedidocliente', 'ver'), ('pedidocliente', 'nuevo'), ('pedidocliente', 'anular'),
+        ('venta', 'ver'), ('venta', 'nuevo'), ('venta', 'anular'),
         -- Cliente
         ('cliente', 'ver'), ('cliente', 'nuevo'), ('cliente', 'editar'),
         -- Referenciales de Facturación: solo ver

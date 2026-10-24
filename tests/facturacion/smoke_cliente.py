@@ -1,5 +1,6 @@
 import sys
 sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parents[2]))
+from tests.facturacion._limpieza import borrar_auditoria
 from app import app
 from app.conexion.Conexion import Conexion
 from app.rutas.modulo_facturacion import utils
@@ -226,7 +227,7 @@ try:
         s['id_rol'] = 1; s['nombre_rol'] = 'Administrador'
 finally:
     # limpieza acotada a lo creado por este test
-    cu.execute("DELETE FROM auditoria_cambios WHERE entidad='cliente' AND id_registro = ANY(%s)", (list(clientes),))
+    borrar_auditoria(cu, 'cliente', list(clientes))
     cu.execute("DELETE FROM cliente WHERE id_cliente = ANY(%s) OR id_paciente = ANY(%s)", (list(clientes), list(pacientes)))
     cu.execute("DELETE FROM paciente WHERE id_paciente = ANY(%s)", (list(pacientes),))
     cx.commit(); cu.close(); cx.close()

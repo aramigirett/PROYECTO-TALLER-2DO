@@ -212,9 +212,11 @@ class AperturaCajaDao:
 
     def _motivo_con_movimientos(self, cur, id_apertura):
         """Devuelve el motivo (texto) si la apertura ya tiene movimientos del turno, o False."""
-        # TODO: debe consultar cobro_cabecera / venta_cab (cobros y ventas de esta apertura) cuando existan
-        # esas tablas y devolver MSG_ANULAR_CON_MOVIMIENTOS. Mientras tanto no hay nada que pueda referenciarla.
-        return False
+        # Ventas EMITIDAS de esta apertura. anularApertura la llama con la apertura bloqueada (FOR UPDATE) y una
+        # venta nueva toma FOR SHARE sobre ella, así que no puede colarse entre la verificación y el UPDATE.
+        # TODO: debe consultar también cobro_cabecera (cobros de esta apertura) cuando exista esa tabla.
+        cur.execute("SELECT 1 FROM venta_cab WHERE id_apertura = %s AND estado = 'EMITIDA' LIMIT 1", (id_apertura,))
+        return MSG_ANULAR_CON_MOVIMIENTOS if cur.fetchone() else False
 
     def _total_recaudado(self, cur, id_apertura):
         """Total cobrado en el turno, en guaraníes."""

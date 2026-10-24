@@ -1,5 +1,6 @@
 import sys
 sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parents[2]))
+from tests.facturacion._limpieza import borrar_auditoria
 from app import app
 from app.conexion.Conexion import Conexion
 
@@ -52,7 +53,7 @@ with c.session_transaction() as s:
 chk('rol no-admin (seed)', c.get('/referenciales/marca-tarjeta/marca-tarjeta-index'), 200)
 
 # limpieza acotada: solo lo creado por este test
-cur.execute("DELETE FROM auditoria_cambios WHERE entidad='marca_tarjeta' AND id_registro = ANY(%s)", (list(creados),))
+borrar_auditoria(cur, 'marca_tarjeta', list(creados))
 cur.execute("DELETE FROM marca_tarjeta WHERE id_marca_tarjeta = ANY(%s)", (list(creados),))
 con.commit(); cur.close(); con.close()
 print('FALLOS:', fallos or 'ninguno')

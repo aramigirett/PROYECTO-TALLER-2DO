@@ -1,5 +1,6 @@
 import sys
 sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parents[2]))
+from tests.facturacion._limpieza import borrar_auditoria
 from app import app
 from app.conexion.Conexion import Conexion
 from app.rutas.modulo_facturacion import utils
@@ -152,7 +153,7 @@ con.commit()
 
 # ---------- LIMPIEZA acotada a lo creado por este test ----------
 for ent in ['entidad_adherida', 'entidad_emisora', 'marca_tarjeta']:
-    cur.execute("DELETE FROM auditoria_cambios WHERE entidad=%s AND id_registro = ANY(%s)", (ent, list(creados[ent])))
+    borrar_auditoria(cur, ent, list(creados[ent]))
 cur.execute("DELETE FROM entidad_adherida WHERE id_entidad_adherida = ANY(%s)", (list(creados['entidad_adherida']),))
 cur.execute("DELETE FROM entidad_emisora WHERE id_entidad_emisora = ANY(%s)", (list(creados['entidad_emisora']),))
 cur.execute("DELETE FROM marca_tarjeta WHERE id_marca_tarjeta = ANY(%s)", (list(creados['marca_tarjeta']),))

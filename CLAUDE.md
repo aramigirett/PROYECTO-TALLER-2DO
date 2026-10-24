@@ -579,7 +579,7 @@ Además, como en todo endpoint: `@require_permiso(ventana, acción)`, botones en
    tratamientos no copian el precio ni el IVA del tipo; si cambian, cambian para todos).
 5. **Facturación — nuevo referencial "Mantener Timbrado"** (*pendiente de definir en el análisis*): no programarlo
    hasta tener el CUS (campos, validaciones y reglas de uso). Cuando se programe, cumple el estándar completo.
-6. **Facturación — movimientos**: ✅ Registrar Apertura y Cierre de Caja y ✅ Registrar Pedido Cliente (ver
+6. **Facturación — movimientos**: ✅ Registrar Apertura y Cierre de Caja y ✅ Registrar Pedido Cliente y ✅ Registrar Ventas, etapa 1 (ver
    "Movimientos de Facturación");
    el resto de los movimientos (sin empezar) se programa después de los puntos anteriores.
 
@@ -764,9 +764,69 @@ auditoría como siempre. Las URL siguen la convención del proyecto (`/referenci
     stock repuesto.
   - Validadores nuevos en espejo: `validar_cantidad_positiva` (un único mensaje: "La cantidad debe ser un número
     entero mayor a 0.") / `V.cantidadPositiva` y `validar_observacion` (opcional, hasta 200) / `V.observacion`.
-  - **Pendiente de la Venta de Ítems:** `ItemDao.esta_en_uso` (`venta_det`), `ClienteDao.esta_en_uso` (`venta_cab`) y
-    el paso `PENDIENTE → FACTURADO` del pedido (con `FOR UPDATE` sobre `pedido_venta_cab`, igual que `anularPedido`).
+  - La Venta de Ítems ya existe (ver "Registrar Ventas"): pasa el pedido `PENDIENTE → FACTURADO` con `FOR UPDATE` sobre
+    `pedido_venta_cab` (igual que `anularPedido`) y lo devuelve a `PENDIENTE` si se anula la venta. Queda el TODO de
+    `ItemDao.esta_en_uso` con `venta_det`.
   - Test: `tests/facturacion/smoke_pedido_cliente.py` (118 chequeos, incluida la concurrencia de stock).
+
+- ✅ **Registrar Ventas y Generar Cuentas a Cobrar — ETAPA 1** (`venta_cab` + `venta_det` + `cuenta_cobrar`, ventana
+  `venta`, acciones `ver`, `nuevo`, `anular`; el Cajero las recibe todas). Scripts (idempotentes, en este orden):
+  `schema_empresa_timbrado.sql`, `schema_ventas.sql`, `schema_objetos_bd.sql` (SP, triggers, vista) en
+  `app/dao/modulo_facturacion/` y `schema_permisos_ventas.sql` en `app/dao/modulo_seguridad/`. Aplicarlos con
+  `PGCLIENTENCODING=UTF8` (tienen tildes).
+  - **Configuración sin pantalla (por script):** `empresa` (una sola fila: CLÍNICA ODONTOLÓGICA ODONTOCLINIC S.A., RUC
+    `80099999-1`, el dígito sale de `calcular_dv_ruc`) y `timbrado` (`12345678`, 2026-10-01 a 2027-09-30, `001-001`, del 1
+    al 5000, `numero_actual` 0 = último emitido; un solo activo por índice único parcial).
+  - **Nueva venta de ítems:** exige una apertura de caja ABIERTA del cajero ("Debe abrir la caja antes de registrar una
+    venta."). Se elige un **Pedido PENDIENTE** (buscador por N.º, cliente o CI/RUC); cliente, ítems, **precio e IVA se copian
+    del pedido** (no del ítem actual). Una transacción: toma la apertura (`FOR SHARE`) y el pedido (`FOR UPDATE`, el mismo
+    bloqueo que anular pedido), llama a `sp_siguiente_numero_factura`, inserta cabecera y detalle con los totales calculados
+    por el servidor (`calcular_totales`: IVA incluido, Exentas/Gravadas 5%/10%, IVA = gravada10/11 y gravada5/21) y pasa el
+    pedido a `FACTURADO`. **La venta NO toca el stock** (ya se descontó en el pedido). El trigger crea la cuenta a cobrar.
+    Condición Contado (vence el día de la venta) o Crédito (+30 días). El cajero sale de la sesión; cualquier otro dato del
+    navegador se ignora. Si algo falla después del SP, el número se deshace (no quedan huecos). El índice único parcial
+    `ux_venta_pedido_emitida` (id_pedido WHERE EMITIDA) es la red de seguridad de "un pedido se factura una sola vez".
+  - **Anular:** **todos con `ver` ven todas las ventas y cualquiera con `anular` puede anular, PERO solo si la apertura de
+    caja de esa venta sigue ABIERTA** (`FOR SHARE` sobre la apertura: un cierre concurrente espera); si ya está cerrada:
+    "La caja de esta venta ya fue cerrada; utilice una Nota de Crédito." (409). La venta pasa a `ANULADA` (**el número de
+    factura NO se reutiliza**), el trigger anula la cuenta y el pedido vuelve a `PENDIENTE` (se puede volver a facturar).
+    `_motivo_con_cobros` es un TODO hasta Cobranzas: "No es posible anular, existen cobros registrados. Utilice una Nota de
+    Crédito."
+  - **Conexiones:** `AperturaCajaDao._motivo_con_movimientos` bloquea anular una apertura con ventas EMITIDAS;
+    `ClienteDao.esta_en_uso` bloquea la baja con ventas no anuladas; un pedido FACTURADO no se anula. La auditoría registra
+    `ALTA`/`BAJA` en `venta_cab` y `MODIFICACION` del pedido (PENDIENTE ↔ FACTURADO).
+  - **Pendiente de Cobranzas:** conectar el "¿cobrar ahora?" tras guardar, `_motivo_con_cobros`, `_total_recaudado` de la
+    caja (hoy 0) y completar `v_estado_cuenta_cliente` con los cobros. **Venta de Tratamiento** (`tipo_venta =
+    'TRATAMIENTO'`, `venta_det.id_tratamiento`) todavía no se programa: la tabla y los CHECK ya la admiten y **no usa pedido**.
+  - Pantalla `venta-index.html` (diseño de `facturacion.css`): listado con filtros (estado, tipo, cliente/N.º de factura,
+    fechas), Nueva Venta (aviso de caja, pedido precargado en solo lectura) y Ver en modo comprobante (empresa, timbrado).
+    El candado reemplaza a "Anular" cuando la caja de la venta está cerrada. Enter en el buscador nunca envía el formulario.
+  - Test: `tests/facturacion/smoke_ventas.py`.
+
+### Objetos de base de datos (rúbricas de Base de Datos II: procedimientos almacenados, triggers y vistas)
+Todos viven en `app/dao/modulo_facturacion/schema_objetos_bd.sql` (idempotente: `CREATE OR REPLACE` y `DROP TRIGGER IF
+EXISTS`), con comentarios de propósito, parámetros y excepciones, bloque `BEGIN … EXCEPTION` y `COMMENT ON`.
+- **Procedimiento `sp_siguiente_numero_factura(OUT p_id_timbrado INT, OUT p_numero_factura VARCHAR)`** — se llama con
+  `CALL sp_siguiente_numero_factura(NULL, NULL)` dentro de la transacción de la venta. Bloquea el timbrado activo
+  (`FOR UPDATE`: dos ventas simultáneas se serializan y reciben números consecutivos distintos), valida vigencia y rango,
+  incrementa `numero_actual` y devuelve `EEE-PPP-NNNNNNN` (p. ej. `001-001-0000001`). Excepciones con `RAISE EXCEPTION`, que
+  la API muestra tal cual: "No hay timbrado activo", "El timbrado aún no está vigente", "El timbrado está vencido", "Se
+  agotó el rango de numeración del timbrado". El bloque `EXCEPTION` re-lanza los de negocio y envuelve cualquier otro error.
+- **Trigger `trg_generar_cuenta_cobrar`** (`AFTER INSERT ON venta_cab`, función `fn_generar_cuenta_cobrar`): crea la
+  `cuenta_cobrar` con `saldo = total` y vencimiento por condición.
+- **Trigger `trg_anular_cuenta_cobrar`** (`AFTER UPDATE OF estado ON venta_cab` cuando pasa a ANULADA, función
+  `fn_anular_cuenta_cobrar`): pasa la cuenta a ANULADA.
+- **Trigger `trg_auditoria_inmutable`** (`BEFORE UPDATE OR DELETE` en `auditoria_cambios` y `auditoria_acceso`, función
+  `fn_auditoria_inmutable`): rechaza con "Los registros de auditoría no se pueden modificar ni eliminar." Verificado que
+  ningún código de `app/` hace UPDATE/DELETE/TRUNCATE sobre esas tablas (solo INSERT; el test `smoke_ventas` lo vigila).
+  **Los tests** borran solo la auditoría que ellos generaron con `tests/facturacion/_limpieza.py::borrar_auditoria`, que
+  usa `SET session_replication_role = replica` solo en su conexión (exige superusuario; se revierte al cerrarla).
+- **Vista `v_estado_cuenta_cliente`**: una fila por factura (cliente, número, fecha, condición, total, saldo, estado de la
+  cuenta, vencimiento) más `saldo_total_cliente` (suma de los saldos PENDIENTES del cliente, sin las cuentas anuladas).
+- ⏳ **Pendiente de la tanda de cierre:** crear un **usuario de base de datos propio de la aplicación, sin superusuario y
+  con permisos mínimos** (SELECT/INSERT/UPDATE/DELETE solo donde haga falta, solo INSERT en las tablas de auditoría y
+  EXECUTE en el procedimiento), para que la app no pueda saltarse los triggers (hoy se conecta como `postgres`, que sí
+  puede con `session_replication_role`). Los tests seguirán usando un usuario con privilegios para su limpieza.
 
 ## Tests (carpeta `tests/`, ver `tests/README.md`)
 - Scripts de verificación sin pytest, organizados por módulo: `tests/facturacion/` (los 8 referenciales + Ítems, la
@@ -820,10 +880,10 @@ auditoría como siempre. Las URL siguen la convención del proyecto (`/referenci
   Si hay que delegarlo, se agrega `editar` a la ventana en el catálogo y al seed.
 - **Permisos del rol Cajero** (`app/dao/modulo_seguridad/schema_permisos_cajero.sql`, idempotente; define el conjunto
   COMPLETO del Cajero: quita lo que sobra e inserta lo que falta, y solo toca ese rol):
-  - **Módulo Facturación (movimientos, hoy `aperturacaja` y `pedidocliente`): todas las acciones de la ventana.**
+  - **Módulo Facturación (movimientos, hoy `aperturacaja`, `pedidocliente` y `venta`): todas las acciones de la ventana.**
   - **Cliente: `ver`, `nuevo`, `editar`** (sin `anular`).
   - **Forma de Cobro, Marca de Tarjeta, Entidad Emisora, Entidad Adherida, Caja, Depósito, Tipo Ítems e Ítems: solo `ver`.**
-  - **Agendamiento, Consultorio y Seguridad: ningún permiso.** El Cajero queda con 18 filas de permisos (15 + las 3 de `pedidocliente`).
+  - **Agendamiento, Consultorio y Seguridad: ningún permiso.** El Cajero queda con 21 filas de permisos (15 + las 3 de `pedidocliente` + las 3 de `venta`).
   - **Cada movimiento NUEVO de Facturación debe sumar su ventana (con todas sus acciones) a ese seed**, y todo
     referencial nuevo de Facturación entra con `ver`. `tests/facturacion/smoke_permisos_cajero.py` falla si el
     catálogo tiene una ventana de "Módulo Facturación" que el Cajero no puede usar por completo.

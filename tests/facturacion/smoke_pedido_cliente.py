@@ -6,6 +6,7 @@ Usa usuarios REALES (Administrador, Cajero y Recepción) con sesiones simuladas,
 (tipos, depósito, ítems, cliente y pedidos) que crea y borra POR ID. No toca ítems ni clientes reales."""
 import sys, pathlib, threading, time
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
+from tests.facturacion._limpieza import borrar_auditoria
 from datetime import date, timedelta
 from app import app
 from app.conexion.Conexion import Conexion
@@ -317,7 +318,7 @@ finally:
         cu.execute("SELECT id_pedido FROM pedido_venta_cab WHERE id_cliente = ANY(%s)", (ids['cliente'],))
         ped = sorted(set(ped) | {r[0] for r in cu.fetchall()})
         if ped:
-            cu.execute("DELETE FROM auditoria_cambios WHERE entidad='pedido_venta_cab' AND id_registro = ANY(%s)", (ped,))
+            borrar_auditoria(cu, 'pedido_venta_cab', ped)
             cu.execute("DELETE FROM pedido_venta_det WHERE id_pedido = ANY(%s)", (ped,))
             cu.execute("DELETE FROM pedido_venta_cab WHERE id_pedido = ANY(%s)", (ped,))
         if ids['item']:

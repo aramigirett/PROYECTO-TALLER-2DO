@@ -1,0 +1,541 @@
+{% extends 'base_tabler.html' %}
+
+{% block titulo %}Registrar Ventas{% endblock %}
+
+{% block css %}
+<link href="{{ url_for('static', filename='css/facturacion.css') }}" rel="stylesheet">
+{% endblock %}
+
+{% block contenido %}
+{# ══════════════════ LISTADO DE VENTAS ══════════════════ #}
+<div id="seccionListado">
+  <div class="page-header d-print-none mb-3">
+    <div class="row align-items-center">
+      <div class="col">
+        <div class="page-pretitle text-muted">Facturación &bull; Ventas</div>
+        <h2 class="page-title fw-bold" style="color: var(--fc-text-main, #0f172a);">Registrar Ventas</h2>
+      </div>
+      {% if puede('venta', 'nuevo') %}
+      <div class="col-auto">
+        <button type="button" class="btn btn-primary px-3 rounded-pill" id="btnNueva">
+          <i class="fas fa-plus me-2"></i>Nueva Venta
+        </button>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card border shadow-sm rounded-3">
+    <div class="card-header bg-white py-3 border-bottom">
+      <div class="row g-2 align-items-end w-100">
+        <div class="col-6 col-md-2">
+          <label class="form-label small fw-semibold text-muted mb-1" for="filtroEstado">Estado</label>
+          <select class="form-select form-select-sm" id="filtroEstado">
+            <option value="">Todos</option>
+            <option value="EMITIDA">Emitida</option>
+            <option value="ANULADA">Anulada</option>
+          </select>
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label small fw-semibold text-muted mb-1" for="filtroTipo">Tipo</label>
+          <select class="form-select form-select-sm" id="filtroTipo">
+            <option value="">Todos</option>
+            <option value="ITEMS">Ítems</option>
+            <option value="TRATAMIENTO">Tratamiento</option>
+          </select>
+        </div>
+        <div class="col-12 col-md-3">
+          <label class="form-label small fw-semibold text-muted mb-1" for="filtroCliente">Cliente o N.º de factura</label>
+          <input type="text" class="form-control form-control-sm" id="filtroCliente" maxlength="80" placeholder="Nombre, CI/RUC o N.º" autocomplete="off">
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label small fw-semibold text-muted mb-1" for="filtroDesde">Desde</label>
+          <input type="date" class="form-control form-control-sm" id="filtroDesde">
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label small fw-semibold text-muted mb-1" for="filtroHasta">Hasta</label>
+          <input type="date" class="form-control form-control-sm" id="filtroHasta">
+        </div>
+        <div class="col-12 col-md-1">
+          <button type="button" class="btn btn-sm btn-outline-secondary w-100" id="btnLimpiarFiltros" title="Limpiar filtros">
+            <i class="fas fa-eraser"></i>
+          </button>
+        </div>
+      </div>
+      <div class="text-danger small mt-2 w-100" id="errFiltros" style="display: none;"></div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-vcenter table-hover card-table mb-0">
+        <thead class="bg-light text-muted small text-uppercase">
+          <tr>
+            <th class="ps-3 py-3">N.º factura</th>
+            <th class="py-3">Fecha</th>
+            <th class="py-3">Cliente</th>
+            <th class="py-3">Tipo</th>
+            <th class="py-3">Condición</th>
+            <th class="py-3 text-end">Total</th>
+            <th class="py-3 text-center" style="width: 120px;">Estado</th>
+            <th class="pe-3 py-3 text-end w-1">Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="tbodyVentas">
+          <tr><td colspan="8" class="text-center text-muted py-4"><div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>Cargando ventas…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{# ══════════════════ NUEVA VENTA ══════════════════ #}
+<div id="seccionNueva" style="display: none;">
+  <div class="page-header d-print-none mb-3">
+    <div class="row align-items-center">
+      <div class="col">
+        <div class="page-pretitle text-muted">Registrar Ventas</div>
+        <h2 class="page-title fw-bold" style="color: var(--fc-text-main, #0f172a);">Nueva Venta de Ítems</h2>
+      </div>
+      <div class="col-auto">
+        <button type="button" class="btn btn-outline-secondary" id="btnVolverListado"><i class="fas fa-arrow-left me-2"></i>Volver al listado</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card fc-hero-card mb-3" id="tarjetaCaja"><div class="card-body p-3" id="cuerpoCaja"></div></div>
+
+  <form id="formVenta" novalidate>
+    <div class="card border shadow-sm rounded-3 mb-3">
+      <div class="card-body position-relative">
+        <label class="form-label required fw-semibold" for="txtPedido">Pedido pendiente</label>
+        <input type="text" class="form-control" id="txtPedido" placeholder="Buscar por N.º de pedido, cliente o CI/RUC…" autocomplete="off">
+        <div class="invalid-feedback"></div>
+        <div class="list-group fc-autocomplete-list position-absolute shadow" id="resPedido" style="z-index: 1050; display: none; left: 1rem; right: 1rem;"></div>
+        <div class="form-hint text-muted small mt-1">Solo se facturan pedidos en estado PENDIENTE. Cliente, ítems, precios e IVA se copian del pedido.</div>
+      </div>
+    </div>
+
+    <div id="bloquePedido" style="display: none;">
+      <div class="card border shadow-sm rounded-3 mb-3">
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-12 col-md-6">
+              <div class="text-muted small text-uppercase fw-semibold">Cliente</div>
+              <div class="fw-bold text-dark" id="lblCliente"></div>
+              <div class="text-muted small font-monospace" id="lblCiRuc"></div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="text-muted small text-uppercase fw-semibold">Pedido</div>
+              <div class="fw-bold font-monospace text-primary" id="lblPedido"></div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="text-muted small text-uppercase fw-semibold">Observación del pedido</div>
+              <div id="lblObservacion"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card border shadow-sm rounded-3 mb-3">
+        <div class="card-header bg-white"><h3 class="card-title">Detalle</h3></div>
+        <div class="table-responsive">
+          <table class="table table-sm card-table mb-0">
+            <thead class="bg-light text-muted small text-uppercase">
+              <tr><th class="ps-3 py-2">Ítem</th><th class="py-2 text-center" style="width: 90px;">Cant.</th><th class="py-2 text-end">Precio</th><th class="py-2 text-center" style="width: 90px;">IVA</th><th class="pe-3 py-2 text-end">Subtotal</th></tr>
+            </thead>
+            <tbody id="tbodyDetalle"></tbody>
+          </table>
+        </div>
+        <div class="card-footer">
+          <div class="row g-3 justify-content-between">
+            <div class="col-12 col-md-6">
+              <div class="text-muted small text-uppercase fw-semibold mb-2">Condición</div>
+              <div class="btn-group" role="group" aria-label="Condición">
+                <input type="radio" class="btn-check" name="condicion" id="condContado" value="CONTADO" autocomplete="off" checked>
+                <label class="btn btn-outline-primary" for="condContado">Contado</label>
+                <input type="radio" class="btn-check" name="condicion" id="condCredito" value="CREDITO" autocomplete="off">
+                <label class="btn btn-outline-primary" for="condCredito">Crédito</label>
+              </div>
+              <div class="text-muted small mt-2" id="lblVencimiento"></div>
+            </div>
+            <div class="col-12 col-md-5 col-lg-4">
+              <table class="table table-sm table-borderless mb-0">
+                <tr><td class="text-muted">Exentas</td><td class="text-end font-monospace" id="totExentas">Gs. 0</td></tr>
+                <tr><td class="text-muted">Gravadas 5%</td><td class="text-end font-monospace" id="totG5">Gs. 0</td></tr>
+                <tr><td class="text-muted">Gravadas 10%</td><td class="text-end font-monospace" id="totG10">Gs. 0</td></tr>
+                <tr class="border-top"><td class="fw-bold fs-3 text-dark">Total</td><td class="text-end font-monospace fw-bold fs-3 text-primary" id="totTotal">Gs. 0</td></tr>
+                <tr><td class="text-muted small">IVA 5% (liquidado)</td><td class="text-end font-monospace text-muted small" id="totIva5">Gs. 0</td></tr>
+                <tr><td class="text-muted small">IVA 10% (liquidado)</td><td class="text-end font-monospace text-muted small" id="totIva10">Gs. 0</td></tr>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="text-danger small mb-2" id="errVenta" style="display: none;"></div>
+    <div class="d-flex justify-content-end gap-2">
+      <button type="button" class="btn btn-link link-secondary" id="btnCancelarNueva">Cancelar</button>
+      <button type="submit" class="btn btn-primary" id="btnGuardar" disabled><i class="fas fa-file-invoice-dollar me-2"></i>Registrar Venta</button>
+    </div>
+  </form>
+</div>
+
+{# ══════════════════ MODAL: COMPROBANTE ══════════════════ #}
+<div class="modal modal-blur fade" id="modalVer" tabindex="-1" aria-labelledby="modalVerTitulo" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header border-bottom">
+        <h5 class="modal-title fw-bold" id="modalVerTitulo">Factura</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body p-4" id="cuerpoVer"></div>
+      <div class="modal-footer border-top bg-light py-2">
+        <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script src="{{ url_for('static', filename='js/facturacion-listado.js') }}"></script>
+<script src="{{ url_for('static', filename='js/facturacion-validadores.js') }}"></script>
+<script>
+(function () {
+  const API = '/api/v1/ventas';
+  const { escapar, pedir } = window.FacturacionListado;
+  const V = window.FacturacionValidadores;
+  const PUEDE_ANULAR = {{ 'true' if puede('venta', 'anular') else 'false' }};
+  const MSG_SIN_CAJA = 'Debe abrir la caja antes de registrar una venta.';
+
+  const $ = (id) => document.getElementById(id);
+  const seccionListado = $('seccionListado'), seccionNueva = $('seccionNueva');
+  const tbody = $('tbodyVentas'), errFiltros = $('errFiltros');
+  const filtroEstado = $('filtroEstado'), filtroTipo = $('filtroTipo'), filtroCliente = $('filtroCliente');
+  const filtroDesde = $('filtroDesde'), filtroHasta = $('filtroHasta');
+  const txtPedido = $('txtPedido'), resPedido = $('resPedido'), btnGuardar = $('btnGuardar'), errVenta = $('errVenta');
+  const modalVer = bootstrap.Modal.getOrCreateInstance($('modalVer'));
+
+  const gs = (n) => (n === null || n === undefined) ? '—' : V.formatoGs(n);
+  const fecha = (s, conHora) => {
+    if (!s) return '—';
+    const m = /^(\d{4})-(\d{2})-(\d{2})(?: (\d{2}):(\d{2}))?/.exec(s);
+    if (!m) return s;
+    return `${m[3]}/${m[2]}/${m[1]}` + (conHora && m[4] ? ` ${m[4]}:${m[5]}` : '');
+  };
+  const ivaTxt = (iva) => iva === 0 ? 'Exenta' : iva + '%';
+  const condTxt = (c) => c === 'CREDITO' ? 'Crédito' : 'Contado';
+  const tipoTxt = (t) => t === 'ITEMS' ? 'Ítems' : 'Tratamiento';
+  const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+
+  /* Badges con punto CSS */
+  const badge = (e) => e === 'EMITIDA'
+    ? '<span class="fc-badge fc-badge-open"><span class="fc-status-dot fc-status-dot-green"></span>Emitida</span>'
+    : (e === 'ANULADA'
+      ? '<span class="fc-badge fc-badge-anulada"><span class="fc-status-dot fc-status-dot-red"></span>Anulada</span>'
+      : `<span class="fc-badge fc-badge-neutral"><span class="fc-status-dot fc-status-dot-gray"></span>${escapar(e)}</span>`);
+
+  /* ---------- listado ---------- */
+  function urlListado() {
+    const p = [];
+    if (filtroEstado.value) p.push('estado=' + encodeURIComponent(filtroEstado.value));
+    if (filtroTipo.value) p.push('tipo=' + encodeURIComponent(filtroTipo.value));
+    if (filtroCliente.value.trim()) p.push('cliente=' + encodeURIComponent(filtroCliente.value.trim()));
+    if (filtroDesde.value) p.push('desde=' + encodeURIComponent(filtroDesde.value));
+    if (filtroHasta.value) p.push('hasta=' + encodeURIComponent(filtroHasta.value));
+    return p.length ? `${API}?${p.join('&')}` : API;
+  }
+
+  async function cargarListado() {
+    errFiltros.style.display = 'none';
+    if (filtroDesde.value && filtroHasta.value && filtroDesde.value > filtroHasta.value) {
+      errFiltros.textContent = 'La fecha "desde" no puede ser posterior a "hasta".';
+      errFiltros.style.display = 'block';
+      return;
+    }
+    try {
+      const { ok, data } = await pedir(urlListado());
+      if (!ok || !data || !data.success) throw new Error((data && data.error) || '');
+      if (!data.data.length) {
+        tbody.innerHTML = `<tr><td colspan="8" class="p-0"><div class="fc-empty-state">
+            <div class="fc-empty-icon-circle"><i class="fas fa-file-invoice-dollar"></i></div>
+            <h6 class="fw-bold text-dark mb-1">No hay ventas para mostrar</h6>
+            <p class="text-muted small mb-0">Probá ajustando los filtros o registrá una nueva venta.</p></div></td></tr>`;
+        return;
+      }
+      tbody.innerHTML = data.data.map((v) => {
+        const acc = [`<button type="button" class="btn btn-sm btn-outline-secondary" data-accion="ver" data-id="${v.id_venta}" title="Ver comprobante"><i class="fas fa-eye"></i></button>`];
+        if (PUEDE_ANULAR && v.estado === 'EMITIDA') {
+          if (v.estado_apertura === 'ABIERTA') {
+            acc.push(`<button type="button" class="btn btn-sm btn-outline-danger" data-accion="anular" data-id="${v.id_venta}" data-info="${escapar('factura ' + v.numero_factura + ' de ' + v.cliente)}" title="Anular venta"><i class="fas fa-ban"></i></button>`);
+          } else {
+            acc.push('<span class="btn btn-sm btn-outline-secondary disabled" title="La caja de esta venta ya fue cerrada; utilice una Nota de Crédito."><i class="fas fa-lock"></i></span>');
+          }
+        }
+        return `<tr class="${v.estado === 'ANULADA' ? 'text-muted' : ''}">
+          <td class="ps-3 font-monospace fw-bold text-primary">${escapar(v.numero_factura)}</td>
+          <td class="text-nowrap">${fecha(v.fecha, true)}</td>
+          <td><span class="fw-semibold text-dark">${escapar(v.cliente)}</span><div class="text-muted small font-monospace">${escapar(v.ci_ruc)}</div></td>
+          <td>${tipoTxt(v.tipo_venta)}</td>
+          <td>${condTxt(v.condicion)}</td>
+          <td class="text-end text-nowrap font-monospace fw-bold text-dark">${gs(v.total)}</td>
+          <td class="text-center">${badge(v.estado)}</td>
+          <td class="pe-3 text-end text-nowrap"><div class="btn-list flex-nowrap justify-content-end">${acc.join('')}</div></td>
+        </tr>`;
+      }).join('');
+    } catch (e) {
+      tbody.innerHTML = `<tr><td colspan="8" class="text-center text-danger py-4">${escapar(e.message || 'No se pudo cargar el listado.')}</td></tr>`;
+    }
+  }
+
+  /* ---------- comprobante ---------- */
+  async function verVenta(id) {
+    try {
+      const { data } = await pedir(`${API}/${id}`);
+      if (!data || !data.success) { Swal.fire('Error', (data && data.error) || 'No se pudo cargar la venta.', 'error'); return; }
+      const v = data.data, t = v.totales, e = v.empresa || {}, tim = v.timbrado;
+      $('modalVerTitulo').textContent = `Factura ${v.numero_factura}`;
+      $('cuerpoVer').innerHTML = `
+        <div class="d-flex flex-wrap justify-content-between gap-3 pb-3 mb-3 border-bottom">
+          <div>
+            <div class="fw-bold fs-3 text-dark">${escapar(e.razon_social || '')}</div>
+            <div class="text-muted small">RUC: <span class="font-monospace">${escapar(e.ruc || '')}</span></div>
+            <div class="text-muted small">${escapar(e.direccion || '')} &bull; Tel. ${escapar(e.telefono || '')}</div>
+            <div class="text-muted small">${escapar(e.actividad_economica || '')}</div>
+          </div>
+          <div class="text-end">
+            <div class="text-muted small">Timbrado N.º <span class="font-monospace">${escapar(tim.numero)}</span></div>
+            <div class="text-muted small">Vigencia: ${fecha(tim.vigencia_desde)} al ${fecha(tim.vigencia_hasta)}</div>
+            <div class="fw-bold fs-3 text-primary font-monospace mt-1">FACTURA ${escapar(v.numero_factura)}</div>
+            ${badge(v.estado)}
+          </div>
+        </div>
+        ${v.estado === 'ANULADA' ? '<div class="alert alert-danger py-2 text-center fw-bold">*** ANULADA ***</div>' : ''}
+        <div class="row g-2 mb-3">
+          <div class="col-12 col-md-6"><div class="text-muted small text-uppercase fw-semibold">Cliente</div>
+            <div class="fw-bold text-dark">${escapar(v.cliente)} <span class="text-muted font-monospace">(${escapar(v.ci_ruc)})</span></div></div>
+          <div class="col-6 col-md-3"><div class="text-muted small text-uppercase fw-semibold">Fecha</div><div>${fecha(v.fecha, true)}</div></div>
+          <div class="col-6 col-md-3"><div class="text-muted small text-uppercase fw-semibold">Condición</div><div>${condTxt(v.condicion)}</div></div>
+          <div class="col-6 col-md-3"><div class="text-muted small text-uppercase fw-semibold">Cajero</div><div>${escapar(v.cajero)}</div></div>
+          <div class="col-6 col-md-3"><div class="text-muted small text-uppercase fw-semibold">Caja</div><div>${escapar(v.caja)}</div></div>
+          <div class="col-6 col-md-3"><div class="text-muted small text-uppercase fw-semibold">Pedido</div><div class="font-monospace">${v.id_pedido ? '#' + v.id_pedido : '—'}</div></div>
+        </div>
+        <div class="table-responsive mb-3 border rounded-3"><table class="table table-sm card-table mb-0">
+          <thead class="bg-light text-muted small text-uppercase"><tr>
+            <th class="ps-3 py-2">Descripción</th><th class="py-2 text-center" style="width: 80px;">Cant.</th><th class="py-2 text-end">Precio</th>
+            <th class="py-2 text-center" style="width: 80px;">IVA</th><th class="pe-3 py-2 text-end">Subtotal</th></tr></thead>
+          <tbody>${v.detalle.map((d) => `<tr><td class="ps-3 fw-semibold">${escapar(d.descripcion)}</td>
+            <td class="text-center font-monospace">${d.cantidad}</td><td class="text-end text-nowrap font-monospace">${gs(d.precio_unitario)}</td>
+            <td class="text-center">${ivaTxt(d.iva)}</td><td class="pe-3 text-end text-nowrap font-monospace fw-bold">${gs(d.subtotal)}</td></tr>`).join('')}</tbody>
+        </table></div>
+        <div class="row g-3 justify-content-between">
+          <div class="col-12 col-md-5">
+            <div class="card border bg-light-subtle rounded-3 p-3"><div class="text-muted small text-uppercase fw-semibold mb-1">Cuenta a cobrar</div>
+              <div class="d-flex justify-content-between"><span class="text-muted">Estado</span><span>${escapar(v.estado_cuenta || '—')}</span></div>
+              <div class="d-flex justify-content-between"><span class="text-muted">Vencimiento</span><span>${fecha(v.fecha_vencimiento)}</span></div>
+              <div class="d-flex justify-content-between"><span class="text-muted">Saldo</span><span class="font-monospace fw-bold">${gs(v.saldo)}</span></div></div>
+          </div>
+          <div class="col-12 col-md-6"><div class="card border bg-light-subtle rounded-3 p-3"><table class="table table-sm table-borderless mb-0">
+            <tr><td class="text-muted">Exentas</td><td class="text-end font-monospace">${gs(t.exentas)}</td></tr>
+            <tr><td class="text-muted">Gravadas 5%</td><td class="text-end font-monospace">${gs(t.gravadas_5)}</td></tr>
+            <tr><td class="text-muted">Gravadas 10%</td><td class="text-end font-monospace">${gs(t.gravadas_10)}</td></tr>
+            <tr class="border-top"><td class="fw-bold fs-3 text-dark">Total</td><td class="text-end font-monospace fw-bold fs-3 text-primary">${gs(t.total)}</td></tr>
+            <tr><td class="text-muted small">IVA 5% (liquidado)</td><td class="text-end font-monospace text-muted small">${gs(v.iva_5)}</td></tr>
+            <tr><td class="text-muted small">IVA 10% (liquidado)</td><td class="text-end font-monospace text-muted small">${gs(v.iva_10)}</td></tr>
+          </table></div></div>
+        </div>`;
+      modalVer.show();
+    } catch (e) {
+      Swal.fire('Error', 'Ocurrió un error de conexión.', 'error');
+    }
+  }
+
+  /* ---------- anular ---------- */
+  async function anularVenta(id, info) {
+    const c = await Swal.fire({
+      title: '¿Anular esta venta?',
+      text: `Se anulará la ${info}. Su cuenta a cobrar se anula y el pedido vuelve a PENDIENTE. El número de factura no se reutiliza.`,
+      icon: 'warning', showCancelButton: true,
+      confirmButtonText: 'Sí, anular', cancelButtonText: 'Cancelar', confirmButtonColor: '#d63939'
+    });
+    if (!c.isConfirmed) return;
+    try {
+      const { data } = await pedir(`${API}/${id}`, { method: 'DELETE' });
+      await cargarListado();
+      if (data && data.success) Swal.fire('Venta anulada', data.mensaje, 'success');
+      else Swal.fire('No se pudo anular', (data && data.error) || 'Ocurrió un error.', 'error');
+    } catch (e) {
+      Swal.fire('Error', 'Ocurrió un error de conexión.', 'error');
+    }
+  }
+
+  /* ---------- nueva venta ---------- */
+  let pedidoSel = null;
+  let cajaAbierta = false;
+
+  function mostrarNueva(si) {
+    seccionNueva.style.display = si ? 'block' : 'none';
+    seccionListado.style.display = si ? 'none' : 'block';
+  }
+
+  function actualizarBoton() { btnGuardar.disabled = !(cajaAbierta && pedidoSel); }
+
+  async function cargarCaja() {
+    const tarjeta = $('tarjetaCaja'), cuerpo = $('cuerpoCaja');
+    try {
+      const { data } = await pedir(`${API}/caja-actual`);
+      const a = data && data.success ? data.data : null;
+      cajaAbierta = !!a;
+      if (a) {
+        tarjeta.className = 'card fc-hero-card fc-hero-card-open mb-3';
+        cuerpo.innerHTML = `<span class="fc-badge fc-badge-open me-2"><span class="fc-status-dot fc-status-dot-green"></span>Caja abierta</span>
+          <strong>${escapar(a.caja)}</strong> <span class="text-muted ms-2">desde ${fecha(a.fecha_apertura, true)}</span>`;
+      } else {
+        tarjeta.className = 'card fc-hero-card fc-hero-card-closed mb-3';
+        cuerpo.innerHTML = `<span class="fc-badge fc-badge-neutral me-2"><span class="fc-status-dot fc-status-dot-gray"></span>Sin caja abierta</span>
+          <span class="text-danger fw-semibold">${MSG_SIN_CAJA}</span>`;
+      }
+    } catch (e) {
+      cajaAbierta = false;
+      cuerpo.innerHTML = '<span class="text-danger">No se pudo verificar la caja.</span>';
+    }
+    actualizarBoton();
+  }
+
+  async function abrirNueva() {
+    pedidoSel = null;
+    txtPedido.value = ''; txtPedido.readOnly = false; V.limpiarCampo(txtPedido);
+    $('bloquePedido').style.display = 'none'; errVenta.style.display = 'none';
+    $('condContado').checked = true;
+    mostrarNueva(true);
+    await cargarCaja();
+    txtPedido.focus();
+  }
+
+  let resultados = [], indice = -1;
+  const buscarPedido = debounce(async () => {
+    if (pedidoSel) return;
+    try {
+      const { data } = await pedir(`${API}/pedidos?q=${encodeURIComponent(txtPedido.value.trim())}`);
+      resultados = (data && data.success) ? data.data : [];
+      indice = -1;
+      resPedido.innerHTML = resultados.length ? resultados.map((p, i) => `
+        <button type="button" class="list-group-item list-group-item-action fc-autocomplete-item py-2" data-idx="${i}" data-pedido="${p.id_pedido}">
+          <div class="d-flex justify-content-between align-items-center">
+            <span><span class="font-monospace fw-bold text-primary">#${p.id_pedido}</span> <span class="fw-bold text-dark">${escapar(p.cliente)}</span></span>
+            <span class="font-monospace fw-bold">${gs(p.total)}</span></div>
+          <div class="text-muted small">${escapar(p.ci_ruc)} &bull; ${fecha(p.fecha_pedido, true)}</div></button>`).join('')
+        : '<div class="list-group-item text-muted small p-3">No hay pedidos pendientes que coincidan.</div>';
+      resPedido.style.display = 'block';
+    } catch (e) { resPedido.style.display = 'none'; }
+  }, 220);
+  txtPedido.addEventListener('input', () => { V.limpiarCampo(txtPedido); buscarPedido(); });
+  txtPedido.addEventListener('focus', buscarPedido);
+  txtPedido.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter') ev.preventDefault();   // Enter nunca envía el formulario desde el buscador
+    if (resPedido.style.display !== 'block' || !resultados.length) return;
+    const items = resPedido.querySelectorAll('.fc-autocomplete-item');
+    if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+      ev.preventDefault();
+      indice = (indice + (ev.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+      items.forEach((it, i) => it.classList.toggle('active', i === indice));
+      items[indice].scrollIntoView({ block: 'nearest' });
+    } else if (ev.key === 'Enter') {
+      const t = indice >= 0 ? items[indice] : items[0];
+      if (t) t.click();
+    } else if (ev.key === 'Escape') {
+      resPedido.style.display = 'none';
+    }
+  });
+  document.addEventListener('click', (ev) => { if (!ev.target.closest('#resPedido, #txtPedido')) resPedido.style.display = 'none'; });
+
+  resPedido.addEventListener('click', async (ev) => {
+    const b = ev.target.closest('button[data-pedido]');
+    if (!b) return;
+    resPedido.style.display = 'none';
+    try {
+      const { data } = await pedir(`${API}/pedidos/${b.dataset.pedido}`);
+      if (!data || !data.success) { V.marcarCampo(txtPedido, (data && data.error) || 'No se pudo cargar el pedido.'); return; }
+      cargarPedido(data.data);
+    } catch (e) { V.marcarCampo(txtPedido, 'Ocurrió un error de conexión.'); }
+  });
+
+  function totales(det) {
+    let ex = 0, g5 = 0, g10 = 0;
+    det.forEach((l) => { if (l.iva === 0) ex += l.subtotal; else if (l.iva === 5) g5 += l.subtotal; else g10 += l.subtotal; });
+    return { ex, g5, g10, total: ex + g5 + g10, iva5: Math.round(g5 / 21), iva10: Math.round(g10 / 11) };
+  }
+
+  function cargarPedido(p) {
+    pedidoSel = p.id_pedido;
+    txtPedido.value = `#${p.id_pedido} — ${p.cliente}`; txtPedido.readOnly = true;
+    $('lblCliente').textContent = p.cliente; $('lblCiRuc').textContent = p.ci_ruc;
+    $('lblPedido').textContent = '#' + p.id_pedido; $('lblObservacion').textContent = p.observacion || '—';
+    $('tbodyDetalle').innerHTML = p.detalle.map((d) => `<tr><td class="ps-3 fw-semibold">${escapar(d.item)}</td>
+      <td class="text-center font-monospace">${d.cantidad}</td><td class="text-end text-nowrap font-monospace">${gs(d.precio_unitario)}</td>
+      <td class="text-center text-muted small">${ivaTxt(d.iva)}</td><td class="pe-3 text-end text-nowrap font-monospace fw-bold">${gs(d.subtotal)}</td></tr>`).join('');
+    const t = totales(p.detalle);
+    $('totExentas').textContent = gs(t.ex); $('totG5').textContent = gs(t.g5); $('totG10').textContent = gs(t.g10);
+    $('totTotal').textContent = gs(t.total); $('totIva5').textContent = gs(t.iva5); $('totIva10').textContent = gs(t.iva10);
+    $('bloquePedido').style.display = 'block'; errVenta.style.display = 'none';
+    actualizarVencimiento();
+    actualizarBoton();
+  }
+
+  function actualizarVencimiento() {
+    const d = new Date();
+    if ($('condCredito').checked) d.setDate(d.getDate() + 30);
+    $('lblVencimiento').textContent = 'Vencimiento de la cuenta a cobrar: ' + d.toLocaleDateString('es-PY') +
+      ($('condCredito').checked ? ' (30 días)' : ' (el mismo día)');
+  }
+  document.querySelectorAll('input[name="condicion"]').forEach((r) => r.addEventListener('change', actualizarVencimiento));
+
+  $('formVenta').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    errVenta.style.display = 'none';
+    if (!cajaAbierta) { errVenta.textContent = MSG_SIN_CAJA; errVenta.style.display = 'block'; return; }
+    if (!pedidoSel) { V.marcarCampo(txtPedido, 'Debe seleccionar un pedido.'); txtPedido.focus(); return; }
+    btnGuardar.disabled = true;
+    try {
+      const { data } = await pedir(API, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_pedido: pedidoSel, condicion: document.querySelector('input[name="condicion"]:checked').value })
+      });
+      if (data && data.success) {
+        mostrarNueva(false);
+        await cargarListado();
+        Swal.fire('Venta registrada', data.mensaje, 'success');
+      } else {
+        errVenta.textContent = (data && data.error) || 'Ocurrió un error. Intente nuevamente.';
+        errVenta.style.display = 'block';
+        Swal.fire('No se pudo registrar la venta', errVenta.textContent, 'error');
+        await cargarCaja();
+      }
+    } catch (e) {
+      Swal.fire('Error', 'Ocurrió un error de conexión. Intente nuevamente.', 'error');
+    } finally {
+      actualizarBoton();
+    }
+  });
+
+  /* ---------- eventos ---------- */
+  const btnNueva = $('btnNueva');
+  if (btnNueva) btnNueva.addEventListener('click', abrirNueva);
+  $('btnVolverListado').addEventListener('click', () => mostrarNueva(false));
+  $('btnCancelarNueva').addEventListener('click', () => mostrarNueva(false));
+  document.addEventListener('click', (ev) => {
+    const btn = ev.target.closest('button[data-accion]');
+    if (!btn) return;
+    if (btn.dataset.accion === 'ver') verVenta(btn.dataset.id);
+    if (btn.dataset.accion === 'anular') anularVenta(btn.dataset.id, btn.dataset.info);
+  });
+  [filtroEstado, filtroTipo, filtroDesde, filtroHasta].forEach((el) => el.addEventListener('change', cargarListado));
+  filtroCliente.addEventListener('input', debounce(cargarListado, 300));
+  $('btnLimpiarFiltros').addEventListener('click', () => {
+    filtroEstado.value = ''; filtroTipo.value = ''; filtroCliente.value = ''; filtroDesde.value = ''; filtroHasta.value = '';
+    cargarListado();
+  });
+
+  cargarListado();
+})();
+</script>
+{% endblock %}

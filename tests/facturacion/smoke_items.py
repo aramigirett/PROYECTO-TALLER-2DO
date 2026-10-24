@@ -1,5 +1,6 @@
 import sys
 sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parents[2]))
+from tests.facturacion._limpieza import borrar_auditoria
 from app import app
 from app.conexion.Conexion import Conexion
 from app.rutas.modulo_facturacion import utils
@@ -146,9 +147,11 @@ esperado = {   # descripción: (tipo, precio, stock)
 }
 for nombre, (tipo, precio, stock) in esperado.items():
     f = filas.get(nombre)
-    chk(f'seed item {nombre}: {tipo}, Gs. {precio}, IVA 10, stock {stock}',
+    # El stock de los ítems con control cambia con el uso normal (los pedidos lo descuentan): se exige solo que no
+    # sea negativo. Los ítems sin control de stock siguen exigiendo 0.
+    chk(f'seed item {nombre}: {tipo}, Gs. {precio}, IVA 10, stock ' + (str(stock) if stock == 0 else '>= 0 (varía con los pedidos)'),
         f is not None and f['tipo_item'] == tipo and f['precio_unitario'] == precio and f['iva'] == 10
-        and f['cantidad_disponible'] == stock)
+        and (f['cantidad_disponible'] == 0 if stock == 0 else f['cantidad_disponible'] >= 0))
 chk('seed: ORTODONCIA -> DEPÓSITO ORTODONCIA, el resto -> DEPÓSITO PRINCIPAL',
     all(filas[n]['deposito'] == ('DEPÓSITO ORTODONCIA' if v[0] == 'ORTODONCIA' else 'DEPÓSITO PRINCIPAL') for n, v in esperado.items()))
 _cu0.execute("SELECT is_nullable FROM information_schema.columns WHERE table_name='items' AND column_name='id_deposito'")
@@ -232,10 +235,10 @@ cu.execute("INSERT INTO permisos (id_rol, ventana, accion) VALUES (%s,'item','nu
 
 # ---------- LIMPIEZA acotada a lo creado por este test ----------
 for ent in ['items', 'tipo_items']:
-    cu.execute("DELETE FROM auditoria_cambios WHERE entidad=%s AND id_registro = ANY(%s)", (ent, list(creados[ent])))
+    borrar_auditoria(cu, ent, list(creados[ent]))
 cu.execute("DELETE FROM items WHERE id_item = ANY(%s)", (list(creados['items']),))
 cu.execute("DELETE FROM tipo_items WHERE id_tipo_item = ANY(%s)", (list(creados['tipo_items']),))
-cu.execute("DELETE FROM auditoria_cambios WHERE entidad='deposito' AND id_registro = ANY(%s)", (list(deps_creados),))
+borrar_auditoria(cu, 'deposito', list(deps_creados))
 cu.execute("DELETE FROM deposito WHERE id_deposito = ANY(%s)", (list(deps_creados),))
 cx.commit(); cu.close(); cx.close(); _cu0.close(); _cx0.close()
 print('FALLOS:', fallos or 'ninguno')

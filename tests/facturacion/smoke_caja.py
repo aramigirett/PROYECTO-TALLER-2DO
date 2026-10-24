@@ -1,5 +1,6 @@
 import sys
 sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parents[2]))
+from tests.facturacion._limpieza import borrar_auditoria
 from app import app
 from app.conexion.Conexion import Conexion
 
@@ -165,7 +166,7 @@ try:
     cu.execute("SELECT count(*) FROM consultorio WHERE codigo = ANY(%s)", (reales,)); chk('consultorios reales intactos', cu.fetchone()[0] == len(reales))
 finally:
     # limpieza acotada a lo creado por este test
-    cu.execute("DELETE FROM auditoria_cambios WHERE entidad='caja' AND id_registro = ANY(%s)", (list(cajas_creadas),))
+    borrar_auditoria(cu, 'caja', list(cajas_creadas))
     cu.execute("DELETE FROM caja WHERE id_consultorio = ANY(%s)", ([cA, cB],))
     cu.execute("DELETE FROM consultorio WHERE codigo = ANY(%s)", ([cA, cB],))
     cx.commit(); cu.close(); cx.close()

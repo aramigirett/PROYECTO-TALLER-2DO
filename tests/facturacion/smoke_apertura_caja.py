@@ -5,6 +5,7 @@ Usa usuarios REALES (un Administrador, un Cajero y uno de Recepción) con sesion
 (prefijo ZZ) que crea y borra. Si alguno de esos usuarios tiene una caja abierta de verdad, aborta sin tocar nada."""
 import sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
+from tests.facturacion._limpieza import borrar_auditoria
 from datetime import date, timedelta
 from unittest import mock
 import psycopg2
@@ -320,10 +321,10 @@ finally:
     cu.execute("SELECT id_apertura FROM apertura_cierre_caja WHERE id_apertura > %s AND id_caja = ANY(%s)", (ID0, list(cajas.values())))
     todas = set(aperturas) | {r[0] for r in cu.fetchall()}
     if todas:
-        cu.execute("DELETE FROM auditoria_cambios WHERE entidad='apertura_cierre_caja' AND id_registro = ANY(%s)", (list(todas),))
+        borrar_auditoria(cu, 'apertura_cierre_caja', list(todas))
         cu.execute("DELETE FROM apertura_cierre_caja WHERE id_apertura = ANY(%s)", (list(todas),))
     if cajas:
-        cu.execute("DELETE FROM auditoria_cambios WHERE entidad='caja' AND id_registro = ANY(%s)", (list(cajas.values()),))
+        borrar_auditoria(cu, 'caja', list(cajas.values()))
         cu.execute("DELETE FROM caja WHERE id_caja = ANY(%s)", (list(cajas.values()),))
     for acc in permisos_agregados:
         cu.execute("DELETE FROM permisos WHERE ventana='aperturacaja' AND id_rol=%s AND accion=%s", (OTRO[1], acc))

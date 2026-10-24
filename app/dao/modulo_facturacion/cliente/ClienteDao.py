@@ -220,13 +220,15 @@ class ClienteDao:
 
     def esta_en_uso(self, id_cliente):
         """False si se puede anular; si no, el texto con el motivo (truthy)."""
-        # Pedidos PENDIENTES o FACTURADOS (el anulado no cuenta). deleteCliente lo llama con la fila del cliente
-        # bloqueada (FOR UPDATE) y un pedido nuevo toma FOR SHARE sobre el cliente, así que no puede colarse.
-        # TODO: debe bloquear también si el cliente tiene ventas (venta_cab) devolviendo MSG_BAJA_CON_VENTAS,
-        # cuando exista esa tabla.
+        # Pedidos PENDIENTES o FACTURADOS y ventas EMITIDAS (los anulados no cuentan). deleteCliente lo llama con la
+        # fila del cliente bloqueada (FOR UPDATE) y un pedido nuevo toma FOR SHARE sobre el cliente, así que no puede
+        # colarse; la venta sale de un pedido del cliente, que ya lo bloquea.
         con = Conexion().getConexion()
         cur = con.cursor()
         try:
+            cur.execute("SELECT 1 FROM venta_cab WHERE id_cliente = %s AND estado <> 'ANULADA' LIMIT 1", (id_cliente,))
+            if cur.fetchone():
+                return MSG_BAJA_CON_VENTAS
             cur.execute("SELECT 1 FROM pedido_venta_cab WHERE id_cliente = %s AND estado <> 'ANULADO' LIMIT 1",
                         (id_cliente,))
             return MSG_BAJA_CON_PEDIDOS if cur.fetchone() else False
