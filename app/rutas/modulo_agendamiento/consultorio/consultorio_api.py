@@ -251,7 +251,10 @@ def deleteConsultorio(codigo):
     Elimina un consultorio
     """
     try:
-        if dao.deleteConsultorio(codigo):
+        resultado = dao.deleteConsultorio(codigo)
+        if resultado == "EN_USO":
+            return jsonify({'success': False, 'error': dao.motivoEnUso(codigo)}), 409
+        if resultado:
             return jsonify({
                 'success': True, 
                 'mensaje': f'Consultorio eliminado correctamente.'

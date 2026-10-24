@@ -281,27 +281,46 @@ class ConsultorioDao:
             cur.close()
             con.close()
     
-    def estaEnUso(self, codigo):
-        """Indica si el consultorio tiene avisos, consultas o tratamientos asociados."""
+    MSG_EN_USO_CAJAS = "No se puede eliminar, el consultorio tiene cajas asociadas."
+    MSG_EN_USO_OTROS = "No se puede eliminar, el consultorio tiene avisos, consultas o tratamientos asociados."
+
+    def _usos(self, codigo):
+        """(en_cajas, en_otros) o None si no se pudo verificar. Las cajas cuentan activas e inactivas
+        (la FK es física: una caja anulada también impide borrar el consultorio)."""
         sql = """
         SELECT
-            EXISTS(SELECT 1 FROM avisos_recordatorios WHERE codigo = %s) AS en_avisos,
-            EXISTS(SELECT 1 FROM consultas_cab WHERE id_consultorio = %s) AS en_consultas,
-            EXISTS(SELECT 1 FROM tratamientos WHERE id_consultorio = %s) AS en_tratamientos
+            EXISTS(SELECT 1 FROM caja WHERE id_consultorio = %s) AS en_cajas,
+            EXISTS(SELECT 1 FROM avisos_recordatorios WHERE codigo = %s)
+              OR EXISTS(SELECT 1 FROM consultas_cab WHERE id_consultorio = %s)
+              OR EXISTS(SELECT 1 FROM tratamientos WHERE id_consultorio = %s) AS en_otros
         """
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(sql, (codigo, codigo, codigo))
-            en_avisos, en_consultas, en_tratamientos = cur.fetchone()
-            return bool(en_avisos or en_consultas or en_tratamientos)
+            cur.execute(sql, (codigo, codigo, codigo, codigo))
+            en_cajas, en_otros = cur.fetchone()
+            return bool(en_cajas), bool(en_otros)
         except Exception as e:
             app.logger.error(f"Error al verificar uso de consultorio: {str(e)}")
-            return True  # Ante la duda, bloquear el borrado
+            return None
         finally:
             cur.close()
             con.close()
+
+    def estaEnUso(self, codigo):
+        """Indica si el consultorio tiene cajas, avisos, consultas o tratamientos asociados."""
+        usos = self._usos(codigo)
+        if usos is None:
+            return True  # Ante la duda, bloquear el borrado
+        return usos[0] or usos[1]
+
+    def motivoEnUso(self, codigo):
+        """Texto para el usuario con el motivo por el que no se puede eliminar (cajas primero)."""
+        usos = self._usos(codigo)
+        if usos is not None and usos[0]:
+            return self.MSG_EN_USO_CAJAS
+        return self.MSG_EN_USO_OTROS
 
     def deleteConsultorio(self, codigo):
         """
@@ -309,7 +328,7 @@ class ConsultorioDao:
 
         Returns:
             bool | str: True si se eliminó, False si no existía, "EN_USO" si está
-            en uso por avisos, consultas o tratamientos.
+            en uso por cajas, avisos, consultas o tratamientos.
         """
         if self.estaEnUso(codigo):
             app.logger.warning(f"No se puede eliminar consultorio {codigo}: está en uso")

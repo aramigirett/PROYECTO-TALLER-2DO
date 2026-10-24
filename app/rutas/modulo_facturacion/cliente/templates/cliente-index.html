@@ -1,0 +1,479 @@
+{% extends 'base_tabler.html' %}
+
+{% block titulo %}Clientes{% endblock %}
+
+{% block contenido %}
+<div class="page-header d-print-none mb-3">
+  <div class="row align-items-center">
+    <div class="col">
+      <div class="page-pretitle">Facturación · Referenciales</div>
+      <h2 class="page-title">Clientes</h2>
+    </div>
+    {% if puede('cliente', 'nuevo') %}
+    <div class="col-auto ms-auto">
+      <button type="button" class="btn btn-primary" id="btnAgregar">
+        <i class="fas fa-plus me-2"></i>Agregar
+      </button>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <label class="form-check form-switch mb-0">
+      <input class="form-check-input" type="checkbox" id="chkInactivos">
+      <span class="form-check-label">Mostrar inactivos</span>
+    </label>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table" id="tbl">
+      <thead>
+        <tr>
+          <th>Nombre</th>
+          <th>CI/RUC</th>
+          <th>Teléfono</th>
+          <th style="width: 100px;">Paciente</th>
+          <th style="width: 110px;">Estado</th>
+          <th class="w-1">Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="tbodyClientes">
+        <tr><td colspan="6" class="text-center text-muted py-4">Cargando…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# Modal Alta / Modificar #}
+<div class="modal modal-blur fade" id="modalFormulario" tabindex="-1" aria-labelledby="modalTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalTitle"></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+
+      {# Paso 1 (solo en el alta): ¿El cliente ya es paciente? #}
+      <div id="paso1">
+        <div class="modal-body text-center py-4">
+          <p class="fs-3 mb-4">¿El cliente ya es paciente?</p>
+          <div class="d-grid gap-2 col-10 mx-auto">
+            <button type="button" class="btn btn-primary btn-lg" id="btnEsPaciente">
+              <i class="fas fa-user-injured me-2"></i>Sí, buscar paciente
+            </button>
+            <button type="button" class="btn btn-outline-primary btn-lg" id="btnNoEsPaciente">
+              <i class="fas fa-keyboard me-2"></i>No, cargar los datos manualmente
+            </button>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cancelar</button>
+        </div>
+      </div>
+
+      {# Paso 2: buscador de pacientes #}
+      <div id="paso2" style="display: none;">
+        <div class="modal-body">
+          <label class="form-label" for="txtBuscar">Buscar paciente por cédula o nombre</label>
+          <input type="text" class="form-control" id="txtBuscar" placeholder="Mínimo 2 caracteres" autocomplete="off">
+          <div class="form-hint mb-2" id="hintBuscar">Escriba al menos 2 caracteres.</div>
+          <div class="list-group list-group-flush" id="resultadosPacientes"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-link link-secondary" id="btnVolverPaso1">
+            <i class="fas fa-arrow-left me-1"></i>Volver
+          </button>
+          <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cancelar</button>
+        </div>
+      </div>
+
+      {# Paso 3: formulario #}
+      <form id="formCliente" novalidate style="display: none;">
+        <div class="modal-body">
+          <input type="hidden" id="txtId">
+          <div class="alert alert-info py-2" id="bannerPaciente" style="display: none;">
+            <i class="fas fa-user-injured me-1"></i>
+            <span id="textoPaciente"></span>
+            <a href="#" class="ms-2" id="lnkCambiarPaciente">Cambiar paciente</a>
+            <div class="small mt-1" id="avisoPrecarga">Los datos se copiaron del paciente y se pueden corregir antes de grabar.</div>
+          </div>
+          <div class="row">
+            <div class="col-md-7 mb-3">
+              <label class="form-label required" for="txtNombre">Nombre o razón social</label>
+              <input type="text" class="form-control" id="txtNombre" maxlength="80" autocomplete="off" style="text-transform: uppercase;">
+              <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-md-5 mb-3">
+              <label class="form-label" for="txtApellido">Apellido</label>
+              <input type="text" class="form-control" id="txtApellido" maxlength="80" autocomplete="off" style="text-transform: uppercase;">
+              <div class="invalid-feedback"></div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-md-5 mb-3">
+              <label class="form-label required" for="txtCiRuc">CI/RUC</label>
+              <input type="text" class="form-control" id="txtCiRuc" maxlength="20" placeholder="Ej.: 3456789 u 80012345-0" autocomplete="off">
+              <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-md-7 mb-3">
+              <label class="form-label" for="txtTelefono">Teléfono</label>
+              <input type="text" class="form-control" id="txtTelefono" maxlength="20" placeholder="Ej.: 0981 123456" autocomplete="off">
+              <div class="invalid-feedback"></div>
+            </div>
+          </div>
+          <div class="mb-1">
+            <label class="form-label" for="txtCorreo">Correo</label>
+            <input type="email" class="form-control" id="txtCorreo" maxlength="100" autocomplete="off">
+            <div class="invalid-feedback"></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btnGuardar">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script src="{{ url_for('static', filename='js/facturacion-validadores.js') }}"></script>
+<script>
+(function () {
+  const API = '/api/v1/clientes';
+  const V = window.FacturacionValidadores;
+  const PUEDE_EDITAR = {{ 'true' if puede('cliente', 'editar') else 'false' }};
+  const PUEDE_ANULAR = {{ 'true' if puede('cliente', 'anular') else 'false' }};
+
+  const tbody = document.getElementById('tbodyClientes');
+  const chkInactivos = document.getElementById('chkInactivos');
+  const modalEl = document.getElementById('modalFormulario');
+  const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+  const paso1 = document.getElementById('paso1');
+  const paso2 = document.getElementById('paso2');
+  const form = document.getElementById('formCliente');
+  const inpId = document.getElementById('txtId');
+  const btnGuardar = document.getElementById('btnGuardar');
+  const banner = document.getElementById('bannerPaciente');
+  const textoPaciente = document.getElementById('textoPaciente');
+  const avisoPrecarga = document.getElementById('avisoPrecarga');
+  const lnkCambiar = document.getElementById('lnkCambiarPaciente');
+  const txtBuscar = document.getElementById('txtBuscar');
+  const hintBuscar = document.getElementById('hintBuscar');
+  const resultados = document.getElementById('resultadosPacientes');
+  const campos = {
+    nombre: document.getElementById('txtNombre'),
+    apellido: document.getElementById('txtApellido'),
+    ci_ruc: document.getElementById('txtCiRuc'),
+    telefono: document.getElementById('txtTelefono'),
+    correo: document.getElementById('txtCorreo')
+  };
+  const validadores = {
+    nombre: (v) => V.nombre(v, 'nombre', true),
+    apellido: (v) => V.nombre(v, 'apellido', false),
+    ci_ruc: V.ciRuc,
+    telefono: V.telefonoOpcional,
+    correo: V.correoOpcional
+  };
+  let idPaciente = null;       // paciente vinculado (null = cliente que no es paciente)
+  let temporizador = null;
+
+  const escapar = (t) => String(t === null || t === undefined ? '' : t).replace(/[&<>"']/g, (c) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const limpiarErrores = () => Object.values(campos).forEach(V.limpiarCampo);
+
+  function mostrarPaso(n) {
+    paso1.style.display = n === 1 ? '' : 'none';
+    paso2.style.display = n === 2 ? '' : 'none';
+    form.style.display = n === 3 ? '' : 'none';
+  }
+
+  function validarFormulario() {
+    limpiarErrores();
+    let primero = null;
+    Object.keys(campos).forEach((k) => {
+      const msg = validadores[k](campos[k].value);
+      if (msg) { V.marcarCampo(campos[k], msg); primero = primero || campos[k]; }
+    });
+    if (primero) primero.focus();
+    return !primero;
+  }
+
+  async function pedir(url, opciones) {
+    const resp = await fetch(url, opciones);
+    let data = null;
+    try { data = await resp.json(); } catch (e) { /* respuesta no JSON (ej. 403 HTML) */ }
+    return { ok: resp.ok, status: resp.status, data };
+  }
+
+  async function cargar() {
+    try {
+      const { ok, data } = await pedir(chkInactivos.checked ? `${API}?inactivos=1` : API);
+      if (!ok || !data || !data.success) throw new Error();
+      if (!data.data.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">No hay clientes registrados.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = data.data.map((f) => {
+        const nombre = escapar(f.nombre + (f.apellido ? ' ' + f.apellido : ''));
+        const acciones = [];
+        if (f.es_consumidor_final) {
+          acciones.push('<span class="text-muted" title="El consumidor final no se modifica ni se da de baja"><i class="fas fa-lock"></i></span>');
+        } else if (f.activo) {
+          if (PUEDE_EDITAR) acciones.push(`<button type="button" class="btn btn-sm btn-outline-primary" data-accion="editar" data-id="${f.id_cliente}" title="Editar"><i class="fas fa-edit"></i></button>`);
+          if (PUEDE_ANULAR) acciones.push(`<button type="button" class="btn btn-sm btn-outline-danger" data-accion="anular" data-id="${f.id_cliente}" data-desc="${nombre}" title="Anular"><i class="fas fa-ban"></i></button>`);
+        } else if (PUEDE_EDITAR) {
+          // Reactivar usa el mismo permiso que editar.
+          acciones.push(`<button type="button" class="btn btn-sm btn-outline-success" data-accion="reactivar" data-id="${f.id_cliente}" data-desc="${nombre}" title="Reactivar"><i class="fas fa-undo me-1"></i>Reactivar</button>`);
+        }
+        const badgeEstado = f.activo
+          ? '<span class="badge bg-success-lt">Activo</span>' : '<span class="badge bg-secondary-lt">Inactivo</span>';
+        const badgePaciente = f.es_paciente
+          ? '<span class="badge bg-blue-lt">Sí</span>' : '<span class="badge bg-secondary-lt">No</span>';
+        return `<tr class="${f.activo ? '' : 'text-muted'}">
+          <td>${nombre}</td>
+          <td class="text-nowrap">${escapar(f.ci_ruc)}</td>
+          <td class="text-nowrap">${f.telefono ? escapar(f.telefono) : '—'}</td>
+          <td>${badgePaciente}</td>
+          <td>${badgeEstado}</td>
+          <td class="text-nowrap"><div class="btn-list flex-nowrap">${acciones.join('')}</div></td>
+        </tr>`;
+      }).join('');
+    } catch (e) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger py-4">No se pudo cargar el listado.</td></tr>';
+    }
+  }
+
+  /* ---------- Alta: paso 1 -> (paso 2) -> formulario ---------- */
+  function abrirAlta() {
+    document.getElementById('modalTitle').textContent = 'Agregar Cliente';
+    inpId.value = '';
+    idPaciente = null;
+    Object.values(campos).forEach((el) => { el.value = ''; });
+    limpiarErrores();
+    banner.style.display = 'none';
+    mostrarPaso(1);
+    modal.show();
+  }
+
+  function irAFormularioManual() {
+    idPaciente = null;
+    Object.values(campos).forEach((el) => { el.value = ''; });
+    limpiarErrores();
+    banner.style.display = 'none';
+    mostrarPaso(3);
+    campos.nombre.focus();
+  }
+
+  function irABuscador() {
+    txtBuscar.value = '';
+    resultados.innerHTML = '';
+    hintBuscar.textContent = 'Escriba al menos 2 caracteres.';
+    mostrarPaso(2);
+    txtBuscar.focus();
+  }
+
+  async function buscarPacientes() {
+    const q = txtBuscar.value.trim();
+    if (q.length < 2) {
+      resultados.innerHTML = '';
+      hintBuscar.textContent = 'Escriba al menos 2 caracteres.';
+      return;
+    }
+    hintBuscar.textContent = 'Buscando…';
+    try {
+      const { ok, data } = await pedir(`${API}/pacientes?q=${encodeURIComponent(q)}`);
+      if (txtBuscar.value.trim() !== q) return;   // llegó tarde: ya hay otra búsqueda
+      if (!ok || !data || !data.success) throw new Error((data && data.error) || '');
+      if (!data.data.length) {
+        resultados.innerHTML = '';
+        hintBuscar.textContent = 'No se encontraron pacientes.';
+        return;
+      }
+      hintBuscar.textContent = data.data.length + ' resultado(s). Elija un paciente.';
+      resultados.innerHTML = data.data.map((p, i) => `
+        <button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+                data-indice="${i}" ${p.ya_es_cliente ? 'disabled' : ''}>
+          <span><strong>${escapar(p.nombre)} ${escapar(p.apellido)}</strong> · ${escapar(p.cedula)}</span>
+          ${p.ya_es_cliente ? '<span class="badge bg-secondary-lt">Ya es cliente</span>' : ''}
+        </button>`).join('');
+      resultados._datos = data.data;
+    } catch (e) {
+      resultados.innerHTML = '';
+      hintBuscar.textContent = e.message || 'No se pudo buscar. Intente nuevamente.';
+    }
+  }
+
+  function elegirPaciente(p) {
+    idPaciente = p.id_paciente;
+    campos.nombre.value = (p.nombre || '').toUpperCase();
+    campos.apellido.value = (p.apellido || '').toUpperCase();
+    campos.ci_ruc.value = p.cedula || '';
+    campos.telefono.value = p.telefono || '';
+    campos.correo.value = p.correo || '';
+    textoPaciente.textContent = `Paciente: ${p.nombre} ${p.apellido} (${p.cedula})`;
+    avisoPrecarga.style.display = '';
+    lnkCambiar.style.display = '';
+    banner.style.display = '';
+    mostrarPaso(3);
+    // Los datos precargados pueden no cumplir las reglas de cliente: se avisa antes de grabar.
+    validarFormulario();
+  }
+
+  /* ---------- Edición: el paciente vinculado queda en solo lectura ---------- */
+  function abrirEdicion(c) {
+    document.getElementById('modalTitle').textContent = 'Editar Cliente';
+    inpId.value = c.id_cliente;
+    idPaciente = c.id_paciente;
+    campos.nombre.value = c.nombre || '';
+    campos.apellido.value = c.apellido || '';
+    campos.ci_ruc.value = c.ci_ruc || '';
+    campos.telefono.value = c.telefono || '';
+    campos.correo.value = c.correo || '';
+    limpiarErrores();
+    if (c.id_paciente) {
+      textoPaciente.textContent = 'Cliente vinculado a un paciente (no se puede cambiar).';
+      avisoPrecarga.style.display = 'none';
+      lnkCambiar.style.display = 'none';
+      banner.style.display = '';
+    } else {
+      banner.style.display = 'none';
+    }
+    mostrarPaso(3);
+    modal.show();
+  }
+
+  document.getElementById('btnAgregar') && document.getElementById('btnAgregar').addEventListener('click', abrirAlta);
+  document.getElementById('btnEsPaciente').addEventListener('click', irABuscador);
+  document.getElementById('btnNoEsPaciente').addEventListener('click', irAFormularioManual);
+  document.getElementById('btnVolverPaso1').addEventListener('click', () => mostrarPaso(1));
+  lnkCambiar.addEventListener('click', (ev) => { ev.preventDefault(); irABuscador(); });
+  txtBuscar.addEventListener('input', () => { clearTimeout(temporizador); temporizador = setTimeout(buscarPacientes, 300); });
+  resultados.addEventListener('click', (ev) => {
+    const btn = ev.target.closest('button[data-indice]');
+    if (btn && !btn.disabled) elegirPaciente(resultados._datos[parseInt(btn.dataset.indice, 10)]);
+  });
+
+  chkInactivos.addEventListener('change', cargar);
+  Object.values(campos).forEach((el) => el.addEventListener('input', () => V.limpiarCampo(el)));
+
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    if (!validarFormulario()) return;
+
+    const id = inpId.value;
+    if (id) {
+      const c = await Swal.fire({
+        title: '¿Guardar los cambios?',
+        text: 'Se modificarán los datos de este cliente.',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, guardar',
+        cancelButtonText: 'Cancelar'
+      });
+      if (!c.isConfirmed) return;
+    }
+
+    const payload = { id_paciente: idPaciente };
+    Object.keys(campos).forEach((k) => { payload[k] = campos[k].value; });
+
+    btnGuardar.disabled = true;
+    try {
+      const { data } = await pedir(id ? `${API}/${id}` : API, {
+        method: id ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (data && data.success) {
+        modal.hide();
+        await cargar();
+        Swal.fire(id ? 'Actualizado' : 'Agregado', data.mensaje, 'success');
+      } else if (data && data.campo === 'id_paciente') {
+        Swal.fire('No se pudo guardar', data.error, 'error');
+      } else {
+        const campo = campos[data && data.campo] || campos.nombre;
+        V.marcarCampo(campo, (data && data.error) || 'No se pudo guardar el cliente.');
+        campo.focus();
+      }
+    } catch (e) {
+      V.marcarCampo(campos.nombre, 'Ocurrió un error de conexión. Intente nuevamente.');
+    } finally {
+      btnGuardar.disabled = false;
+    }
+  });
+
+  tbody.addEventListener('click', async (ev) => {
+    const btn = ev.target.closest('button[data-accion]');
+    if (!btn) return;
+    const id = btn.dataset.id;
+
+    if (btn.dataset.accion === 'editar') {
+      try {
+        const { data } = await pedir(`${API}/${id}`);
+        if (data && data.success) {
+          abrirEdicion(data.data);
+        } else {
+          Swal.fire('Error', (data && data.error) || 'No se pudo cargar el cliente.', 'error');
+          cargar();
+        }
+      } catch (e) {
+        Swal.fire('Error', 'Ocurrió un error de conexión.', 'error');
+      }
+    }
+
+    if (btn.dataset.accion === 'anular') {
+      const c = await Swal.fire({
+        title: '¿Anular este cliente?',
+        text: btn.dataset.desc,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, anular',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#d63939'
+      });
+      if (!c.isConfirmed) return;
+      try {
+        const { data } = await pedir(`${API}/${id}`, { method: 'DELETE' });
+        if (data && data.success) {
+          await cargar();
+          Swal.fire('Anulado', data.mensaje, 'success');
+        } else {
+          Swal.fire('No se pudo anular', (data && data.error) || 'No se pudo anular el cliente.', 'error');
+          cargar();
+        }
+      } catch (e) {
+        Swal.fire('Error', 'Ocurrió un error de conexión.', 'error');
+      }
+    }
+
+    if (btn.dataset.accion === 'reactivar') {
+      const c = await Swal.fire({
+        title: '¿Reactivar este cliente?',
+        text: btn.dataset.desc,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, reactivar',
+        cancelButtonText: 'Cancelar'
+      });
+      if (!c.isConfirmed) return;
+      try {
+        const { data } = await pedir(`${API}/${id}/reactivar`, { method: 'PATCH' });
+        if (data && data.success) {
+          await cargar();
+          Swal.fire('Reactivado', data.mensaje, 'success');
+        } else {
+          Swal.fire('No se pudo reactivar', (data && data.error) || 'No se pudo reactivar el cliente.', 'error');
+          cargar();
+        }
+      } catch (e) {
+        Swal.fire('Error', 'Ocurrió un error de conexión.', 'error');
+      }
+    }
+  });
+
+  cargar();
+})();
+</script>
+{% endblock %}

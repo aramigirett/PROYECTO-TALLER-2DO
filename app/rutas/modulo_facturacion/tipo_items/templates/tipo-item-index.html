@@ -1,0 +1,246 @@
+{% extends 'base_tabler.html' %}
+
+{% block titulo %}Tipo de Ítems{% endblock %}
+
+{% block contenido %}
+<div class="page-header d-print-none mb-3">
+  <div class="row align-items-center">
+    <div class="col">
+      <div class="page-pretitle">Facturación · Referenciales</div>
+      <h2 class="page-title">Tipo de Ítems</h2>
+    </div>
+    {% if puede('tipoitem', 'nuevo') %}
+    <div class="col-auto ms-auto">
+      <button type="button" class="btn btn-primary" id="btnAgregar">
+        <i class="fas fa-plus me-2"></i>Agregar
+      </button>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table" id="tbl">
+      <thead>
+        <tr>
+          <th>Descripción</th>
+          <th style="width: 160px;">Controla stock</th>
+          <th style="width: 100px;">Estado</th>
+          <th class="w-1">Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="tbodyTipos">
+        <tr><td colspan="4" class="text-center text-muted py-4">Cargando…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# Modal Alta / Modificar #}
+<div class="modal modal-blur fade" id="modalFormulario" tabindex="-1" aria-labelledby="modalTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalTitle"></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <form id="formTipo" novalidate>
+        <div class="modal-body">
+          <input type="hidden" id="txtId">
+          <div class="mb-3">
+            <label class="form-label required" for="txtDescripcion">Descripción</label>
+            <input type="text" class="form-control" id="txtDescripcion" maxlength="60"
+                   placeholder="Ej.: HIGIENE BUCAL" autocomplete="off" style="text-transform: uppercase;">
+            <div class="invalid-feedback"></div>
+          </div>
+          <div class="mb-1">
+            <label class="form-check form-switch mb-1">
+              <input class="form-check-input" type="checkbox" id="chkControlaStock" checked>
+              <span class="form-check-label">Controla stock</span>
+            </label>
+            <div class="form-hint">Si está activado, los ítems de este tipo llevan cantidad disponible.</div>
+            <div class="text-danger small mt-1" id="errControlaStock" style="display: none;"></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btnGuardar">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script src="{{ url_for('static', filename='js/facturacion-validadores.js') }}"></script>
+<script>
+(function () {
+  const API = '/api/v1/tipos-item';
+  const V = window.FacturacionValidadores;
+  const PUEDE_EDITAR = {{ 'true' if puede('tipoitem', 'editar') else 'false' }};
+  const PUEDE_ANULAR = {{ 'true' if puede('tipoitem', 'anular') else 'false' }};
+
+  const tbody = document.getElementById('tbodyTipos');
+  const modalEl = document.getElementById('modalFormulario');
+  const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+  const form = document.getElementById('formTipo');
+  const inpId = document.getElementById('txtId');
+  const inpDesc = document.getElementById('txtDescripcion');
+  const chkStock = document.getElementById('chkControlaStock');
+  const errStock = document.getElementById('errControlaStock');
+  const btnGuardar = document.getElementById('btnGuardar');
+
+  const escapar = (t) => String(t).replace(/[&<>"']/g, (c) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  const limpiarErrores = () => {
+    V.limpiarCampo(inpDesc);
+    errStock.style.display = 'none';
+    errStock.textContent = '';
+  };
+  const errorStock = (msg) => { errStock.textContent = msg; errStock.style.display = 'block'; };
+
+  async function pedir(url, opciones) {
+    const resp = await fetch(url, opciones);
+    let data = null;
+    try { data = await resp.json(); } catch (e) { /* respuesta no JSON (ej. 403 HTML) */ }
+    return { ok: resp.ok, status: resp.status, data };
+  }
+
+  async function cargar() {
+    try {
+      const { ok, data } = await pedir(API);
+      if (!ok || !data || !data.success) throw new Error();
+      if (!data.data.length) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">No hay tipos de ítem registrados.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = data.data.map((f) => {
+        const acciones = [];
+        if (PUEDE_EDITAR) acciones.push(`<button type="button" class="btn btn-sm btn-outline-primary" data-accion="editar" data-id="${f.id_tipo_item}" title="Editar"><i class="fas fa-edit"></i></button>`);
+        if (PUEDE_ANULAR) acciones.push(`<button type="button" class="btn btn-sm btn-outline-danger" data-accion="anular" data-id="${f.id_tipo_item}" data-desc="${escapar(f.descripcion)}" title="Anular"><i class="fas fa-ban"></i></button>`);
+        const stock = f.controla_stock
+          ? '<span class="badge bg-blue-lt">Sí</span>' : '<span class="badge bg-secondary-lt">No</span>';
+        return `<tr>
+          <td>${escapar(f.descripcion)}</td>
+          <td>${stock}</td>
+          <td><span class="badge bg-success-lt">Activo</span></td>
+          <td class="text-nowrap"><div class="btn-list flex-nowrap">${acciones.join('')}</div></td>
+        </tr>`;
+      }).join('');
+    } catch (e) {
+      tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger py-4">No se pudo cargar el listado.</td></tr>';
+    }
+  }
+
+  function abrirModal(titulo, registro) {
+    document.getElementById('modalTitle').textContent = titulo;
+    inpId.value = registro ? registro.id_tipo_item : '';
+    inpDesc.value = registro ? registro.descripcion : '';
+    chkStock.checked = registro ? !!registro.controla_stock : true;
+    limpiarErrores();
+    modal.show();
+  }
+
+  const btnAgregar = document.getElementById('btnAgregar');
+  if (btnAgregar) btnAgregar.addEventListener('click', () => abrirModal('Agregar Tipo de Ítem'));
+
+  modalEl.addEventListener('shown.bs.modal', () => inpDesc.focus());
+  inpDesc.addEventListener('input', () => V.limpiarCampo(inpDesc));
+  chkStock.addEventListener('change', () => { errStock.style.display = 'none'; });
+
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    limpiarErrores();
+
+    const msg = V.descripcion(inpDesc.value);
+    if (msg) { V.marcarCampo(inpDesc, msg); inpDesc.focus(); return; }
+
+    const id = inpId.value;
+    if (id) {
+      const c = await Swal.fire({
+        title: '¿Guardar los cambios?',
+        text: 'Se modificarán los datos de este tipo de ítem.',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, guardar',
+        cancelButtonText: 'Cancelar'
+      });
+      if (!c.isConfirmed) return;
+    }
+
+    btnGuardar.disabled = true;
+    try {
+      const { data } = await pedir(id ? `${API}/${id}` : API, {
+        method: id ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ descripcion: inpDesc.value, controla_stock: chkStock.checked })
+      });
+      if (data && data.success) {
+        modal.hide();
+        await cargar();
+        Swal.fire(id ? 'Actualizado' : 'Agregado', data.mensaje, 'success');
+      } else if (data && data.campo === 'controla_stock') {
+        errorStock(data.error);
+      } else {
+        V.marcarCampo(inpDesc, (data && data.error) || 'No se pudo guardar el tipo de ítem.');
+        inpDesc.focus();
+      }
+    } catch (e) {
+      V.marcarCampo(inpDesc, 'Ocurrió un error de conexión. Intente nuevamente.');
+    } finally {
+      btnGuardar.disabled = false;
+    }
+  });
+
+  tbody.addEventListener('click', async (ev) => {
+    const btn = ev.target.closest('button[data-accion]');
+    if (!btn) return;
+    const id = btn.dataset.id;
+
+    if (btn.dataset.accion === 'editar') {
+      try {
+        const { data } = await pedir(`${API}/${id}`);
+        if (data && data.success) {
+          abrirModal('Editar Tipo de Ítem', data.data);
+        } else {
+          Swal.fire('Error', (data && data.error) || 'No se pudo cargar el tipo de ítem.', 'error');
+          cargar();
+        }
+      } catch (e) {
+        Swal.fire('Error', 'Ocurrió un error de conexión.', 'error');
+      }
+    }
+
+    if (btn.dataset.accion === 'anular') {
+      const c = await Swal.fire({
+        title: '¿Anular este tipo de ítem?',
+        text: btn.dataset.desc,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, anular',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#d63939'
+      });
+      if (!c.isConfirmed) return;
+      try {
+        const { data } = await pedir(`${API}/${id}`, { method: 'DELETE' });
+        if (data && data.success) {
+          await cargar();
+          Swal.fire('Anulado', data.mensaje, 'success');
+        } else {
+          Swal.fire('No se pudo anular', (data && data.error) || 'No se pudo anular el tipo de ítem.', 'error');
+          cargar();
+        }
+      } catch (e) {
+        Swal.fire('Error', 'Ocurrió un error de conexión.', 'error');
+      }
+    }
+  });
+
+  cargar();
+})();
+</script>
+{% endblock %}

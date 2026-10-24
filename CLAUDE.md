@@ -167,6 +167,9 @@ eliminado explícitamente del CUS). Ya corregido:
   quedan con DELETE físico (decisión: son catálogos base, no necesitan
   historial). Cada deleteX() ahora valida uso antes de borrar (estaEnUso())
   y devuelve 409 con mensaje claro en vez de un error genérico/engañoso.
+  ⚠️ **La decisión de DELETE físico quedó SUPERADA por el "Estándar de referenciales"**
+  (más abajo): al migrar estas pantallas a Tabler pasan a borrado lógico. Mientras no se
+  migren, siguen como están (ver "Pendientes de referenciales").
 - "Mantener Estado de Cita" (estado_cita) NO es una referencial real —
   nunca debió tener pantalla propia: es un catálogo de valores fijos del
   negocio (Reservado, Confirmado, Realizado, Cancelado, No Asistió,
@@ -443,9 +446,14 @@ etc.), nunca IDs crudos.
   fonts/DancingScript.ttf.
 - El resto del sistema sigue en SB Admin 2 (Bootstrap 4). NO mezclar ambos
   frameworks en una misma página.
-- "¿Olvidaste tu contraseña?" y "Reenviar código" no existen en el backend:
-  no implementarlos en la interfaz.
-  
+- **"¿Olvidaste tu contraseña?" SÍ existe**: la recuperación de contraseña está implementada (ver
+  "Endurecimiento de acceso"; `/recuperar` → `/recuperar/codigo` → `/recuperar/nueva`, con enlace en el login).
+- **"Reenviar código" NO existe** (verificado en el código): ni el 2FA del login (`/verificar-2fa` solo valida el
+  código) ni la recuperación tienen endpoint o botón de reenvío. Para recibir un código nuevo en el login hay
+  que volver a iniciar sesión (así lo dice el mensaje de código expirado); en la recuperación se repite el paso 1
+  (`/recuperar`), con un mínimo de 60 s entre envíos. No agregar un botón "Reenviar código" en la interfaz sin
+  crear antes el endpoint en el backend.
+
 - **Toda vista nueva extiende `base_tabler.html`; las vistas viejas se migran al final.**
   Las vistas nuevas usan Bootstrap 5/Tabler, fetch + JS vanilla (sin jQuery) y SweetAlert2.
   Patrón de referencia: `app/rutas/modulo_facturacion/forma_cobro/`.
@@ -485,6 +493,69 @@ Ver la sección **"Modelo de permisos"** (más abajo): reemplaza al antiguo cont
 por rol con `@require_admin` y a la nota de "pendiente de decidir" sobre los
 módulos grandes, que ya quedó resuelta.
 
+## Estándar de referenciales (aplica a TODOS los módulos)
+Todo referencial —nuevo o migrado— cumple estos 6 puntos. Implementación de referencia: **Caja**
+(`app/rutas/modulo_facturacion/caja/`, `app/dao/modulo_facturacion/caja/`); con combos, **Adherida/Ítems**.
+
+1. **Vista en `base_tabler.html`** (Bootstrap 5/Tabler, `fetch` + JS vanilla sin jQuery, SweetAlert2,
+   formulario en modal, validaciones dentro del modal).
+2. **Sin Código visible; descripción en MAYÚSCULAS** (la normaliza el servidor; el ID autonumérico es el único
+   identificador). Validadores en `utils.py` con su espejo en `facturacion-validadores.js` (siempre los dos).
+3. **Borrado lógico** con columna `activo BOOLEAN NOT NULL DEFAULT true` e **índices únicos PARCIALES
+   `WHERE activo = true`** desde el arranque (un registro anulado no puede bloquear crear otro igual).
+   FK `RESTRICT`. El botón de baja se llama **"Anular"**, nunca "Eliminar".
+4. **Columna Estado** (badge verde "Activo" / gris "Inactivo"), **switch "Mostrar inactivos"** (apagado por
+   defecto; `GET ...?inactivos=1` exige `ver`; sin el parámetro la API solo devuelve activos, porque la usan los
+   combos de otras pantallas) y **botón "Reactivar"** con confirmación SweetAlert2 en las filas inactivas, con el
+   permiso `editar`. Reactivar valida duplicados (y que los registros padre sigan existiendo/activos) en una sola
+   transacción y devuelve 409 con mensaje claro.
+5. **Baja bloqueada si está en uso**, con **409** y mensaje claro. `esta_en_uso()` devuelve `False` o el texto del
+   motivo; `deleteX()` devuelve `("EN_USO", motivo)`; la verificación y el UPDATE van en la misma transacción con la
+   fila bloqueada (`FOR UPDATE`; el alta/edición del hijo toma `FOR SHARE` sobre el padre). Cuando la tabla que
+   lo usa todavía no existe, queda un TODO que dice cuál consultar. La API compara el resultado explícitamente
+   (nunca `if resultado:` sobre un string).
+6. **Auditoría en `auditoria_cambios`** vía `AuditoriaCambiosDao`/`utils.auditar`: `ALTA`, `MODIFICACION`, `BAJA`
+   y `REACTIVACION`, con `id_usuario` de la sesión e `ip` del request (nunca del cliente). El detalle muestra
+   NOMBRES (no IDs) y solo lo que cambió; una edición sin cambios no audita.
+
+Además, como en todo endpoint: `@require_permiso(ventana, acción)`, botones envueltos en `puede(...)`, entrada en
+`menu_catalog.py` y seed de permisos idempotente (ver "Modelo de permisos").
+
+### Estado actual de los referenciales frente al estándar (verificado en el código y en la base)
+| Módulo | Referencial | Borrado hoy | Vista | Falta |
+|---|---|---|---|---|
+| Facturación | Caja, Depósito, Cliente | **Lógico** | Tabler | — (cumplen los 6 puntos) |
+| Facturación | Forma de Cobro, Marca de Tarjeta, Entidad Emisora, Entidad Adherida, Tipo Ítems, Ítems | **Lógico** | Tabler | Punto 4 (Estado, "Mostrar inactivos", Reactivar) |
+| Consultorio | Tipo Tratamiento, Tipo Insumo Utilizado, Tipo Procedimiento Médico, Medicamentos, Tipo Estudio, Tipo Análisis | **Lógico** (`activo`, con único parcial) | SB Admin 2 | Vista Tabler, puntos 4 y 6 |
+| Consultorio | Tipo Diagnóstico, Síntomas | **Físico** (con `estaEnUso()` → 409) | SB Admin 2 | Pasar a lógico (agregar `activo`, único parcial) y puntos 1, 4 y 6 |
+| Agendamiento | Ciudad, Cargo, Consultorio, Disponibilidad Horaria, Especialidad, Día, Turno | **Físico** (con `estaEnUso()` → 409) | SB Admin 2 | Pasar a lógico (agregar `activo`, únicos parciales) y puntos 1, 4 y 6 |
+| Agendamiento | Paciente, Funcionario, Médico (datos maestros, no referenciales) | **Físico** (sin validar uso, salvo Paciente→cliente) | SB Admin 2 | Fuera de este estándar; ver riesgos de CASCADE más arriba |
+
+## Pendientes de referenciales (en este orden)
+1. **Facturación — aplicar el punto 4** (columna Estado, switch "Mostrar inactivos", Reactivar con permiso `editar`
+   y `REACTIVACION` en la auditoría) a **Forma de Cobro, Marca de Tarjeta, Entidad Emisora, Entidad Adherida,
+   Tipo Ítems e Ítems** (después de Cliente, que ya está). Cada API necesita el `GET ?inactivos=1` y el
+   `PATCH .../reactivar`. Qué validar al reactivar: Forma de Cobro y Marca de Tarjeta, descripción duplicada;
+   Entidad Emisora, descripción duplicada; Entidad Adherida, duplicado de (descripción, emisora, marca) y que la
+   emisora y la marca estén activas; Tipo Ítems, descripción duplicada; Ítems, descripción duplicada y que el
+   tipo y el depósito estén activos. De paso, alinear Forma de Cobro al protocolo `esta_en_uso()` / `("EN_USO", motivo)`.
+2. **Consultorio — al migrar a Tabler, aplicar el estándar completo** a los 8 referenciales (vista Tabler,
+   puntos 4 y 6; Tipo Diagnóstico y Síntomas además pasan de borrado físico a lógico). Los otros 6 ya tienen
+   `activo` e índices únicos parciales y bloquean la baja en uso.
+3. **Agendamiento — al migrar a Tabler, pasar de borrado físico a lógico y aplicar el estándar completo** a los
+   7 referenciales: agregar `activo`, convertir sus `UNIQUE` en índices únicos parciales (y actualizar las
+   `estaEnUso()`/JOIN que los consultan, ver regla 4 de las "Reglas generales aprendidas"), vista Tabler,
+   puntos 4 y 6. Ojo con `consultorio`: lo referencian `caja` (FK física), agenda, consultas, tratamientos y avisos;
+   hoy "consultorio activo" = "consultorio existente" y las cajas lo usan así.
+4. **Consultorio — agregar `precio NUMERIC(12,0)` a `tipo_tratamiento`** (tabla `tipos_tratamiento`, `TipoTratamientoDao`):
+   lo usa la Venta de Tratamiento. Guaraníes sin decimales, mismo criterio que `items.precio_unitario` (se puede
+   reutilizar `validar_precio` y su espejo JS). A definir al hacerlo: si es obligatorio y qué precio reciben los tipos
+   ya cargados (la columna tendría que nacer con valor o permitir NULL hasta cargarlos); el formulario, el listado
+   y la API de Tipo Tratamiento deben mostrarlo y editarlo. Es un cambio de Consultorio, no de Facturación.
+5. **Facturación — nuevo referencial "Mantener Timbrado"** (*pendiente de definir en el análisis*): no programarlo
+   hasta tener el CUS (campos, validaciones y reglas de uso). Cuando se programe, cumple el estándar completo.
+6. **Facturación — movimientos** (sin empezar): se programan después de los puntos anteriores.
+
 ## Módulo Facturación (en curso)
 - ✅ **Forma de Cobro** (primer referencial, define el patrón visual de los otros 7):
   tabla `forma_cobro` (sin código, baja lógica `activo`, índice único parcial sobre
@@ -498,7 +569,8 @@ módulos grandes, que ya quedó resuelta.
   cliente). Distinta de `auditoria_acceso`. Los demás referenciales de Facturación
   deben llamarla desde su API. Aún no tiene pantalla de consulta.
 - ⏳ **Pendiente:** los referenciales de Consultorio y Agendamiento no registran
-  auditoría de cambios; incorporar `auditoria_cambios` al final.
+  auditoría de cambios: se incorpora al migrarlos (ver "Estándar de referenciales" y
+  "Pendientes de referenciales").
 - ✅ **Marca de Tarjeta**: calco de Forma de Cobro (`marca_tarjeta`, ventana `marcatarjeta`;
   `esta_en_uso()` es stub: TODO consultar `cobro_tarjeta`). Helpers compartidos de las APIs
   de Facturación (`normalizar_descripcion`, `auditar`, `error_interno`) en
@@ -520,17 +592,71 @@ módulos grandes, que ya quedó resuelta.
     dígitos, espacios, guiones y `+` inicial; 6 a 20 caracteres y **al menos 6 dígitos reales**.
     Correo: formato válido, se guarda en minúsculas. Reutilizar en Cliente.
   - Las respuestas de error de validación incluyen `campo` para marcarlo en el formulario.
-- ⏳ Faltan 4 referenciales: Caja, Tipo Ítems, Depósito, Cliente.
-
-### Pendiente de revisión previa (se mantiene)
-Cuando se llegue a este módulo: **revisar específicamente si sus 8
-referenciales (Mantener Forma de Cobro, Marca de Tarjeta, Entidad Adherida,
-Entidad Emisora, Caja, Tipo Ítems, Depósito, Cliente) tienen el mismo error
-del campo "Código" manual que tuvo Consultorio.** No asumir que aplica el
-mismo criterio sin chequear el CUS real de cada una primero — a diferencia
-de Consultorio, algunas de estas (ej. Marca de Tarjeta, Entidad Emisora)
-podrían tener una razón de negocio real para un código corto (interoperabilidad
-con sistemas de pago), no necesariamente un error de análisis.
+- ✅ **Tipo Ítems** (`tipo_items`, ventana `tipoitem`, con `controla_stock`) e
+  **Ítems** (`items`, ventana `item`: tipo, descripción de hasta 100, `precio_unitario` NUMERIC(12,0)
+  en guaraníes, `iva` 0/5/10, `cantidad_disponible`).
+  - **Datos iniciales (odontología):** tipos HIGIENE BUCAL, ORTODONCIA y APARATOLOGÍA Y PROTECCIÓN
+    (con stock); ESTUDIOS RADIOGRÁFICOS y DOCUMENTOS Y CERTIFICADOS (sin stock); 10 ítems. Un seed
+    anterior usaba PRODUCTO/SERVICIO: `migracion_seed_odontologia.sql` (idempotente, correr después de
+    `schema_tipo_items.sql` y `schema_items.sql`) mueve esos ítems a su tipo nuevo y anula PRODUCTO/SERVICIO.
+  - **Stock:** si el tipo no controla stock, la cantidad es SIEMPRE 0 (la API la fuerza y el DAO lo
+    reafirma bajo `FOR SHARE` sobre el tipo). El formulario deshabilita el campo. El listado muestra
+    "—" en el stock de esos ítems. Al cambiar un ítem a un tipo sin stock, la cantidad pasa a 0.
+  - **Bajas:** un tipo con ítems activos no se puede anular, y tampoco se puede cambiar su
+    "Controla stock" (409; evita ítems con stock bajo un tipo que no lo controla). TODO de
+    `esta_en_uso` en Ítems: consultar `pedido_venta_det` y `venta_det` cuando existan.
+  - **Descripción de Ítems** acepta además `, % ( ) + &` (`normalizar_descripcion(..., ampliada=True)`
+    y `V.descripcion(v, {max:100, ampliada:true})`). Tipo Ítems y el resto mantienen la regla estricta.
+  - Nuevos validadores compartidos (`utils.py` + `facturacion-validadores.js`, siempre en espejo):
+    `validar_precio` (entero > 0, hasta 999.999.999.999), `validar_iva`, `validar_cantidad`,
+    `validar_booleano`, `entero_id`; en JS `formatoGs()`.
+  - La auditoría de Ítems guarda el nombre del tipo, no su ID.
+- ✅ **Caja** (`caja`, ventana `caja`): `id_consultorio` → `consultorio(codigo)` (RESTRICT), descripción única
+  por consultorio entre las activas. OJO: **la tabla `consultorio` no tiene baja lógica** (PK `codigo`, columna
+  `nombre_consultorio`, borrado físico): "consultorio activo" = "consultorio existente". Seeds: CAJA RECEPCIÓN y
+  CAJA ORTODONCIA en el 1.º consultorio (por código) y `CAJA <NOMBRE DEL 2.º CONSULTORIO>` en el 2.º.
+  - **Primer referencial con reactivación:** `PATCH /api/v1/cajas/<id>/reactivar` (permiso `editar`), acción
+    `REACTIVACION` en `auditoria_cambios` (se amplió su CHECK). Valida que el consultorio exista y que no haya
+    otra caja activa con la misma descripción. El listado admite `?inactivas=1` (requiere `ver`); sin el parámetro
+    solo trae activas (lo usan los combos de otras pantallas). La vista tiene el switch "Mostrar inactivas".
+  - `esta_en_uso()` es stub: TODO bloquear si hay apertura sin cierre en `apertura_cierre_caja`
+    ("No se puede dar de baja, la caja tiene una apertura activa.").
+  - **Cambio en Agendamiento:** `ConsultorioDao.estaEnUso` ahora cuenta las cajas (activas o inactivas, la FK es
+    física) y `motivoEnUso()` da el texto ("No se puede eliminar, el consultorio tiene cajas asociadas."). Además se
+    corrigió un bug de `consultorio_api.py`: trataba el `"EN_USO"` del DAO como éxito (200 sin borrar); ahora 409.
+- ✅ **Depósito** (`deposito`, ventana `deposito`): el depósito FÍSICO donde se guardan los ítems (NO es una cuenta
+  bancaria). `descripcion` + `ubicacion` (mayúsculas), único parcial por descripción, con Estado activo/inactivo,
+  switch "Mostrar inactivos" y Reactivar (permiso `editar`, acción `REACTIVACION`): mismo patrón que Caja.
+  - **Ítems ahora tienen depósito:** `items.id_deposito NOT NULL` → `deposito` (RESTRICT). El stock sigue siendo
+    GLOBAL (`cantidad_disponible`); el depósito solo dice dónde se guarda. Alta/edición de ítem bloquea el depósito
+    con `FOR SHARE` (siempre después del tipo, para no generar deadlocks). El formulario de Ítems tiene combo
+    Depósito (solo activos) y el listado la columna Depósito.
+  - **Baja de depósito** bloqueada con ítems activos ("No se puede dar de baja, el depósito tiene ítems
+    asignados."). TODO: consultar `nota_remision`.
+  - **Migración** `migracion_items_deposito.sql` (idempotente; no hace nada si `items` aún no existe). Orden:
+    `schema_tipo_items` → `schema_deposito` → `migracion_items_deposito` → `schema_items` → `schema_permisos_deposito`.
+    Asigna ítems de tipo ORTODONCIA a DEPÓSITO ORTODONCIA y el resto a DEPÓSITO PRINCIPAL (solo filas sin depósito).
+  - `validar_texto(..., mayusculas=True)` y `V.ubicacion` (espejo en JS) para la ubicación (máx. 100).
+- ✅ **Cliente** (`cliente`, ventana `cliente`) — **último referencial: los 8 de Facturación están completos.**
+  Usa la tabla existente `paciente` (PK `id_paciente`; `nombre`, `apellido`, `cedula_entidad` → CI/RUC, `telefono`,
+  `correo`; sin baja lógica: "paciente activo" = "paciente existente"). `cliente.id_paciente` es NULL si no es paciente
+  (FK RESTRICT). Los datos del paciente se COPIAN al dar de alta (se pueden corregir) y no se sincronizan;
+  `id_paciente` es inmutable después del alta. Únicos parciales (activos): `ci_ruc` y `id_paciente`.
+  - **Alta en 2 pasos:** "¿El cliente ya es paciente?" → buscador (`GET /api/v1/clientes/pacientes?q=`, mín. 2
+    caracteres, por cédula o nombre; exige permiso `nuevo` porque expone datos personales) o carga manual.
+  - **SIN NOMBRE (consumidor final, CI/RUC `44444401-7`, constante `CONSUMIDOR_FINAL_RUC` en `ClienteDao`):** no se
+    modifica ni se da de baja (409). Se identifica por esa CI/RUC.
+  - **CI/RUC:** cédula = 5 a 10 dígitos sin verificador; RUC = `dígitos-verificador` validado con módulo 11 de la
+    SET, base máxima 11 (`calcular_dv_ruc` en `utils.py` y `calcularDvRuc` en el JS, siempre en espejo).
+    OJO: el RUC de ejemplo `80012345-6` es inválido; el correcto es `80012345-0` (el de LABORATORIO DENTAL SONRISA).
+  - Nuevos validadores compartidos: `validar_ci_ruc`, `validar_nombre` (mayúsculas; letras, números, espacios y
+    `. , - & ' / ( )`), `validar_telefono_opcional`, `validar_correo_opcional` (+ espejo en JS).
+  - `esta_en_uso()` es stub: TODO bloquear si hay pedidos o ventas (`pedido_venta_cab`, `venta_cab`).
+  - **Cambio en Agendamiento:** `PacienteDao.deletePaciente` devuelve `"EN_USO"` si el paciente es cliente (activo o
+    inactivo, FK física) y la API responde 409 "No se puede eliminar, el paciente está registrado como cliente."
+    (el riesgo de CASCADE al borrar un paciente con citas sigue sin resolverse, anotado más arriba).
+- ✅ **Referenciales de Facturación completos** (Forma de Cobro, Marca de Tarjeta, Entidad Emisora, Entidad Adherida,
+  Tipo Ítems, Ítems, Caja, Depósito, Cliente). Siguen los movimientos de Facturación.
 
 ## Convenciones de código
 - SQL crudo con psycopg2, sin ORM.

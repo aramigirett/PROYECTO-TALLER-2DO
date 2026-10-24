@@ -1,0 +1,345 @@
+{% extends 'base_tabler.html' %}
+
+{% block titulo %}Ítems{% endblock %}
+
+{% block contenido %}
+<div class="page-header d-print-none mb-3">
+  <div class="row align-items-center">
+    <div class="col">
+      <div class="page-pretitle">Facturación · Referenciales</div>
+      <h2 class="page-title">Ítems</h2>
+    </div>
+    {% if puede('item', 'nuevo') %}
+    <div class="col-auto ms-auto">
+      <button type="button" class="btn btn-primary" id="btnAgregar">
+        <i class="fas fa-plus me-2"></i>Agregar
+      </button>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table" id="tbl">
+      <thead>
+        <tr>
+          <th>Descripción</th>
+          <th>Tipo</th>
+          <th>Depósito</th>
+          <th class="text-end">Precio</th>
+          <th>IVA</th>
+          <th class="text-end">Stock</th>
+          <th class="w-1">Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="tbodyItems">
+        <tr><td colspan="7" class="text-center text-muted py-4">Cargando…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# Modal Alta / Modificar #}
+<div class="modal modal-blur fade" id="modalFormulario" tabindex="-1" aria-labelledby="modalTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalTitle"></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <form id="formItem" novalidate>
+        <div class="modal-body">
+          <input type="hidden" id="txtId">
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label required" for="selTipo">Tipo de ítem</label>
+              <select class="form-select" id="selTipo"></select>
+              <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label required" for="selDeposito">Depósito</label>
+              <select class="form-select" id="selDeposito"></select>
+              <div class="invalid-feedback"></div>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label required" for="txtDescripcion">Descripción</label>
+            <input type="text" class="form-control" id="txtDescripcion" maxlength="100"
+                   placeholder="Ej.: CEPILLO DENTAL ADULTO" autocomplete="off" style="text-transform: uppercase;">
+            <div class="invalid-feedback"></div>
+          </div>
+          <div class="row">
+            <div class="col-md-4 mb-3">
+              <label class="form-label required" for="txtPrecio">Precio (Gs.)</label>
+              <input type="text" inputmode="numeric" class="form-control" id="txtPrecio" maxlength="12"
+                     placeholder="Ej.: 15000" autocomplete="off">
+              <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-md-4 mb-3">
+              <label class="form-label required" for="selIva">IVA</label>
+              <select class="form-select" id="selIva">
+                <option value="10">10%</option>
+                <option value="5">5%</option>
+                <option value="0">Exenta</option>
+              </select>
+              <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-md-4 mb-3">
+              <label class="form-label required" for="txtCantidad">Cantidad disponible</label>
+              <input type="text" inputmode="numeric" class="form-control" id="txtCantidad" maxlength="10"
+                     value="0" autocomplete="off">
+              <div class="invalid-feedback"></div>
+              <div class="form-hint" id="hintCantidad" style="display: none;">El tipo elegido no controla stock.</div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btnGuardar">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script src="{{ url_for('static', filename='js/facturacion-validadores.js') }}"></script>
+<script>
+(function () {
+  const API = '/api/v1/items';
+  const API_TIPOS = '/api/v1/tipos-item';   // lookup: solo tipos activos
+  const API_DEPOSITOS = '/api/v1/depositos';   // lookup: solo depósitos activos
+  const V = window.FacturacionValidadores;
+  const PUEDE_EDITAR = {{ 'true' if puede('item', 'editar') else 'false' }};
+  const PUEDE_ANULAR = {{ 'true' if puede('item', 'anular') else 'false' }};
+  const ETIQUETA_IVA = { 0: 'Exenta', 5: '5%', 10: '10%' };
+
+  const tbody = document.getElementById('tbodyItems');
+  const modalEl = document.getElementById('modalFormulario');
+  const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+  const form = document.getElementById('formItem');
+  const inpId = document.getElementById('txtId');
+  const btnGuardar = document.getElementById('btnGuardar');
+  const hintCantidad = document.getElementById('hintCantidad');
+  const campos = {
+    id_tipo_item: document.getElementById('selTipo'),
+    id_deposito: document.getElementById('selDeposito'),
+    descripcion: document.getElementById('txtDescripcion'),
+    precio_unitario: document.getElementById('txtPrecio'),
+    iva: document.getElementById('selIva'),
+    cantidad_disponible: document.getElementById('txtCantidad')
+  };
+  let tipos = [];   // tipos activos con su "controla_stock"
+  let depositos = [];   // depósitos activos
+
+  const controlaStock = () => {
+    const t = tipos.find((x) => String(x.id_tipo_item) === campos.id_tipo_item.value);
+    return t ? t.controla_stock : true;
+  };
+
+  const validadores = {
+    id_tipo_item: (v) => (v ? '' : 'Debe seleccionar un tipo de ítem.'),
+    id_deposito: (v) => (v ? '' : 'Debe seleccionar un depósito.'),
+    descripcion: (v) => V.descripcion(v, { max: 100, ampliada: true }),
+    precio_unitario: V.precio,
+    iva: V.iva,
+    // Si el tipo no controla stock la cantidad queda en 0 y no se valida.
+    cantidad_disponible: (v) => (controlaStock() ? V.cantidad(v) : '')
+  };
+
+  const escapar = (t) => String(t).replace(/[&<>"']/g, (c) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  const limpiarErrores = () => Object.values(campos).forEach(V.limpiarCampo);
+
+  /* Tipo sin control de stock: cantidad en 0 y deshabilitada. */
+  function actualizarCantidad() {
+    const controla = controlaStock();
+    campos.cantidad_disponible.disabled = !controla;
+    hintCantidad.style.display = controla ? 'none' : 'block';
+    if (!controla) {
+      campos.cantidad_disponible.value = '0';
+      V.limpiarCampo(campos.cantidad_disponible);
+    }
+  }
+
+  function validarFormulario() {
+    limpiarErrores();
+    let primero = null;
+    Object.keys(campos).forEach((k) => {
+      const msg = validadores[k](campos[k].value);
+      if (msg) { V.marcarCampo(campos[k], msg); primero = primero || campos[k]; }
+    });
+    if (primero) primero.focus();
+    return !primero;
+  }
+
+  async function pedir(url, opciones) {
+    const resp = await fetch(url, opciones);
+    let data = null;
+    try { data = await resp.json(); } catch (e) { /* respuesta no JSON (ej. 403 HTML) */ }
+    return { ok: resp.ok, status: resp.status, data };
+  }
+
+  async function cargar() {
+    try {
+      const { ok, data } = await pedir(API);
+      if (!ok || !data || !data.success) throw new Error();
+      if (!data.data.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">No hay ítems registrados.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = data.data.map((f) => {
+        const acciones = [];
+        if (PUEDE_EDITAR) acciones.push(`<button type="button" class="btn btn-sm btn-outline-primary" data-accion="editar" data-id="${f.id_item}" title="Editar"><i class="fas fa-edit"></i></button>`);
+        if (PUEDE_ANULAR) acciones.push(`<button type="button" class="btn btn-sm btn-outline-danger" data-accion="anular" data-id="${f.id_item}" data-desc="${escapar(f.descripcion)}" title="Anular"><i class="fas fa-ban"></i></button>`);
+        const stock = f.controla_stock ? escapar(f.cantidad_disponible) : '—';
+        return `<tr>
+          <td>${escapar(f.descripcion)}</td>
+          <td>${escapar(f.tipo_item)}</td>
+          <td>${escapar(f.deposito)}</td>
+          <td class="text-end text-nowrap">${V.formatoGs(f.precio_unitario)}</td>
+          <td>${ETIQUETA_IVA[f.iva] !== undefined ? ETIQUETA_IVA[f.iva] : escapar(f.iva)}</td>
+          <td class="text-end">${stock}</td>
+          <td class="text-nowrap"><div class="btn-list flex-nowrap">${acciones.join('')}</div></td>
+        </tr>`;
+      }).join('');
+    } catch (e) {
+      tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger py-4">No se pudo cargar el listado.</td></tr>';
+    }
+  }
+
+  /* El combo de tipos se recarga cada vez que se abre el modal: solo tipos activos al día. */
+  async function abrirModal(titulo, registro) {
+    try {
+      const [rt, rd] = await Promise.all([pedir(API_TIPOS), pedir(API_DEPOSITOS)]);
+      if (!rt.data || !rt.data.success || !rd.data || !rd.data.success) throw new Error();
+      tipos = rt.data.data;
+      depositos = rd.data.data;
+    } catch (e) {
+      Swal.fire('Error', 'No se pudieron cargar los tipos de ítem y los depósitos. Intente nuevamente.', 'error');
+      return;
+    }
+    campos.id_deposito.innerHTML = '<option value="">Seleccione un depósito…</option>' +
+      depositos.map((d) => `<option value="${d.id_deposito}">${escapar(d.descripcion)}</option>`).join('');
+    campos.id_tipo_item.innerHTML = '<option value="">Seleccione un tipo…</option>' +
+      tipos.map((t) => `<option value="${t.id_tipo_item}">${escapar(t.descripcion)}</option>`).join('');
+
+    document.getElementById('modalTitle').textContent = titulo;
+    inpId.value = registro ? registro.id_item : '';
+    campos.id_tipo_item.value = registro ? registro.id_tipo_item : '';
+    campos.id_deposito.value = registro ? registro.id_deposito : '';
+    campos.descripcion.value = registro ? registro.descripcion : '';
+    campos.precio_unitario.value = registro ? registro.precio_unitario : '';
+    campos.iva.value = registro ? registro.iva : '10';
+    campos.cantidad_disponible.value = registro ? registro.cantidad_disponible : '0';
+    limpiarErrores();
+    actualizarCantidad();
+    modal.show();
+  }
+
+  const btnAgregar = document.getElementById('btnAgregar');
+  if (btnAgregar) btnAgregar.addEventListener('click', () => abrirModal('Agregar Ítem'));
+
+  modalEl.addEventListener('shown.bs.modal', () => campos.id_tipo_item.focus());
+  Object.values(campos).forEach((el) => {
+    el.addEventListener('input', () => V.limpiarCampo(el));
+    el.addEventListener('change', () => V.limpiarCampo(el));
+  });
+  campos.id_tipo_item.addEventListener('change', actualizarCantidad);
+
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    if (!validarFormulario()) return;
+
+    const id = inpId.value;
+    if (id) {
+      const c = await Swal.fire({
+        title: '¿Guardar los cambios?',
+        text: 'Se modificarán los datos de este ítem.',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, guardar',
+        cancelButtonText: 'Cancelar'
+      });
+      if (!c.isConfirmed) return;
+    }
+
+    const payload = {};
+    Object.keys(campos).forEach((k) => { payload[k] = campos[k].value; });
+
+    btnGuardar.disabled = true;
+    try {
+      const { data } = await pedir(id ? `${API}/${id}` : API, {
+        method: id ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (data && data.success) {
+        modal.hide();
+        await cargar();
+        Swal.fire(id ? 'Actualizado' : 'Agregado', data.mensaje, 'success');
+      } else {
+        // La API indica el campo en error; si no, se muestra en la descripción.
+        const campo = campos[data && data.campo] || campos.descripcion;
+        V.marcarCampo(campo, (data && data.error) || 'No se pudo guardar el ítem.');
+        campo.focus();
+      }
+    } catch (e) {
+      V.marcarCampo(campos.descripcion, 'Ocurrió un error de conexión. Intente nuevamente.');
+    } finally {
+      btnGuardar.disabled = false;
+    }
+  });
+
+  tbody.addEventListener('click', async (ev) => {
+    const btn = ev.target.closest('button[data-accion]');
+    if (!btn) return;
+    const id = btn.dataset.id;
+
+    if (btn.dataset.accion === 'editar') {
+      try {
+        const { data } = await pedir(`${API}/${id}`);
+        if (data && data.success) {
+          await abrirModal('Editar Ítem', data.data);
+        } else {
+          Swal.fire('Error', (data && data.error) || 'No se pudo cargar el ítem.', 'error');
+          cargar();
+        }
+      } catch (e) {
+        Swal.fire('Error', 'Ocurrió un error de conexión.', 'error');
+      }
+    }
+
+    if (btn.dataset.accion === 'anular') {
+      const c = await Swal.fire({
+        title: '¿Anular este ítem?',
+        text: btn.dataset.desc,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, anular',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#d63939'
+      });
+      if (!c.isConfirmed) return;
+      try {
+        const { data } = await pedir(`${API}/${id}`, { method: 'DELETE' });
+        if (data && data.success) {
+          await cargar();
+          Swal.fire('Anulado', data.mensaje, 'success');
+        } else {
+          Swal.fire('No se pudo anular', (data && data.error) || 'No se pudo anular el ítem.', 'error');
+          cargar();
+        }
+      } catch (e) {
+        Swal.fire('Error', 'Ocurrió un error de conexión.', 'error');
+      }
+    }
+  });
+
+  cargar();
+})();
+</script>
+{% endblock %}

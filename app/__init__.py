@@ -238,6 +238,16 @@ from app.rutas.modulo_facturacion.entidad_emisora.entidad_emisora_routes import 
 from app.rutas.modulo_facturacion.entidad_emisora.entidad_emisora_api import entidademisoraapi
 from app.rutas.modulo_facturacion.entidad_adherida.entidad_adherida_routes import entidadadheridamod
 from app.rutas.modulo_facturacion.entidad_adherida.entidad_adherida_api import entidadadheridaapi
+from app.rutas.modulo_facturacion.tipo_items.tipo_items_routes import tipoitemmod
+from app.rutas.modulo_facturacion.tipo_items.tipo_items_api import tipoitemapi
+from app.rutas.modulo_facturacion.items.items_routes import itemmod
+from app.rutas.modulo_facturacion.items.items_api import itemapi
+from app.rutas.modulo_facturacion.caja.caja_routes import cajamod
+from app.rutas.modulo_facturacion.caja.caja_api import cajaapi
+from app.rutas.modulo_facturacion.deposito.deposito_routes import depositomod
+from app.rutas.modulo_facturacion.deposito.deposito_api import depositoapi
+from app.rutas.modulo_facturacion.cliente.cliente_routes import clientemod
+from app.rutas.modulo_facturacion.cliente.cliente_api import clienteapi
 
 app.register_blueprint(formacobromod, url_prefix='/referenciales/forma-cobro')
 app.register_blueprint(formacobroapi, url_prefix='/api/v1')
@@ -247,6 +257,16 @@ app.register_blueprint(entidademisoramod, url_prefix='/referenciales/entidad-emi
 app.register_blueprint(entidademisoraapi, url_prefix='/api/v1')
 app.register_blueprint(entidadadheridamod, url_prefix='/referenciales/entidad-adherida')
 app.register_blueprint(entidadadheridaapi, url_prefix='/api/v1')
+app.register_blueprint(tipoitemmod, url_prefix='/referenciales/tipo-item')
+app.register_blueprint(tipoitemapi, url_prefix='/api/v1')
+app.register_blueprint(itemmod, url_prefix='/referenciales/item')
+app.register_blueprint(itemapi, url_prefix='/api/v1')
+app.register_blueprint(cajamod, url_prefix='/referenciales/caja')
+app.register_blueprint(cajaapi, url_prefix='/api/v1')
+app.register_blueprint(depositomod, url_prefix='/referenciales/deposito')
+app.register_blueprint(depositoapi, url_prefix='/api/v1')
+app.register_blueprint(clientemod, url_prefix='/referenciales/cliente')
+app.register_blueprint(clienteapi, url_prefix='/api/v1')
 
 
 ##REGISTRAR CONSULTA Y FICHA MEDICA

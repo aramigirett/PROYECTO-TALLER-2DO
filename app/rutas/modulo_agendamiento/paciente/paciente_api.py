@@ -148,7 +148,13 @@ def updatePaciente(paciente_id):
 def deletePaciente(paciente_id):
     pacientedao = PacienteDao()
     try:
-        if pacientedao.deletePaciente(paciente_id):
+        resultado = pacientedao.deletePaciente(paciente_id)
+        if resultado == "EN_USO":
+            return jsonify({
+                'success': False,
+                'error': 'No se puede eliminar, el paciente está registrado como cliente.'
+            }), 409
+        if resultado:
             app.logger.info(f"Paciente con ID {paciente_id} eliminado.")
             return jsonify({
                 'success': True,

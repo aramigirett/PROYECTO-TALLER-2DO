@@ -11,11 +11,20 @@ from app.dao.modulo_facturacion.AuditoriaCambiosDao import AuditoriaCambiosDao
 MAX_DESCRIPCION = 60
 MAX_DIRECCION = 150
 MAX_CORREO = 100
+MAX_UBICACION = 100
+MAX_NOMBRE = 80
 TELEFONO_MIN_LARGO = 6
 TELEFONO_MAX_LARGO = 20
 TELEFONO_MIN_DIGITOS = 6
+MAX_PRECIO = 999_999_999_999   # NUMERIC(12,0)
+MAX_CANTIDAD = 2_147_483_647   # INTEGER
+IVA_VALIDOS = (0, 5, 10)
 
 _RE_DESCRIPCION = re.compile(r'^[A-ZÁÉÍÓÚÜÑ0-9][A-ZÁÉÍÓÚÜÑ0-9 .\-/]*$')
+_RE_DESCRIPCION_AMPLIADA = re.compile(r'^[A-ZÁÉÍÓÚÜÑ0-9][A-ZÁÉÍÓÚÜÑ0-9 .\-/,%()+&]*$')
+_RE_NOMBRE = re.compile(r"^[A-ZÁÉÍÓÚÜÑ0-9][A-ZÁÉÍÓÚÜÑ0-9 .,\-&'/()]*$")
+_RE_CEDULA = re.compile(r'^\d{5,10}$')
+_RE_RUC = re.compile(r'^(\d{5,10})-(\d)$')
 _RE_CONTROL = re.compile(r'[\x00-\x1f\x7f]')
 _RE_TELEFONO = re.compile(r'^\+?[0-9][0-9 \-]*$')
 _RE_CORREO = re.compile(r'^[a-z0-9._%+\-]+@[a-z0-9\-]+(\.[a-z0-9\-]+)*\.[a-z]{2,}$')
@@ -28,21 +37,29 @@ def _como_texto(valor):
     return re.sub(r'\s+', ' ', valor).strip()
 
 
-def normalizar_descripcion(data):
-    """Devuelve (descripcion, error). Quita espacios sobrantes y pasa a mayúsculas."""
-    descripcion = _como_texto(data.get('descripcion') if data else None).upper()
+def normalizar_descripcion(data, max_len=MAX_DESCRIPCION, ampliada=False):
+    """
+    Devuelve (descripcion, error). Quita espacios sobrantes y pasa a mayúsculas.
+    `ampliada=True` (ej. Ítems) acepta además los símbolos , % ( ) + &
+    """
+    descripcion = _como_texto(data.get('descripcion') if isinstance(data, dict) else None).upper()
     if not descripcion:
         return None, 'El campo descripción es obligatorio y no puede estar vacío.'
-    if len(descripcion) > MAX_DESCRIPCION:
-        return None, f'La descripción no puede superar los {MAX_DESCRIPCION} caracteres.'
-    if not _RE_DESCRIPCION.match(descripcion):
-        return None, 'La descripción solo puede contener letras, números, espacios y los símbolos . - /'
+    if len(descripcion) > max_len:
+        return None, f'La descripción no puede superar los {max_len} caracteres.'
+    if not (_RE_DESCRIPCION_AMPLIADA if ampliada else _RE_DESCRIPCION).match(descripcion):
+        return None, ('La descripción solo puede contener letras, números, espacios y los símbolos . - / , % ( ) + &'
+                      if ampliada else
+                      'La descripción solo puede contener letras, números, espacios y los símbolos . - /')
     return descripcion, None
 
 
-def validar_texto(valor, nombre, max_len):
-    """Texto libre obligatorio (ej. dirección). Devuelve (texto, error)."""
+def validar_texto(valor, nombre, max_len, mayusculas=False):
+    """Texto libre obligatorio (ej. dirección, ubicación). Devuelve (texto, error).
+    `mayusculas=True` guarda el texto en mayúsculas."""
     texto = _como_texto(valor)
+    if mayusculas:
+        texto = texto.upper()
     if not texto:
         return None, f'El campo {nombre} es obligatorio y no puede estar vacío.'
     if len(texto) > max_len:
@@ -80,6 +97,135 @@ def validar_correo(valor):
     if not _RE_CORREO.match(correo):
         return None, 'El correo no tiene un formato válido.'
     return correo, None
+
+
+def _entero_estricto(valor):
+    """int, o texto de solo dígitos -> int. Rechaza bool, float, vacío y cualquier otra cosa (None)."""
+    if isinstance(valor, bool):
+        return None
+    if isinstance(valor, int):
+        return valor
+    if isinstance(valor, str) and re.fullmatch(r'-?\d+', valor.strip()):
+        return int(valor.strip())
+    return None
+
+
+def _miles(n):
+    return f'{n:,}'.replace(',', '.')
+
+
+def entero_id(valor):
+    """ID entero positivo (int o texto numérico). None si no es válido."""
+    n = _entero_estricto(valor)
+    return n if n is not None and n > 0 else None
+
+
+def validar_precio(valor):
+    """Guaraníes: entero mayor a 0, hasta 12 dígitos (sin decimales). Devuelve (precio, error)."""
+    if valor is None or (isinstance(valor, str) and not valor.strip()):
+        return None, 'El campo precio es obligatorio y no puede estar vacío.'
+    n = _entero_estricto(valor)
+    if n is None:
+        return None, 'El precio debe ser un número entero (guaraníes, sin decimales).'
+    if n <= 0:
+        return None, 'El precio debe ser mayor a 0.'
+    if n > MAX_PRECIO:
+        return None, f'El precio no puede superar {_miles(MAX_PRECIO)}.'
+    return n, None
+
+
+def validar_iva(valor):
+    """Solo 0 (exenta), 5 o 10. Devuelve (iva, error)."""
+    n = _entero_estricto(valor)
+    if n not in IVA_VALIDOS:
+        return None, 'El IVA debe ser Exenta (0), 5% o 10%.'
+    return n, None
+
+
+def validar_cantidad(valor):
+    """Entero de 0 en adelante. Devuelve (cantidad, error)."""
+    if valor is None or (isinstance(valor, str) and not valor.strip()):
+        return None, 'El campo cantidad es obligatorio (use 0 si no hay stock).'
+    n = _entero_estricto(valor)
+    if n is None:
+        return None, 'La cantidad debe ser un número entero.'
+    if n < 0:
+        return None, 'La cantidad no puede ser negativa.'
+    if n > MAX_CANTIDAD:
+        return None, f'La cantidad no puede superar {_miles(MAX_CANTIDAD)}.'
+    return n, None
+
+
+def validar_booleano(valor, nombre):
+    """Solo true/false reales (JSON). Devuelve (bool, error)."""
+    if not isinstance(valor, bool):
+        return None, f'El campo "{nombre}" debe ser Sí o No.'
+    return valor, None
+
+
+def calcular_dv_ruc(base, base_max=11):
+    """Dígito verificador del RUC paraguayo (SET): módulo 11, base máxima 11.
+    Se recorre la base de derecha a izquierda con pesos 2, 3, ... (vuelve a 2 al pasar de base_max)."""
+    k = 2
+    total = 0
+    for digito in reversed(str(base)):
+        if k > base_max:
+            k = 2
+        total += int(digito) * k
+        k += 1
+    resto = total % 11
+    return 11 - resto if resto > 1 else 0
+
+
+def validar_ci_ruc(valor):
+    """
+    Obligatorio. Cédula: solo dígitos, de 5 a 10 (sin verificador). RUC: dígitos, guion y un dígito
+    verificador (ej. 80012345-0), cuyo verificador se valida con calcular_dv_ruc. Devuelve (ci_ruc, error).
+    """
+    texto = _como_texto(valor)
+    if not texto:
+        return None, 'El campo CI/RUC es obligatorio y no puede estar vacío.'
+    if texto.isdigit():
+        if not _RE_CEDULA.match(texto):
+            return None, 'La cédula debe tener entre 5 y 10 dígitos.'
+        return texto, None
+    ruc = _RE_RUC.match(texto)
+    if not ruc:
+        return None, 'La CI/RUC no es válida: use una cédula (5 a 10 dígitos) o un RUC con verificador (ej. 80012345-0).'
+    if int(ruc.group(2)) != calcular_dv_ruc(ruc.group(1)):
+        return None, 'El dígito verificador del RUC no es válido.'
+    return texto, None
+
+
+def validar_nombre(valor, etiqueta, obligatorio=True, max_len=MAX_NOMBRE):
+    """
+    Nombre o razón social (también apellido, opcional). Mayúsculas; letras, números, espacios y . , - & ' / ( ).
+    Devuelve (texto | None, error); un opcional vacío da (None, None).
+    """
+    texto = _como_texto(valor).upper()
+    if not texto:
+        if obligatorio:
+            return None, f'El campo {etiqueta} es obligatorio y no puede estar vacío.'
+        return None, None
+    if len(texto) > max_len:
+        return None, f'El campo {etiqueta} no puede superar los {max_len} caracteres.'
+    if not _RE_NOMBRE.match(texto):
+        return None, f"El campo {etiqueta} solo puede contener letras, números, espacios y los símbolos . , - & ' / ( )"
+    return texto, None
+
+
+def validar_telefono_opcional(valor):
+    """Opcional: vacío => (None, None); si se carga, aplica validar_telefono."""
+    if not _como_texto(valor):
+        return None, None
+    return validar_telefono(valor)
+
+
+def validar_correo_opcional(valor):
+    """Opcional: vacío => (None, None); si se carga, aplica validar_correo."""
+    if not _como_texto(valor):
+        return None, None
+    return validar_correo(valor)
 
 
 def validar_datos_entidad(data):

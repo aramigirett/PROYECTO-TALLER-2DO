@@ -148,11 +148,30 @@ class PacienteDao:
     #   Eliminar paciente
     # ==============================
     def deletePaciente(self, paciente_id):
+        """
+        Elimina un paciente. Si está registrado como cliente (activo o inactivo: la FK es física) no se
+        elimina. La verificación y el DELETE van en la misma transacción, con la fila del paciente bloqueada
+        (el alta de un cliente toma FOR SHARE sobre ella).
+
+        Returns:
+            bool | str: True si se eliminó, False si no existía o falló, "EN_USO" si es cliente.
+        """
         sql = "DELETE FROM paciente WHERE id_paciente=%s"
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
+            cur.execute("SELECT 1 FROM paciente WHERE id_paciente=%s FOR UPDATE", (paciente_id,))
+            if cur.fetchone() is None:
+                con.rollback()
+                return False
+            cur.execute("SELECT to_regclass('public.cliente') IS NOT NULL")
+            if cur.fetchone()[0]:
+                cur.execute("SELECT EXISTS(SELECT 1 FROM cliente WHERE id_paciente=%s)", (paciente_id,))
+                if cur.fetchone()[0]:
+                    con.rollback()
+                    app.logger.warning(f"No se puede eliminar paciente {paciente_id}: está registrado como cliente")
+                    return "EN_USO"
             cur.execute(sql, (paciente_id,))
             eliminado = cur.rowcount > 0
             con.commit()
