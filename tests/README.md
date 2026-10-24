@@ -32,6 +32,9 @@ Get-ChildItem tests -Recurse -Filter smoke_*.py | ForEach-Object { "== $($_.Name
 | `facturacion/` | `run_js_validadores.js` + `comparar_js_py.py` | Que `facturacion-validadores.js` dé lo mismo que `utils.py` |
 | `agendamiento/` | `smoke_consultorio`, `smoke_paciente` | Regresión de Consultorio y Paciente (incluye los bloqueos por cajas y por cliente) |
 | `consultorio/` | `smoke_tipo_tratamiento` | Tipo Tratamiento con precio e IVA: alta, modificación, precio e IVA inválidos, datos iniciales (relajado), las dos migraciones idempotentes (en una base temporal que crea y borra, en ambos órdenes) y regresión de Gestionar Tratamientos. El resto del módulo Consultorio todavía no tiene tests |
+| `seguridad/` | `smoke_inactividad` | Cierre por inactividad: el servidor vence la sesión (vistas y `/api/`), audita `CIERRE_INACTIVIDAD`, `/sesion/estado` no renueva y `/sesion/extender` sí, el tiempo sale del `.env`, el aviso está en `base.html` y `base_tabler.html`, y la lógica del modal con cuenta regresiva (`inactividad_test.html`) en **Edge headless** con reloj y red simulados |
+| `seguridad/` | `smoke_ip_pais` | Validación de IP por país con la base GeoIP local: clasificación (interna / permitida / no permitida / sin geolocalizar), `IP_SIMULADA` solo en modo debug, rechazo ANTES de usuario y contraseña con mensaje genérico, auditoría (`IP_NO_PERMITIDA`, `IP_SIN_GEOLOCALIZAR`, país), `/recuperar`, tablero con filtro por resultado y baja de `paises` |
+| `seguridad/` | `smoke_acceso_basico` | Hash scrypt de las contraseñas, "Recordar usuario" (cookie solo con el CI/RUC, 30 días, HttpOnly, SameSite=Lax), `SECRET_KEY` obligatoria fuera de debug, credenciales de la base fuera del código y `.env`/`geoip/` fuera de git. Usa un Administrador real con el 2FA simulado y borra lo que genera |
 
 ## Navegador y espejo JS
 

@@ -324,6 +324,15 @@
         }
         .oc-footer i { font-size: 0.82rem; }
 
+        /* ── Recordar usuario ───────────────────────────────────── */
+        .oc-remember { display: flex; align-items: center; gap: 0.5rem; margin: -0.2rem 0 0.4rem; }
+        .oc-remember input { width: 1rem; height: 1rem; accent-color: var(--accent); cursor: pointer; }
+        .oc-remember label { font-size: 0.85rem; color: var(--text-muted); cursor: pointer; margin: 0; }
+
+        /* ── Atribución (DB-IP Lite, CC-BY 4.0) ─────────────────── */
+        .oc-attribution { margin-top: 0.6rem; text-align: center; font-size: 0.68rem; color: var(--text-muted); opacity: 0.7; }
+        .oc-attribution a { color: inherit; text-decoration: underline; }
+
         /* ── Responsive ─────────────────────────────────────────── */
         @media (max-width: 991px) {
             .oc-right { display: none; }
@@ -374,7 +383,8 @@
                 {% endwith %}
             </div>
 
-            <!-- Formulario -->
+            <!-- Formulario (no se muestra si la IP no está permitida) -->
+            {% if not ip_bloqueada %}
             <form method="post" action="{{ url_for('seguridad.login') }}">
 
                 <!-- CI / RUC -->
@@ -388,7 +398,8 @@
                                id="ci_ruc"
                                name="ci_ruc"
                                placeholder="Ingresá tu CI o RUC"
-                               required autofocus autocomplete="username">
+                               value="{{ ci_ruc_valor or '' }}"
+                               required {% if not ci_ruc_valor %}autofocus{% endif %} autocomplete="username">
                     </div>
                 </div>
 
@@ -403,12 +414,19 @@
                                id="password"
                                name="password"
                                placeholder="Ingresá tu contraseña"
-                               required autocomplete="current-password">
+                               required {% if ci_ruc_valor %}autofocus{% endif %} autocomplete="current-password">
                         <button type="button" class="oc-eye-btn" id="togglePassword"
                                 aria-label="Mostrar u ocultar contraseña">
                             <i class="fas fa-eye" id="eyeIcon"></i>
                         </button>
                     </div>
+                </div>
+
+                <!-- Recordar usuario: la cookie guarda SOLO el CI/RUC (nunca la contraseña ni el código 2FA) -->
+                <div class="oc-remember">
+                    <input type="checkbox" id="recordar" name="recordar" value="1"
+                           {% if recordar_marcado %}checked{% endif %}>
+                    <label for="recordar">Recordar mi usuario</label>
                 </div>
 
                 <!-- Submit -->
@@ -421,10 +439,14 @@
             <div class="oc-forgot">
                 <a href="{{ url_for('seguridad.recuperar') }}" class="oc-link">¿Olvidaste tu contraseña?</a>
             </div>
+            {% endif %}
 
             <!-- Pie -->
             <div class="oc-footer">
                 <i class="fas fa-shield-alt"></i> Conexión segura
+            </div>
+            <div class="oc-attribution">
+                Geolocalización IP por <a href="https://db-ip.com" target="_blank" rel="noopener">DB-IP.com</a>
             </div>
 
         </div><!-- /oc-left -->

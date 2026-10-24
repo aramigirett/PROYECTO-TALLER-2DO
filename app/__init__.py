@@ -6,7 +6,25 @@ from flask import render_template
 load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-cambiar-en-produccion')
+
+# SECRET_KEY firma la cookie de sesión: sin ella cualquiera podría falsificarla. No hay valor por defecto en el
+# código; solo en modo debug (FLASK_DEBUG, que run.py activa) se tolera su ausencia, con una clave efímera.
+_clave = os.environ.get('SECRET_KEY')
+if not _clave:
+    if os.environ.get('FLASK_DEBUG', '').lower() in ('1', 'true', 'yes', 'on'):
+        import secrets
+        _clave = secrets.token_hex(32)   # distinta en cada arranque: las sesiones no sobreviven a un reinicio
+        print('AVISO: falta SECRET_KEY en .env; se usa una clave temporal (solo modo debug).')
+    else:
+        raise RuntimeError('Falta SECRET_KEY en el archivo .env. Generala con: '
+                           'python -c "import secrets; print(secrets.token_hex(32))"')
+app.secret_key = _clave
+
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE='Lax',
+    SESSION_COOKIE_SECURE=os.environ.get('COOKIE_SECURE', '').lower() == 'true',  # true cuando se sirva por HTTPS
+)
 
 # importar referenciales
 from app.rutas.login.vista_routes import vistamod
@@ -365,6 +383,13 @@ from app.rutas.modulo_seguridad.menu_catalog import agrupar_por_modulo_visible
 @app.context_processor
 def inject_permisos():
     return dict(puede=puede, menu_agrupado=agrupar_por_modulo_visible())
+
+
+# ============================================
+# Controles de sesión: validación de IP por país (login) y cierre por inactividad
+# ============================================
+from app.rutas.modulo_seguridad.sesion_seguridad import registrar_controles_de_sesion
+registrar_controles_de_sesion(app)
 
 
 # ============================================

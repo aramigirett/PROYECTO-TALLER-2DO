@@ -1,0 +1,10 @@
+{# Cierre por inactividad (cliente). Lo incluyen base.html y base_tabler.html; solo se carga con sesión iniciada. #}
+{% if session.get('id_usuario') %}
+<script src="{{ url_for('static', filename='js/inactividad.js') }}"
+        data-limite="{{ inactividad_cfg.limite }}"
+        data-aviso="{{ inactividad_cfg.aviso }}"
+        data-url-estado="{{ url_for('seguridad.sesion_estado') }}"
+        data-url-extender="{{ url_for('seguridad.sesion_extender') }}"
+        data-url-expirar="{{ url_for('seguridad.sesion_expirar') }}"
+        data-url-logout="{{ url_for('seguridad.logout') }}"></script>
+{% endif %}

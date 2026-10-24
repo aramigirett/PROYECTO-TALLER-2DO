@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><title>inactividad.js</title></head>
+<body>
+<pre id="resultado">PENDIENTE</pre>
+<!-- Prueba de la lógica de inactividad.js con reloj, modal y red simulados. La corre smoke_inactividad.py en Edge headless
+     (--dump-dom) y lee las líneas "OK|FAIL nombre" que quedan en #resultado. -->
+<script src="../../app/static/js/inactividad.js"></script>
+<script>
+(async function () {
+    var lineas = [];
+    function chk(nombre, cond) { lineas.push((cond ? 'OK|' : 'FAIL|') + nombre); }
+    var tick = function () { return Promise.resolve().then(function () {}).then(function () {}).then(function () {}); };
+
+    function armar(opciones) {
+        opciones = opciones || {};
+        var t = { ahora: 1000000, pedidos: [], pendientes: [], irA: [], modal: { visible: false, texto: '', error: '', seguir: null } };
+        var env = {
+            ahora: function () { return t.ahora; },
+            setInterval: function (fn) { t.intervalo = fn; },
+            fetchJson: function (url, metodo) {
+                return new Promise(function (resolve, reject) {
+                    t.pedidos.push({ url: url, metodo: metodo });
+                    t.pendientes.push({ resolve: resolve, reject: reject });
+                });
+            },
+            ir: function (url) { t.irA.push(url); },
+            modal: {
+                mostrar: function (x) { t.modal.visible = true; t.modal.texto = x; },
+                ocultar: function () { t.modal.visible = false; },
+                actualizar: function (x) { t.modal.texto = x; },
+                error: function (x) { t.modal.error = x; },
+                alSeguir: function (fn) { t.modal.seguir = fn; }
+            }
+        };
+        var cfg = { limite: 1800, aviso: 120, urlEstado: '/sesion/estado', urlExtender: '/sesion/extender',
+                    urlExpirar: '/sesion/expirar', urlLogout: '/logout' };
+        t.control = OcInactividad.crear(cfg, env);
+        t.responder = function (r) { t.pendientes.shift().resolve(r); return tick(); };
+        t.fallar = function () { t.pendientes.shift().reject(new Error('red')); return tick(); };
+        return t;
+    }
+
+    chk('formatear(120) = 2:00 y formatear(65) = 1:05', OcInactividad.formatear(120) === '2:00' && OcInactividad.formatear(65) === '1:05');
+
+    // 1. Antes del aviso no pasa nada
+    var t = armar();
+    t.ahora += 1679 * 1000; t.intervalo();
+    chk('a 121 s del vencimiento no consulta ni muestra el modal', t.pedidos.length === 0 && !t.modal.visible);
+
+    // 2. A los 120 s consulta al servidor y, si confirma, muestra el modal con la cuenta regresiva
+    t.ahora += 1000; t.intervalo();
+    chk('a 120 s del vencimiento consulta /sesion/estado (GET)', t.pedidos.length === 1 && t.pedidos[0].url === '/sesion/estado' && t.pedidos[0].metodo === 'GET');
+    t.intervalo();
+    chk('mientras espera la respuesta no repite la consulta', t.pedidos.length === 1);
+    await t.responder({ ok: true, status: 200, datos: { restante: 120 } });
+    chk('el servidor confirma 120 s: modal visible con 2:00', t.modal.visible && t.modal.texto === '2:00');
+
+    t.ahora += 20 * 1000; t.intervalo();
+    chk('la cuenta regresiva baja: 1:40', t.modal.texto === '1:40');
+
+    // 3. La actividad del usuario NO cierra el modal ni reinicia el reloj
+    var antes = t.control.estado.deadline;
+    t.control.actividad();
+    chk('con el modal abierto la actividad se ignora', t.control.estado.deadline === antes && t.pedidos.length === 1);
+
+    // 4. "Seguir conectado"
+    t.modal.seguir();
+    chk('"Seguir conectado" hace POST /sesion/extender', t.pedidos.length === 2 && t.pedidos[1].url === '/sesion/extender' && t.pedidos[1].metodo === 'POST');
+    await t.responder({ ok: true, status: 200, datos: { restante: 1800 } });
+    chk('tras seguir conectado el modal se oculta y el reloj se renueva (30 min)', !t.modal.visible && t.control.restante() === 1800);
+
+    // 5. Vence: el servidor confirma 0 -> redirige a /sesion/expirar
+    t.ahora += 1680 * 1000; t.intervalo(); await t.responder({ ok: true, status: 200, datos: { restante: 120 } });
+    t.ahora += 121 * 1000; t.intervalo();
+    chk('al llegar a 0 con el modal abierto consulta al servidor otra vez', t.pedidos[t.pedidos.length - 1].url === '/sesion/estado');
+    await t.responder({ ok: true, status: 200, datos: { restante: 0 } });
+    chk('el servidor confirma el vencimiento: redirige a /sesion/expirar', t.irA.length === 1 && t.irA[0] === '/sesion/expirar');
+
+    // 6. Otra pestaña mantuvo viva la sesión: no se cierra
+    t = armar(); t.ahora += 1700 * 1000; t.intervalo();
+    await t.responder({ ok: true, status: 200, datos: { restante: 1500 } });
+    chk('si el servidor dice que queda mucho (otra pestaña activa) no muestra el modal', !t.modal.visible && t.irA.length === 0 && t.control.restante() === 1500);
+
+    // 7. Sesión ya vencida en el servidor (401): redirige a donde indique
+    t = armar(); t.ahora += 1700 * 1000; t.intervalo();
+    await t.responder({ ok: false, status: 401, datos: { codigo: 'INACTIVIDAD', redirigir: '/login' } });
+    chk('401 del servidor: redirige a /login', t.irA.length === 1 && t.irA[0] === '/login');
+
+    // 8. Sin red: avisa igual
+    t = armar(); t.ahora += 1700 * 1000; t.intervalo(); await t.fallar();
+    chk('sin red: igual muestra el aviso', t.modal.visible);
+    t.modal.seguir(); await t.fallar();
+    chk('sin red al seguir conectado: muestra el error y deja el modal', t.modal.visible && t.modal.error.length > 0);
+
+    // 9. Actividad: reinicia el reloj local y avisa al servidor como mucho una vez por minuto
+    t = armar(); t.ahora += 600 * 1000;
+    t.control.actividad();
+    chk('actividad a los 10 min: reloj local de nuevo en 30 min y un único POST', t.control.restante() === 1800 && t.pedidos.length === 1 && t.pedidos[0].metodo === 'POST');
+    t.ahora += 30 * 1000; t.control.actividad();
+    chk('otra actividad 30 s después NO vuelve a avisar al servidor', t.pedidos.length === 1);
+    t.ahora += 40 * 1000; t.control.actividad();
+    chk('pasado el minuto vuelve a avisar', t.pedidos.length === 2);
+
+    document.getElementById('resultado').textContent = lineas.join('\n') + '\nFIN';
+})().catch(function (e) {
+    document.getElementById('resultado').textContent = 'FAIL|excepción: ' + e + '\nFIN';
+});
+</script>
+</body></html>

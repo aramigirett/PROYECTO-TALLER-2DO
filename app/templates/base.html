@@ -680,6 +680,9 @@
         });
     </script>
 
+    {# Cierre de sesión por inactividad (aviso + cuenta regresiva) #}
+    {% include '_inactividad.html' %}
+
     {# Este bloque pertenece a nuestros scripts de js #}
     {% block js %}
     {% endblock %}

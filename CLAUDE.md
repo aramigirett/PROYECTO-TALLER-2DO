@@ -57,7 +57,8 @@ Basado en el CUS "Mantener Acceso" ya documentado:
 - Esos intentos de acceso deben poder verse en un **Tablero de Administrador**
   dentro del sistema (no alcanza con que estén solo en la base de datos).
   Acceso restringido al rol Administrador.
-- No hay validación de IP por país (descartado, es irrelevante para este proyecto).
+- **La validación de IP por país YA NO está descartada**: se implementó en la Etapa A de la tanda de cierre
+  (ver "Seguridad de acceso" más abajo).
 - El menú del sistema debe tener un buscador general (CUS "Mantener Menú").
 
 ## Estado real del Módulo Seguridad (actualizado — COMPLETO)
@@ -1058,12 +1059,75 @@ EXISTS`), con comentarios de propósito, parámetros y excepciones, bloque `BEGI
   creado por el test** (por ID; nunca un `DELETE` por entidad completa: un script viejo de Forma de Cobro borró de
   esa manera la auditoría hecha a mano y por eso no se conservó); restaurar en un `finally` cualquier permiso que se
   quite; no depender de datos que se editan a mano (los `seed` pueden fallar si se renombran desde la pantalla).
+- `tests/seguridad/` (Etapa A de la tanda de cierre): `smoke_inactividad` (usa también Edge headless para la lógica de
+  `inactividad.js`), `smoke_ip_pais` y `smoke_acceso_basico`. Borran solo la auditoría y los códigos 2FA que generan, por ID.
 - `browser_test.py` ejecuta las vistas en Edge headless con `fetch` simulado (necesita Edge; la ruta está en la
   constante `EDGE`). No reemplaza probar el guardado real en el navegador (regla 7 de "Reglas generales aprendidas").
+
+## Seguridad de acceso — tanda de cierre, Etapa A (rama `finalizando`)
+Cinco puntos de la rúbrica. Tests: `tests/seguridad/` (`smoke_inactividad`, `smoke_ip_pais`, `smoke_acceso_basico`).
+
+1. **Contraseñas:** ya estaban bien. Todas se guardan con `generate_password_hash` de Werkzeug (`scrypt:32768:8:1` con salt
+   propio); no hay texto plano ni hash débil, así que no hizo falta migración.
+2. **Cierre por inactividad** (`app/rutas/modulo_seguridad/sesion_seguridad.py`, `app/static/js/inactividad.js`,
+   `app/templates/_inactividad.html`, incluido en `base.html` y en `base_tabler.html`):
+   - **El servidor decide.** Un `before_request` guarda `session['ultima_actividad']` y, pasados
+     `SESSION_INACTIVIDAD_MINUTOS` (30) sin actividad, limpia la sesión, audita `CIERRE_INACTIVIDAD` (accion `LOGOUT`) y redirige
+     al login con "Sesión cerrada por inactividad" (en `/api/` y en `/sesion/estado|extender`: 401 JSON con
+     `codigo: INACTIVIDAD`). Una sesión sin marca (anterior a este control) arranca en su primer request.
+   - **El aviso es del cliente:** a `SESSION_AVISO_SEGUNDOS` (120) del vencimiento, el JS consulta `GET /sesion/estado` (no
+     renueva; el header `X-Sin-Actividad: 1` tampoco renueva) y muestra un modal propio (no depende de Bootstrap 4/5 ni de
+     jQuery) con cuenta regresiva y "Seguir conectado" (`POST /sesion/extender`). Al llegar a 0 va a `/sesion/expirar`, que solo
+     cierra si el servidor confirma el vencimiento (otra pestaña puede haber mantenido viva la sesión). La actividad del usuario
+     avisa al servidor como mucho una vez por minuto.
+   - **Si se agrega un poller o un `fetch` automático** que no sea actividad del usuario, mandarle `X-Sin-Actividad: 1`.
+3. **Validación de IP por país** (`app/Services/geoip_service.py`, base local **DB-IP Lite Country**, sin APIs externas):
+   - Solo se permite `PAIS_PERMITIDO` (`PY`, código ISO). IP privadas, loopback y link-local = red interna de la clínica:
+     siempre permitidas.
+   - Es lo **primero** del login (`/login`, `/verificar-2fa` y `/recuperar*`, en el `before_request`): se rechaza antes de leer
+     usuario y contraseña, con 403 y el mensaje genérico "No es posible acceder al sistema desde esta ubicación." (sin país ni
+     reglas). Solo un POST deja auditoría (un GET suelto no es un intento).
+   - **Auditoría** en `auditoria_acceso` (columna nueva `pais_detectado VARCHAR(2)`, NULL = red interna o sin geolocalizar):
+     `IP_NO_PERMITIDA` (con el usuario si lo tipeó, IP y país) e `IP_SIN_GEOLOCALIZAR`. Las demás filas del login desde una IP
+     pública también llevan el país. El tablero (Gestionar Auditoría) tiene columna País y **filtro por resultado**
+     (`GET /api/v1/auditoria/intentos?resultado=`, valor exacto, 400 si el formato es inválido).
+   - **IP pública que la base no resuelve (o base ausente): se PERMITE** y queda `IP_SIN_GEOLOCALIZAR` (decisión de negocio: un
+     archivo faltante no debe dejar a la clínica afuera; el aviso de base no disponible se loguea una sola vez).
+   - **Pruebas:** `IP_SIMULADA` en `.env` reemplaza la IP del cliente, **solo con la app en modo debug** (`app.debug`); fuera de
+     debug se ignora. Las IP que se auditan en ese caso son las simuladas.
+   - **Base GeoIP:** `geoip/dbip-country-lite.mmdb` (ruta en `GEOIP_DB_PATH`), **no se versiona** (`geoip/` en `.gitignore`). Se
+     baja de `https://download.db-ip.com/free/dbip-country-lite-AAAA-MM.mmdb.gz` y se descomprime; DB-IP la actualiza cada mes
+     (conviene refrescarla de vez en cuando). Dependencia: `maxminddb` (en `paquetes.txt`).
+   - **Atribución (DB-IP Lite es CC-BY 4.0, obligatoria):** "IP Geolocation by DB-IP" — <https://db-ip.com>. Va en una línea
+     discreta en el pie del login y acá. Si se reemplaza la base por otra, revisar su licencia.
+   - **Tabla `paises` eliminada** (`schema_eliminar_paises.sql`, idempotente; verifica antes que nada la referencie): no tenía
+     código ISO ni usos. ⚠️ **Hay que quitar `paises` del DER y agregar `auditoria_acceso.pais_detectado`.**
+4. **Recordar usuario:** checkbox en el login. Al completar el 2FA (no antes) se guarda la cookie `oc_usuario` con **solo el
+   CI/RUC** (`RECORDAR_USUARIO_DIAS`=30, `HttpOnly`, `SameSite=Lax`, `Secure` si `COOKIE_SECURE=true`); sin marcar, se borra.
+   Nunca la contraseña ni el código 2FA. El valor de la cookie solo se usa si tiene forma de CI/RUC. La cookie de sesión de Flask
+   también es `HttpOnly` y `SameSite=Lax`.
+5. **HTTPS — no se implementa (decisión):** el sistema corre en una red local de la clínica, sin exposición a internet, y el
+   proyecto es de tesis; un certificado válido exige un dominio y un servidor público. Hoy la app sirve HTTP
+   (`app.run(debug=True)`). **Cómo se activaría en producción:** (a) publicar la app con un servidor WSGI (waitress/gunicorn),
+   nunca con el servidor de desarrollo; (b) un **proxy inverso** (Nginx o Caddy) que termine TLS con un certificado (Let's
+   Encrypt si hay dominio, o uno interno de la clínica), redirija HTTP→HTTPS y envíe `X-Forwarded-For`/`X-Forwarded-Proto`;
+   (c) en la app, envolverla con `werkzeug.middleware.proxy_fix.ProxyFix` (si no, `request.remote_addr` sería la IP del proxy y
+   la validación por país y la auditoría quedarían mal), poner `COOKIE_SECURE=true` en `.env` (cookies solo por HTTPS) y agregar
+   HSTS en el proxy. OJO: el pie del login dice "Conexión segura"; mientras no haya HTTPS conviene cambiar ese texto.
+
+**Configuración (`.env`; `.env.example` documenta todas las variables sin valores reales):** `SECRET_KEY` (obligatoria: sin ella
+la app NO arranca, salvo en modo debug, donde usa una clave efímera con aviso; `run.py` fija `FLASK_DEBUG=1`), `DB_*`,
+`SESSION_INACTIVIDAD_MINUTOS`, `SESSION_AVISO_SEGUNDOS`, `PAIS_PERMITIDO`, `GEOIP_DB_PATH`, `IP_SIMULADA`,
+`RECORDAR_USUARIO_DIAS`, `COOKIE_SECURE`. `.env` y `geoip/` están en `.gitignore`. El valor fijo de `SECRET_KEY` y las
+credenciales de la base se quitaron del código.
+- Scripts SQL (idempotentes): `schema_ip_inactividad.sql` (columna `pais_detectado` + índice por `resultado`) y
+  `schema_eliminar_paises.sql`.
 
 ## Convenciones de código
 - SQL crudo con psycopg2, sin ORM.
 - Conexión vía `app/conexion/Conexion.py` — reusar esa clase, no crear una nueva.
+  Las credenciales salen de `.env` (`DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`); si falta alguna,
+  `Conexion()` falla con un error que nombra la variable. Nunca escribirlas en el código.
 - Cada DAO abre su propia conexión y la cierra en un `finally`.
 - Los blueprints de rutas se registran en `app/__init__.py` bajo `/referenciales/<modulo>`
   o bajo `/api/v1`.

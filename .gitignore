@@ -263,3 +263,5 @@ pyrightconfig.json
 # End of https://www.toptal.com/developers/gitignore/api/python,flask
 # Sesiones de WhatsApp
 whatsapp_session*
+# Base GeoIP descargada (DB-IP Lite, se baja aparte)
+geoip/

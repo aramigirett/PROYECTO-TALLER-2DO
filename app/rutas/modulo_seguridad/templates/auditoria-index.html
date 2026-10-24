@@ -22,6 +22,16 @@ Tablero de Administrador
         <input type="date" class="form-control mr-3 mb-2 mb-sm-0" id="fDesde">
         <label class="mr-2" for="fHasta">Hasta</label>
         <input type="date" class="form-control mr-3 mb-2 mb-sm-0" id="fHasta">
+        <label class="mr-2" for="fResultado">Resultado</label>
+        <select class="form-control mr-3 mb-2 mb-sm-0" id="fResultado">
+          <option value="">Todos</option>
+          <option value="EXITOSO">EXITOSO</option>
+          <option value="CREDENCIALES_INVALIDAS">CREDENCIALES_INVALIDAS</option>
+          <option value="CUENTA_BLOQUEADA">CUENTA_BLOQUEADA</option>
+          <option value="IP_NO_PERMITIDA">IP_NO_PERMITIDA</option>
+          <option value="IP_SIN_GEOLOCALIZAR">IP_SIN_GEOLOCALIZAR</option>
+          <option value="CIERRE_INACTIVIDAD">CIERRE_INACTIVIDAD</option>
+        </select>
         <button type="button" class="btn btn-primary mr-2" id="btnFiltrar">
           <i class="fas fa-filter"></i> Filtrar
         </button>
@@ -36,6 +46,7 @@ Tablero de Administrador
               <th>Acción</th>
               <th>Resultado</th>
               <th>IP</th>
+              <th>País</th>
               <th>Realizado por</th>
             </tr>
           </thead>
@@ -55,9 +66,11 @@ Tablero de Administrador
 
   const badgeResultado = (resultado) => {
     const exitosos = ['EXITOSO', 'DESBLOQUEADO', 'CODIGO_VERIFICADO'];
-    const neutros = ['SOLICITADO'];
+    const neutros = ['SOLICITADO', 'CIERRE_INACTIVIDAD'];
+    const advertencias = ['IP_SIN_GEOLOCALIZAR'];
     // 'ANTES: <cédula>' = cambio de CI/RUC por edición de la persona (informativo)
     const clase = exitosos.includes(resultado) ? 'badge-success'
+                : advertencias.includes(resultado) ? 'badge-warning'
                 : (neutros.includes(resultado) || resultado.startsWith('ANTES:')) ? 'badge-info' : 'badge-danger';
     return `<span class="badge ${clase}">${resultado}</span>`;
   };
@@ -71,6 +84,7 @@ Tablero de Administrador
           const params = { limite: 1000 };
           if ($('#fDesde').val()) params.desde = $('#fDesde').val();
           if ($('#fHasta').val()) params.hasta = $('#fHasta').val();
+          if ($('#fResultado').val()) params.resultado = $('#fResultado').val();
           return params;
         },
         dataSrc: 'data'
@@ -82,6 +96,7 @@ Tablero de Administrador
         { data: 'accion' },
         { data: function(row) { return badgeResultado(row.resultado); } },
         { data: function(row) { return row.ip || ''; } },
+        { data: function(row) { return row.pais_detectado || ''; } },
         { data: function(row) { return row.actor_ci_ruc || ''; } }
       ]
     });
@@ -112,6 +127,7 @@ Tablero de Administrador
     $('#btnLimpiar').on('click', function() {
       $('#fDesde').val('');
       $('#fHasta').val('');
+      $('#fResultado').val('');
       tabla.ajax.reload(null, false);
     });
   });

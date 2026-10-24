@@ -1,7 +1,7 @@
 # Data Access Object - DAO
 import re
 
-from flask import current_app as app
+from flask import current_app as app, g, has_request_context
 from app.conexion.Conexion import Conexion
 
 # Un identificador que NO corresponde a ningún usuario solo se audita si tiene
@@ -12,7 +12,7 @@ CI_RUC_NO_VALIDO = '[formato inválido]'
 
 class AuditoriaDao:
 
-    def registrar(self, id_usuario, ci_ruc_ingresado, resultado, ip, accion, id_usuario_actor=None):
+    def registrar(self, id_usuario, ci_ruc_ingresado, resultado, ip, accion, id_usuario_actor=None, pais_detectado=None):
         """
         Registra un intento de acceso (login, verificación 2FA o logout).
         id_usuario puede ser None cuando el CI/RUC ingresado no existe.
@@ -20,22 +20,26 @@ class AuditoriaDao:
         usuario (ej. el Administrador que desbloquea una cuenta).
         NUNCA recibe ni guarda contraseñas: ci_ruc_ingresado se trunca a 20
         caracteres y, si no hay usuario, se descarta lo que no parezca un CI/RUC.
+        pais_detectado: país GeoIP de la IP; si no se pasa, se toma el que la
+        validación de IP dejó en `g` para este request (NULL si es red interna).
         """
+        if pais_detectado is None and has_request_context():
+            pais_detectado = g.get('pais_detectado')
         ci_ruc_ingresado = (ci_ruc_ingresado or '').strip()
         if id_usuario is None and not _FORMATO_CI_RUC.match(ci_ruc_ingresado):
             ci_ruc_ingresado = CI_RUC_NO_VALIDO
         ci_ruc_ingresado = ci_ruc_ingresado[:20]
 
         sql = """
-            INSERT INTO auditoria_acceso (id_usuario, ci_ruc_ingresado, resultado, ip, accion, id_usuario_actor)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            INSERT INTO auditoria_acceso (id_usuario, ci_ruc_ingresado, resultado, ip, accion, id_usuario_actor, pais_detectado)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
             RETURNING id_auditoria
         """
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(sql, (id_usuario, ci_ruc_ingresado, resultado, ip, accion, id_usuario_actor))
+            cur.execute(sql, (id_usuario, ci_ruc_ingresado, resultado, ip, accion, id_usuario_actor, pais_detectado))
             id_auditoria = cur.fetchone()[0]
             con.commit()
             return id_auditoria
@@ -56,11 +60,12 @@ class AuditoriaDao:
         return self.registrar(id_usuario, cedula_nueva, f"ANTES: {cedula_anterior}"[:30],
                               ip, 'CAMBIO_CEDULA', id_usuario_actor)
 
-    def get_ultimos_intentos(self, limite, desde=None, hasta=None):
+    def get_ultimos_intentos(self, limite, desde=None, hasta=None, resultado=None):
         """
         Trae los últimos intentos de acceso (exitosos y fallidos) para el
         tablero de administrador, del más reciente al más antiguo. desde/hasta
-        son objetos date (ambos inclusive) y son opcionales.
+        son objetos date (ambos inclusive) y resultado un valor exacto de la
+        columna `resultado` (p. ej. IP_NO_PERMITIDA); los tres son opcionales.
         """
         filtros = []
         params = []
@@ -70,12 +75,15 @@ class AuditoriaDao:
         if hasta:
             filtros.append("a.fecha_hora < %s::date + 1")
             params.append(hasta)
+        if resultado:
+            filtros.append("a.resultado = %s")
+            params.append(resultado)
         where = ("WHERE " + " AND ".join(filtros)) if filtros else ""
         params.append(limite)
 
         sql = f"""
             SELECT a.id_auditoria, a.id_usuario, a.ci_ruc_ingresado, a.fecha_hora,
-                   a.resultado, a.ip, a.accion, COALESCE(af.cedula, am.cedula)
+                   a.resultado, a.ip, a.accion, COALESCE(af.cedula, am.cedula), a.pais_detectado
             FROM auditoria_acceso a
             LEFT JOIN usuarios act ON a.id_usuario_actor = act.id_usuario
             LEFT JOIN funcionario af ON act.id_funcionario = af.id_funcionario
@@ -100,6 +108,7 @@ class AuditoriaDao:
                     "ip": i[5],
                     "accion": i[6],
                     "actor_ci_ruc": i[7],
+                    "pais_detectado": i[8],
                 }
                 for i in intentos
             ]
