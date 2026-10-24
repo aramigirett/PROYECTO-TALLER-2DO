@@ -260,6 +260,28 @@ Medicamentos, Tipo Estudio, Tipo Análisis. Todas usan **baja lógica**
 (`activo`), a diferencia de las referenciales de Agendamiento — decisión
 confirmada en cada CUS original, no es inconsistencia.
 
+**Tipo Tratamiento: precio (rama `consultorio`).** `tipos_tratamiento.precio NUMERIC(12,0) NOT NULL` con
+`CHECK (precio > 0)` (guaraníes, sin decimales; lo usa la Venta de Tratamiento de Facturación). Migración idempotente:
+`app/dao/referenciales_consultorio/tipo_tratamiento/schema_tipo_tratamiento_precio.sql` (columna nullable → datos →
+NOT NULL y CHECK; si quedara una fila sin precio corta con un mensaje que la nombra). Datos iniciales: 11 tratamientos
+odontológicos (LIMPIEZA DENTAL (PROFILAXIS) … IMPLANTE DENTAL).
+- **`PRUEBA` (registro de prueba) se anuló por la migración y quedó con precio 1**, aunque tiene 2 tratamientos asociados
+  (7 y 9). Es una excepción deliberada: la baja desde la pantalla lo habría bloqueado por estar en uso. Los
+  tratamientos siguen listándose (sus `JOIN` no filtran por `activo`); el tipo ya no aparece en el combo de altas.
+- API: `precio` obligatorio en POST/PUT con `validar_precio` (compartido con Ítems, `app/rutas/modulo_facturacion/utils.py`)
+  y **un único mensaje** para cualquier precio inválido: "El precio debe ser un número entero mayor a 0." (`campo: precio`).
+  La vista (todavía SB Admin 2) valida con `FacturacionValidadores.precio` (el mismo JS compartido) y muestra el precio como
+  "Gs. 200.000". Esta API sigue normalizando con `strip().upper()` (no colapsa espacios internos, a diferencia de Facturación).
+- **IVA (rama `consultorio`)**, igual que en `items`: `tipos_tratamiento.iva SMALLINT NOT NULL DEFAULT 10` con
+  `CHECK (iva IN (0, 5, 10))` (0 = exenta). Migración idempotente aparte:
+  `app/dao/referenciales_consultorio/tipo_tratamiento/schema_tipo_tratamiento_iva.sql` (los existentes, incluido
+  `PRUEBA`, quedan en 10; el orden respecto de la migración de precio es indistinto; volver a correrla no pisa un IVA
+  ya editado). La API exige `iva` en POST/PUT con `validar_iva` (compartido con Ítems; mensaje "El IVA debe ser Exenta
+  (0), 5% o 10%.", `campo: iva`; el precio se valida primero). La vista tiene el combo IVA (10% por defecto, 5%,
+  Exenta) y la columna IVA, y valida con `FacturacionValidadores.iva`.
+- Los lectores de `tipos_tratamiento` (Gestionar Tratamientos y el combo de `tratamiento-index.html`) solo usan `id` y
+  `descripcion`: no se ven afectados.
+
 **Corrección importante aplicada después de programarlas:** el campo
 `codigo` que pedían los CUS originales (Alta con Código + Descripción) fue
 sacado por decisión posterior de Ara — **ya no existe** en ninguna de las 6.
@@ -551,11 +573,9 @@ Además, como en todo endpoint: `@require_permiso(ventana, acción)`, botones en
    `estaEnUso()`/JOIN que los consultan, ver regla 4 de las "Reglas generales aprendidas"), vista Tabler,
    puntos 4 y 6. Ojo con `consultorio`: lo referencian `caja` (FK física), agenda, consultas, tratamientos y avisos;
    hoy "consultorio activo" = "consultorio existente" y las cajas lo usan así.
-4. **Consultorio — agregar `precio NUMERIC(12,0)` a `tipo_tratamiento`** (tabla `tipos_tratamiento`, `TipoTratamientoDao`):
-   lo usa la Venta de Tratamiento. Guaraníes sin decimales, mismo criterio que `items.precio_unitario` (se puede
-   reutilizar `validar_precio` y su espejo JS). A definir al hacerlo: si es obligatorio y qué precio reciben los tipos
-   ya cargados (la columna tendría que nacer con valor o permitir NULL hasta cargarlos); el formulario, el listado
-   y la API de Tipo Tratamiento deben mostrarlo y editarlo. Es un cambio de Consultorio, no de Facturación.
+4. ✅ **HECHO — `precio NUMERIC(12,0)` e `iva` en `tipos_tratamiento`** (rama `consultorio`; ver "Tipo Tratamiento:
+   precio" más arriba). Queda para la Venta de Tratamiento: guardar el precio y el IVA vigentes en la venta (hoy los
+   tratamientos no copian el precio ni el IVA del tipo; si cambian, cambian para todos).
 5. **Facturación — nuevo referencial "Mantener Timbrado"** (*pendiente de definir en el análisis*): no programarlo
    hasta tener el CUS (campos, validaciones y reglas de uso). Cuando se programe, cumple el estándar completo.
 6. **Facturación — movimientos** (sin empezar): se programan después de los puntos anteriores.
@@ -680,7 +700,8 @@ Además, como en todo endpoint: `@require_permiso(ventana, acción)`, botones en
 ## Tests (carpeta `tests/`, ver `tests/README.md`)
 - Scripts de verificación sin pytest, organizados por módulo: `tests/facturacion/` (los 8 referenciales + Ítems, la
   reactivación, `browser_test.py` y la comparación JS↔Python de los validadores), `tests/agendamiento/` (regresión de
-  Consultorio y Paciente) y `tests/consultorio/` (vacía: el módulo Consultorio todavía no tiene tests).
+  Consultorio y Paciente) y `tests/consultorio/` (hoy solo `smoke_tipo_tratamiento.py`; el resto del módulo
+  Consultorio todavía no tiene tests).
 - Se corren desde la raíz: `.\.venv\Scripts\python.exe -I tests\<módulo>\smoke_xxx.py`. Terminan con
   `FALLOS: ninguno` o la lista de lo que falló.
 - **Usan la base real `odontosisbd`.** Reglas para escribir más: crear datos con prefijo `ZZ` y **borrar solo lo

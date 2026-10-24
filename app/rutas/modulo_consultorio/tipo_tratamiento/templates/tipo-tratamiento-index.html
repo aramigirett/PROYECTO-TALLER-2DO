@@ -19,6 +19,8 @@ Tipos de Tratamiento
           <thead>
             <tr>
               <th>Descripción</th>
+              <th class="text-right">Precio</th>
+              <th>IVA</th>
               <th>Acciones</th>
             </tr>
           </thead>
@@ -52,6 +54,24 @@ Tipos de Tratamiento
                 </div>
               </div>
             </div>
+            <div class="row">
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label for="txtPrecio">Precio (Gs.):</label>
+                  <input type="text" inputmode="numeric" class="form-control" placeholder="Ej.: 200000" id="txtPrecio" maxlength="12" autocomplete="off">
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label for="selIva">IVA:</label>
+                  <select class="form-control" id="selIva">
+                    <option value="10">10%</option>
+                    <option value="5">5%</option>
+                    <option value="0">Exenta</option>
+                  </select>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -69,7 +89,13 @@ Tipos de Tratamiento
 
 
 {% block js %}
+<script src="{{ url_for('static', filename='js/facturacion-validadores.js') }}"></script>
 <script>
+
+  // El precio se valida con facturacion-validadores.js (espejo de utils.validar_precio): un único mensaje.
+  const MSG_PRECIO = 'El precio debe ser un número entero mayor a 0.';
+  const MSG_IVA = 'El IVA debe ser Exenta (0), 5% o 10%.';
+  const ETIQUETA_IVA = { 0: 'Exenta', 5: '5%', 10: '10%' };
 
   const initDatatable = () => {
     $('#tbl').DataTable({
@@ -79,6 +105,14 @@ Tipos de Tratamiento
       ajax: '/api/v1/tipos-tratamiento',
       columns: [
         { data: 'descripcion' },
+        { data: 'precio', className: 'text-right text-nowrap', render: function(valor, tipo) {
+            return tipo === 'display' ? FacturacionValidadores.formatoGs(valor) : valor;
+          }
+        },
+        { data: 'iva', render: function(valor, tipo) {
+            return tipo === 'display' ? (ETIQUETA_IVA[valor] !== undefined ? ETIQUETA_IVA[valor] : valor) : valor;
+          }
+        },
         { data: function(row) {
             return `{% if puede('tipotratamiento','editar') %}<button type="button" name="btn_editar" class="btn btn-info" data-id="${row.id_tipo_tratamiento}" title="Editar"><i class="fas fa-edit"></i></button>{% endif %}
                     {% if puede('tipotratamiento','anular') %}<button type="button" name="btn_eliminar" class="btn btn-danger" data-id="${row.id_tipo_tratamiento}" title="Eliminar"><i class="fas fa-trash-alt"></i></button>{% endif %}`
@@ -93,6 +127,8 @@ Tipos de Tratamiento
       $('#modalTitle').text("Agregar Tipo de Tratamiento");
       $('#txtIdTipoTratamiento').val("");
       $('#txtDescripcion').val("");
+      $('#txtPrecio').val("");
+      $('#selIva').val("10");
       $('#modalFormulario').modal();
     });
   }
@@ -101,14 +137,24 @@ Tipos de Tratamiento
     $('#btnGuardar').on('click', function() {
       const id = $('#txtIdTipoTratamiento').val();
       const descripcion = $('#txtDescripcion').val();
+      const precio = $('#txtPrecio').val();
+      const iva = $('#selIva').val();
       const tabla = $('#tbl').DataTable();
 
       if(!descripcion.trim()) {
         Swal.fire("Error", "El campo Descripción no puede estar vacío.", "error");
         return;
       }
+      if(FacturacionValidadores.precio(precio)) {
+        Swal.fire("Error", MSG_PRECIO, "error");
+        return;
+      }
+      if(FacturacionValidadores.iva(iva)) {
+        Swal.fire("Error", MSG_IVA, "error");
+        return;
+      }
 
-      const payload = { descripcion };
+      const payload = { descripcion, precio, iva };
 
       if(id) {
         // update
@@ -179,6 +225,8 @@ Tipos de Tratamiento
           .then(data => {
             $('#txtIdTipoTratamiento').val(data.data.id_tipo_tratamiento);
             $('#txtDescripcion').val(data.data.descripcion);
+            $('#txtPrecio').val(data.data.precio);
+            $('#selIva').val(String(data.data.iva));
             $('#modalFormulario').modal();
           });
         }
