@@ -15,7 +15,8 @@ YA_ACTIVO = "YA_ACTIVO"
 
 MSG_BAJA_CONSUMIDOR_FINAL = "El consumidor final no se puede dar de baja."
 MSG_MOD_CONSUMIDOR_FINAL = "El consumidor final no se puede modificar."
-MSG_BAJA_CON_VENTAS = "No se puede dar de baja, el cliente tiene ventas registradas."
+MSG_BAJA_CON_PEDIDOS = "No se puede dar de baja, el cliente tiene pedidos registrados."
+MSG_BAJA_CON_VENTAS ="No se puede dar de baja, el cliente tiene ventas registradas."
 
 _COLUMNAS = "id_cliente, id_paciente, nombre, apellido, ci_ruc, telefono, correo, activo"
 
@@ -219,9 +220,19 @@ class ClienteDao:
 
     def esta_en_uso(self, id_cliente):
         """False si se puede anular; si no, el texto con el motivo (truthy)."""
-        # TODO: debe bloquear si el cliente tiene pedidos o ventas registradas (pedido_venta_cab, venta_cab)
-        # devolviendo MSG_BAJA_CON_VENTAS, cuando existan esas tablas.
-        return False
+        # Pedidos PENDIENTES o FACTURADOS (el anulado no cuenta). deleteCliente lo llama con la fila del cliente
+        # bloqueada (FOR UPDATE) y un pedido nuevo toma FOR SHARE sobre el cliente, así que no puede colarse.
+        # TODO: debe bloquear también si el cliente tiene ventas (venta_cab) devolviendo MSG_BAJA_CON_VENTAS,
+        # cuando exista esa tabla.
+        con = Conexion().getConexion()
+        cur = con.cursor()
+        try:
+            cur.execute("SELECT 1 FROM pedido_venta_cab WHERE id_cliente = %s AND estado <> 'ANULADO' LIMIT 1",
+                        (id_cliente,))
+            return MSG_BAJA_CON_PEDIDOS if cur.fetchone() else False
+        finally:
+            cur.close()
+            con.close()
 
     def deleteCliente(self, id_cliente):
         """

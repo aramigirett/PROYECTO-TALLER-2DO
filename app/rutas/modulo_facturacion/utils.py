@@ -13,6 +13,7 @@ MAX_DIRECCION = 150
 MAX_CORREO = 100
 MAX_UBICACION = 100
 MAX_NOMBRE = 80
+MAX_OBSERVACION = 200
 TELEFONO_MIN_LARGO = 6
 TELEFONO_MAX_LARGO = 20
 TELEFONO_MIN_DIGITOS = 6
@@ -169,6 +170,33 @@ def validar_cantidad(valor):
     if n > MAX_CANTIDAD:
         return None, f'La cantidad no puede superar {_miles(MAX_CANTIDAD)}.'
     return n, None
+
+
+def validar_cantidad_positiva(valor):
+    """Cantidad de un renglón de pedido: entero MAYOR a 0. Un único mensaje para cualquier valor inválido
+    (distinto de validar_cantidad, que acepta 0 para el stock). Devuelve (cantidad, error)."""
+    n = _entero_estricto(valor)
+    if n is None or n <= 0:
+        return None, 'La cantidad debe ser un número entero mayor a 0.'
+    if n > MAX_CANTIDAD:
+        return None, f'La cantidad no puede superar {_miles(MAX_CANTIDAD)}.'
+    return n, None
+
+
+def validar_observacion(valor):
+    """Observación opcional (hasta 200 caracteres, texto libre). Vacío => (None, None). Devuelve (texto, error)."""
+    if valor is None:
+        return None, None
+    if not isinstance(valor, str):
+        return None, 'La observación debe ser un texto.'
+    texto = _como_texto(valor)
+    if not texto:
+        return None, None
+    if len(texto) > MAX_OBSERVACION:
+        return None, f'La observación no puede superar los {MAX_OBSERVACION} caracteres.'
+    if _RE_CONTROL.search(texto):
+        return None, 'La observación contiene caracteres no permitidos.'
+    return texto, None
 
 
 def validar_booleano(valor, nombre):

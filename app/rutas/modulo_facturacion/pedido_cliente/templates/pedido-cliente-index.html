@@ -1,0 +1,522 @@
+{% extends 'base_tabler.html' %}
+
+{% block titulo %}Registrar Pedido Cliente{% endblock %}
+
+{% block contenido %}
+{# ══════════════════ LISTADO ══════════════════ #}
+<div id="seccionListado">
+  <div class="page-header d-print-none mb-3">
+    <div class="row align-items-center">
+      <div class="col">
+        <div class="page-pretitle">Facturación</div>
+        <h2 class="page-title">Registrar Pedido Cliente</h2>
+      </div>
+      {% if puede('pedidocliente', 'nuevo') %}
+      <div class="col-auto">
+        <button type="button" class="btn btn-primary" id="btnNuevo"><i class="fas fa-plus me-2"></i>Nuevo Pedido</button>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="row g-2 align-items-end w-100">
+        <div class="col-12 col-md-2">
+          <label class="form-label mb-1" for="filtroEstado">Estado</label>
+          <select class="form-select" id="filtroEstado">
+            <option value="">Todos</option>
+            <option value="PENDIENTE">Pendiente</option>
+            <option value="FACTURADO">Facturado</option>
+            <option value="ANULADO">Anulado</option>
+          </select>
+        </div>
+        <div class="col-12 col-md-3">
+          <label class="form-label mb-1" for="filtroCliente">Cliente</label>
+          <input type="text" class="form-control" id="filtroCliente" maxlength="80" placeholder="Nombre o CI/RUC" autocomplete="off">
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label mb-1" for="filtroDesde">Desde</label>
+          <input type="date" class="form-control" id="filtroDesde">
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label mb-1" for="filtroHasta">Hasta</label>
+          <input type="date" class="form-control" id="filtroHasta">
+        </div>
+        <div class="col-12 col-md-3">
+          <button type="button" class="btn btn-outline-secondary" id="btnLimpiarFiltros">Limpiar</button>
+        </div>
+      </div>
+      <div class="text-danger small mt-2 w-100" id="errFiltros" style="display: none;"></div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-vcenter card-table">
+        <thead>
+          <tr>
+            <th>N.º</th>
+            <th>Fecha</th>
+            <th>Cliente</th>
+            <th>Cajero</th>
+            <th class="text-end">Total</th>
+            <th style="width: 110px;">Estado</th>
+            <th class="w-1">Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="tbodyPedidos">
+          <tr><td colspan="7" class="text-center text-muted py-4">Cargando…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{# ══════════════════ NUEVO PEDIDO ══════════════════ #}
+<div id="seccionNuevo" style="display: none;">
+  <div class="page-header d-print-none mb-3">
+    <div class="row align-items-center">
+      <div class="col">
+        <div class="page-pretitle">Registrar Pedido Cliente</div>
+        <h2 class="page-title">Nuevo Pedido</h2>
+      </div>
+    </div>
+  </div>
+
+  <form id="formPedido" novalidate>
+    <div class="card mb-3">
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-12 col-lg-6 position-relative">
+            <label class="form-label required" for="txtCliente">Cliente</label>
+            <div class="input-group">
+              <input type="text" class="form-control" id="txtCliente" placeholder="Buscar por nombre o CI/RUC…" autocomplete="off">
+              <button type="button" class="btn btn-outline-secondary" id="btnCambiarCliente" style="display: none;">Cambiar</button>
+              <div class="invalid-feedback"></div>
+            </div>
+            <div class="list-group position-absolute w-100 shadow" id="resCliente" style="z-index: 1050; display: none; max-height: 260px; overflow-y: auto;"></div>
+          </div>
+          <div class="col-6 col-lg-3">
+            <label class="form-label" for="txtFecha">Fecha</label>
+            <input type="text" class="form-control" id="txtFecha" readonly>
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="txtObservacion">Observación</label>
+            <input type="text" class="form-control" id="txtObservacion" maxlength="200" autocomplete="off">
+            <div class="invalid-feedback"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header"><h3 class="card-title">Detalle</h3></div>
+      <div class="card-body border-bottom position-relative">
+        <label class="form-label" for="txtItem">Agregar ítem</label>
+        <input type="text" class="form-control" id="txtItem" placeholder="Buscar ítem por descripción…" autocomplete="off">
+        <div class="list-group position-absolute shadow" id="resItem" style="z-index: 1050; display: none; max-height: 280px; overflow-y: auto; left: 1rem; right: 1rem;"></div>
+        <div class="text-danger small mt-2" id="errItems" style="display: none;"></div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-vcenter card-table">
+          <thead>
+            <tr>
+              <th>Ítem</th>
+              <th class="text-end">Stock</th>
+              <th style="width: 120px;">Cantidad</th>
+              <th class="text-end">Precio</th>
+              <th class="text-end">IVA</th>
+              <th class="text-end">Subtotal</th>
+              <th class="w-1"></th>
+            </tr>
+          </thead>
+          <tbody id="tbodyDetalle">
+            <tr><td colspan="7" class="text-center text-muted py-4">Todavía no agregó ítems.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card-footer">
+        <div class="row justify-content-end">
+          <div class="col-12 col-md-5 col-lg-4">
+            <table class="table table-sm table-borderless mb-0">
+              <tr><td>Exentas</td><td class="text-end" id="totExentas">Gs. 0</td></tr>
+              <tr><td>Gravadas 5%</td><td class="text-end" id="totG5">Gs. 0</td></tr>
+              <tr><td>Gravadas 10%</td><td class="text-end" id="totG10">Gs. 0</td></tr>
+              <tr class="fw-bold fs-3"><td>Total</td><td class="text-end" id="totTotal">Gs. 0</td></tr>
+              <tr class="text-muted small"><td>IVA 5% (liquidado)</td><td class="text-end" id="totIva5">Gs. 0</td></tr>
+              <tr class="text-muted small"><td>IVA 10% (liquidado)</td><td class="text-end" id="totIva10">Gs. 0</td></tr>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="d-flex justify-content-end gap-2">
+      <button type="button" class="btn btn-link link-secondary" id="btnCancelarNuevo">Cancelar</button>
+      <button type="submit" class="btn btn-primary" id="btnGuardar"><i class="fas fa-save me-2"></i>Registrar Pedido</button>
+    </div>
+  </form>
+</div>
+
+{# ══════════════════ MODAL: VER ══════════════════ #}
+<div class="modal modal-blur fade" id="modalVer" tabindex="-1" aria-labelledby="modalVerTitulo" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalVerTitulo">Pedido</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body" id="cuerpoVer"></div>
+      <div class="modal-footer">
+        <a class="btn btn-outline-primary" id="btnVerPdf" target="_blank" rel="noopener"><i class="fas fa-file-pdf me-2"></i>PDF</a>
+        <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script src="{{ url_for('static', filename='js/facturacion-listado.js') }}"></script>
+<script src="{{ url_for('static', filename='js/facturacion-validadores.js') }}"></script>
+<script>
+(function () {
+  const API = '/api/v1/pedidos-cliente';
+  const L = window.FacturacionListado;
+  const V = window.FacturacionValidadores;
+  const { escapar, pedir } = L;
+  const PUEDE_ANULAR = {{ 'true' if puede('pedidocliente', 'anular') else 'false' }};
+  const BADGES = { PENDIENTE: 'bg-yellow-lt', FACTURADO: 'bg-green-lt', ANULADO: 'bg-red-lt' };
+  const ETIQUETAS = { PENDIENTE: 'Pendiente', FACTURADO: 'Facturado', ANULADO: 'Anulado' };
+
+  const $ = (id) => document.getElementById(id);
+  const seccionListado = $('seccionListado'), seccionNuevo = $('seccionNuevo');
+  const tbody = $('tbodyPedidos');
+  const filtroEstado = $('filtroEstado'), filtroCliente = $('filtroCliente');
+  const filtroDesde = $('filtroDesde'), filtroHasta = $('filtroHasta'), errFiltros = $('errFiltros');
+  const txtCliente = $('txtCliente'), resCliente = $('resCliente'), btnCambiarCliente = $('btnCambiarCliente');
+  const txtObservacion = $('txtObservacion'), txtItem = $('txtItem'), resItem = $('resItem');
+  const tbodyDetalle = $('tbodyDetalle'), errItems = $('errItems'), btnGuardar = $('btnGuardar');
+  const modalVer = bootstrap.Modal.getOrCreateInstance($('modalVer'));
+
+  const gs = (n) => (n === null || n === undefined) ? '—' : V.formatoGs(n);
+  const fecha = (s) => {
+    if (!s) return '—';
+    const m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})/.exec(s);
+    return m ? `${m[3]}/${m[2]}/${m[1]} ${m[4]}:${m[5]}` : s;
+  };
+  const badge = (e) => `<span class="badge ${BADGES[e] || 'bg-secondary-lt'}">${ETIQUETAS[e] || escapar(e)}</span>`;
+  const ivaTxt = (iva) => iva === 0 ? 'Exenta' : iva + '%';
+  const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+
+  /* ---------- totales (informativos: el servidor recalcula todo) ---------- */
+  function totales(items) {
+    let ex = 0, g5 = 0, g10 = 0;
+    items.forEach((l) => { if (l.iva === 0) ex += l.subtotal; else if (l.iva === 5) g5 += l.subtotal; else g10 += l.subtotal; });
+    return { exentas: ex, gravadas_5: g5, gravadas_10: g10, total: ex + g5 + g10,
+             iva_5: Math.round(g5 / 21), iva_10: Math.round(g10 / 11) };
+  }
+
+  /* ---------- listado ---------- */
+  function urlListado() {
+    const p = [];
+    if (filtroEstado.value) p.push('estado=' + encodeURIComponent(filtroEstado.value));
+    if (filtroCliente.value.trim()) p.push('cliente=' + encodeURIComponent(filtroCliente.value.trim()));
+    if (filtroDesde.value) p.push('desde=' + encodeURIComponent(filtroDesde.value));
+    if (filtroHasta.value) p.push('hasta=' + encodeURIComponent(filtroHasta.value));
+    return p.length ? `${API}?${p.join('&')}` : API;
+  }
+
+  async function cargarListado() {
+    errFiltros.style.display = 'none';
+    if (filtroDesde.value && filtroHasta.value && filtroDesde.value > filtroHasta.value) {
+      errFiltros.textContent = 'La fecha "desde" no puede ser posterior a "hasta".';
+      errFiltros.style.display = 'block';
+      return;
+    }
+    try {
+      const { ok, data } = await pedir(urlListado());
+      if (!ok || !data || !data.success) throw new Error((data && data.error) || '');
+      if (!data.data.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">No hay pedidos para mostrar.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = data.data.map((p) => {
+        const acc = [`<button type="button" class="btn btn-sm btn-outline-secondary" data-accion="ver" data-id="${p.id_pedido}" title="Ver"><i class="fas fa-eye"></i></button>`,
+                     `<a class="btn btn-sm btn-outline-primary" href="${API}/${p.id_pedido}/pdf" target="_blank" rel="noopener" title="PDF"><i class="fas fa-file-pdf"></i></a>`];
+        if (PUEDE_ANULAR && p.estado === 'PENDIENTE') {
+          acc.push(`<button type="button" class="btn btn-sm btn-outline-danger" data-accion="anular" data-id="${p.id_pedido}" data-info="${escapar('N.º ' + p.id_pedido + ' de ' + p.cliente)}" title="Anular"><i class="fas fa-ban"></i></button>`);
+        }
+        return `<tr class="${p.estado === 'ANULADO' ? 'text-muted' : ''}">
+          <td>${p.id_pedido}</td>
+          <td class="text-nowrap">${fecha(p.fecha_pedido)}</td>
+          <td>${escapar(p.cliente)}<div class="text-muted small">${escapar(p.ci_ruc)}</div></td>
+          <td>${escapar(p.cajero)}</td>
+          <td class="text-end text-nowrap">${gs(p.total)}</td>
+          <td>${badge(p.estado)}</td>
+          <td class="text-nowrap"><div class="btn-list flex-nowrap">${acc.join('')}</div></td>
+        </tr>`;
+      }).join('');
+    } catch (e) {
+      tbody.innerHTML = `<tr><td colspan="7" class="text-center text-danger py-4">${escapar(e.message || 'No se pudo cargar el listado.')}</td></tr>`;
+    }
+  }
+
+  /* ---------- ver detalle ---------- */
+  async function verPedido(id) {
+    try {
+      const { data } = await pedir(`${API}/${id}`);
+      if (!data || !data.success) { Swal.fire('Error', (data && data.error) || 'No se pudo cargar el pedido.', 'error'); return; }
+      const p = data.data, t = p.totales;
+      $('modalVerTitulo').textContent = `Pedido N.º ${p.id_pedido}`;
+      $('btnVerPdf').href = `${API}/${p.id_pedido}/pdf`;
+      $('cuerpoVer').innerHTML = `
+        <div class="row g-2 mb-3">
+          <div class="col-12 col-md-6"><div class="text-muted small">Cliente</div>${escapar(p.cliente)} <span class="text-muted">(${escapar(p.ci_ruc)})</span></div>
+          <div class="col-6 col-md-3"><div class="text-muted small">Fecha</div>${fecha(p.fecha_pedido)}</div>
+          <div class="col-6 col-md-3"><div class="text-muted small">Estado</div>${badge(p.estado)}</div>
+          <div class="col-12 col-md-6"><div class="text-muted small">Cajero</div>${escapar(p.cajero)}</div>
+          <div class="col-12 col-md-6"><div class="text-muted small">Observación</div>${p.observacion ? escapar(p.observacion) : '—'}</div>
+        </div>
+        <div class="table-responsive"><table class="table table-sm">
+          <thead><tr><th>Ítem</th><th class="text-end">Cant.</th><th class="text-end">Precio</th><th class="text-end">IVA</th><th class="text-end">Subtotal</th></tr></thead>
+          <tbody>${p.detalle.map((d) => `<tr><td>${escapar(d.item)}</td><td class="text-end">${d.cantidad}</td>
+            <td class="text-end text-nowrap">${gs(d.precio_unitario)}</td><td class="text-end">${ivaTxt(d.iva)}</td>
+            <td class="text-end text-nowrap">${gs(d.subtotal)}</td></tr>`).join('')}</tbody>
+        </table></div>
+        <div class="row justify-content-end"><div class="col-12 col-md-6">
+          <table class="table table-sm table-borderless mb-0">
+            <tr><td>Exentas</td><td class="text-end">${gs(t.exentas)}</td></tr>
+            <tr><td>Gravadas 5%</td><td class="text-end">${gs(t.gravadas_5)}</td></tr>
+            <tr><td>Gravadas 10%</td><td class="text-end">${gs(t.gravadas_10)}</td></tr>
+            <tr class="fw-bold"><td>Total</td><td class="text-end">${gs(t.total)}</td></tr>
+            <tr class="text-muted small"><td>IVA 5% (liquidado)</td><td class="text-end">${gs(t.iva_5)}</td></tr>
+            <tr class="text-muted small"><td>IVA 10% (liquidado)</td><td class="text-end">${gs(t.iva_10)}</td></tr>
+          </table></div></div>`;
+      modalVer.show();
+    } catch (e) {
+      Swal.fire('Error', 'Ocurrió un error de conexión.', 'error');
+    }
+  }
+
+  /* ---------- anular ---------- */
+  async function anularPedido(id, info) {
+    const c = await Swal.fire({
+      title: '¿Anular este pedido?',
+      text: `Pedido ${info}. El stock de los ítems se repondrá. Esta acción no se puede deshacer.`,
+      icon: 'warning', showCancelButton: true,
+      confirmButtonText: 'Sí, anular', cancelButtonText: 'Cancelar', confirmButtonColor: '#d63939'
+    });
+    if (!c.isConfirmed) return;
+    try {
+      const { data } = await pedir(`${API}/${id}`, { method: 'DELETE' });
+      await cargarListado();
+      if (data && data.success) Swal.fire('Pedido anulado', data.mensaje, 'success');
+      else Swal.fire('No se pudo anular', (data && data.error) || 'Ocurrió un error.', 'error');
+    } catch (e) {
+      Swal.fire('Error', 'Ocurrió un error de conexión.', 'error');
+    }
+  }
+
+  /* ---------- nuevo pedido ---------- */
+  let clienteSel = null;
+  let lineas = [];   // { id_item, descripcion, precio, iva, controla_stock, stock, cantidad }
+
+  function mostrarNuevo(si) {
+    seccionNuevo.style.display = si ? 'block' : 'none';
+    seccionListado.style.display = si ? 'none' : 'block';
+  }
+
+  function abrirNuevo() {
+    clienteSel = null; lineas = [];
+    txtCliente.value = ''; txtCliente.readOnly = false; btnCambiarCliente.style.display = 'none';
+    txtObservacion.value = ''; txtItem.value = '';
+    V.limpiarCampo(txtCliente); V.limpiarCampo(txtObservacion);
+    errItems.style.display = 'none';
+    $('txtFecha').value = new Date().toLocaleString('es-PY', { dateStyle: 'short', timeStyle: 'short' });
+    renderDetalle();
+    mostrarNuevo(true);
+    txtCliente.focus();
+  }
+
+  async function buscar(url, q) {
+    const { data } = await pedir(`${API}/${url}?q=${encodeURIComponent(q)}`);
+    return (data && data.success) ? data.data : [];
+  }
+
+  /* cliente */
+  const buscarCliente = debounce(async () => {
+    if (clienteSel) return;
+    try {
+      const r = await buscar('clientes', txtCliente.value.trim());
+      resCliente.innerHTML = r.length ? r.map((c) => `<button type="button" class="list-group-item list-group-item-action" data-cliente="${c.id_cliente}" data-nombre="${escapar(c.nombre)}" data-ci="${escapar(c.ci_ruc)}">
+          ${escapar(c.nombre)} <span class="text-muted">— ${escapar(c.ci_ruc)}</span></button>`).join('')
+        : '<div class="list-group-item text-muted">Sin resultados.</div>';
+      resCliente.style.display = 'block';
+    } catch (e) { resCliente.style.display = 'none'; }
+  }, 250);
+  txtCliente.addEventListener('input', () => { V.limpiarCampo(txtCliente); buscarCliente(); });
+  txtCliente.addEventListener('focus', buscarCliente);
+  resCliente.addEventListener('click', (ev) => {
+    const b = ev.target.closest('button[data-cliente]');
+    if (!b) return;
+    clienteSel = Number(b.dataset.cliente);
+    txtCliente.value = `${b.dataset.nombre} — ${b.dataset.ci}`;
+    txtCliente.readOnly = true; btnCambiarCliente.style.display = 'inline-block';
+    resCliente.style.display = 'none';
+    V.limpiarCampo(txtCliente);
+  });
+  btnCambiarCliente.addEventListener('click', () => {
+    clienteSel = null; txtCliente.value = ''; txtCliente.readOnly = false;
+    btnCambiarCliente.style.display = 'none'; txtCliente.focus();
+  });
+
+  /* ítems */
+  const buscarItem = debounce(async () => {
+    try {
+      const r = await buscar('items', txtItem.value.trim());
+      resItem.innerHTML = r.length ? r.map((i) => `<button type="button" class="list-group-item list-group-item-action" data-item='${escapar(JSON.stringify(i))}'>
+          <div class="d-flex justify-content-between"><span>${escapar(i.descripcion)}</span><span>${gs(i.precio_unitario)}</span></div>
+          <div class="text-muted small">${escapar(i.tipo_item)} · IVA ${ivaTxt(i.iva)} · ${i.controla_stock ? 'Stock disponible: ' + i.cantidad_disponible : 'No controla stock'}</div></button>`).join('')
+        : '<div class="list-group-item text-muted">Sin resultados.</div>';
+      resItem.style.display = 'block';
+    } catch (e) { resItem.style.display = 'none'; }
+  }, 250);
+  txtItem.addEventListener('input', buscarItem);
+  txtItem.addEventListener('focus', buscarItem);
+  resItem.addEventListener('click', (ev) => {
+    const b = ev.target.closest('button[data-item]');
+    if (!b) return;
+    const i = JSON.parse(b.dataset.item);
+    resItem.style.display = 'none'; txtItem.value = '';
+    errItems.style.display = 'none';
+    const existente = lineas.find((l) => l.id_item === i.id_item);
+    if (existente) {
+      const inp = tbodyDetalle.querySelector(`input[data-id="${i.id_item}"]`);
+      if (inp) { inp.focus(); inp.select(); }
+      return;
+    }
+    lineas.push({ id_item: i.id_item, descripcion: i.descripcion, precio: i.precio_unitario, iva: i.iva,
+                  controla_stock: i.controla_stock, stock: i.cantidad_disponible, cantidad: 1 });
+    renderDetalle();
+    const inp = tbodyDetalle.querySelector(`input[data-id="${i.id_item}"]`);
+    if (inp) { inp.focus(); inp.select(); }
+  });
+  document.addEventListener('click', (ev) => {
+    if (!ev.target.closest('#resCliente, #txtCliente')) resCliente.style.display = 'none';
+    if (!ev.target.closest('#resItem, #txtItem')) resItem.style.display = 'none';
+  });
+
+  /* grilla */
+  const subtotal = (l) => { const n = parseInt(l.cantidad, 10); return (Number.isFinite(n) && n > 0 ? n : 0) * l.precio; };
+
+  function renderDetalle() {
+    if (!lineas.length) {
+      tbodyDetalle.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">Todavía no agregó ítems.</td></tr>';
+    } else {
+      tbodyDetalle.innerHTML = lineas.map((l) => `<tr>
+        <td>${escapar(l.descripcion)}</td>
+        <td class="text-end">${l.controla_stock ? l.stock : '—'}</td>
+        <td><input type="text" inputmode="numeric" class="form-control form-control-sm" data-id="${l.id_item}" value="${escapar(l.cantidad)}" maxlength="10" autocomplete="off"><div class="invalid-feedback"></div></td>
+        <td class="text-end text-nowrap">${gs(l.precio)}</td>
+        <td class="text-end">${ivaTxt(l.iva)}</td>
+        <td class="text-end text-nowrap" data-sub="${l.id_item}">${gs(subtotal(l))}</td>
+        <td><button type="button" class="btn btn-sm btn-outline-danger" data-quitar="${l.id_item}" title="Quitar"><i class="fas fa-times"></i></button></td>
+      </tr>`).join('');
+    }
+    actualizarTotales();
+  }
+
+  function actualizarTotales() {
+    const t = totales(lineas.map((l) => ({ iva: l.iva, subtotal: subtotal(l) })));
+    $('totExentas').textContent = gs(t.exentas); $('totG5').textContent = gs(t.gravadas_5);
+    $('totG10').textContent = gs(t.gravadas_10); $('totTotal').textContent = gs(t.total);
+    $('totIva5').textContent = gs(t.iva_5); $('totIva10').textContent = gs(t.iva_10);
+  }
+
+  tbodyDetalle.addEventListener('input', (ev) => {
+    const inp = ev.target.closest('input[data-id]');
+    if (!inp) return;
+    const l = lineas.find((x) => String(x.id_item) === inp.dataset.id);
+    l.cantidad = inp.value.trim();
+    V.limpiarCampo(inp);
+    const celda = tbodyDetalle.querySelector(`[data-sub="${l.id_item}"]`);
+    if (celda) celda.textContent = gs(subtotal(l));
+    actualizarTotales();
+  });
+  tbodyDetalle.addEventListener('click', (ev) => {
+    const b = ev.target.closest('button[data-quitar]');
+    if (!b) return;
+    lineas = lineas.filter((l) => String(l.id_item) !== b.dataset.quitar);
+    renderDetalle();
+  });
+
+  /* guardar */
+  $('formPedido').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    V.limpiarCampo(txtCliente); V.limpiarCampo(txtObservacion);
+    errItems.style.display = 'none';
+    let primero = null;
+    if (!clienteSel) { V.marcarCampo(txtCliente, 'Debe seleccionar un cliente.'); primero = txtCliente; }
+    const eo = V.observacion(txtObservacion.value);
+    if (eo) { V.marcarCampo(txtObservacion, eo); primero = primero || txtObservacion; }
+    if (!lineas.length) {
+      errItems.textContent = 'Debe agregar al menos un ítem.'; errItems.style.display = 'block'; primero = primero || txtItem;
+    }
+    lineas.forEach((l) => {
+      const inp = tbodyDetalle.querySelector(`input[data-id="${l.id_item}"]`);
+      V.limpiarCampo(inp);
+      let e = V.cantidadPositiva(l.cantidad);
+      if (!e && l.controla_stock && parseInt(l.cantidad, 10) > l.stock)
+        e = `Stock insuficiente para ${l.descripcion}: disponible ${l.stock}, solicitado ${parseInt(l.cantidad, 10)}.`;
+      if (e) { V.marcarCampo(inp, e); primero = primero || inp; }
+    });
+    if (primero) { primero.focus(); return; }
+
+    btnGuardar.disabled = true;
+    try {
+      const { data } = await pedir(API, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_cliente: clienteSel, observacion: txtObservacion.value,
+                               items: lineas.map((l) => ({ id_item: l.id_item, cantidad: l.cantidad })) })
+      });
+      if (data && data.success) {
+        mostrarNuevo(false);
+        await cargarListado();
+        Swal.fire('Pedido registrado', data.mensaje, 'success');
+      } else if (data && data.campo === 'id_cliente') {
+        V.marcarCampo(txtCliente, data.error); txtCliente.focus();
+      } else if (data && data.campo === 'observacion') {
+        V.marcarCampo(txtObservacion, data.error); txtObservacion.focus();
+      } else {
+        // p. ej. "Stock insuficiente para <ÍTEM>: disponible N, solicitado M."
+        errItems.textContent = (data && data.error) || 'Ocurrió un error. Intente nuevamente.';
+        errItems.style.display = 'block';
+        Swal.fire('No se pudo registrar el pedido', errItems.textContent, 'error');
+      }
+    } catch (e) {
+      Swal.fire('Error', 'Ocurrió un error de conexión. Intente nuevamente.', 'error');
+    } finally {
+      btnGuardar.disabled = false;
+    }
+  });
+
+  /* ---------- eventos ---------- */
+  const btnNuevo = $('btnNuevo');
+  if (btnNuevo) btnNuevo.addEventListener('click', abrirNuevo);
+  $('btnCancelarNuevo').addEventListener('click', () => mostrarNuevo(false));
+  document.addEventListener('click', (ev) => {
+    const btn = ev.target.closest('button[data-accion]');
+    if (!btn) return;
+    if (btn.dataset.accion === 'ver') verPedido(btn.dataset.id);
+    if (btn.dataset.accion === 'anular') anularPedido(btn.dataset.id, btn.dataset.info);
+  });
+  [filtroEstado, filtroDesde, filtroHasta].forEach((el) => el.addEventListener('change', cargarListado));
+  filtroCliente.addEventListener('input', debounce(cargarListado, 300));
+  $('btnLimpiarFiltros').addEventListener('click', () => {
+    filtroEstado.value = ''; filtroCliente.value = ''; filtroDesde.value = ''; filtroHasta.value = '';
+    cargarListado();
+  });
+
+  cargarListado();
+})();
+</script>
+{% endblock %}

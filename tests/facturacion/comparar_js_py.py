@@ -14,6 +14,8 @@ def py(tipo, entrada):
     if tipo == 'telOpc': return u.validar_telefono_opcional(entrada)[1] or ''
     if tipo == 'corOpc': return u.validar_correo_opcional(entrada)[1] or ''
     if tipo == 'monto': return u.validar_monto(entrada)[1] or ''
+    if tipo == 'cantPos': return u.validar_cantidad_positiva(entrada)[1] or ''
+    if tipo == 'observacion': return u.validar_observacion(entrada)[1] or ''
     if tipo == 'ubicacion': return None
 for f in filas:
     tipo, entrada, js = f[0], f[1], (f[2].rstrip('\r') if len(f) > 2 else '')

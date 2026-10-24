@@ -250,6 +250,8 @@ from app.rutas.modulo_facturacion.cliente.cliente_routes import clientemod
 from app.rutas.modulo_facturacion.cliente.cliente_api import clienteapi
 from app.rutas.modulo_facturacion.apertura_caja.apertura_caja_routes import aperturacajamod
 from app.rutas.modulo_facturacion.apertura_caja.apertura_caja_api import aperturacajaapi
+from app.rutas.modulo_facturacion.pedido_cliente.pedido_cliente_routes import pedidoclientemod
+from app.rutas.modulo_facturacion.pedido_cliente.pedido_cliente_api import pedidoclienteapi
 
 app.register_blueprint(formacobromod, url_prefix='/referenciales/forma-cobro')
 app.register_blueprint(formacobroapi, url_prefix='/api/v1')
@@ -271,6 +273,8 @@ app.register_blueprint(clientemod, url_prefix='/referenciales/cliente')
 app.register_blueprint(clienteapi, url_prefix='/api/v1')
 app.register_blueprint(aperturacajamod, url_prefix='/referenciales/apertura-caja')
 app.register_blueprint(aperturacajaapi, url_prefix='/api/v1')
+app.register_blueprint(pedidoclientemod, url_prefix='/referenciales/pedido-cliente')
+app.register_blueprint(pedidoclienteapi, url_prefix='/api/v1')
 
 
 ##REGISTRAR CONSULTA Y FICHA MEDICA

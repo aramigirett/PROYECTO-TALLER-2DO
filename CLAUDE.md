@@ -579,7 +579,8 @@ Además, como en todo endpoint: `@require_permiso(ventana, acción)`, botones en
    tratamientos no copian el precio ni el IVA del tipo; si cambian, cambian para todos).
 5. **Facturación — nuevo referencial "Mantener Timbrado"** (*pendiente de definir en el análisis*): no programarlo
    hasta tener el CUS (campos, validaciones y reglas de uso). Cuando se programe, cumple el estándar completo.
-6. **Facturación — movimientos**: ✅ Registrar Apertura y Cierre de Caja (ver "Movimientos de Facturación");
+6. **Facturación — movimientos**: ✅ Registrar Apertura y Cierre de Caja y ✅ Registrar Pedido Cliente (ver
+   "Movimientos de Facturación");
    el resto de los movimientos (sin empezar) se programa después de los puntos anteriores.
 
 ## Módulo Facturación (en curso)
@@ -629,8 +630,8 @@ Además, como en todo endpoint: `@require_permiso(ventana, acción)`, botones en
     reafirma bajo `FOR SHARE` sobre el tipo). El formulario deshabilita el campo. El listado muestra
     "—" en el stock de esos ítems. Al cambiar un ítem a un tipo sin stock, la cantidad pasa a 0.
   - **Bajas:** un tipo con ítems activos no se puede anular, y tampoco se puede cambiar su
-    "Controla stock" (409; evita ítems con stock bajo un tipo que no lo controla). TODO de
-    `esta_en_uso` en Ítems: consultar `pedido_venta_det` y `venta_det` cuando existan.
+    "Controla stock" (409; evita ítems con stock bajo un tipo que no lo controla). `esta_en_uso`
+    de Ítems ya consulta `pedido_venta_det` (pedidos PENDIENTES); TODO: `venta_det` cuando exista.
   - **Descripción de Ítems** acepta además `, % ( ) + &` (`normalizar_descripcion(..., ampliada=True)`
     y `V.descripcion(v, {max:100, ampliada:true})`). Tipo Ítems y el resto mantienen la regla estricta.
   - Nuevos validadores compartidos (`utils.py` + `facturacion-validadores.js`, siempre en espejo):
@@ -678,7 +679,7 @@ Además, como en todo endpoint: `@require_permiso(ventana, acción)`, botones en
     OJO: el RUC de ejemplo `80012345-6` es inválido; el correcto es `80012345-0` (el de LABORATORIO DENTAL SONRISA).
   - Nuevos validadores compartidos: `validar_ci_ruc`, `validar_nombre` (mayúsculas; letras, números, espacios y
     `. , - & ' / ( )`), `validar_telefono_opcional`, `validar_correo_opcional` (+ espejo en JS).
-  - `esta_en_uso()` es stub: TODO bloquear si hay pedidos o ventas (`pedido_venta_cab`, `venta_cab`).
+  - `esta_en_uso()` ya bloquea si hay pedidos no anulados (`pedido_venta_cab`); TODO: ventas (`venta_cab`).
   - **Cambio en Agendamiento:** `PacienteDao.deletePaciente` devuelve `"EN_USO"` si el paciente es cliente (activo o
     inactivo, FK física) y la API responde 409 "No se puede eliminar, el paciente está registrado como cliente."
     (el riesgo de CASCADE al borrar un paciente con citas sigue sin resolverse, anotado más arriba).
@@ -726,6 +727,46 @@ auditoría como siempre. Las URL siguen la convención del proyecto (`/referenci
   - Bloqueo cruzado: no se puede dar de baja una caja con apertura `ABIERTA` (ver Caja).
   - Test: `tests/facturacion/smoke_apertura_caja.py` (usa usuarios REALES con sesiones simuladas y **aborta si alguno
     de ellos tiene una caja abierta de verdad**: cerrarla antes de correrlo).
+
+- ✅ **Registrar Pedido Cliente** (`pedido_venta_cab` + `pedido_venta_det`, ventana `pedidocliente`, acciones `ver`,
+  `nuevo`, `anular`). Scripts: `app/dao/modulo_facturacion/schema_pedido_venta.sql` y
+  `app/dao/modulo_seguridad/schema_permisos_pedido_cliente.sql` (idempotentes; el Cajero recibe las 3 acciones).
+  - **Decisión de análisis:** el Pedido es el paso **PREVIO** a la Venta de Ítems. **El stock se descuenta SOLO en el
+    Pedido** (al crearlo) y se repone al anularlo. La Venta de Ítems (próximo movimiento) se generará desde un Pedido
+    `PENDIENTE` y lo pasará a `FACTURADO` (la Venta no vuelve a tocar el stock). **La Venta de Tratamiento no usa pedido.**
+  - Estados `PENDIENTE → FACTURADO | ANULADO`. `FACTURADO` lo pone la Venta (todavía no existe). Un FACTURADO no se
+    anula: 409 "El pedido ya fue facturado; no se puede anular."
+  - **Alta (una transacción):** cliente ACTIVO (`FOR SHARE`; SIN NOMBRE vale), al menos un ítem activo, cantidad
+    entera > 0, sin ítems repetidos. Los ítems se bloquean con `FOR UPDATE` **en orden de `id_item`** (más el tipo con
+    `FOR SHARE`), así dos pedidos con los mismos ítems en distinto orden no se traban. Si el tipo controla stock se
+    valida y descuenta ("Stock insuficiente para <ÍTEM>: disponible N, solicitado M.", 409, no cambia nada); si no, ni
+    se valida ni se descuenta. **Precio, IVA, subtotal y total los calcula el SERVIDOR desde `items`**; el cajero
+    (`id_usuario`) sale de la sesión; cualquier importe/usuario/estado que mande el navegador se ignora.
+  - **IVA incluido en el precio.** Totales: Exentas, Gravadas 5% y Gravadas 10% (suma de subtotales por tasa) y Total;
+    IVA liquidado = gravadas10/11 y gravadas5/21, redondeado (`calcular_totales` en `PedidoClienteDao`; el JS de la
+    vista lo repite solo para mostrarlo en vivo).
+  - **Anular:** solo PENDIENTE, con la fila bloqueada; repone el stock de los ítems que controlan stock en la misma
+    transacción. Si desde el pedido el tipo del ítem **dejó de controlar stock** no se repone (queda anotado en la
+    auditoría: "Sin reposición"). **Cualquiera con permiso `anular` puede anular cualquier pedido**; la auditoría
+    registra quién.
+  - **Visibilidad:** todos los usuarios con `ver` ven **TODOS** los pedidos (trabajo compartido entre cajeros; la Venta
+    debe poder tomar cualquier pedido pendiente). Distinto de Apertura de Caja, que filtra por cajero.
+    Filtros `?estado=&cliente=(nombre o CI/RUC)&desde=&hasta=`.
+  - **No exige caja abierta** (el pedido no mueve dinero); la apertura la exige la Venta.
+  - **Buscadores del formulario** `GET /pedidos-cliente/clientes?q=` y `/items?q=`: piden `nuevo` de esta ventana
+    (no el `ver` de Cliente/Ítems). Detalle `GET /<id>`, PDF `GET /<id>/pdf` (ReportLab, `app/Services/pedido_pdf_service.py`;
+    un pedido anulado se descarga con la marca "ANULADO").
+  - **Conexiones:** `ItemDao.esta_en_uso` bloquea la baja de un ítem en un pedido PENDIENTE ("No se puede dar de baja,
+    el ítem está en un pedido pendiente."; `deleteItem` ahora toma `FOR UPDATE` sobre el ítem y verifica en la misma
+    transacción; TODO `venta_det`). `ClienteDao.esta_en_uso` bloquea la baja con pedidos no anulados (PENDIENTE o
+    FACTURADO; TODO `venta_cab`).
+  - Auditoría (`entidad = 'pedido_venta_cab'`): `ALTA` con cliente, cajero, total e ítems (nombres); `BAJA` con el
+    stock repuesto.
+  - Validadores nuevos en espejo: `validar_cantidad_positiva` (un único mensaje: "La cantidad debe ser un número
+    entero mayor a 0.") / `V.cantidadPositiva` y `validar_observacion` (opcional, hasta 200) / `V.observacion`.
+  - **Pendiente de la Venta de Ítems:** `ItemDao.esta_en_uso` (`venta_det`), `ClienteDao.esta_en_uso` (`venta_cab`) y
+    el paso `PENDIENTE → FACTURADO` del pedido (con `FOR UPDATE` sobre `pedido_venta_cab`, igual que `anularPedido`).
+  - Test: `tests/facturacion/smoke_pedido_cliente.py` (118 chequeos, incluida la concurrencia de stock).
 
 ## Tests (carpeta `tests/`, ver `tests/README.md`)
 - Scripts de verificación sin pytest, organizados por módulo: `tests/facturacion/` (los 8 referenciales + Ítems, la
@@ -779,10 +820,10 @@ auditoría como siempre. Las URL siguen la convención del proyecto (`/referenci
   Si hay que delegarlo, se agrega `editar` a la ventana en el catálogo y al seed.
 - **Permisos del rol Cajero** (`app/dao/modulo_seguridad/schema_permisos_cajero.sql`, idempotente; define el conjunto
   COMPLETO del Cajero: quita lo que sobra e inserta lo que falta, y solo toca ese rol):
-  - **Módulo Facturación (movimientos, hoy `aperturacaja`): todas las acciones de la ventana.**
+  - **Módulo Facturación (movimientos, hoy `aperturacaja` y `pedidocliente`): todas las acciones de la ventana.**
   - **Cliente: `ver`, `nuevo`, `editar`** (sin `anular`).
   - **Forma de Cobro, Marca de Tarjeta, Entidad Emisora, Entidad Adherida, Caja, Depósito, Tipo Ítems e Ítems: solo `ver`.**
-  - **Agendamiento, Consultorio y Seguridad: ningún permiso.** El Cajero queda con 15 filas de permisos.
+  - **Agendamiento, Consultorio y Seguridad: ningún permiso.** El Cajero queda con 18 filas de permisos (15 + las 3 de `pedidocliente`).
   - **Cada movimiento NUEVO de Facturación debe sumar su ventana (con todas sus acciones) a ese seed**, y todo
     referencial nuevo de Facturación entra con `ver`. `tests/facturacion/smoke_permisos_cajero.py` falla si el
     catálogo tiene una ventana de "Módulo Facturación" que el Cajero no puede usar por completo.

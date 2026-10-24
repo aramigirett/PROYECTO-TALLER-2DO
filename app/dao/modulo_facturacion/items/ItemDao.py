@@ -14,6 +14,8 @@ DEPOSITO_INACTIVO = "DEPOSITO_INACTIVO"
 # reactivarItem devuelve (STOCK_REINICIADO, stock_anterior) si tuvo que poner el stock en 0
 STOCK_REINICIADO = "STOCK_REINICIADO"
 
+MSG_BAJA_EN_PEDIDO = "No se puede dar de baja, el ítem está en un pedido pendiente."
+
 _SELECT = """
 SELECT i.id_item, i.id_tipo_item, t.descripcion, t.controla_stock,
        i.descripcion, i.precio_unitario, i.iva, i.cantidad_disponible, i.activo,
@@ -181,31 +183,50 @@ class ItemDao:
             cur.close()
             con.close()
 
-    def esta_en_uso(self, id_item):
-        """False si se puede anular; si no, el texto con el motivo (truthy)."""
-        # TODO: debe consultar pedido_venta_det y venta_det (WHERE id_item = %s) cuando existan
-        # esas tablas. Mientras tanto no hay nada que pueda referenciarlo.
-        return False
+    def esta_en_uso(self, id_item, cur=None):
+        """
+        False si se puede anular; si no, el texto con el motivo (truthy). Con `cur` consulta dentro de la
+        transacción del que llama (que ya tiene el ítem bloqueado); sin él abre su propia conexión.
+        """
+        # TODO: debe consultar también venta_det (WHERE id_item = %s) cuando exista esa tabla.
+        sql = """SELECT 1 FROM pedido_venta_det d JOIN pedido_venta_cab p ON p.id_pedido = d.id_pedido
+                 WHERE d.id_item = %s AND p.estado = 'PENDIENTE' LIMIT 1"""
+        if cur is not None:
+            cur.execute(sql, (id_item,))
+            return MSG_BAJA_EN_PEDIDO if cur.fetchone() else False
+        con = Conexion().getConexion()
+        propio = con.cursor()
+        try:
+            propio.execute(sql, (id_item,))
+            return MSG_BAJA_EN_PEDIDO if propio.fetchone() else False
+        finally:
+            propio.close()
+            con.close()
 
     def deleteItem(self, id_item):
         """
-        Anula (baja lógica) un ítem, validando antes que no esté en uso.
+        Anula (baja lógica) un ítem, validando antes que no esté en uso (un pedido PENDIENTE lo bloquea). La
+        verificación y el UPDATE van en la misma transacción con la fila bloqueada (FOR UPDATE): un pedido nuevo
+        toma el mismo bloqueo sobre el ítem, así que no puede colarse entre la verificación y la baja.
 
         Returns:
             bool | tuple: True si se anuló, False si no existía o falló, ("EN_USO", motivo) si está en uso.
         """
-        motivo = self.esta_en_uso(id_item)
-        if motivo:
-            app.logger.warning(f"No se puede anular ítem {id_item}: está en uso")
-            return ("EN_USO", motivo if isinstance(motivo, str) else
-                    "No se puede dar de baja, el ítem está usado en pedidos o ventas.")
-
-        sql = "UPDATE items SET activo = false WHERE id_item = %s AND activo = true"
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(sql, (id_item,))
+            cur.execute("SELECT 1 FROM items WHERE id_item = %s AND activo = true FOR UPDATE", (id_item,))
+            if cur.fetchone() is None:
+                con.rollback()
+                return False
+            motivo = self.esta_en_uso(id_item, cur)
+            if motivo:
+                con.rollback()
+                app.logger.warning(f"No se puede anular ítem {id_item}: está en uso")
+                return ("EN_USO", motivo if isinstance(motivo, str) else
+                        "No se puede dar de baja, el ítem está usado en pedidos o ventas.")
+            cur.execute("UPDATE items SET activo = false WHERE id_item = %s AND activo = true", (id_item,))
             filas_afectadas = cur.rowcount
             con.commit()
             return filas_afectadas > 0

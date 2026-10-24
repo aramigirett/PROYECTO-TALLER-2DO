@@ -7,7 +7,7 @@
 (function (global) {
   'use strict';
 
-  var MAX_DESCRIPCION = 60, MAX_DIRECCION = 150, MAX_CORREO = 100, MAX_UBICACION = 100, MAX_NOMBRE = 80;
+  var MAX_DESCRIPCION = 60, MAX_DIRECCION = 150, MAX_CORREO = 100, MAX_UBICACION = 100, MAX_NOMBRE = 80, MAX_OBSERVACION = 200;
   var TEL_MIN_LARGO = 6, TEL_MAX_LARGO = 20, TEL_MIN_DIGITOS = 6;
   var MAX_PRECIO = 999999999999, MAX_CANTIDAD = 2147483647;
 
@@ -150,6 +150,23 @@
   function telefonoOpcional(v) { return limpiar(v) ? telefono(v) : ''; }
   function correoOpcional(v) { return limpiar(v) ? correo(v) : ''; }
 
+  /* Cantidad de un renglón de pedido: entero > 0, un único mensaje. Espejo de validar_cantidad_positiva. */
+  function cantidadPositiva(v) {
+    var t = esVacio(v) ? '' : String(v).trim();
+    if (!/^-?\d+$/.test(t) || parseInt(t, 10) <= 0) return 'La cantidad debe ser un número entero mayor a 0.';
+    if (parseInt(t, 10) > MAX_CANTIDAD) return 'La cantidad no puede superar ' + formatoNumero(MAX_CANTIDAD) + '.';
+    return '';
+  }
+
+  /* Observación opcional de hasta 200 caracteres. Espejo de validar_observacion. */
+  function observacion(v) {
+    var t = limpiar(v);
+    if (!t) return '';
+    if (t.length > MAX_OBSERVACION) return 'La observación no puede superar los ' + MAX_OBSERVACION + ' caracteres.';
+    if (RE_CONTROL.test(t)) return 'La observación contiene caracteres no permitidos.';
+    return '';
+  }
+
   /* ---- Ayudas de interfaz (Tabler/Bootstrap 5): .invalid-feedback hermano del input ---- */
   function marcarCampo(input, mensaje) {
     if (!input) return;
@@ -169,7 +186,8 @@
     descripcion: descripcion, direccion: direccion, ubicacion: ubicacion, telefono: telefono, correo: correo,
     ciRuc: ciRuc, calcularDvRuc: calcularDvRuc, nombre: nombre,
     telefonoOpcional: telefonoOpcional, correoOpcional: correoOpcional,
-    precio: precio, monto: monto, iva: iva, cantidad: cantidad, formatoGs: formatoGs,
+    precio: precio, monto: monto, iva: iva, cantidad: cantidad, cantidadPositiva: cantidadPositiva,
+    observacion: observacion, formatoGs: formatoGs,
     marcarCampo: marcarCampo, limpiarCampo: limpiarCampo
   };
 })(window);

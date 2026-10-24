@@ -26,6 +26,11 @@ var cors = ['', 'A@B.com', 'malo'];
 for (var m = 0; m < cors.length; m++) out.push('corOpc\t' + cors[m] + '\t' + V.correoOpcional(cors[m]));
 var montos = ['0', '1500', '-1', '-5', 'abc', '', '1.5', '15.5', '999999999999', '1000000000000'];
 for (var q = 0; q < montos.length; q++) out.push('monto\t' + montos[q] + '\t' + V.monto(montos[q]));
+var cants = ['1', '5', '0', '-1', 'abc', '', '1.5', ' 7 ', '2147483647', '2147483648'];
+for (var w = 0; w < cants.length; w++) out.push('cantPos\t' + cants[w] + '\t' + V.cantidadPositiva(cants[w]));
+var largo = ''; for (var z = 0; z < 201; z++) largo += 'a';
+var obs = ['', '   ', 'Entrega por la tarde', largo, largo.substring(0, 200), 'con   espacios  internos', 'raro\u0001'];
+for (var o = 0; o < obs.length; o++) out.push('observacion\t' + obs[o] + '\t' + V.observacion(obs[o]));
 out.push('ubicacion\tPLANTA\t' + V.ubicacion('PLANTA') + '|' + V.ubicacion('') );
 // salida en UTF-8 sin BOM vía ADODB
 var so = new ActiveXObject('ADODB.Stream'); so.Type = 2; so.Charset = 'utf-8'; so.Open();
