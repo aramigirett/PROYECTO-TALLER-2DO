@@ -85,6 +85,17 @@
     return '';
   }
 
+  /* Monto en guaraníes: entero >= 0 (puede ser 0). Espejo de validar_monto. */
+  function monto(v) {
+    if (esVacio(v)) return 'El campo monto es obligatorio y no puede estar vacío.';
+    var t = String(v).trim();
+    if (!/^-?\d+$/.test(t)) return 'El monto debe ser un número entero (guaraníes, sin decimales).';
+    var n = parseInt(t, 10);
+    if (n < 0) return 'El monto no puede ser negativo.';
+    if (n > MAX_PRECIO) return 'El monto no puede superar ' + formatoNumero(MAX_PRECIO) + '.';
+    return '';
+  }
+
   function iva(v) {
     var t = String(v === null || v === undefined ? '' : v).trim();
     return (t === '0' || t === '5' || t === '10') ? '' : 'El IVA debe ser Exenta (0), 5% o 10%.';
@@ -158,7 +169,7 @@
     descripcion: descripcion, direccion: direccion, ubicacion: ubicacion, telefono: telefono, correo: correo,
     ciRuc: ciRuc, calcularDvRuc: calcularDvRuc, nombre: nombre,
     telefonoOpcional: telefonoOpcional, correoOpcional: correoOpcional,
-    precio: precio, iva: iva, cantidad: cantidad, formatoGs: formatoGs,
+    precio: precio, monto: monto, iva: iva, cantidad: cantidad, formatoGs: formatoGs,
     marcarCampo: marcarCampo, limpiarCampo: limpiarCampo
   };
 })(window);

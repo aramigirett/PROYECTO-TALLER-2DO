@@ -134,6 +134,21 @@ def validar_precio(valor):
     return n, None
 
 
+def validar_monto(valor):
+    """Guaraníes: entero MAYOR O IGUAL a 0 (puede ser 0), hasta 12 dígitos. Devuelve (monto, error).
+    Distinto de validar_precio, que exige mayor a 0."""
+    if valor is None or (isinstance(valor, str) and not valor.strip()):
+        return None, 'El campo monto es obligatorio y no puede estar vacío.'
+    n = _entero_estricto(valor)
+    if n is None:
+        return None, 'El monto debe ser un número entero (guaraníes, sin decimales).'
+    if n < 0:
+        return None, 'El monto no puede ser negativo.'
+    if n > MAX_PRECIO:
+        return None, f'El monto no puede superar {_miles(MAX_PRECIO)}.'
+    return n, None
+
+
 def validar_iva(valor):
     """Solo 0 (exenta), 5 o 10. Devuelve (iva, error)."""
     n = _entero_estricto(valor)

@@ -539,7 +539,8 @@ Todo referencial —nuevo o migrado— cumple estos 6 puntos. Implementación de
    lo usa todavía no existe, queda un TODO que dice cuál consultar. La API compara el resultado explícitamente
    (nunca `if resultado:` sobre un string).
 6. **Auditoría en `auditoria_cambios`** vía `AuditoriaCambiosDao`/`utils.auditar`: `ALTA`, `MODIFICACION`, `BAJA`
-   y `REACTIVACION`, con `id_usuario` de la sesión e `ip` del request (nunca del cliente). El detalle muestra
+   y `REACTIVACION` (y `CIERRE` para los movimientos que se cierran: Apertura y Cierre de Caja), con `id_usuario`
+   de la sesión e `ip` del request (nunca del cliente). El detalle muestra
    NOMBRES (no IDs) y solo lo que cambió; una edición sin cambios no audita.
 
 Además, como en todo endpoint: `@require_permiso(ventana, acción)`, botones envueltos en `puede(...)`, entrada en
@@ -578,7 +579,8 @@ Además, como en todo endpoint: `@require_permiso(ventana, acción)`, botones en
    tratamientos no copian el precio ni el IVA del tipo; si cambian, cambian para todos).
 5. **Facturación — nuevo referencial "Mantener Timbrado"** (*pendiente de definir en el análisis*): no programarlo
    hasta tener el CUS (campos, validaciones y reglas de uso). Cuando se programe, cumple el estándar completo.
-6. **Facturación — movimientos** (sin empezar): se programan después de los puntos anteriores.
+6. **Facturación — movimientos**: ✅ Registrar Apertura y Cierre de Caja (ver "Movimientos de Facturación");
+   el resto de los movimientos (sin empezar) se programa después de los puntos anteriores.
 
 ## Módulo Facturación (en curso)
 - ✅ **Forma de Cobro** (primer referencial, define el patrón visual de los otros 7):
@@ -643,8 +645,9 @@ Además, como en todo endpoint: `@require_permiso(ventana, acción)`, botones en
     `REACTIVACION` en `auditoria_cambios` (se amplió su CHECK). Valida que el consultorio exista y que no haya
     otra caja activa con la misma descripción. El listado admite `?inactivas=1` (requiere `ver`); sin el parámetro
     solo trae activas (lo usan los combos de otras pantallas). La vista tiene el switch "Mostrar inactivas".
-  - `esta_en_uso()` es stub: TODO bloquear si hay apertura sin cierre en `apertura_cierre_caja`
-    ("No se puede dar de baja, la caja tiene una apertura activa.").
+  - `esta_en_uso()` ya bloquea la baja de una caja con una apertura `ABIERTA` en `apertura_cierre_caja` ("No se
+    puede dar de baja, la caja tiene una apertura activa."); `deleteCaja` pasó al protocolo transaccional
+    (`FOR UPDATE`; abrir una caja toma `FOR SHARE` sobre ella).
   - **Cambio en Agendamiento:** `ConsultorioDao.estaEnUso` ahora cuenta las cajas (activas o inactivas, la FK es
     física) y `motivoEnUso()` da el texto ("No se puede eliminar, el consultorio tiene cajas asociadas."). Además se
     corrigió un bug de `consultorio_api.py`: trataba el `"EN_USO"` del DAO como éxito (200 sin borrar); ahora 409.
@@ -696,6 +699,32 @@ Además, como en todo endpoint: `@require_permiso(ventana, acción)`, botones en
     `("EN_USO", motivo)`, con la verificación y el UPDATE en una transacción (el TODO de `cobro_cabecera` quedó con su mensaje).
   - Las 6 vistas usan `facturacion-listado.js`. Verificadas con un navegador real (Edge headless, `fetch` simulado):
     switch, filas, badges, botón Reactivar, diálogos de SweetAlert2, PATCH/DELETE, recarga y los modales Agregar/Editar.
+
+### Movimientos de Facturación
+Menú: **"Módulo Facturación"** (separado de "Referenciales Facturación"). Vista en `base_tabler.html`, permisos y
+auditoría como siempre. Las URL siguen la convención del proyecto (`/referenciales/<modulo>`, API en `/api/v1`).
+
+- ✅ **Registrar Apertura y Cierre de Caja** (`apertura_cierre_caja`, ventana `aperturacaja`, acciones `ver`, `nuevo` =
+  abrir, `anular`, `estado` = cerrar). Script: `app/dao/modulo_facturacion/schema_apertura_cierre_caja.sql` (+
+  `schema_permisos_apertura_caja.sql`). **Solo el rol Cajero recibe los permisos** por el seed (son movimientos de
+  dinero; el Administrador pasa siempre; Recepción/Médico se habilitan desde la matriz si hace falta).
+  - Estados `ABIERTA → CERRADA | ANULADA` (finales). Índices únicos parciales `WHERE estado = 'ABIERTA'` por cajero
+    y por caja: un cajero, una apertura; una caja no se abre dos veces. Mensajes: "Debe cerrar la apertura actual antes
+    de abrir una nueva." y "La caja ya está abierta por otro usuario." (la verificación previa da el mensaje; los
+    índices son la red de seguridad).
+  - **El cajero (`id_usuario`) sale SIEMPRE de la sesión**, nunca del cuerpo del pedido. El Administrador ve todas las
+    aperturas; los demás solo las propias (filtro en el servidor). Filtros `?estado=&desde=&hasta=` (hasta inclusivo).
+  - **Anular** y **cerrar**: solo la apertura propia o cualquiera si es Administrador, y solo si está `ABIERTA`.
+    Anular se bloquea si el turno tiene movimientos (**TODO** `_motivo_con_movimientos`: consultar `cobro_cabecera` /
+    `venta_cab` cuando existan). **Cerrar**: `monto_cierre = monto_apertura + total_recaudado`, calculado por el servidor
+    (el cliente no manda importes); `GET /aperturas-caja/<id>/cierre` da el detalle previo a confirmar.
+    **TODO** `_total_recaudado`: hoy 0; sumar los cobros del turno en `cobro_cabecera` cuando exista.
+  - Auditoría: apertura = `ALTA`, anulación = `BAJA`, cierre = **`CIERRE`** (se amplió el CHECK de `auditoria_cambios`).
+  - Validador nuevo `validar_monto` (entero **≥ 0**, a diferencia de `validar_precio`) con su espejo `V.monto`; la API
+    usa un único mensaje: "El monto de apertura debe ser un número entero mayor o igual a 0."
+  - Bloqueo cruzado: no se puede dar de baja una caja con apertura `ABIERTA` (ver Caja).
+  - Test: `tests/facturacion/smoke_apertura_caja.py` (usa usuarios REALES con sesiones simuladas y **aborta si alguno
+    de ellos tiene una caja abierta de verdad**: cerrarla antes de correrlo).
 
 ## Tests (carpeta `tests/`, ver `tests/README.md`)
 - Scripts de verificación sin pytest, organizados por módulo: `tests/facturacion/` (los 8 referenciales + Ítems, la

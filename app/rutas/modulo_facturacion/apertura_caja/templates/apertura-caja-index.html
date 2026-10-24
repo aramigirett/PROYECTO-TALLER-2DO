@@ -1,0 +1,371 @@
+{% extends 'base_tabler.html' %}
+
+{% block titulo %}Apertura y Cierre de Caja{% endblock %}
+
+{% block contenido %}
+<div class="page-header d-print-none mb-3">
+  <div class="row align-items-center">
+    <div class="col">
+      <div class="page-pretitle">Facturación</div>
+      <h2 class="page-title">Apertura y Cierre de Caja</h2>
+    </div>
+  </div>
+</div>
+
+{# ── Estado del cajero ───────────────────────────────────────────── #}
+<div class="card mb-3" id="tarjetaEstado">
+  <div class="card-body" id="cuerpoEstado">
+    <div class="text-muted">Cargando…</div>
+  </div>
+</div>
+
+{# ── Listado de aperturas ───────────────────────────────────────── #}
+<div class="card">
+  <div class="card-header">
+    <div class="row g-2 align-items-end w-100">
+      <div class="col-12 col-md-3">
+        <label class="form-label mb-1" for="filtroEstado">Estado</label>
+        <select class="form-select" id="filtroEstado">
+          <option value="">Todos</option>
+          <option value="ABIERTA">Abierta</option>
+          <option value="CERRADA">Cerrada</option>
+          <option value="ANULADA">Anulada</option>
+        </select>
+      </div>
+      <div class="col-6 col-md-3">
+        <label class="form-label mb-1" for="filtroDesde">Desde</label>
+        <input type="date" class="form-control" id="filtroDesde">
+      </div>
+      <div class="col-6 col-md-3">
+        <label class="form-label mb-1" for="filtroHasta">Hasta</label>
+        <input type="date" class="form-control" id="filtroHasta">
+      </div>
+      <div class="col-12 col-md-3 d-flex gap-2">
+        <button type="button" class="btn btn-outline-secondary" id="btnLimpiarFiltros">Limpiar</button>
+      </div>
+    </div>
+    <div class="text-danger small mt-2 w-100" id="errFiltros" style="display: none;"></div>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table" id="tbl">
+      <thead>
+        <tr>
+          <th>Caja</th>
+          <th>Cajero</th>
+          <th>Fecha apertura</th>
+          <th>Fecha cierre</th>
+          <th class="text-end">Monto apertura</th>
+          <th class="text-end">Monto cierre</th>
+          <th style="width: 110px;">Estado</th>
+          <th class="w-1">Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="tbodyAperturas">
+        <tr><td colspan="8" class="text-center text-muted py-4">Cargando…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# ── Modal: abrir caja ──────────────────────────────────────────── #}
+<div class="modal modal-blur fade" id="modalApertura" tabindex="-1" aria-labelledby="modalAperturaTitulo" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalAperturaTitulo">Abrir Caja</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <form id="formApertura" novalidate>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label required" for="selCaja">Caja</label>
+            <select class="form-select" id="selCaja"></select>
+            <div class="invalid-feedback"></div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="txtConsultorio">Consultorio</label>
+            <input type="text" class="form-control" id="txtConsultorio" readonly placeholder="Se muestra al elegir la caja">
+          </div>
+          <div class="mb-1">
+            <label class="form-label required" for="txtMonto">Monto de apertura (Gs.)</label>
+            <input type="text" inputmode="numeric" class="form-control" id="txtMonto" maxlength="12" value="0" autocomplete="off">
+            <div class="invalid-feedback"></div>
+            <div class="form-hint">Fondo inicial de la caja; puede ser 0.</div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btnAbrir">Abrir Caja</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script src="{{ url_for('static', filename='js/facturacion-listado.js') }}"></script>
+<script src="{{ url_for('static', filename='js/facturacion-validadores.js') }}"></script>
+<script>
+(function () {
+  const API = '/api/v1/aperturas-caja';
+  const L = window.FacturacionListado;
+  const V = window.FacturacionValidadores;
+  const { escapar, pedir } = L;
+  const PUEDE_NUEVO = {{ 'true' if puede('aperturacaja', 'nuevo') else 'false' }};
+  const PUEDE_ANULAR = {{ 'true' if puede('aperturacaja', 'anular') else 'false' }};
+  const PUEDE_CERRAR = {{ 'true' if puede('aperturacaja', 'estado') else 'false' }};
+  const ES_ADMIN = {{ 'true' if session.get('nombre_rol') == 'Administrador' else 'false' }};
+  const MI_ID = {{ session.get('id_usuario') or 0 }};
+  const MSG_MONTO = 'El monto de apertura debe ser un número entero mayor o igual a 0.';
+  const BADGES = { ABIERTA: 'bg-green-lt', CERRADA: 'bg-blue-lt', ANULADA: 'bg-red-lt' };
+  const ETIQUETAS = { ABIERTA: 'Abierta', CERRADA: 'Cerrada', ANULADA: 'Anulada' };
+
+  const cuerpoEstado = document.getElementById('cuerpoEstado');
+  const tbody = document.getElementById('tbodyAperturas');
+  const filtroEstado = document.getElementById('filtroEstado');
+  const filtroDesde = document.getElementById('filtroDesde');
+  const filtroHasta = document.getElementById('filtroHasta');
+  const errFiltros = document.getElementById('errFiltros');
+  const modalEl = document.getElementById('modalApertura');
+  const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+  const form = document.getElementById('formApertura');
+  const selCaja = document.getElementById('selCaja');
+  const txtConsultorio = document.getElementById('txtConsultorio');
+  const txtMonto = document.getElementById('txtMonto');
+  const btnAbrir = document.getElementById('btnAbrir');
+  let cajas = [];
+
+  const gs = (n) => (n === null || n === undefined) ? '—' : V.formatoGs(n);
+  /* 'AAAA-MM-DD HH:MM:SS' -> 'DD/MM/AAAA HH:MM' */
+  const fecha = (s) => {
+    if (!s) return '—';
+    const m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})/.exec(s);
+    return m ? `${m[3]}/${m[2]}/${m[1]} ${m[4]}:${m[5]}` : s;
+  };
+  const badge = (estado) => `<span class="badge ${BADGES[estado] || 'bg-secondary-lt'}">${ETIQUETAS[estado] || escapar(estado)}</span>`;
+
+  /* ---------- tarjeta con el estado del cajero ---------- */
+  async function cargarEstado() {
+    try {
+      const { ok, data } = await pedir(`${API}/actual`);
+      if (!ok || !data || !data.success) throw new Error();
+      const a = data.data;
+      if (a) {
+        const botones = [];
+        if (PUEDE_CERRAR) botones.push(`<button type="button" class="btn btn-primary" data-accion="cerrar" data-id="${a.id_apertura}"><i class="fas fa-lock me-2"></i>Cerrar Caja</button>`);
+        if (PUEDE_ANULAR) botones.push(`<button type="button" class="btn btn-outline-danger" data-accion="anular" data-id="${a.id_apertura}"><i class="fas fa-ban me-2"></i>Anular Apertura</button>`);
+        cuerpoEstado.innerHTML = `
+          <div class="row align-items-center g-3">
+            <div class="col-12 col-lg">
+              <div class="mb-1"><span class="badge bg-green-lt me-2">Caja abierta</span><strong>${escapar(a.caja)}</strong></div>
+              <div class="row text-muted">
+                <div class="col-12 col-md-4">Consultorio: <span class="text-body">${escapar(a.consultorio)}</span></div>
+                <div class="col-12 col-md-4">Abierta desde: <span class="text-body">${fecha(a.fecha_apertura)}</span></div>
+                <div class="col-12 col-md-4">Monto de apertura: <span class="text-body">${gs(a.monto_apertura)}</span></div>
+              </div>
+            </div>
+            <div class="col-12 col-lg-auto"><div class="btn-list">${botones.join('')}</div></div>
+          </div>`;
+      } else {
+        cuerpoEstado.innerHTML = `
+          <div class="row align-items-center g-3">
+            <div class="col-12 col-lg"><span class="badge bg-secondary-lt me-2">Sin caja abierta</span>
+              <span class="text-muted">No tenés una caja abierta en este momento.</span></div>
+            <div class="col-12 col-lg-auto">${PUEDE_NUEVO ? '<button type="button" class="btn btn-primary" data-accion="abrir"><i class="fas fa-lock-open me-2"></i>Abrir Caja</button>' : ''}</div>
+          </div>`;
+      }
+    } catch (e) {
+      cuerpoEstado.innerHTML = '<div class="text-danger">No se pudo cargar el estado de la caja.</div>';
+    }
+  }
+
+  /* ---------- listado con filtros ---------- */
+  function urlListado() {
+    const p = [];
+    if (filtroEstado.value) p.push('estado=' + encodeURIComponent(filtroEstado.value));
+    if (filtroDesde.value) p.push('desde=' + encodeURIComponent(filtroDesde.value));
+    if (filtroHasta.value) p.push('hasta=' + encodeURIComponent(filtroHasta.value));
+    return p.length ? `${API}?${p.join('&')}` : API;
+  }
+
+  async function cargarListado() {
+    errFiltros.style.display = 'none';
+    if (filtroDesde.value && filtroHasta.value && filtroDesde.value > filtroHasta.value) {
+      errFiltros.textContent = 'La fecha "desde" no puede ser posterior a "hasta".';
+      errFiltros.style.display = 'block';
+      return;
+    }
+    try {
+      const { ok, data } = await pedir(urlListado());
+      if (!ok || !data || !data.success) throw new Error((data && data.error) || '');
+      if (!data.data.length) {
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No hay aperturas para mostrar.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = data.data.map((a) => {
+        const acciones = [];
+        // Solo se puede actuar sobre una apertura ABIERTA propia (o cualquiera, el Administrador)
+        if (a.estado === 'ABIERTA' && (ES_ADMIN || a.id_usuario === MI_ID)) {
+          if (PUEDE_CERRAR) acciones.push(`<button type="button" class="btn btn-sm btn-outline-primary" data-accion="cerrar" data-id="${a.id_apertura}" title="Cerrar caja"><i class="fas fa-lock"></i></button>`);
+          if (PUEDE_ANULAR) acciones.push(`<button type="button" class="btn btn-sm btn-outline-danger" data-accion="anular" data-id="${a.id_apertura}" title="Anular apertura"><i class="fas fa-ban"></i></button>`);
+        }
+        return `<tr>
+          <td>${escapar(a.caja)}<div class="text-muted small">${escapar(a.consultorio)}</div></td>
+          <td>${escapar(a.cajero)}</td>
+          <td class="text-nowrap">${fecha(a.fecha_apertura)}</td>
+          <td class="text-nowrap">${fecha(a.fecha_cierre)}</td>
+          <td class="text-end text-nowrap">${gs(a.monto_apertura)}</td>
+          <td class="text-end text-nowrap">${gs(a.monto_cierre)}</td>
+          <td>${badge(a.estado)}</td>
+          <td class="text-nowrap"><div class="btn-list flex-nowrap">${acciones.join('')}</div></td>
+        </tr>`;
+      }).join('');
+    } catch (e) {
+      tbody.innerHTML = `<tr><td colspan="8" class="text-center text-danger py-4">${escapar(e.message || 'No se pudo cargar el listado.')}</td></tr>`;
+    }
+  }
+
+  const recargar = () => Promise.all([cargarEstado(), cargarListado()]);
+
+  /* ---------- abrir caja ---------- */
+  async function abrirModal() {
+    try {
+      const { data } = await pedir(`${API}/cajas-disponibles`);
+      if (!data || !data.success) throw new Error();
+      cajas = data.data;
+    } catch (e) {
+      Swal.fire('Error', 'No se pudieron cargar las cajas disponibles. Intente nuevamente.', 'error');
+      return;
+    }
+    if (!cajas.length) {
+      Swal.fire('Sin cajas disponibles', 'No hay cajas activas sin abrir. Cierre una caja abierta o cree una nueva en Referenciales.', 'info');
+      return;
+    }
+    selCaja.innerHTML = '<option value="">Seleccione una caja…</option>' +
+      cajas.map((c) => `<option value="${c.id_caja}">${escapar(c.descripcion)}</option>`).join('');
+    txtConsultorio.value = '';
+    txtMonto.value = '0';
+    V.limpiarCampo(selCaja); V.limpiarCampo(txtMonto);
+    modal.show();
+  }
+
+  selCaja.addEventListener('change', () => {
+    V.limpiarCampo(selCaja);
+    const c = cajas.find((x) => String(x.id_caja) === selCaja.value);
+    txtConsultorio.value = c ? c.consultorio : '';
+  });
+  txtMonto.addEventListener('input', () => V.limpiarCampo(txtMonto));
+  modalEl.addEventListener('shown.bs.modal', () => selCaja.focus());
+
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    V.limpiarCampo(selCaja); V.limpiarCampo(txtMonto);
+    let primero = null;
+    if (!selCaja.value) { V.marcarCampo(selCaja, 'Debe seleccionar una caja.'); primero = selCaja; }
+    if (V.monto(txtMonto.value)) { V.marcarCampo(txtMonto, MSG_MONTO); primero = primero || txtMonto; }
+    if (primero) { primero.focus(); return; }
+
+    btnAbrir.disabled = true;
+    try {
+      const { data } = await pedir(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_caja: selCaja.value, monto_apertura: txtMonto.value })
+      });
+      if (data && data.success) {
+        modal.hide();
+        await recargar();
+        Swal.fire('Caja abierta', data.mensaje, 'success');
+      } else if (data && data.campo === 'monto_apertura') {
+        V.marcarCampo(txtMonto, data.error); txtMonto.focus();
+      } else if (data && data.campo === 'id_caja') {
+        V.marcarCampo(selCaja, data.error); selCaja.focus();
+      } else {
+        // p. ej. "Debe cerrar la apertura actual antes de abrir una nueva."
+        modal.hide();
+        await recargar();
+        Swal.fire('No se pudo abrir la caja', (data && data.error) || 'Ocurrió un error. Intente nuevamente.', 'error');
+      }
+    } catch (e) {
+      V.marcarCampo(selCaja, 'Ocurrió un error de conexión. Intente nuevamente.');
+    } finally {
+      btnAbrir.disabled = false;
+    }
+  });
+
+  /* ---------- cerrar caja: detalle antes de confirmar ---------- */
+  async function cerrarCaja(id) {
+    let d;
+    try {
+      const { data } = await pedir(`${API}/${id}/cierre`);
+      if (!data || !data.success) {
+        Swal.fire('No se pudo cerrar la caja', (data && data.error) || 'Ocurrió un error.', 'error');
+        await recargar();
+        return;
+      }
+      d = data.data;
+    } catch (e) {
+      Swal.fire('Error', 'Ocurrió un error de conexión.', 'error');
+      return;
+    }
+    const c = await Swal.fire({
+      title: 'Cerrar caja',
+      html: `<div class="text-start">
+               <div class="mb-2 text-muted">${escapar(d.caja)} · ${escapar(d.consultorio)}</div>
+               <table class="table table-sm mb-0">
+                 <tr><td>Monto de apertura</td><td class="text-end">${gs(d.monto_apertura)}</td></tr>
+                 <tr><td>+ Total recaudado</td><td class="text-end">${gs(d.total_recaudado)}</td></tr>
+                 <tr class="fw-bold"><td>= Monto de cierre</td><td class="text-end">${gs(d.monto_cierre)}</td></tr>
+               </table>
+             </div>`,
+      showCancelButton: true, confirmButtonText: 'Confirmar cierre', cancelButtonText: 'Cancelar'
+    });
+    if (!c.isConfirmed) return;
+    try {
+      const { data } = await pedir(`${API}/${id}/cerrar`, { method: 'PATCH' });
+      await recargar();
+      if (data && data.success) Swal.fire('Caja cerrada', data.mensaje, 'success');
+      else Swal.fire('No se pudo cerrar la caja', (data && data.error) || 'Ocurrió un error.', 'error');
+    } catch (e) {
+      Swal.fire('Error', 'Ocurrió un error de conexión.', 'error');
+    }
+  }
+
+  /* ---------- anular apertura ---------- */
+  async function anularApertura(id) {
+    const c = await Swal.fire({
+      title: '¿Anular esta apertura?',
+      text: 'La apertura pasará a ANULADA y la caja quedará libre. Esta acción no se puede deshacer.',
+      icon: 'warning', showCancelButton: true,
+      confirmButtonText: 'Sí, anular', cancelButtonText: 'Cancelar', confirmButtonColor: '#d63939'
+    });
+    if (!c.isConfirmed) return;
+    try {
+      const { data } = await pedir(`${API}/${id}`, { method: 'DELETE' });
+      await recargar();
+      if (data && data.success) Swal.fire('Apertura anulada', data.mensaje, 'success');
+      else Swal.fire('No se pudo anular', (data && data.error) || 'Ocurrió un error.', 'error');
+    } catch (e) {
+      Swal.fire('Error', 'Ocurrió un error de conexión.', 'error');
+    }
+  }
+
+  /* ---------- eventos ---------- */
+  document.addEventListener('click', (ev) => {
+    const btn = ev.target.closest('button[data-accion]');
+    if (!btn) return;
+    if (btn.dataset.accion === 'abrir') abrirModal();
+    if (btn.dataset.accion === 'cerrar') cerrarCaja(btn.dataset.id);
+    if (btn.dataset.accion === 'anular') anularApertura(btn.dataset.id);
+  });
+  [filtroEstado, filtroDesde, filtroHasta].forEach((el) => el.addEventListener('change', cargarListado));
+  document.getElementById('btnLimpiarFiltros').addEventListener('click', () => {
+    filtroEstado.value = ''; filtroDesde.value = ''; filtroHasta.value = '';
+    cargarListado();
+  });
+
+  recargar();
+})();
+</script>
+{% endblock %}

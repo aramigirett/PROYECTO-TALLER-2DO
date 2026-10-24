@@ -42,6 +42,7 @@ MODULOS = [
     {"modulo": "Referenciales Consultorio", "icono": "fa-file-alt"},
     {"modulo": "Módulo Consultorio", "icono": "fa-file-medical"},
     {"modulo": "Referenciales Facturación", "icono": "fa-file-invoice-dollar"},
+    {"modulo": "Módulo Facturación", "icono": "fa-cash-register"},
     {"modulo": "Módulo Seguridad", "icono": "fa-user-shield"},
 ]
 
@@ -98,6 +99,9 @@ CATALOGO_MENU = [
     {"etiqueta": "Caja", "endpoint": "caja.cajaIndex", "icono": "fa-cash-register", "modulo": "Referenciales Facturación", "ventana": "caja", "acciones": ["ver", "nuevo", "editar", "anular"]},
     {"etiqueta": "Depósito", "endpoint": "deposito.depositoIndex", "icono": "fa-warehouse", "modulo": "Referenciales Facturación", "ventana": "deposito", "acciones": ["ver", "nuevo", "editar", "anular"]},
     {"etiqueta": "Cliente", "endpoint": "cliente.clienteIndex", "icono": "fa-address-book", "modulo": "Referenciales Facturación", "ventana": "cliente", "acciones": ["ver", "nuevo", "editar", "anular"]},
+
+    # Módulo Facturación (movimientos)
+    {"etiqueta": "Apertura y Cierre de Caja", "endpoint": "aperturacaja.aperturaCajaIndex", "icono": "fa-cash-register", "modulo": "Módulo Facturación", "ventana": "aperturacaja", "acciones": ["ver", "nuevo", "anular", "estado"]},
 
     # Módulo Seguridad
     {"etiqueta": "Gestión de Usuarios", "endpoint": "usuario.usuarioIndex", "icono": "fa-users-cog", "modulo": "Módulo Seguridad", "ventana": "usuario", "acciones": ["ver", "nuevo", "editar", "anular", "desbloquear"]},

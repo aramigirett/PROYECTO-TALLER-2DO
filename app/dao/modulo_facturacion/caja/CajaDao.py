@@ -149,33 +149,55 @@ class CajaDao:
             cur.close()
             con.close()
 
-    def esta_en_uso(self, id_caja):
-        """False si se puede anular; si no, el texto con el motivo (truthy)."""
-        # TODO: debe bloquear si la caja tiene una apertura sin cierre en apertura_cierre_caja
-        # (devolver MSG_BAJA_APERTURA_ACTIVA) cuando exista esa tabla.
+    def _motivo_en_uso(self, cur, id_caja):
+        """Devuelve el motivo (texto para el usuario) si la caja está en uso, o False."""
+        cur.execute("SELECT EXISTS(SELECT 1 FROM apertura_cierre_caja WHERE id_caja = %s AND estado = 'ABIERTA')",
+                    (id_caja,))
+        if cur.fetchone()[0]:
+            return MSG_BAJA_APERTURA_ACTIVA
         return False
 
-    def deleteCaja(self, id_caja):
-        """
-        Anula (baja lógica) una caja, validando antes que no esté en uso.
-
-        Returns:
-            bool | tuple: True si se anuló, False si no existía o falló, ("EN_USO", motivo) si está en uso.
-        """
-        motivo = self.esta_en_uso(id_caja)
-        if motivo:
-            app.logger.warning(f"No se puede anular caja {id_caja}: está en uso")
-            return ("EN_USO", motivo if isinstance(motivo, str) else MSG_BAJA_APERTURA_ACTIVA)
-
-        sql = "UPDATE caja SET activo = false WHERE id_caja = %s AND activo = true"
+    def esta_en_uso(self, id_caja):
+        """False si se puede anular; si no, el texto con el motivo (truthy)."""
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(sql, (id_caja,))
-            filas_afectadas = cur.rowcount
+            return self._motivo_en_uso(cur, id_caja)
+        except Exception as e:
+            app.logger.error(f"Error al verificar uso de caja: {str(e)}")
+            return "No se pudo verificar si la caja está en uso."  # ante la duda, bloquear
+        finally:
+            cur.close()
+            con.close()
+
+    def deleteCaja(self, id_caja):
+        """
+        Anula (baja lógica) una caja. La verificación de uso y el UPDATE van en la misma transacción, con la
+        fila bloqueada (FOR UPDATE): abrir una caja toma FOR SHARE sobre ella, así que no se puede colar una
+        apertura entre ambos pasos.
+
+        Returns:
+            bool | tuple: True si se anuló, False si no existía o falló, ("EN_USO", motivo) si está en uso.
+        """
+        conexion = Conexion()
+        con = conexion.getConexion()
+        cur = con.cursor()
+        try:
+            cur.execute("SELECT 1 FROM caja WHERE id_caja = %s AND activo = true FOR UPDATE", (id_caja,))
+            if cur.fetchone() is None:
+                con.rollback()
+                return False
+
+            motivo = self._motivo_en_uso(cur, id_caja)
+            if motivo:
+                con.rollback()
+                app.logger.warning(f"No se puede anular caja {id_caja}: está en uso")
+                return ("EN_USO", motivo)
+
+            cur.execute("UPDATE caja SET activo = false WHERE id_caja = %s", (id_caja,))
             con.commit()
-            return filas_afectadas > 0
+            return True
         except Exception as e:
             app.logger.error(f"Error al anular caja: {str(e)}")
             con.rollback()

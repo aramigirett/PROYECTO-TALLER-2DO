@@ -24,6 +24,8 @@ var tels = ['', '12', '0981 123456', '+5-95-1 1'];
 for (var t = 0; t < tels.length; t++) out.push('telOpc\t' + tels[t] + '\t' + V.telefonoOpcional(tels[t]));
 var cors = ['', 'A@B.com', 'malo'];
 for (var m = 0; m < cors.length; m++) out.push('corOpc\t' + cors[m] + '\t' + V.correoOpcional(cors[m]));
+var montos = ['0', '1500', '-1', '-5', 'abc', '', '1.5', '15.5', '999999999999', '1000000000000'];
+for (var q = 0; q < montos.length; q++) out.push('monto\t' + montos[q] + '\t' + V.monto(montos[q]));
 out.push('ubicacion\tPLANTA\t' + V.ubicacion('PLANTA') + '|' + V.ubicacion('') );
 // salida en UTF-8 sin BOM vía ADODB
 var so = new ActiveXObject('ADODB.Stream'); so.Type = 2; so.Charset = 'utf-8'; so.Open();

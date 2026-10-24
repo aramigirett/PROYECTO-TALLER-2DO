@@ -16,6 +16,7 @@ Get-ChildItem tests -Recurse -Filter smoke_*.py | ForEach-Object { "== $($_.Name
 | Carpeta | Script | Cubre |
 |---|---|---|
 | `facturacion/` | `smoke_marca_tarjeta`, `smoke_entidades` (emisora + adherida), `smoke_items` (tipo ítems + ítems), `smoke_caja`, `smoke_deposito`, `smoke_cliente` | CRUD de cada referencial, validaciones, bloqueos de baja, auditoría y permisos |
+| `facturacion/` | `smoke_apertura_caja` | Apertura y Cierre de Caja: los dos bloqueos de apertura doble (aplicación y base), anular, cerrar, visibilidad por rol, filtros, permisos por acción, auditoría y la baja de Caja bloqueada. **Usa usuarios reales (Administrador, Cajero y Recepción) con sesiones simuladas y aborta si alguno tiene una caja abierta de verdad** |
 | `facturacion/` | `smoke_reactivar` | Estado / "Mostrar inactivos" / Reactivar de Forma de Cobro, Marca, Emisora, Adherida, Tipo Ítems e Ítems + protocolo `EN_USO` de Forma de Cobro |
 | `facturacion/` | `browser_test.py` | Las 6 vistas con `facturacion-listado.js` en **Edge headless** (DOM y SweetAlert2 reales, `fetch` simulado) |
 | `facturacion/` | `run_js_validadores.js` + `comparar_js_py.py` | Que `facturacion-validadores.js` dé lo mismo que `utils.py` |
