@@ -149,6 +149,12 @@ def deleteTratamiento(id_tratamiento):
                 'error': 'No se puede anular: el tratamiento tiene sesiones activas registradas.'
             }), 409
 
+        if resultado == "FACTURADO":
+            return jsonify({
+                'success': False,
+                'error': 'El tratamiento ya fue facturado; anule primero la factura.'
+            }), 409
+
         if resultado:
             descripcion = _descripcionCorta(registro['descripcion_tratamiento']) if registro else 'seleccionado'
             return jsonify({

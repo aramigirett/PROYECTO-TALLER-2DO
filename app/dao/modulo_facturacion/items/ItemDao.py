@@ -188,7 +188,9 @@ class ItemDao:
         False si se puede anular; si no, el texto con el motivo (truthy). Con `cur` consulta dentro de la
         transacción del que llama (que ya tiene el ítem bloqueado); sin él abre su propia conexión.
         """
-        # TODO: debe consultar también venta_det (WHERE id_item = %s) cuando exista esa tabla.
+        # DECISIÓN: solo bloquean los pedidos PENDIENTES. Un ítem en venta_det de una venta EMITIDA NO bloquea la baja:
+        # una factura vigente ya no se puede anular después del cierre de caja, así que bloquearía el ítem para siempre,
+        # y la factura copia descripción, precio e IVA (y la baja es lógica), por lo que no se rompe nada.
         sql = """SELECT 1 FROM pedido_venta_det d JOIN pedido_venta_cab p ON p.id_pedido = d.id_pedido
                  WHERE d.id_item = %s AND p.estado = 'PENDIENTE' LIMIT 1"""
         if cur is not None:

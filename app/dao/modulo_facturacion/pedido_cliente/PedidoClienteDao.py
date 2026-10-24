@@ -255,6 +255,36 @@ class PedidoClienteDao:
             con.close()
 
     # ------------------------------------------------------------------ anulación
+    def anular_y_reponer_en_cursor(self, cur, id_pedido):
+        """
+        Pasa el pedido a ANULADO y repone el stock de sus ítems DENTRO de la transacción del que llama (que ya tiene la
+        fila del pedido bloqueada con FOR UPDATE y no hace commit acá). Comparte la lógica entre anular un pedido y
+        anular una venta con la casilla "anular también el pedido". Los ítems se bloquean en orden de id_item. Si el tipo
+        del ítem dejó de controlar stock desde el pedido, no se repone (ese ítem ya no maneja stock).
+
+        Returns:
+            dict: {'repuestos': [(item, cantidad)], 'sin_reposicion': [item]}
+        """
+        cur.execute("""
+            SELECT d.id_item, d.cantidad, i.descripcion, t.controla_stock
+            FROM pedido_venta_det d
+            JOIN items i ON i.id_item = d.id_item
+            JOIN tipo_items t ON t.id_tipo_item = i.id_tipo_item
+            WHERE d.id_pedido = %s
+            ORDER BY d.id_item
+            FOR UPDATE OF i FOR SHARE OF t
+        """, (id_pedido,))
+        repuestos, sin_reposicion = [], []
+        for id_item, cantidad, descripcion, controla in cur.fetchall():
+            if controla:
+                cur.execute("UPDATE items SET cantidad_disponible = cantidad_disponible + %s WHERE id_item = %s",
+                            (cantidad, id_item))
+                repuestos.append((descripcion, cantidad))
+            else:
+                sin_reposicion.append(descripcion)
+        cur.execute("UPDATE pedido_venta_cab SET estado = 'ANULADO' WHERE id_pedido = %s", (id_pedido,))
+        return {'repuestos': repuestos, 'sin_reposicion': sin_reposicion}
+
     def anularPedido(self, id_pedido):
         """
         Anula un pedido PENDIENTE y repone el stock de los ítems que controlan stock, en la misma transacción.
@@ -280,26 +310,9 @@ class PedidoClienteDao:
                 con.rollback()
                 return YA_ANULADO
 
-            cur.execute("""
-                SELECT d.id_item, d.cantidad, i.descripcion, t.controla_stock
-                FROM pedido_venta_det d
-                JOIN items i ON i.id_item = d.id_item
-                JOIN tipo_items t ON t.id_tipo_item = i.id_tipo_item
-                WHERE d.id_pedido = %s
-                ORDER BY d.id_item
-                FOR UPDATE OF i FOR SHARE OF t
-            """, (id_pedido,))
-            repuestos, sin_reposicion = [], []
-            for id_item, cantidad, descripcion, controla in cur.fetchall():
-                if controla:
-                    cur.execute("UPDATE items SET cantidad_disponible = cantidad_disponible + %s WHERE id_item = %s",
-                                (cantidad, id_item))
-                    repuestos.append((descripcion, cantidad))
-                else:
-                    sin_reposicion.append(descripcion)
-            cur.execute("UPDATE pedido_venta_cab SET estado = 'ANULADO' WHERE id_pedido = %s", (id_pedido,))
+            resultado = self.anular_y_reponer_en_cursor(cur, id_pedido)
             con.commit()
-            return {'repuestos': repuestos, 'sin_reposicion': sin_reposicion}
+            return resultado
         except Exception as e:
             app.logger.error(f"Error al anular pedido de cliente: {str(e)}")
             con.rollback()

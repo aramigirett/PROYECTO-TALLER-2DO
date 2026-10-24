@@ -250,16 +250,35 @@ class TratamientoDao:
         """
         Anula (baja lógica) un tratamiento: pasa su estado a 'cancelado'.
         Bloquea si el tratamiento tiene sesiones activas (Gestionar
-        Procedimientos e Insumos Utilizados).
+        Procedimientos e Insumos Utilizados) o si fue facturado en una venta
+        EMITIDA (Facturación): hay que anular primero la factura. La verificación
+        y el UPDATE van en la misma transacción con la fila bloqueada (FOR UPDATE);
+        la venta de tratamiento bloquea las mismas filas antes de facturar, así que
+        no puede colarse una factura entre la verificación y la cancelación.
 
         Returns:
             bool | str: True si se anuló, False si no existía o ya estaba
-            cancelado, "EN_USO" si tiene sesiones activas.
+            cancelado, "EN_USO" si tiene sesiones activas, "FACTURADO" si tiene
+            una venta EMITIDA.
         """
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
+            cur.execute("SELECT 1 FROM tratamientos WHERE id_tratamiento = %s AND estado <> 'cancelado' FOR UPDATE",
+                        (id_tratamiento,))
+            if cur.fetchone() is None:
+                con.rollback()
+                return False
+            cur.execute("""
+                SELECT 1 FROM venta_det d JOIN venta_cab v ON v.id_venta = d.id_venta
+                WHERE d.id_tratamiento = %s AND v.estado = 'EMITIDA' LIMIT 1
+            """, (id_tratamiento,))
+            if cur.fetchone() is not None:
+                con.rollback()
+                app.logger.warning(f"No se puede anular tratamiento {id_tratamiento}: tiene una venta EMITIDA")
+                return "FACTURADO"
+
             cur.execute("""
                 SELECT EXISTS(
                     SELECT 1 FROM sesiones_tratamiento
@@ -269,6 +288,7 @@ class TratamientoDao:
             tiene_sesiones = cur.fetchone()[0]
 
             if tiene_sesiones:
+                con.rollback()
                 app.logger.warning(f"No se puede anular tratamiento {id_tratamiento}: tiene sesiones activas")
                 return "EN_USO"
 

@@ -631,7 +631,9 @@ Además, como en todo endpoint: `@require_permiso(ventana, acción)`, botones en
     "—" en el stock de esos ítems. Al cambiar un ítem a un tipo sin stock, la cantidad pasa a 0.
   - **Bajas:** un tipo con ítems activos no se puede anular, y tampoco se puede cambiar su
     "Controla stock" (409; evita ítems con stock bajo un tipo que no lo controla). `esta_en_uso`
-    de Ítems ya consulta `pedido_venta_det` (pedidos PENDIENTES); TODO: `venta_det` cuando exista.
+    de Ítems consulta `pedido_venta_det` (solo pedidos PENDIENTES). **Decisión (etapa 2 de Ventas): NO bloquea por ventas
+    EMITIDAS (`venta_det`)**: una factura vigente no se puede anular después del cierre de caja, así que el ítem quedaría
+    bloqueado para siempre; la factura copia descripción, precio e IVA y la baja es lógica, por lo que no se rompe nada.
   - **Descripción de Ítems** acepta además `, % ( ) + &` (`normalizar_descripcion(..., ampliada=True)`
     y `V.descripcion(v, {max:100, ampliada:true})`). Tipo Ítems y el resto mantienen la regla estricta.
   - Nuevos validadores compartidos (`utils.py` + `facturacion-validadores.js`, siempre en espejo):
@@ -765,8 +767,9 @@ auditoría como siempre. Las URL siguen la convención del proyecto (`/referenci
   - Validadores nuevos en espejo: `validar_cantidad_positiva` (un único mensaje: "La cantidad debe ser un número
     entero mayor a 0.") / `V.cantidadPositiva` y `validar_observacion` (opcional, hasta 200) / `V.observacion`.
   - La Venta de Ítems ya existe (ver "Registrar Ventas"): pasa el pedido `PENDIENTE → FACTURADO` con `FOR UPDATE` sobre
-    `pedido_venta_cab` (igual que `anularPedido`) y lo devuelve a `PENDIENTE` si se anula la venta. Queda el TODO de
-    `ItemDao.esta_en_uso` con `venta_det`.
+    `pedido_venta_cab` (igual que `anularPedido`) y lo devuelve a `PENDIENTE` si se anula la venta (o lo anula y repone el
+    stock si se marca la casilla; esa reposición está en `PedidoClienteDao.anular_y_reponer_en_cursor`, compartida con
+    `anularPedido`). `ItemDao.esta_en_uso` NO bloquea por ventas (decisión en "Registrar Ventas — etapa 2").
   - Test: `tests/facturacion/smoke_pedido_cliente.py` (118 chequeos, incluida la concurrencia de stock).
 
 - ✅ **Registrar Ventas y Generar Cuentas a Cobrar — ETAPA 1** (`venta_cab` + `venta_det` + `cuenta_cobrar`, ventana
@@ -796,12 +799,54 @@ auditoría como siempre. Las URL siguen la convención del proyecto (`/referenci
     `ClienteDao.esta_en_uso` bloquea la baja con ventas no anuladas; un pedido FACTURADO no se anula. La auditoría registra
     `ALTA`/`BAJA` en `venta_cab` y `MODIFICACION` del pedido (PENDIENTE ↔ FACTURADO).
   - **Pendiente de Cobranzas:** conectar el "¿cobrar ahora?" tras guardar, `_motivo_con_cobros`, `_total_recaudado` de la
-    caja (hoy 0) y completar `v_estado_cuenta_cliente` con los cobros. **Venta de Tratamiento** (`tipo_venta =
-    'TRATAMIENTO'`, `venta_det.id_tratamiento`) todavía no se programa: la tabla y los CHECK ya la admiten y **no usa pedido**.
+    caja (hoy 0) y completar `v_estado_cuenta_cliente` con los cobros. La **Venta de Tratamiento** y la factura en PDF
+    se hicieron en la etapa 2 (sección siguiente).
   - Pantalla `venta-index.html` (diseño de `facturacion.css`): listado con filtros (estado, tipo, cliente/N.º de factura,
     fechas), Nueva Venta (aviso de caja, pedido precargado en solo lectura) y Ver en modo comprobante (empresa, timbrado).
     El candado reemplaza a "Anular" cuando la caja de la venta está cerrada. Enter en el buscador nunca envía el formulario.
   - Test: `tests/facturacion/smoke_ventas.py`.
+- ✅ **Registrar Ventas — ETAPA 2: Venta de Tratamiento, factura en PDF y ajustes.** Script nuevo (idempotente, después de
+  `schema_ventas.sql`): `app/dao/modulo_facturacion/schema_ventas_etapa2.sql` (amplía `venta_det.descripcion` a
+  `VARCHAR(200)` —la descripción del tipo de tratamiento se copia COMPLETA, sin recortar— y agrega índices por
+  `id_tratamiento` e `id_item`; no crea tablas).
+  - **Venta de tratamiento** (`tipo_venta = 'TRATAMIENTO'`, sin pedido; `POST /ventas` con
+    `{tipo_venta, id_cliente, id_paciente, ids_tratamiento[], condicion}`): exige caja ABIERTA. Se elige el cliente; si está
+    vinculado a un paciente se precarga (se puede cambiar), si no se busca el paciente. Se listan los tratamientos del paciente
+    **no cancelados y sin venta EMITIDA** (incluye los finalizados; `GET /ventas/tratamientos?id_paciente=`). Cada renglón:
+    descripción del tipo, cantidad 1, **precio e IVA de `tipos_tratamiento` al momento de la venta** (la factura conserva el
+    suyo aunque el tipo cambie). Transacción: apertura (`FOR SHARE`), cliente (`FOR SHARE`), tratamientos (`FOR UPDATE` en
+    orden de id) → no cancelados, del paciente y sin factura vigente ("El tratamiento <descripción> ya fue facturado en la
+    factura <número>."), mismo SP de numeración y mismos totales; el trigger crea la cuenta a cobrar. Buscadores nuevos (piden
+    `nuevo`): `GET /ventas/clientes?q=` (trae el paciente vinculado), `/ventas/pacientes?q=` (mín. 2 caracteres: expone datos
+    personales) y `/ventas/tratamientos`. La pantalla Nueva Venta tiene un selector de tipo (Ítems desde Pedido / Tratamiento).
+  - **Conexión con Consultorio:** `TratamientoDao.deleteTratamiento` (el único camino a `cancelado`) bloquea la fila
+    (`FOR UPDATE`) y verifica en la misma transacción que no haya una venta EMITIDA: devuelve `"FACTURADO"` y la API responde
+    409 "El tratamiento ya fue facturado; anule primero la factura." (finalizar un tratamiento facturado sigue permitido).
+    Facturar y cancelar a la vez nunca pueden ganar los dos (mismo bloqueo de fila).
+  - **Anular:** venta de ítems: casilla "Anular también el pedido y reponer el stock", **desmarcada por defecto**
+    (`DELETE /ventas/<id>?anular_pedido=1`): desmarcada el pedido vuelve a PENDIENTE (el stock sigue descontado); marcada, en la
+    misma transacción la venta queda ANULADA, el pedido ANULADO y el stock repuesto (`anular_y_reponer_en_cursor`; si el tipo ya
+    no controla stock no se repone). Venta de tratamiento: al anularla los tratamientos quedan libres (la disponibilidad se
+    calcula desde las ventas EMITIDAS; no se guarda estado). Siguen las reglas de caja ABIERTA y sin cobros. La auditoría del
+    alta pone el total y la condición ANTES de la lista de tratamientos (el detalle admite 255 caracteres).
+  - **Factura en PDF** (`app/Services/factura_pdf_service.py`, ReportLab, al vuelo; `GET /api/v1/ventas/<id>/pdf`, permiso
+    `ver`): dividida en `calcular_datos_factura(venta)` (CÁLCULO: dict puro con columnas Exentas/5%/10%, subtotales, total, total
+    en letras e IVA liquidado), `dibujar_factura(canvas, datos, copia)` (DIBUJO: solo layout; para mejorar el diseño se toca
+    esto) y `generarFacturaPdf(venta)` (arma ORIGINAL — cliente y DUPLICADO — archivo tributario: 2 páginas para una factura
+    chica; una factura larga sigue en páginas adicionales por copia, con el pie solo en la última). Cabecera con empresa y
+    timbrado, "FACTURA" y el número; pie con subtotales, TOTAL A PAGAR, "SON GUARANÍES: …." y liquidación del IVA. Una factura
+    anulada se descarga igual, con la marca "ANULADA" en rojo. Botón PDF en el listado y en el comprobante, y el diálogo al
+    guardar ofrece "Ver factura (PDF)".
+  - **Número a letras** (`app/Services/numero_letras.py`, función pura; `numero_a_letras` y `monto_en_letras`): 0 a
+    999.999.999.999; "UNO" cuando va solo, apócope delante de MIL/MILLONES (VEINTIÚN MIL, UN MILLÓN, TREINTA Y UN MILLONES),
+    1.000 = MIL, 100 = CIEN, 0 = CERO.
+  - **Decisión: `ItemDao.esta_en_uso` NO bloquea por ítems en ventas EMITIDAS** (ver Tipo Ítems/Ítems): la factura copia
+    descripción, precio e IVA, la baja es lógica y una factura vigente no se puede anular después del cierre de caja, así que
+    el ítem quedaría bloqueado para siempre. Sigue bloqueando solo por pedidos PENDIENTES.
+  - Tests: `tests/facturacion/smoke_numero_letras.py` (sin base de datos) y las secciones de etapa 2 de `smoke_ventas.py`
+    (PDF decodificando los streams sin librerías: 2 páginas, número, RUC, total, marca ANULADA; venta de tratamiento incluida la
+    doble facturación concurrente; anulación con y sin casilla; bloqueo en Consultorio). Los datos de prueba incluyen un
+    paciente, tipos y tratamientos `ZZ`, que se borran por ID.
 
 ### Objetos de base de datos (rúbricas de Base de Datos II: procedimientos almacenados, triggers y vistas)
 Todos viven en `app/dao/modulo_facturacion/schema_objetos_bd.sql` (idempotente: `CREATE OR REPLACE` y `DROP TRIGGER IF

@@ -92,7 +92,7 @@
     <div class="row align-items-center">
       <div class="col">
         <div class="page-pretitle text-muted">Registrar Ventas</div>
-        <h2 class="page-title fw-bold" style="color: var(--fc-text-main, #0f172a);">Nueva Venta de Ítems</h2>
+        <h2 class="page-title fw-bold" style="color: var(--fc-text-main, #0f172a);">Nueva Venta</h2>
       </div>
       <div class="col-auto">
         <button type="button" class="btn btn-outline-secondary" id="btnVolverListado"><i class="fas fa-arrow-left me-2"></i>Volver al listado</button>
@@ -103,48 +103,115 @@
   <div class="card fc-hero-card mb-3" id="tarjetaCaja"><div class="card-body p-3" id="cuerpoCaja"></div></div>
 
   <form id="formVenta" novalidate>
+    {# ── Tipo de venta ── #}
     <div class="card border shadow-sm rounded-3 mb-3">
-      <div class="card-body position-relative">
-        <label class="form-label required fw-semibold" for="txtPedido">Pedido pendiente</label>
-        <input type="text" class="form-control" id="txtPedido" placeholder="Buscar por N.º de pedido, cliente o CI/RUC…" autocomplete="off">
-        <div class="invalid-feedback"></div>
-        <div class="list-group fc-autocomplete-list position-absolute shadow" id="resPedido" style="z-index: 1050; display: none; left: 1rem; right: 1rem;"></div>
-        <div class="form-hint text-muted small mt-1">Solo se facturan pedidos en estado PENDIENTE. Cliente, ítems, precios e IVA se copian del pedido.</div>
+      <div class="card-body">
+        <div class="text-muted small text-uppercase fw-semibold mb-2">Tipo de venta</div>
+        <div class="btn-group" role="group" aria-label="Tipo de venta">
+          <input type="radio" class="btn-check" name="tipoVenta" id="tipoItems" value="ITEMS" autocomplete="off" checked>
+          <label class="btn btn-outline-primary" for="tipoItems"><i class="fas fa-box-open me-2"></i>Ítems (desde un pedido)</label>
+          <input type="radio" class="btn-check" name="tipoVenta" id="tipoTratamiento" value="TRATAMIENTO" autocomplete="off">
+          <label class="btn btn-outline-primary" for="tipoTratamiento"><i class="fas fa-tooth me-2"></i>Tratamiento</label>
+        </div>
       </div>
     </div>
 
-    <div id="bloquePedido" style="display: none;">
+    {# ── Ítems desde un pedido ── #}
+    <div id="panelItems">
+      <div class="card border shadow-sm rounded-3 mb-3">
+        <div class="card-body position-relative">
+          <label class="form-label required fw-semibold" for="txtPedido">Pedido pendiente</label>
+          <input type="text" class="form-control" id="txtPedido" placeholder="Buscar por N.º de pedido, cliente o CI/RUC…" autocomplete="off">
+          <div class="invalid-feedback"></div>
+          <div class="list-group fc-autocomplete-list position-absolute shadow" id="resPedido" style="z-index: 1050; display: none; left: 1rem; right: 1rem;"></div>
+          <div class="form-hint text-muted small mt-1">Solo se facturan pedidos en estado PENDIENTE. Cliente, ítems, precios e IVA se copian del pedido.</div>
+        </div>
+      </div>
+
+      <div id="bloquePedido" style="display: none;">
+        <div class="card border shadow-sm rounded-3 mb-3">
+          <div class="card-body">
+            <div class="row g-3">
+              <div class="col-12 col-md-6">
+                <div class="text-muted small text-uppercase fw-semibold">Cliente</div>
+                <div class="fw-bold text-dark" id="lblCliente"></div>
+                <div class="text-muted small font-monospace" id="lblCiRuc"></div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="text-muted small text-uppercase fw-semibold">Pedido</div>
+                <div class="fw-bold font-monospace text-primary" id="lblPedido"></div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="text-muted small text-uppercase fw-semibold">Observación del pedido</div>
+                <div id="lblObservacion"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card border shadow-sm rounded-3 mb-3">
+          <div class="card-header bg-white"><h3 class="card-title">Detalle</h3></div>
+          <div class="table-responsive">
+            <table class="table table-sm card-table mb-0">
+              <thead class="bg-light text-muted small text-uppercase">
+                <tr><th class="ps-3 py-2">Ítem</th><th class="py-2 text-center" style="width: 90px;">Cant.</th><th class="py-2 text-end">Precio</th><th class="py-2 text-center" style="width: 90px;">IVA</th><th class="pe-3 py-2 text-end">Subtotal</th></tr>
+              </thead>
+              <tbody id="tbodyDetalle"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {# ── Tratamiento ── #}
+    <div id="panelTratamiento" style="display: none;">
       <div class="card border shadow-sm rounded-3 mb-3">
         <div class="card-body">
           <div class="row g-3">
-            <div class="col-12 col-md-6">
-              <div class="text-muted small text-uppercase fw-semibold">Cliente</div>
-              <div class="fw-bold text-dark" id="lblCliente"></div>
-              <div class="text-muted small font-monospace" id="lblCiRuc"></div>
+            <div class="col-12 col-lg-6 position-relative">
+              <label class="form-label required fw-semibold" for="txtClienteTrat">Cliente</label>
+              <div class="input-group">
+                <input type="text" class="form-control" id="txtClienteTrat" placeholder="Buscar por nombre o CI/RUC…" autocomplete="off">
+                <button type="button" class="btn btn-outline-secondary" id="btnCambiarClienteTrat" style="display: none;">Cambiar</button>
+                <div class="invalid-feedback"></div>
+              </div>
+              <div class="list-group fc-autocomplete-list position-absolute shadow w-100" id="resClienteTrat" style="z-index: 1050; display: none;"></div>
             </div>
-            <div class="col-6 col-md-3">
-              <div class="text-muted small text-uppercase fw-semibold">Pedido</div>
-              <div class="fw-bold font-monospace text-primary" id="lblPedido"></div>
-            </div>
-            <div class="col-6 col-md-3">
-              <div class="text-muted small text-uppercase fw-semibold">Observación del pedido</div>
-              <div id="lblObservacion"></div>
+            <div class="col-12 col-lg-6 position-relative">
+              <label class="form-label required fw-semibold" for="txtPaciente">Paciente</label>
+              <div class="input-group">
+                <input type="text" class="form-control" id="txtPaciente" placeholder="Buscar paciente por nombre o cédula (mín. 2 caracteres)…" autocomplete="off">
+                <button type="button" class="btn btn-outline-secondary" id="btnCambiarPaciente" style="display: none;">Cambiar</button>
+                <div class="invalid-feedback"></div>
+              </div>
+              <div class="list-group fc-autocomplete-list position-absolute shadow w-100" id="resPaciente" style="z-index: 1050; display: none;"></div>
+              <div class="form-hint text-muted small mt-1" id="hintPaciente">Si el cliente es un paciente, se precarga; si no, búsquelo.</div>
             </div>
           </div>
         </div>
       </div>
 
       <div class="card border shadow-sm rounded-3 mb-3">
-        <div class="card-header bg-white"><h3 class="card-title">Detalle</h3></div>
+        <div class="card-header bg-white"><h3 class="card-title">Tratamientos del paciente</h3></div>
         <div class="table-responsive">
-          <table class="table table-sm card-table mb-0">
+          <table class="table table-sm table-vcenter card-table mb-0">
             <thead class="bg-light text-muted small text-uppercase">
-              <tr><th class="ps-3 py-2">Ítem</th><th class="py-2 text-center" style="width: 90px;">Cant.</th><th class="py-2 text-end">Precio</th><th class="py-2 text-center" style="width: 90px;">IVA</th><th class="pe-3 py-2 text-end">Subtotal</th></tr>
+              <tr><th class="ps-3 py-2 w-1"></th><th class="py-2">Tratamiento</th><th class="py-2">Fecha</th><th class="py-2">Estado</th>
+                  <th class="py-2 text-center" style="width: 90px;">IVA</th><th class="pe-3 py-2 text-end">Precio</th></tr>
             </thead>
-            <tbody id="tbodyDetalle"></tbody>
+            <tbody id="tbodyTratamientos">
+              <tr><td colspan="6" class="text-center text-muted py-4">Elija el paciente para ver sus tratamientos facturables.</td></tr>
+            </tbody>
           </table>
         </div>
-        <div class="card-footer">
+        <div class="card-footer text-muted small">Se listan los tratamientos que no están cancelados y no tienen una factura vigente. Cantidad 1; precio e IVA son los vigentes del tipo de tratamiento.</div>
+      </div>
+    </div>
+
+    {# ── Condición y totales (comunes) ── #}
+    <div id="bloqueResumen" style="display: none;">
+      <div class="card border shadow-sm rounded-3 mb-3">
+        <div class="card-body">
           <div class="row g-3 justify-content-between">
             <div class="col-12 col-md-6">
               <div class="text-muted small text-uppercase fw-semibold mb-2">Condición</div>
@@ -189,6 +256,7 @@
       </div>
       <div class="modal-body p-4" id="cuerpoVer"></div>
       <div class="modal-footer border-top bg-light py-2">
+        <a class="btn btn-outline-primary" id="btnVerPdf" target="_blank" rel="noopener"><i class="fas fa-file-pdf me-2"></i>PDF</a>
         <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cerrar</button>
       </div>
     </div>
@@ -263,10 +331,11 @@
         return;
       }
       tbody.innerHTML = data.data.map((v) => {
-        const acc = [`<button type="button" class="btn btn-sm btn-outline-secondary" data-accion="ver" data-id="${v.id_venta}" title="Ver comprobante"><i class="fas fa-eye"></i></button>`];
+        const acc = [`<button type="button" class="btn btn-sm btn-outline-secondary" data-accion="ver" data-id="${v.id_venta}" title="Ver comprobante"><i class="fas fa-eye"></i></button>`,
+                     `<a class="btn btn-sm btn-outline-primary" href="${API}/${v.id_venta}/pdf" target="_blank" rel="noopener" title="Factura en PDF"><i class="fas fa-file-pdf"></i></a>`];
         if (PUEDE_ANULAR && v.estado === 'EMITIDA') {
           if (v.estado_apertura === 'ABIERTA') {
-            acc.push(`<button type="button" class="btn btn-sm btn-outline-danger" data-accion="anular" data-id="${v.id_venta}" data-info="${escapar('factura ' + v.numero_factura + ' de ' + v.cliente)}" title="Anular venta"><i class="fas fa-ban"></i></button>`);
+            acc.push(`<button type="button" class="btn btn-sm btn-outline-danger" data-accion="anular" data-id="${v.id_venta}" data-tipo="${v.tipo_venta}" data-pedido="${v.id_pedido || ''}" data-info="${escapar('factura ' + v.numero_factura + ' de ' + v.cliente)}" title="Anular venta"><i class="fas fa-ban"></i></button>`);
           } else {
             acc.push('<span class="btn btn-sm btn-outline-secondary disabled" title="La caja de esta venta ya fue cerrada; utilice una Nota de Crédito."><i class="fas fa-lock"></i></span>');
           }
@@ -294,6 +363,7 @@
       if (!data || !data.success) { Swal.fire('Error', (data && data.error) || 'No se pudo cargar la venta.', 'error'); return; }
       const v = data.data, t = v.totales, e = v.empresa || {}, tim = v.timbrado;
       $('modalVerTitulo').textContent = `Factura ${v.numero_factura}`;
+      $('btnVerPdf').href = `${API}/${v.id_venta}/pdf`;
       $('cuerpoVer').innerHTML = `
         <div class="d-flex flex-wrap justify-content-between gap-3 pb-3 mb-3 border-bottom">
           <div>
@@ -317,6 +387,7 @@
           <div class="col-6 col-md-3"><div class="text-muted small text-uppercase fw-semibold">Condición</div><div>${condTxt(v.condicion)}</div></div>
           <div class="col-6 col-md-3"><div class="text-muted small text-uppercase fw-semibold">Cajero</div><div>${escapar(v.cajero)}</div></div>
           <div class="col-6 col-md-3"><div class="text-muted small text-uppercase fw-semibold">Caja</div><div>${escapar(v.caja)}</div></div>
+          <div class="col-6 col-md-3"><div class="text-muted small text-uppercase fw-semibold">Tipo</div><div>${tipoTxt(v.tipo_venta)}</div></div>
           <div class="col-6 col-md-3"><div class="text-muted small text-uppercase fw-semibold">Pedido</div><div class="font-monospace">${v.id_pedido ? '#' + v.id_pedido : '—'}</div></div>
         </div>
         <div class="table-responsive mb-3 border rounded-3"><table class="table table-sm card-table mb-0">
@@ -350,16 +421,23 @@
   }
 
   /* ---------- anular ---------- */
-  async function anularVenta(id, info) {
+  async function anularVenta(id, info, tipo, idPedido) {
+    const esItems = tipo === 'ITEMS' && idPedido;
+    const consecuencia = esItems
+      ? 'Su cuenta a cobrar se anula y el pedido vuelve a PENDIENTE (si no marca la casilla). El número de factura no se reutiliza.'
+      : 'Su cuenta a cobrar se anula y los tratamientos quedan libres para volver a facturarse. El número de factura no se reutiliza.';
     const c = await Swal.fire({
       title: '¿Anular esta venta?',
-      text: `Se anulará la ${info}. Su cuenta a cobrar se anula y el pedido vuelve a PENDIENTE. El número de factura no se reutiliza.`,
+      text: `Se anulará la ${info}. ${consecuencia}`,
       icon: 'warning', showCancelButton: true,
+      input: esItems ? 'checkbox' : undefined, inputValue: 0,
+      inputPlaceholder: esItems ? 'Anular también el pedido y reponer el stock' : undefined,
       confirmButtonText: 'Sí, anular', cancelButtonText: 'Cancelar', confirmButtonColor: '#d63939'
     });
     if (!c.isConfirmed) return;
+    const anularPedido = esItems && Number(c.value) === 1;
     try {
-      const { data } = await pedir(`${API}/${id}`, { method: 'DELETE' });
+      const { data } = await pedir(`${API}/${id}` + (anularPedido ? '?anular_pedido=1' : ''), { method: 'DELETE' });
       await cargarListado();
       if (data && data.success) Swal.fire('Venta anulada', data.mensaje, 'success');
       else Swal.fire('No se pudo anular', (data && data.error) || 'Ocurrió un error.', 'error');
@@ -369,7 +447,12 @@
   }
 
   /* ---------- nueva venta ---------- */
-  let pedidoSel = null;
+  let tipoVenta = 'ITEMS';
+  let pedidoSel = null;          // ITEMS
+  let clienteSel = null;         // TRATAMIENTO: { id_cliente, nombre, ci_ruc }
+  let pacienteSel = null;        // TRATAMIENTO: { id_paciente, nombre }
+  let tratamientos = [];         // TRATAMIENTO: disponibles; cada uno con .marcado
+  let totalesItems = null;       // ITEMS: detalle del pedido
   let cajaAbierta = false;
 
   function mostrarNueva(si) {
@@ -377,7 +460,34 @@
     seccionListado.style.display = si ? 'none' : 'block';
   }
 
-  function actualizarBoton() { btnGuardar.disabled = !(cajaAbierta && pedidoSel); }
+  function hayVenta() { return tipoVenta === 'ITEMS' ? !!pedidoSel : tratamientos.some((t) => t.marcado); }
+  function actualizarBoton() { btnGuardar.disabled = !(cajaAbierta && hayVenta()); }
+
+  function totales(det) {
+    let ex = 0, g5 = 0, g10 = 0;
+    det.forEach((l) => { if (l.iva === 0) ex += l.subtotal; else if (l.iva === 5) g5 += l.subtotal; else g10 += l.subtotal; });
+    return { ex, g5, g10, total: ex + g5 + g10, iva5: Math.round(g5 / 21), iva10: Math.round(g10 / 11) };
+  }
+
+  function pintarResumen() {
+    const det = tipoVenta === 'ITEMS'
+      ? (totalesItems || [])
+      : tratamientos.filter((t) => t.marcado).map((t) => ({ iva: t.iva, subtotal: t.precio }));
+    const t = totales(det);
+    $('totExentas').textContent = gs(t.ex); $('totG5').textContent = gs(t.g5); $('totG10').textContent = gs(t.g10);
+    $('totTotal').textContent = gs(t.total); $('totIva5').textContent = gs(t.iva5); $('totIva10').textContent = gs(t.iva10);
+    $('bloqueResumen').style.display = hayVenta() ? 'block' : 'none';
+    actualizarVencimiento();
+    actualizarBoton();
+  }
+
+  function actualizarVencimiento() {
+    const d = new Date();
+    if ($('condCredito').checked) d.setDate(d.getDate() + 30);
+    $('lblVencimiento').textContent = 'Vencimiento de la cuenta a cobrar: ' + d.toLocaleDateString('es-PY') +
+      ($('condCredito').checked ? ' (30 días)' : ' (el mismo día)');
+  }
+  document.querySelectorAll('input[name="condicion"]').forEach((r) => r.addEventListener('change', actualizarVencimiento));
 
   async function cargarCaja() {
     const tarjeta = $('tarjetaCaja'), cuerpo = $('cuerpoCaja');
@@ -401,114 +511,203 @@
     actualizarBoton();
   }
 
-  async function abrirNueva() {
-    pedidoSel = null;
-    txtPedido.value = ''; txtPedido.readOnly = false; V.limpiarCampo(txtPedido);
-    $('bloquePedido').style.display = 'none'; errVenta.style.display = 'none';
-    $('condContado').checked = true;
-    mostrarNueva(true);
-    await cargarCaja();
-    txtPedido.focus();
+  /* Autocompletado reutilizable: búsqueda con espera, teclado (flechas / Enter / Escape) y Enter que nunca envía el formulario. */
+  function autocompletar(input, lista, buscar, itemHtml, alElegir, minimo) {
+    let resultados = [], indice = -1;
+    const cargar = debounce(async () => {
+      if (input.readOnly) return;
+      const q = input.value.trim();
+      if (q.length < (minimo || 0)) { lista.style.display = 'none'; return; }
+      try {
+        resultados = await buscar(q); indice = -1;
+        lista.innerHTML = resultados.length ? resultados.map((r, i) =>
+          `<button type="button" class="list-group-item list-group-item-action fc-autocomplete-item py-2" data-idx="${i}">${itemHtml(r)}</button>`).join('')
+          : '<div class="list-group-item text-muted small p-3">Sin resultados.</div>';
+        lista.style.display = 'block';
+      } catch (e) { lista.style.display = 'none'; }
+    }, 220);
+    input.addEventListener('input', () => { V.limpiarCampo(input); cargar(); });
+    input.addEventListener('focus', cargar);
+    input.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter') ev.preventDefault();
+      if (lista.style.display !== 'block' || !resultados.length) return;
+      const items = lista.querySelectorAll('.fc-autocomplete-item');
+      if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+        ev.preventDefault();
+        indice = (indice + (ev.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+        items.forEach((it, i) => it.classList.toggle('active', i === indice));
+        items[indice].scrollIntoView({ block: 'nearest' });
+      } else if (ev.key === 'Enter') {
+        const t = indice >= 0 ? items[indice] : items[0];
+        if (t) t.click();
+      } else if (ev.key === 'Escape') {
+        lista.style.display = 'none';
+      }
+    });
+    lista.addEventListener('click', (ev) => {
+      const b = ev.target.closest('button[data-idx]');
+      if (!b) return;
+      lista.style.display = 'none';
+      alElegir(resultados[Number(b.dataset.idx)]);
+    });
+    document.addEventListener('click', (ev) => { if (!ev.target.closest('#' + lista.id + ', #' + input.id)) lista.style.display = 'none'; });
   }
 
-  let resultados = [], indice = -1;
-  const buscarPedido = debounce(async () => {
-    if (pedidoSel) return;
-    try {
-      const { data } = await pedir(`${API}/pedidos?q=${encodeURIComponent(txtPedido.value.trim())}`);
-      resultados = (data && data.success) ? data.data : [];
-      indice = -1;
-      resPedido.innerHTML = resultados.length ? resultados.map((p, i) => `
-        <button type="button" class="list-group-item list-group-item-action fc-autocomplete-item py-2" data-idx="${i}" data-pedido="${p.id_pedido}">
-          <div class="d-flex justify-content-between align-items-center">
-            <span><span class="font-monospace fw-bold text-primary">#${p.id_pedido}</span> <span class="fw-bold text-dark">${escapar(p.cliente)}</span></span>
-            <span class="font-monospace fw-bold">${gs(p.total)}</span></div>
-          <div class="text-muted small">${escapar(p.ci_ruc)} &bull; ${fecha(p.fecha_pedido, true)}</div></button>`).join('')
-        : '<div class="list-group-item text-muted small p-3">No hay pedidos pendientes que coincidan.</div>';
-      resPedido.style.display = 'block';
-    } catch (e) { resPedido.style.display = 'none'; }
-  }, 220);
-  txtPedido.addEventListener('input', () => { V.limpiarCampo(txtPedido); buscarPedido(); });
-  txtPedido.addEventListener('focus', buscarPedido);
-  txtPedido.addEventListener('keydown', (ev) => {
-    if (ev.key === 'Enter') ev.preventDefault();   // Enter nunca envía el formulario desde el buscador
-    if (resPedido.style.display !== 'block' || !resultados.length) return;
-    const items = resPedido.querySelectorAll('.fc-autocomplete-item');
-    if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
-      ev.preventDefault();
-      indice = (indice + (ev.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
-      items.forEach((it, i) => it.classList.toggle('active', i === indice));
-      items[indice].scrollIntoView({ block: 'nearest' });
-    } else if (ev.key === 'Enter') {
-      const t = indice >= 0 ? items[indice] : items[0];
-      if (t) t.click();
-    } else if (ev.key === 'Escape') {
-      resPedido.style.display = 'none';
-    }
-  });
-  document.addEventListener('click', (ev) => { if (!ev.target.closest('#resPedido, #txtPedido')) resPedido.style.display = 'none'; });
-
-  resPedido.addEventListener('click', async (ev) => {
-    const b = ev.target.closest('button[data-pedido]');
-    if (!b) return;
-    resPedido.style.display = 'none';
-    try {
-      const { data } = await pedir(`${API}/pedidos/${b.dataset.pedido}`);
-      if (!data || !data.success) { V.marcarCampo(txtPedido, (data && data.error) || 'No se pudo cargar el pedido.'); return; }
-      cargarPedido(data.data);
-    } catch (e) { V.marcarCampo(txtPedido, 'Ocurrió un error de conexión.'); }
-  });
-
-  function totales(det) {
-    let ex = 0, g5 = 0, g10 = 0;
-    det.forEach((l) => { if (l.iva === 0) ex += l.subtotal; else if (l.iva === 5) g5 += l.subtotal; else g10 += l.subtotal; });
-    return { ex, g5, g10, total: ex + g5 + g10, iva5: Math.round(g5 / 21), iva10: Math.round(g10 / 11) };
+  async function buscarEn(ruta, q) {
+    const { data } = await pedir(`${API}/${ruta}${ruta.includes('?') ? '&' : '?'}q=${encodeURIComponent(q)}`);
+    return (data && data.success) ? data.data : [];
   }
+
+  /* --- tipo de venta --- */
+  function cambiarTipo(tipo) {
+    tipoVenta = tipo;
+    $('panelItems').style.display = tipo === 'ITEMS' ? 'block' : 'none';
+    $('panelTratamiento').style.display = tipo === 'TRATAMIENTO' ? 'block' : 'none';
+    errVenta.style.display = 'none';
+    pintarResumen();
+  }
+  document.querySelectorAll('input[name="tipoVenta"]').forEach((r) => r.addEventListener('change', () => cambiarTipo(r.value)));
+
+  /* --- ITEMS desde un pedido --- */
+  autocompletar(txtPedido, resPedido, (q) => buscarEn('pedidos', q),
+    (p) => `<div class="d-flex justify-content-between align-items-center">
+        <span><span class="font-monospace fw-bold text-primary">#${p.id_pedido}</span> <span class="fw-bold text-dark">${escapar(p.cliente)}</span></span>
+        <span class="font-monospace fw-bold">${gs(p.total)}</span></div>
+      <div class="text-muted small">${escapar(p.ci_ruc)} &bull; ${fecha(p.fecha_pedido, true)}</div>`,
+    async (p) => {
+      try {
+        const { data } = await pedir(`${API}/pedidos/${p.id_pedido}`);
+        if (!data || !data.success) { V.marcarCampo(txtPedido, (data && data.error) || 'No se pudo cargar el pedido.'); return; }
+        cargarPedido(data.data);
+      } catch (e) { V.marcarCampo(txtPedido, 'Ocurrió un error de conexión.'); }
+    }, 0);
 
   function cargarPedido(p) {
-    pedidoSel = p.id_pedido;
+    pedidoSel = p.id_pedido; totalesItems = p.detalle.map((d) => ({ iva: d.iva, subtotal: d.subtotal }));
     txtPedido.value = `#${p.id_pedido} — ${p.cliente}`; txtPedido.readOnly = true;
     $('lblCliente').textContent = p.cliente; $('lblCiRuc').textContent = p.ci_ruc;
     $('lblPedido').textContent = '#' + p.id_pedido; $('lblObservacion').textContent = p.observacion || '—';
     $('tbodyDetalle').innerHTML = p.detalle.map((d) => `<tr><td class="ps-3 fw-semibold">${escapar(d.item)}</td>
       <td class="text-center font-monospace">${d.cantidad}</td><td class="text-end text-nowrap font-monospace">${gs(d.precio_unitario)}</td>
       <td class="text-center text-muted small">${ivaTxt(d.iva)}</td><td class="pe-3 text-end text-nowrap font-monospace fw-bold">${gs(d.subtotal)}</td></tr>`).join('');
-    const t = totales(p.detalle);
-    $('totExentas').textContent = gs(t.ex); $('totG5').textContent = gs(t.g5); $('totG10').textContent = gs(t.g10);
-    $('totTotal').textContent = gs(t.total); $('totIva5').textContent = gs(t.iva5); $('totIva10').textContent = gs(t.iva10);
     $('bloquePedido').style.display = 'block'; errVenta.style.display = 'none';
-    actualizarVencimiento();
-    actualizarBoton();
+    pintarResumen();
   }
 
-  function actualizarVencimiento() {
-    const d = new Date();
-    if ($('condCredito').checked) d.setDate(d.getDate() + 30);
-    $('lblVencimiento').textContent = 'Vencimiento de la cuenta a cobrar: ' + d.toLocaleDateString('es-PY') +
-      ($('condCredito').checked ? ' (30 días)' : ' (el mismo día)');
+  /* --- TRATAMIENTO --- */
+  const txtClienteTrat = $('txtClienteTrat'), txtPaciente = $('txtPaciente');
+
+  autocompletar(txtClienteTrat, $('resClienteTrat'), (q) => buscarEn('clientes', q),
+    (c) => `<div class="fw-bold text-dark">${escapar(c.nombre)}</div>
+      <div class="text-muted small font-monospace">${escapar(c.ci_ruc)}${c.paciente ? ' &bull; paciente: ' + escapar(c.paciente) : ''}</div>`,
+    (c) => {
+      clienteSel = c;
+      txtClienteTrat.value = `${c.nombre} — ${c.ci_ruc}`; txtClienteTrat.readOnly = true;
+      $('btnCambiarClienteTrat').style.display = 'inline-block';
+      if (c.id_paciente) {   // cliente vinculado a un paciente: se precarga (se puede cambiar)
+        elegirPaciente({ id_paciente: c.id_paciente, nombre: c.paciente });
+        $('hintPaciente').textContent = 'Paciente precargado desde el cliente; puede cambiarlo.';
+      } else {
+        $('hintPaciente').textContent = 'El cliente no está vinculado a un paciente: búsquelo.';
+        txtPaciente.focus();
+      }
+      actualizarBoton();
+    }, 0);
+  $('btnCambiarClienteTrat').addEventListener('click', () => {
+    clienteSel = null; txtClienteTrat.value = ''; txtClienteTrat.readOnly = false;
+    $('btnCambiarClienteTrat').style.display = 'none'; txtClienteTrat.focus(); actualizarBoton();
+  });
+
+  autocompletar(txtPaciente, $('resPaciente'), (q) => buscarEn('pacientes', q),
+    (p) => `<div class="fw-bold text-dark">${escapar(p.nombre)}</div><div class="text-muted small font-monospace">${escapar(p.cedula)}</div>`,
+    (p) => elegirPaciente(p), 2);
+  $('btnCambiarPaciente').addEventListener('click', () => {
+    pacienteSel = null; tratamientos = []; txtPaciente.value = ''; txtPaciente.readOnly = false;
+    $('btnCambiarPaciente').style.display = 'none'; pintarTratamientos(); txtPaciente.focus();
+  });
+
+  async function elegirPaciente(p) {
+    pacienteSel = p; txtPaciente.value = p.nombre; txtPaciente.readOnly = true;
+    $('btnCambiarPaciente').style.display = 'inline-block'; V.limpiarCampo(txtPaciente);
+    try {
+      const { data } = await pedir(`${API}/tratamientos?id_paciente=${p.id_paciente}`);
+      tratamientos = (data && data.success ? data.data : []).map((t) => Object.assign({ marcado: false }, t));
+    } catch (e) { tratamientos = []; }
+    pintarTratamientos();
   }
-  document.querySelectorAll('input[name="condicion"]').forEach((r) => r.addEventListener('change', actualizarVencimiento));
+
+  function pintarTratamientos() {
+    const tb = $('tbodyTratamientos');
+    if (!pacienteSel) {
+      tb.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">Elija el paciente para ver sus tratamientos facturables.</td></tr>';
+    } else if (!tratamientos.length) {
+      tb.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">El paciente no tiene tratamientos pendientes de facturar.</td></tr>';
+    } else {
+      tb.innerHTML = tratamientos.map((t) => `<tr>
+        <td class="ps-3"><input type="checkbox" class="form-check-input" data-trat="${t.id_tratamiento}" ${t.marcado ? 'checked' : ''}></td>
+        <td class="fw-semibold">${escapar(t.descripcion)}</td><td class="text-nowrap">${fecha(t.fecha_tratamiento)}</td>
+        <td class="text-muted small">${escapar(t.estado)}</td><td class="text-center text-muted small">${ivaTxt(t.iva)}</td>
+        <td class="pe-3 text-end text-nowrap font-monospace fw-bold">${gs(t.precio)}</td></tr>`).join('');
+    }
+    pintarResumen();
+  }
+  $('tbodyTratamientos').addEventListener('change', (ev) => {
+    const cb = ev.target.closest('input[data-trat]');
+    if (!cb) return;
+    const t = tratamientos.find((x) => String(x.id_tratamiento) === cb.dataset.trat);
+    if (t) t.marcado = cb.checked;
+    errVenta.style.display = 'none';
+    pintarResumen();
+  });
+
+  /* --- abrir / guardar --- */
+  async function abrirNueva() {
+    pedidoSel = null; totalesItems = null; clienteSel = null; pacienteSel = null; tratamientos = [];
+    txtPedido.value = ''; txtPedido.readOnly = false; V.limpiarCampo(txtPedido);
+    txtClienteTrat.value = ''; txtClienteTrat.readOnly = false; $('btnCambiarClienteTrat').style.display = 'none';
+    txtPaciente.value = ''; txtPaciente.readOnly = false; $('btnCambiarPaciente').style.display = 'none';
+    V.limpiarCampo(txtClienteTrat); V.limpiarCampo(txtPaciente);
+    $('hintPaciente').textContent = 'Si el cliente es un paciente, se precarga; si no, búsquelo.';
+    $('bloquePedido').style.display = 'none'; errVenta.style.display = 'none';
+    $('condContado').checked = true; $('tipoItems').checked = true;
+    pintarTratamientos();
+    cambiarTipo('ITEMS');
+    mostrarNueva(true);
+    await cargarCaja();
+    txtPedido.focus();
+  }
 
   $('formVenta').addEventListener('submit', async (ev) => {
     ev.preventDefault();
     errVenta.style.display = 'none';
     if (!cajaAbierta) { errVenta.textContent = MSG_SIN_CAJA; errVenta.style.display = 'block'; return; }
-    if (!pedidoSel) { V.marcarCampo(txtPedido, 'Debe seleccionar un pedido.'); txtPedido.focus(); return; }
+    const condicion = document.querySelector('input[name="condicion"]:checked').value;
+    let cuerpo;
+    if (tipoVenta === 'ITEMS') {
+      if (!pedidoSel) { V.marcarCampo(txtPedido, 'Debe seleccionar un pedido.'); txtPedido.focus(); return; }
+      cuerpo = { tipo_venta: 'ITEMS', id_pedido: pedidoSel, condicion };
+    } else {
+      if (!clienteSel) { V.marcarCampo(txtClienteTrat, 'Debe seleccionar un cliente.'); txtClienteTrat.focus(); return; }
+      if (!pacienteSel) { V.marcarCampo(txtPaciente, 'Debe seleccionar un paciente.'); txtPaciente.focus(); return; }
+      const ids = tratamientos.filter((t) => t.marcado).map((t) => t.id_tratamiento);
+      if (!ids.length) { errVenta.textContent = 'Debe seleccionar al menos un tratamiento.'; errVenta.style.display = 'block'; return; }
+      cuerpo = { tipo_venta: 'TRATAMIENTO', id_cliente: clienteSel.id_cliente, id_paciente: pacienteSel.id_paciente, ids_tratamiento: ids, condicion };
+    }
     btnGuardar.disabled = true;
     try {
-      const { data } = await pedir(API, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id_pedido: pedidoSel, condicion: document.querySelector('input[name="condicion"]:checked').value })
-      });
+      const { data } = await pedir(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo) });
       if (data && data.success) {
         mostrarNueva(false);
         await cargarListado();
-        Swal.fire('Venta registrada', data.mensaje, 'success');
+        const r = await Swal.fire({ title: 'Venta registrada', text: data.mensaje, icon: 'success', showCancelButton: true,
+                                    confirmButtonText: 'Ver factura (PDF)', cancelButtonText: 'Cerrar' });
+        if (r.isConfirmed) window.open(`${API}/${data.data.id_venta}/pdf`, '_blank');
       } else {
         errVenta.textContent = (data && data.error) || 'Ocurrió un error. Intente nuevamente.';
         errVenta.style.display = 'block';
         Swal.fire('No se pudo registrar la venta', errVenta.textContent, 'error');
         await cargarCaja();
+        if (tipoVenta === 'TRATAMIENTO' && pacienteSel) elegirPaciente(pacienteSel);   // refresca los facturables
       }
     } catch (e) {
       Swal.fire('Error', 'Ocurrió un error de conexión. Intente nuevamente.', 'error');
@@ -526,7 +725,7 @@
     const btn = ev.target.closest('button[data-accion]');
     if (!btn) return;
     if (btn.dataset.accion === 'ver') verVenta(btn.dataset.id);
-    if (btn.dataset.accion === 'anular') anularVenta(btn.dataset.id, btn.dataset.info);
+    if (btn.dataset.accion === 'anular') anularVenta(btn.dataset.id, btn.dataset.info, btn.dataset.tipo, btn.dataset.pedido);
   });
   [filtroEstado, filtroTipo, filtroDesde, filtroHasta].forEach((el) => el.addEventListener('change', cargarListado));
   filtroCliente.addEventListener('input', debounce(cargarListado, 300));
