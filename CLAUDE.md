@@ -579,7 +579,7 @@ Además, como en todo endpoint: `@require_permiso(ventana, acción)`, botones en
    tratamientos no copian el precio ni el IVA del tipo; si cambian, cambian para todos).
 5. **Facturación — nuevo referencial "Mantener Timbrado"** (*pendiente de definir en el análisis*): no programarlo
    hasta tener el CUS (campos, validaciones y reglas de uso). Cuando se programe, cumple el estándar completo.
-6. **Facturación — movimientos**: ✅ Registrar Apertura y Cierre de Caja y ✅ Registrar Pedido Cliente y ✅ Registrar Ventas, etapa 1 (ver
+6. **Facturación — movimientos**: ✅ Registrar Apertura y Cierre de Caja y ✅ Registrar Pedido Cliente y ✅ Registrar Ventas (etapas 1 y 2) y ✅ Registrar Cobranzas (ver
    "Movimientos de Facturación");
    el resto de los movimientos (sin empezar) se programa después de los puntos anteriores.
 
@@ -587,7 +587,7 @@ Además, como en todo endpoint: `@require_permiso(ventana, acción)`, botones en
 - ✅ **Forma de Cobro** (primer referencial, define el patrón visual de los otros 7):
   tabla `forma_cobro` (sin código, baja lógica `activo`, índice único parcial sobre
   `UPPER(descripcion) WHERE activo`), descripción en MAYÚSCULAS. `esta_en_uso()` es un
-  stub que devuelve `False` (TODO: consultar `cobro_cabecera` cuando exista).
+  ahora consulta `cobro_det` (cobros EMITIDOS) para bloquear la baja; ver "Registrar Cobranzas".
   Scripts: `app/dao/modulo_facturacion/schema_forma_cobro.sql` y
   `schema_permisos_facturacion.sql`. Ventana `formacobro` en el catálogo, módulo
   "Referenciales Facturación".
@@ -599,7 +599,7 @@ Además, como en todo endpoint: `@require_permiso(ventana, acción)`, botones en
   auditoría de cambios: se incorpora al migrarlos (ver "Estándar de referenciales" y
   "Pendientes de referenciales").
 - ✅ **Marca de Tarjeta**: calco de Forma de Cobro (`marca_tarjeta`, ventana `marcatarjeta`;
-  `esta_en_uso()` es stub: TODO consultar `cobro_tarjeta`). Helpers compartidos de las APIs
+  `esta_en_uso()` ahora consulta `cobro_tarjeta` a través de la adherida; ver "Registrar Cobranzas"). Helpers compartidos de las APIs
   de Facturación (`normalizar_descripcion`, `auditar`, `error_interno`) en
   `app/rutas/modulo_facturacion/utils.py`.
 - ✅ **Entidad Emisora** (banco; `entidad_emisora`, ventana `entidademisora`) y
@@ -608,7 +608,7 @@ Además, como en todo endpoint: `@require_permiso(ventana, acción)`, botones en
   `(UPPER(descripcion), emisora, marca)`). Ambas con dirección, teléfono y correo obligatorios.
   Datos iniciales de contacto: ficticios, de ejemplo.
   - **Bloqueo de baja:** no se puede anular una emisora ni una marca con una adherida activa
-    (409 con mensaje específico). TODOs: `cobro_tarjeta` / `cobro_cheque`.
+    (409 con mensaje específico). Ya consultan los cobros: `cobro_tarjeta` / `cobro_cheque` (ver "Registrar Cobranzas").
   - `esta_en_uso()` ahora devuelve `False` o un texto con el motivo; `deleteX()` devuelve
     `("EN_USO", motivo)`. La verificación y el UPDATE van en una transacción con la fila
     bloqueada (`FOR UPDATE`); el alta/edición de Adherida toma `FOR SHARE` sobre emisora y
@@ -699,7 +699,7 @@ Además, como en todo endpoint: `@require_permiso(ventana, acción)`, botones en
     mensaje y en el detalle de auditoría (`Stock: N -> 0 (el tipo no controla stock)`). `reactivarItem` devuelve
     `(STOCK_REINICIADO, stock_anterior)` en ese caso.
   - **Forma de Cobro** pasó al protocolo `esta_en_uso()` (`False` o texto) / `deleteFormaCobro()` →
-    `("EN_USO", motivo)`, con la verificación y el UPDATE en una transacción (el TODO de `cobro_cabecera` quedó con su mensaje).
+    `("EN_USO", motivo)`, con la verificación y el UPDATE en una transacción (`_motivo_en_uso` ya consulta `cobro_det`).
   - Las 6 vistas usan `facturacion-listado.js`. Verificadas con un navegador real (Edge headless, `fetch` simulado):
     switch, filas, badges, botón Reactivar, diálogos de SweetAlert2, PATCH/DELETE, recarga y los modales Agregar/Editar.
 
@@ -719,10 +719,11 @@ auditoría como siempre. Las URL siguen la convención del proyecto (`/referenci
   - **El cajero (`id_usuario`) sale SIEMPRE de la sesión**, nunca del cuerpo del pedido. El Administrador ve todas las
     aperturas; los demás solo las propias (filtro en el servidor). Filtros `?estado=&desde=&hasta=` (hasta inclusivo).
   - **Anular** y **cerrar**: solo la apertura propia o cualquiera si es Administrador, y solo si está `ABIERTA`.
-    Anular se bloquea si el turno tiene movimientos (**TODO** `_motivo_con_movimientos`: consultar `cobro_cabecera` /
-    `venta_cab` cuando existan). **Cerrar**: `monto_cierre = monto_apertura + total_recaudado`, calculado por el servidor
-    (el cliente no manda importes); `GET /aperturas-caja/<id>/cierre` da el detalle previo a confirmar.
-    **TODO** `_total_recaudado`: hoy 0; sumar los cobros del turno en `cobro_cabecera` cuando exista.
+    Anular se bloquea si el turno tiene movimientos (`_motivo_con_movimientos`: ventas EMITIDAS y cobros EMITIDOS).
+    **Cerrar**: los importes los calcula el servidor (el cliente no manda nada) y `GET /aperturas-caja/<id>/cierre` da el
+    detalle previo a confirmar. Desde Cobranzas: `total_recaudado` = TODO lo cobrado (`fn_total_recaudado`) y
+    `monto_cierre = monto_apertura + solo el EFECTIVO cobrado` (`fn_total_efectivo_apertura`); el detalle muestra el desglose
+    por forma de cobro con `v_resumen_caja` (ver "Registrar Cobranzas").
   - Auditoría: apertura = `ALTA`, anulación = `BAJA`, cierre = **`CIERRE`** (se amplió el CHECK de `auditoria_cambios`).
   - Validador nuevo `validar_monto` (entero **≥ 0**, a diferencia de `validar_precio`) con su espejo `V.monto`; la API
     usa un único mensaje: "El monto de apertura debe ser un número entero mayor o igual a 0."
@@ -798,7 +799,7 @@ auditoría como siempre. Las URL siguen la convención del proyecto (`/referenci
   - **Conexiones:** `AperturaCajaDao._motivo_con_movimientos` bloquea anular una apertura con ventas EMITIDAS;
     `ClienteDao.esta_en_uso` bloquea la baja con ventas no anuladas; un pedido FACTURADO no se anula. La auditoría registra
     `ALTA`/`BAJA` en `venta_cab` y `MODIFICACION` del pedido (PENDIENTE ↔ FACTURADO).
-  - **Pendiente de Cobranzas:** conectar el "¿cobrar ahora?" tras guardar, `_motivo_con_cobros`, `_total_recaudado` de la
+  - **(Resuelto en Cobranzas)** el "¿cobrar ahora?", `_motivo_con_cobros`, `_total_recaudado` de la
     caja (hoy 0) y completar `v_estado_cuenta_cliente` con los cobros. La **Venta de Tratamiento** y la factura en PDF
     se hicieron en la etapa 2 (sección siguiente).
   - Pantalla `venta-index.html` (diseño de `facturacion.css`): listado con filtros (estado, tipo, cliente/N.º de factura,
@@ -848,6 +849,50 @@ auditoría como siempre. Las URL siguen la convención del proyecto (`/referenci
     doble facturación concurrente; anulación con y sin casilla; bloqueo en Consultorio). Los datos de prueba incluyen un
     paciente, tipos y tratamientos `ZZ`, que se borran por ID.
 
+- ✅ **Registrar Cobranzas por Forma de Cobro** (ventana `cobro`, acciones `ver`, `nuevo`, `anular`; el Cajero las recibe todas).
+  Usa las tablas que creó `01_migracion_der.sql` **tal cual**: `cobro_cab` (`id_cuenta`, `id_apertura`, `id_usuario`,
+  `numero_recibo` único, `total > 0`, `observacion`, `estado` EMITIDO/ANULADO; **sin `id_cliente`: el cliente sale de la cuenta**),
+  `cobro_det` (una fila por forma de cobro), `cobro_tarjeta` (`id_entidad_adherida`, `tipo_tarjeta` CREDITO/DEBITO,
+  `ultimos_digitos`, `numero_autorizacion`; **la marca y la emisora salen de la adherida**) y `cobro_cheque` (`id_entidad_emisora`,
+  `numero_cheque`, `titular`, `fecha_emision`, `fecha_cobro`). Scripts (idempotentes, en este orden):
+  `01_migracion_der.sql` → `schema_cobranzas_columnas.sql` → `schema_cobranzas.sql` (objetos) en `app/dao/modulo_facturacion/`,
+  y `schema_permisos_id_menu.sql` → `schema_permisos_cobranzas.sql` → `schema_permisos_cajero.sql` en `app/dao/modulo_seguridad/`.
+  - ⚠️ **Dos columnas NUEVAS que NO están en el DER de la tesis y hay que agregarlas al DER:**
+    **`forma_cobro.tipo`** `VARCHAR(15) NOT NULL CHECK (tipo IN ('EFECTIVO','TARJETA','CHEQUE','TRANSFERENCIA'))` (define qué datos
+    pide el cobro y qué cuenta como efectivo en el cierre; combo "Tipo" y columna en la pantalla de Formas de Cobro, obligatorio en la
+    API; **no se puede cambiar el tipo de una forma ya usada en cobros**) y **`cobro_det.numero_referencia`** `VARCHAR(30) NULL`
+    (número de referencia de la transferencia; obligatorio solo si la forma es TRANSFERENCIA y prohibido en las demás).
+    La migración asigna el tipo por la descripción; **`NOT NULL` queda pendiente** hasta que se resuelva la fila que no se pudo
+    deducir (`#17 "BHDJDGJ"`): editar su tipo (o darla de baja) y volver a correr `schema_cobranzas_columnas.sql`. Mientras tanto
+    el cobro rechaza una forma sin tipo ("La forma de cobro <X> no tiene tipo asignado.").
+  - **Cobro** (`POST /cobros`, una transacción): caja ABIERTA del cajero (`FOR SHARE`; "Debe abrir la caja antes de registrar un cobro."),
+    cuenta PENDIENTE (`FOR UPDATE`; "La cuenta a cobrar ya está pagada." / "está anulada."), **suma de formas = total** (no se
+    acepta un total aparte) y **total ≤ saldo** ("El monto supera el saldo pendiente de Gs. N."). Pagos parciales y varias formas
+    juntas (sin vuelto; se puede cobrar una cuenta vencida). Por forma: EFECTIVO solo monto; **TARJETA**: adherida (con marca y
+    emisora activas; el tipo crédito/débito se deduce de la descripción de la forma y no puede contradecirla), últimos 4 dígitos y
+    autorización; **CHEQUE**: emisora activa, número, titular y fechas (**cheque diferido: la fecha de cobro puede ser futura; la
+    de emisión no puede ser posterior a hoy y la de cobro no anterior a la de emisión**); **TRANSFERENCIA**: referencia. Las formas
+    y entidades se bloquean con `FOR SHARE` (una baja concurrente espera). El cajero y la apertura salen de la sesión.
+  - **Recibo** `REC-0000001`, **sin huecos** (`fn_siguiente_numero_recibo`: mayor número usado + 1 bajo un bloqueo asesor; el
+    anulado conserva el suyo). **Recibo de dinero en PDF** (`app/Services/recibo_pdf_service.py`, mismo patrón que la factura:
+    `calcular_datos_recibo` / `dibujar_recibo` / `generarReciboPdf`; ORIGINAL y DUPLICADO, marca "ANULADO"), `GET /cobros/<id>/pdf`.
+  - **Anular** (`DELETE /cobros/<id>`, cualquiera con `anular`): solo si la apertura del cobro sigue ABIERTA ("La caja de este cobro
+    ya fue cerrada; utilice una Nota de Crédito."); el trigger repone el saldo y la cuenta vuelve de PAGADA a PENDIENTE.
+  - **Cierre de caja:** `total_recaudado` = todo lo cobrado; **`monto_cierre = monto_apertura + solo el EFECTIVO`** (tarjetas, cheques y
+    transferencias no son plata en el cajón); el detalle del cierre muestra el desglose por forma (`v_resumen_caja`).
+  - **Conexiones:** la venta ofrece "¿Cobrar ahora?" (abre `/referenciales/cobro/cobro-index?cuenta=<id>`); anular una venta con
+    cobros EMITIDOS se bloquea ("No es posible anular, existen cobros registrados. Utilice una Nota de Crédito.", bloqueando antes la
+    cuenta `FOR UPDATE`); anular una apertura con cobros se bloquea; `esta_en_uso` de **Forma de Cobro, Marca, Entidad Adherida y
+    Entidad Emisora** consulta los cobros EMITIDOS (la Adherida pasó al protocolo transaccional `FOR UPDATE`).
+  - **Pantalla** `cobro-index.html`: listado con filtros (estado, cliente/N.º de factura/N.º de recibo, fechas) y Ver/PDF/Anular (candado si la
+    caja se cerró); Nuevo Cobro: buscar la cuenta (muestra total, saldo y vencimiento, con aviso "Vencida"), grilla de formas con los campos
+    de cada tipo, total en vivo y saldo restante, "Cobrar todo el saldo". Nuevos validadores en espejo: `validar_monto_positivo` /
+    `V.montoPositivo`, `validar_codigo` / `V.codigo`, `validar_ultimos_digitos` / `V.ultimosDigitos`.
+  - Tests: `tests/facturacion/smoke_cobranzas.py` (usa como cajero al Administrador y un timbrado ZZ INACTIVO: no consume números reales y
+    no depende de la caja del Cajero real) y el helper `tests/facturacion/_pdf.py` (leer PDFs de ReportLab sin librerías).
+  - **Pendiente:** Nota de Crédito (anular con la caja cerrada), Arqueo de Caja (`arqueo_caja_det` ya existe en el DER) y, cuando exista,
+    cobrar en el momento de la venta de contado sin pasar por la pantalla de cobros.
+
 ### Objetos de base de datos (rúbricas de Base de Datos II: procedimientos almacenados, triggers y vistas)
 Todos viven en `app/dao/modulo_facturacion/schema_objetos_bd.sql` (idempotente: `CREATE OR REPLACE` y `DROP TRIGGER IF
 EXISTS`), con comentarios de propósito, parámetros y excepciones, bloque `BEGIN … EXCEPTION` y `COMMENT ON`.
@@ -867,7 +912,18 @@ EXISTS`), con comentarios de propósito, parámetros y excepciones, bloque `BEGI
   **Los tests** borran solo la auditoría que ellos generaron con `tests/facturacion/_limpieza.py::borrar_auditoria`, que
   usa `SET session_replication_role = replica` solo en su conexión (exige superusuario; se revierte al cerrarla).
 - **Vista `v_estado_cuenta_cliente`**: una fila por factura (cliente, número, fecha, condición, total, saldo, estado de la
-  cuenta, vencimiento) más `saldo_total_cliente` (suma de los saldos PENDIENTES del cliente, sin las cuentas anuladas).
+  cuenta, vencimiento) más `saldo_total_cliente` (suma de los saldos PENDIENTES del cliente, sin las cuentas anuladas) y,
+  **completada con Cobranzas**, `total_cobrado`, `cantidad_cobros` y `fecha_ultimo_cobro` (cobros EMITIDOS). `schema_objetos_bd.sql` la crea
+  solo si no existe y `schema_cobranzas.sql` la completa (`CREATE OR REPLACE` agregando columnas al final).
+- **Cobranzas** (`schema_cobranzas.sql`, solo funciones, triggers y vistas; ninguna tabla): **`trg_aplicar_cobro`** (AFTER INSERT/UPDATE de
+  `estado` en `cobro_cab`, función `fn_aplicar_cobro`: descuenta o repone el saldo y pasa la cuenta a PAGADA/PENDIENTE; rechaza
+  cuenta no pendiente, total mayor al saldo y reactivar un cobro anulado); **`trg_validar_cobro`** (trigger de restricción DIFERIDO,
+  `fn_validar_cobro`: al confirmar, suma de formas = total y cada forma con sus datos de tarjeta/cheque/referencia);
+  **`fn_total_recaudado(p_id_apertura)`** (todo lo cobrado), **`fn_total_efectivo_apertura(p_id_apertura)`** (solo efectivo),
+  **`fn_siguiente_numero_recibo()`**, `fn_formato_gs(n)` y la vista **`v_resumen_caja`** (por apertura y forma de cobro). Todos con
+  comentarios de propósito, parámetros y excepciones y `COMMENT ON`.
+- **`trg_permisos_resolver_menu`** (BEFORE INSERT en `permisos`, `schema_permisos_id_menu.sql`): completa `permisos.id_menu` desde
+  `menu.clave = ventana` (compatibilidad con la migración del DER; ver "Modelo de permisos").
 - ⏳ **Pendiente de la tanda de cierre:** crear un **usuario de base de datos propio de la aplicación, sin superusuario y
   con permisos mínimos** (SELECT/INSERT/UPDATE/DELETE solo donde haga falta, solo INSERT en las tablas de auditoría y
   EXECUTE en el procedimiento), para que la app no pueda saltarse los triggers (hoy se conecta como `postgres`, que sí
@@ -925,10 +981,10 @@ EXISTS`), con comentarios de propósito, parámetros y excepciones, bloque `BEGI
   Si hay que delegarlo, se agrega `editar` a la ventana en el catálogo y al seed.
 - **Permisos del rol Cajero** (`app/dao/modulo_seguridad/schema_permisos_cajero.sql`, idempotente; define el conjunto
   COMPLETO del Cajero: quita lo que sobra e inserta lo que falta, y solo toca ese rol):
-  - **Módulo Facturación (movimientos, hoy `aperturacaja`, `pedidocliente` y `venta`): todas las acciones de la ventana.**
+  - **Módulo Facturación (movimientos, hoy `aperturacaja`, `pedidocliente`, `venta` y `cobro`): todas las acciones de la ventana.**
   - **Cliente: `ver`, `nuevo`, `editar`** (sin `anular`).
   - **Forma de Cobro, Marca de Tarjeta, Entidad Emisora, Entidad Adherida, Caja, Depósito, Tipo Ítems e Ítems: solo `ver`.**
-  - **Agendamiento, Consultorio y Seguridad: ningún permiso.** El Cajero queda con 21 filas de permisos (15 + las 3 de `pedidocliente` + las 3 de `venta`).
+  - **Agendamiento, Consultorio y Seguridad: ningún permiso.** El Cajero queda con 24 filas de permisos (15 + las 3 de `pedidocliente` + las 3 de `venta` + las 3 de `cobro`).
   - **Cada movimiento NUEVO de Facturación debe sumar su ventana (con todas sus acciones) a ese seed**, y todo
     referencial nuevo de Facturación entra con `ver`. `tests/facturacion/smoke_permisos_cajero.py` falla si el
     catálogo tiene una ventana de "Módulo Facturación" que el Cajero no puede usar por completo.
@@ -936,6 +992,13 @@ EXISTS`), con comentarios de propósito, parámetros y excepciones, bloque `BEGI
     Con `nuevo` en Cliente, el Cajero puede usar el buscador de pacientes (`/clientes/pacientes`) sin tener permiso
     sobre la ventana Pacientes (decisión confirmada).
   - Los tests que necesiten anular/crear un referencial deben usar la sesión del Administrador, no la del Cajero.
+- **Tabla `menu` y `permisos.id_menu` (DER):** `01_migracion_der.sql` creó la tabla `menu` (una fila por ventana, `clave` = la
+  ventana del catálogo) y volvió OBLIGATORIO `permisos.id_menu`. El código que inserta permisos por `(id_rol, ventana, accion)`
+  (PermisoDao, los `schema_permisos_*.sql` y los tests) sigue funcionando por el trigger `trg_permisos_resolver_menu`
+  (`schema_permisos_id_menu.sql`), que completa `id_menu` desde `menu.clave = ventana` y rechaza si no hay entrada de menú.
+  **Toda ventana NUEVA necesita su fila en `menu` antes de sembrar permisos** (los seeds nuevos la insertan con
+  `ON CONFLICT`/`WHERE NOT EXISTS`, ver `schema_permisos_cobranzas.sql`). El sidebar y el buscador siguen saliendo de
+  `menu_catalog.py`: la tabla `menu` todavía no los alimenta. Revertir el trigger: `DROP TRIGGER trg_permisos_resolver_menu ON permisos;`.
 - **Roles y Permisos** (la matriz) queda con `@require_admin` fijo y fuera del
   catálogo, para que nadie pueda autoconcederse acceso.
 - **Páginas de error propias 403/404/500** (`app/rutas/errores.py`, plantillas en

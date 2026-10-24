@@ -169,7 +169,8 @@ def anularApertura(id_apertura):
 
 
 # -------------------------
-# Detalle previo al cierre: monto de apertura + total recaudado = monto de cierre (lo calcula el servidor)
+# Detalle previo al cierre (lo calcula el servidor): total recaudado = TODO lo cobrado (todas las formas);
+# monto de cierre = monto de apertura + solo lo cobrado en EFECTIVO; `resumen` = desglose por forma (v_resumen_caja)
 # -------------------------
 @aperturacajaapi.route('/aperturas-caja/<int:id_apertura>/cierre', methods=['GET'])
 @require_permiso('aperturacaja', 'estado')
@@ -209,6 +210,7 @@ def cerrarApertura(id_apertura):
                     f'Caja: {apertura["caja"]}; Cajero: {apertura["cajero"]}; '
                     f'Monto de apertura: {_gs(resultado["monto_apertura"])}; '
                     f'Total recaudado: {_gs(resultado["total_recaudado"])}; '
+                    f'Efectivo: {_gs(resultado["efectivo"])}; '
                     f'Monto de cierre: {_gs(resultado["monto_cierre"])}')
             return jsonify({'success': True, 'data': apertura,
                             'mensaje': f'Caja "{apertura["caja"]}" cerrada correctamente. '

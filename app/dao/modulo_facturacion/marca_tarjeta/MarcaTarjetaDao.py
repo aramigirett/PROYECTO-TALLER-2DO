@@ -141,8 +141,14 @@ class MarcaTarjetaDao:
             (id_marca_tarjeta,))
         if cur.fetchone()[0]:
             return "No se puede dar de baja, la marca está asociada a una entidad adherida."
-        # TODO: debe consultar cobro_tarjeta (WHERE id_marca_tarjeta = %s) cuando exista
-        # la tabla. Mientras tanto no hay nada más que pueda referenciarla.
+        # Cobranzas EMITIDAS con tarjeta de esta marca (la marca sale de la entidad adherida del cobro).
+        cur.execute("""SELECT 1 FROM cobro_tarjeta t
+                       JOIN entidad_adherida ea ON ea.id_entidad_adherida = t.id_entidad_adherida
+                       JOIN cobro_det d ON d.id_cobro_det = t.id_cobro_det
+                       JOIN cobro_cab c ON c.id_cobro = d.id_cobro
+                       WHERE ea.id_marca_tarjeta = %s AND c.estado = 'EMITIDO' LIMIT 1""", (id_marca_tarjeta,))
+        if cur.fetchone():
+            return "No se puede dar de baja, la marca está usada en una cobranza con tarjeta."
         return False
 
     def esta_en_uso(self, id_marca_tarjeta):

@@ -158,6 +158,29 @@
     return '';
   }
 
+  /* Monto de una forma de cobro: entero > 0, un único mensaje. Espejo de validar_monto_positivo. */
+  function montoPositivo(v) {
+    var t = esVacio(v) ? '' : String(v).trim();
+    if (!/^-?\d+$/.test(t) || parseInt(t, 10) <= 0) return 'El monto debe ser un número entero mayor a 0.';
+    if (parseInt(t, 10) > MAX_PRECIO) return 'El monto no puede superar ' + formatoNumero(MAX_PRECIO) + '.';
+    return '';
+  }
+
+  /* Código o número tipeado (referencia, autorización, N.º de cheque). Espejo de validar_codigo. */
+  var RE_CODIGO = /^[A-Z0-9][A-Z0-9 ._\/\-]*$/;
+  function codigo(v, nombre, max, obligatorio) {
+    var t = limpiar(v).toUpperCase();
+    if (!t) return obligatorio === false ? '' : 'El campo ' + nombre + ' es obligatorio y no puede estar vacío.';
+    if (t.length > max) return 'El campo ' + nombre + ' no puede superar los ' + max + ' caracteres.';
+    if (!RE_CODIGO.test(t)) return 'El campo ' + nombre + ' solo puede contener letras, números, espacios y los símbolos . _ / -';
+    return '';
+  }
+
+  /* Últimos 4 dígitos de la tarjeta. Espejo de validar_ultimos_digitos. */
+  function ultimosDigitos(v) {
+    return /^\d{4}$/.test(String(v === null || v === undefined ? '' : v).trim()) ? '' : 'Los últimos dígitos de la tarjeta deben ser 4 números.';
+  }
+
   /* Observación opcional de hasta 200 caracteres. Espejo de validar_observacion. */
   function observacion(v) {
     var t = limpiar(v);
@@ -187,7 +210,7 @@
     ciRuc: ciRuc, calcularDvRuc: calcularDvRuc, nombre: nombre,
     telefonoOpcional: telefonoOpcional, correoOpcional: correoOpcional,
     precio: precio, monto: monto, iva: iva, cantidad: cantidad, cantidadPositiva: cantidadPositiva,
-    observacion: observacion, formatoGs: formatoGs,
+    observacion: observacion, montoPositivo: montoPositivo, codigo: codigo, ultimosDigitos: ultimosDigitos, formatoGs: formatoGs,
     marcarCampo: marcarCampo, limpiarCampo: limpiarCampo
   };
 })(window);

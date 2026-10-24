@@ -156,7 +156,13 @@ COMMENT ON TRIGGER trg_auditoria_inmutable ON auditoria_acceso IS 'Impide modifi
 --             fecha_vencimiento, saldo_total_cliente (se repite en cada fila del cliente).
 -- Se completará con los cobros en el próximo movimiento (el saldo baja a medida que se cobra).
 -- =====================================================================================================================
-CREATE OR REPLACE VIEW v_estado_cuenta_cliente AS
+-- La vista se crea SOLO si no existe: schema_cobranzas.sql la completa con los cobros (CREATE OR REPLACE agregando columnas
+-- al final), y volver a correr este script no debe volver a la versión corta (CREATE OR REPLACE no puede quitar columnas).
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_views WHERE schemaname = 'public' AND viewname = 'v_estado_cuenta_cliente') THEN
+        EXECUTE $vista$
+CREATE VIEW v_estado_cuenta_cliente AS
 SELECT c.id_cliente,
        c.nombre || COALESCE(' ' || c.apellido, '') AS cliente,
        c.ci_ruc,
@@ -172,6 +178,9 @@ SELECT c.id_cliente,
            OVER (PARTITION BY c.id_cliente) AS saldo_total_cliente
 FROM cuenta_cobrar cc
 JOIN venta_cab v ON v.id_venta = cc.id_venta
-JOIN cliente   c ON c.id_cliente = cc.id_cliente;
+JOIN cliente   c ON c.id_cliente = cc.id_cliente
+        $vista$;
+    END IF;
+END $$;
 
 COMMENT ON VIEW v_estado_cuenta_cliente IS 'Estado de cuenta por cliente: una fila por factura (número, fecha, condición, total, saldo, estado de la cuenta) y el saldo total pendiente del cliente.';

@@ -394,11 +394,17 @@
       title: 'Cerrar caja',
       html: `<div class="text-start">
                <div class="mb-3 text-muted fw-bold">${escapar(d.caja)} &bull; ${escapar(d.consultorio)}</div>
-               <table class="table table-sm mb-0">
+               <table class="table table-sm mb-3">
                  <tr><td>Monto de apertura</td><td class="text-end font-monospace">${gs(d.monto_apertura)}</td></tr>
-                 <tr><td>+ Total recaudado</td><td class="text-end font-monospace">${gs(d.total_recaudado)}</td></tr>
+                 <tr><td>+ Efectivo cobrado</td><td class="text-end font-monospace">${gs(d.efectivo)}</td></tr>
                  <tr class="fw-bold table-light"><td>= Monto de cierre</td><td class="text-end font-monospace text-primary fs-4">${gs(d.monto_cierre)}</td></tr>
                </table>
+               <div class="text-muted small fw-semibold text-uppercase mb-1">Cobrado por forma de cobro</div>
+               <table class="table table-sm table-borderless mb-1">
+                 ${(d.resumen && d.resumen.length) ? d.resumen.map((r) => `<tr><td>${escapar(r.forma_cobro)} <span class="text-muted small">(${r.cantidad_pagos})</span></td><td class="text-end font-monospace">${gs(r.total_cobrado)}</td></tr>`).join('') : '<tr><td class="text-muted" colspan="2">No hubo cobros en este turno.</td></tr>'}
+                 <tr class="border-top fw-semibold"><td>Total recaudado (todas las formas)</td><td class="text-end font-monospace">${gs(d.total_recaudado)}</td></tr>
+               </table>
+               <div class="text-muted small">Tarjetas, cheques y transferencias no suman al monto de cierre: no son efectivo en caja.</div>
              </div>`,
       showCancelButton: true, confirmButtonText: 'Confirmar cierre', cancelButtonText: 'Cancelar'
     });

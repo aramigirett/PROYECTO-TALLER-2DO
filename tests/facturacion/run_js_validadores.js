@@ -31,6 +31,12 @@ for (var w = 0; w < cants.length; w++) out.push('cantPos\t' + cants[w] + '\t' + 
 var largo = ''; for (var z = 0; z < 201; z++) largo += 'a';
 var obs = ['', '   ', 'Entrega por la tarde', largo, largo.substring(0, 200), 'con   espacios  internos', 'raro\u0001'];
 for (var o = 0; o < obs.length; o++) out.push('observacion\t' + obs[o] + '\t' + V.observacion(obs[o]));
+var mp = ['1', '1500', '0', '-1', 'abc', '', '1.5', ' 7 ', '999999999999', '1000000000000'];
+for (var a1 = 0; a1 < mp.length; a1++) out.push('montoPos\t' + mp[a1] + '\t' + V.montoPositivo(mp[a1]));
+var cods = ['', '   ', 'abc123', 'REF-2026/01', 'a b.c_d', 'con%raro', '-empieza', 'x', '123456789012345678901234567890', '1234567890123456789012345678901'];
+for (var a2 = 0; a2 < cods.length; a2++) out.push('codigo\t' + cods[a2] + '\t' + V.codigo(cods[a2], 'referencia', 30, true) + '|' + V.codigo(cods[a2], 'referencia', 30, false));
+var uds = ['1234', '0000', '123', '12345', 'abcd', '', ' 1234 ', '12 4'];
+for (var a3 = 0; a3 < uds.length; a3++) out.push('ultDig\t' + uds[a3] + '\t' + V.ultimosDigitos(uds[a3]));
 out.push('ubicacion\tPLANTA\t' + V.ubicacion('PLANTA') + '|' + V.ubicacion('') );
 // salida en UTF-8 sin BOM vía ADODB
 var so = new ActiveXObject('ADODB.Stream'); so.Type = 2; so.Charset = 'utf-8'; so.Open();

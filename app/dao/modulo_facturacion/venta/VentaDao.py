@@ -32,7 +32,7 @@ SELECT v.id_venta, v.numero_factura, v.fecha, v.id_cliente, c.nombre || COALESCE
        v.tipo_venta, v.condicion, v.id_pedido,
        v.total_exenta, v.total_gravada_5, v.total_gravada_10, v.iva_5, v.iva_10, v.total, v.estado,
        v.id_apertura, a.estado, cj.descripcion,
-       cc.estado, cc.saldo, cc.fecha_vencimiento
+       cc.estado, cc.saldo, cc.fecha_vencimiento, cc.id_cuenta
 FROM venta_cab v
 JOIN cliente c ON c.id_cliente = v.id_cliente
 JOIN usuarios u ON u.id_usuario = v.id_usuario
@@ -59,6 +59,7 @@ def _a_dict(f):
         'id_apertura': f[18], 'estado_apertura': f[19], 'caja': f[20],
         'estado_cuenta': f[21], 'saldo': int(f[22]) if f[22] is not None else None,
         'fecha_vencimiento': f[23].strftime('%Y-%m-%d') if f[23] else None,
+        'id_cuenta': f[24],
     }
 
 
@@ -427,9 +428,14 @@ class VentaDao:
     # ------------------------------------------------------------------ anulación
     def _motivo_con_cobros(self, cur, id_venta):
         """Devuelve el motivo (texto) si la cuenta de la venta tiene cobros, o False."""
-        # TODO: debe consultar los cobros de la cuenta a cobrar (cobro_cabecera / cobro_detalle) cuando existan esas
-        # tablas y devolver MSG_ANULAR_CON_COBROS. Mientras tanto no hay cobros posibles.
-        return False
+        # Cobros EMITIDOS de la cuenta de esta venta. Se bloquea la cuenta (FOR UPDATE) ANTES de mirar: un cobro nuevo toma
+        # el mismo bloqueo, así que no puede colarse entre la verificación y la anulación. (Los anulados no cuentan.)
+        cur.execute("SELECT id_cuenta FROM cuenta_cobrar WHERE id_venta = %s FOR UPDATE", (id_venta,))
+        cuenta = cur.fetchone()
+        if cuenta is None:
+            return False
+        cur.execute("SELECT 1 FROM cobro_cab WHERE id_cuenta = %s AND estado = 'EMITIDO' LIMIT 1", (cuenta[0],))
+        return MSG_ANULAR_CON_COBROS if cur.fetchone() else False
 
     def anularVenta(self, id_venta, anular_pedido=False):
         """

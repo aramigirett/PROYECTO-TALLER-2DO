@@ -1,0 +1,535 @@
+{% extends 'base_tabler.html' %}
+
+{% block titulo %}Registrar Cobranzas{% endblock %}
+
+{% block css %}
+<link href="{{ url_for('static', filename='css/facturacion.css') }}" rel="stylesheet">
+{% endblock %}
+
+{% block contenido %}
+{# ══════════════════ LISTADO DE COBROS ══════════════════ #}
+<div id="seccionListado">
+  <div class="page-header d-print-none mb-3">
+    <div class="row align-items-center">
+      <div class="col">
+        <div class="page-pretitle text-muted">Facturación &bull; Cobranzas</div>
+        <h2 class="page-title fw-bold" style="color: var(--fc-text-main, #0f172a);">Registrar Cobranzas</h2>
+      </div>
+      {% if puede('cobro', 'nuevo') %}
+      <div class="col-auto">
+        <button type="button" class="btn btn-primary px-3 rounded-pill" id="btnNuevo"><i class="fas fa-plus me-2"></i>Nuevo Cobro</button>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card border shadow-sm rounded-3">
+    <div class="card-header bg-white py-3 border-bottom">
+      <div class="row g-2 align-items-end w-100">
+        <div class="col-6 col-md-2">
+          <label class="form-label small fw-semibold text-muted mb-1" for="filtroEstado">Estado</label>
+          <select class="form-select form-select-sm" id="filtroEstado">
+            <option value="">Todos</option><option value="EMITIDO">Emitido</option><option value="ANULADO">Anulado</option>
+          </select>
+        </div>
+        <div class="col-12 col-md-4">
+          <label class="form-label small fw-semibold text-muted mb-1" for="filtroCliente">Cliente, N.º de factura o de recibo</label>
+          <input type="text" class="form-control form-control-sm" id="filtroCliente" maxlength="80" placeholder="Nombre, CI/RUC o N.º" autocomplete="off">
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label small fw-semibold text-muted mb-1" for="filtroDesde">Desde</label>
+          <input type="date" class="form-control form-control-sm" id="filtroDesde">
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label small fw-semibold text-muted mb-1" for="filtroHasta">Hasta</label>
+          <input type="date" class="form-control form-control-sm" id="filtroHasta">
+        </div>
+        <div class="col-12 col-md-2">
+          <button type="button" class="btn btn-sm btn-outline-secondary w-100" id="btnLimpiarFiltros"><i class="fas fa-eraser me-1"></i>Limpiar</button>
+        </div>
+      </div>
+      <div class="text-danger small mt-2 w-100" id="errFiltros" style="display: none;"></div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-vcenter table-hover card-table mb-0">
+        <thead class="bg-light text-muted small text-uppercase">
+          <tr>
+            <th class="ps-3 py-3">N.º recibo</th><th class="py-3">Fecha</th><th class="py-3">Cliente</th><th class="py-3">Factura</th>
+            <th class="py-3">Formas de cobro</th><th class="py-3 text-end">Total</th>
+            <th class="py-3 text-center" style="width: 120px;">Estado</th><th class="pe-3 py-3 text-end w-1">Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="tbodyCobros">
+          <tr><td colspan="8" class="text-center text-muted py-4"><div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>Cargando cobros…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{# ══════════════════ NUEVO COBRO ══════════════════ #}
+<div id="seccionNuevo" style="display: none;">
+  <div class="page-header d-print-none mb-3">
+    <div class="row align-items-center">
+      <div class="col">
+        <div class="page-pretitle text-muted">Registrar Cobranzas</div>
+        <h2 class="page-title fw-bold" style="color: var(--fc-text-main, #0f172a);">Nuevo Cobro</h2>
+      </div>
+      <div class="col-auto"><button type="button" class="btn btn-outline-secondary" id="btnVolverListado"><i class="fas fa-arrow-left me-2"></i>Volver al listado</button></div>
+    </div>
+  </div>
+
+  <div class="card fc-hero-card mb-3" id="tarjetaCaja"><div class="card-body p-3" id="cuerpoCaja"></div></div>
+
+  <form id="formCobro" novalidate>
+    <div class="card border shadow-sm rounded-3 mb-3">
+      <div class="card-body position-relative">
+        <label class="form-label required fw-semibold" for="txtCuenta">Cuenta a cobrar</label>
+        <input type="text" class="form-control" id="txtCuenta" placeholder="Buscar por cliente (nombre o CI/RUC) o N.º de factura…" autocomplete="off">
+        <div class="invalid-feedback"></div>
+        <div class="list-group fc-autocomplete-list position-absolute shadow" id="resCuenta" style="z-index: 1050; display: none; left: 1rem; right: 1rem;"></div>
+        <div class="form-hint text-muted small mt-1">Solo se listan cuentas PENDIENTES con saldo.</div>
+      </div>
+    </div>
+
+    <div id="bloqueCuenta" style="display: none;">
+      <div class="card border shadow-sm rounded-3 mb-3">
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-12 col-md-4"><div class="text-muted small text-uppercase fw-semibold">Cliente</div>
+              <div class="fw-bold text-dark" id="lblCliente"></div><div class="text-muted small font-monospace" id="lblCiRuc"></div></div>
+            <div class="col-6 col-md-2"><div class="text-muted small text-uppercase fw-semibold">Factura</div><div class="fw-bold font-monospace text-primary" id="lblFactura"></div></div>
+            <div class="col-6 col-md-2"><div class="text-muted small text-uppercase fw-semibold">Total factura</div><div class="font-monospace" id="lblTotalFactura"></div></div>
+            <div class="col-6 col-md-2"><div class="text-muted small text-uppercase fw-semibold">Saldo</div><div class="font-monospace fw-bold text-dark" id="lblSaldo"></div></div>
+            <div class="col-6 col-md-2"><div class="text-muted small text-uppercase fw-semibold">Vencimiento</div><div id="lblVencimiento"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card border shadow-sm rounded-3 mb-3">
+        <div class="card-header bg-white d-flex flex-wrap gap-2 align-items-center justify-content-between">
+          <h3 class="card-title mb-0">Formas de cobro</h3>
+          <div class="d-flex gap-2">
+            <select class="form-select form-select-sm" id="selForma" style="min-width: 220px;"></select>
+            <button type="button" class="btn btn-sm btn-outline-primary text-nowrap" id="btnAgregarForma"><i class="fas fa-plus me-1"></i>Agregar forma</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary text-nowrap" id="btnTodoSaldo" title="Cobrar todo el saldo con la primera forma">Cobrar todo el saldo</button>
+          </div>
+        </div>
+        <div class="card-body" id="gridFormas"></div>
+        <div class="card-footer">
+          <div class="row g-3 justify-content-between align-items-end">
+            <div class="col-12 col-md-6">
+              <label class="form-label small fw-semibold text-muted mb-1" for="txtObservacion">Observación (opcional)</label>
+              <input type="text" class="form-control form-control-sm" id="txtObservacion" maxlength="200" autocomplete="off">
+              <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-12 col-md-5 col-lg-4">
+              <table class="table table-sm table-borderless mb-0">
+                <tr><td class="text-muted">Saldo de la cuenta</td><td class="text-end font-monospace" id="resSaldo">Gs. 0</td></tr>
+                <tr><td class="fw-bold fs-3 text-dark">Total a cobrar</td><td class="text-end font-monospace fw-bold fs-3 text-primary" id="resTotal">Gs. 0</td></tr>
+                <tr class="border-top"><td class="text-muted">Saldo restante</td><td class="text-end font-monospace fw-bold" id="resRestante">Gs. 0</td></tr>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="text-danger small mb-2" id="errCobro" style="display: none;"></div>
+    <div class="d-flex justify-content-end gap-2">
+      <button type="button" class="btn btn-link link-secondary" id="btnCancelarNuevo">Cancelar</button>
+      <button type="submit" class="btn btn-primary" id="btnGuardar" disabled><i class="fas fa-hand-holding-usd me-2"></i>Registrar Cobro</button>
+    </div>
+  </form>
+</div>
+
+{# ══════════════════ MODAL: VER ══════════════════ #}
+<div class="modal modal-blur fade" id="modalVer" tabindex="-1" aria-labelledby="modalVerTitulo" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header border-bottom"><h5 class="modal-title fw-bold" id="modalVerTitulo">Recibo</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+      <div class="modal-body p-4" id="cuerpoVer"></div>
+      <div class="modal-footer border-top bg-light py-2">
+        <a class="btn btn-outline-primary" id="btnVerPdf" target="_blank" rel="noopener"><i class="fas fa-file-pdf me-2"></i>PDF</a>
+        <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script src="{{ url_for('static', filename='js/facturacion-listado.js') }}"></script>
+<script src="{{ url_for('static', filename='js/facturacion-validadores.js') }}"></script>
+<script>
+(function () {
+  const API = '/api/v1/cobros';
+  const { escapar, pedir } = window.FacturacionListado;
+  const V = window.FacturacionValidadores;
+  const PUEDE_ANULAR = {{ 'true' if puede('cobro', 'anular') else 'false' }};
+  const MSG_SIN_CAJA = 'Debe abrir la caja antes de registrar un cobro.';
+  const CUENTA_PRECARGADA = new URLSearchParams(location.search).get('cuenta');
+  const TIPO_ETIQUETA = { EFECTIVO: 'Efectivo', TARJETA: 'Tarjeta', CHEQUE: 'Cheque', TRANSFERENCIA: 'Transferencia' };
+
+  const $ = (id) => document.getElementById(id);
+  const seccionListado = $('seccionListado'), seccionNuevo = $('seccionNuevo');
+  const tbody = $('tbodyCobros'), errFiltros = $('errFiltros');
+  const filtroEstado = $('filtroEstado'), filtroCliente = $('filtroCliente'), filtroDesde = $('filtroDesde'), filtroHasta = $('filtroHasta');
+  const txtCuenta = $('txtCuenta'), resCuenta = $('resCuenta'), btnGuardar = $('btnGuardar'), errCobro = $('errCobro');
+  const modalVer = bootstrap.Modal.getOrCreateInstance($('modalVer'));
+
+  const gs = (n) => (n === null || n === undefined) ? '—' : V.formatoGs(n);
+  const fecha = (s, conHora) => {
+    if (!s) return '—';
+    const m = /^(\d{4})-(\d{2})-(\d{2})(?: (\d{2}):(\d{2}))?/.exec(s);
+    return m ? `${m[3]}/${m[2]}/${m[1]}` + (conHora && m[4] ? ` ${m[4]}:${m[5]}` : '') : s;
+  };
+  const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+  const hoy = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+  const badge = (e) => e === 'EMITIDO'
+    ? '<span class="fc-badge fc-badge-open"><span class="fc-status-dot fc-status-dot-green"></span>Emitido</span>'
+    : (e === 'ANULADO' ? '<span class="fc-badge fc-badge-anulada"><span class="fc-status-dot fc-status-dot-red"></span>Anulado</span>'
+      : `<span class="fc-badge fc-badge-neutral"><span class="fc-status-dot fc-status-dot-gray"></span>${escapar(e)}</span>`);
+
+  /* ---------- listado ---------- */
+  function urlListado() {
+    const p = [];
+    if (filtroEstado.value) p.push('estado=' + encodeURIComponent(filtroEstado.value));
+    if (filtroCliente.value.trim()) p.push('cliente=' + encodeURIComponent(filtroCliente.value.trim()));
+    if (filtroDesde.value) p.push('desde=' + encodeURIComponent(filtroDesde.value));
+    if (filtroHasta.value) p.push('hasta=' + encodeURIComponent(filtroHasta.value));
+    return p.length ? `${API}?${p.join('&')}` : API;
+  }
+
+  async function cargarListado() {
+    errFiltros.style.display = 'none';
+    if (filtroDesde.value && filtroHasta.value && filtroDesde.value > filtroHasta.value) {
+      errFiltros.textContent = 'La fecha "desde" no puede ser posterior a "hasta".'; errFiltros.style.display = 'block'; return;
+    }
+    try {
+      const { ok, data } = await pedir(urlListado());
+      if (!ok || !data || !data.success) throw new Error((data && data.error) || '');
+      if (!data.data.length) {
+        tbody.innerHTML = `<tr><td colspan="8" class="p-0"><div class="fc-empty-state"><div class="fc-empty-icon-circle"><i class="fas fa-hand-holding-usd"></i></div>
+          <h6 class="fw-bold text-dark mb-1">No hay cobros para mostrar</h6><p class="text-muted small mb-0">Probá ajustando los filtros o registrá un nuevo cobro.</p></div></td></tr>`;
+        return;
+      }
+      tbody.innerHTML = data.data.map((c) => {
+        const acc = [`<button type="button" class="btn btn-sm btn-outline-secondary" data-accion="ver" data-id="${c.id_cobro}" title="Ver recibo"><i class="fas fa-eye"></i></button>`,
+                     `<a class="btn btn-sm btn-outline-primary" href="${API}/${c.id_cobro}/pdf" target="_blank" rel="noopener" title="Recibo en PDF"><i class="fas fa-file-pdf"></i></a>`];
+        if (PUEDE_ANULAR && c.estado === 'EMITIDO') {
+          acc.push(c.estado_apertura === 'ABIERTA'
+            ? `<button type="button" class="btn btn-sm btn-outline-danger" data-accion="anular" data-id="${c.id_cobro}" data-info="${escapar('recibo ' + c.numero_recibo + ' de ' + c.cliente)}" title="Anular cobro"><i class="fas fa-ban"></i></button>`
+            : '<span class="btn btn-sm btn-outline-secondary disabled" title="La caja de este cobro ya fue cerrada; utilice una Nota de Crédito."><i class="fas fa-lock"></i></span>');
+        }
+        return `<tr class="${c.estado === 'ANULADO' ? 'text-muted' : ''}">
+          <td class="ps-3 font-monospace fw-bold text-primary">${escapar(c.numero_recibo)}</td>
+          <td class="text-nowrap">${fecha(c.fecha, true)}</td>
+          <td><span class="fw-semibold text-dark">${escapar(c.cliente)}</span><div class="text-muted small font-monospace">${escapar(c.ci_ruc)}</div></td>
+          <td class="font-monospace">${escapar(c.numero_factura)}</td><td class="small">${escapar(c.formas || '')}</td>
+          <td class="text-end text-nowrap font-monospace fw-bold text-dark">${gs(c.total)}</td>
+          <td class="text-center">${badge(c.estado)}</td>
+          <td class="pe-3 text-end text-nowrap"><div class="btn-list flex-nowrap justify-content-end">${acc.join('')}</div></td></tr>`;
+      }).join('');
+    } catch (e) {
+      tbody.innerHTML = `<tr><td colspan="8" class="text-center text-danger py-4">${escapar(e.message || 'No se pudo cargar el listado.')}</td></tr>`;
+    }
+  }
+
+  /* ---------- ver recibo ---------- */
+  function detalleForma(d) {
+    if (d.tarjeta) { const t = d.tarjeta; return `${t.tipo_tarjeta === 'CREDITO' ? 'Crédito' : 'Débito'} terminada en ${escapar(t.ultimos_digitos)} · Autorización ${escapar(t.numero_autorizacion)} · ${escapar(t.entidad_adherida)} (${escapar(t.marca)} / ${escapar(t.emisora)})`; }
+    if (d.cheque) { const c = d.cheque; return `Cheque N.º ${escapar(c.numero_cheque)} · ${escapar(c.emisora)} · Titular: ${escapar(c.titular)} · Emisión ${fecha(c.fecha_emision)} · Cobro ${fecha(c.fecha_cobro)}`; }
+    if (d.numero_referencia) return `Referencia ${escapar(d.numero_referencia)}`;
+    return '';
+  }
+
+  async function verCobro(id) {
+    try {
+      const { data } = await pedir(`${API}/${id}`);
+      if (!data || !data.success) { Swal.fire('Error', (data && data.error) || 'No se pudo cargar el cobro.', 'error'); return; }
+      const c = data.data;
+      $('modalVerTitulo').textContent = `Recibo ${c.numero_recibo}`;
+      $('btnVerPdf').href = `${API}/${c.id_cobro}/pdf`;
+      $('cuerpoVer').innerHTML = `
+        ${c.estado === 'ANULADO' ? '<div class="alert alert-danger py-2 text-center fw-bold">*** ANULADO ***</div>' : ''}
+        <div class="row g-2 mb-3">
+          <div class="col-12 col-md-6"><div class="text-muted small text-uppercase fw-semibold">Cliente</div><div class="fw-bold text-dark">${escapar(c.cliente)} <span class="text-muted font-monospace">(${escapar(c.ci_ruc)})</span></div></div>
+          <div class="col-6 col-md-3"><div class="text-muted small text-uppercase fw-semibold">Fecha</div><div>${fecha(c.fecha, true)}</div></div>
+          <div class="col-6 col-md-3"><div class="text-muted small text-uppercase fw-semibold">Estado</div><div>${badge(c.estado)}</div></div>
+          <div class="col-6 col-md-3"><div class="text-muted small text-uppercase fw-semibold">Factura</div><div class="font-monospace">${escapar(c.numero_factura)}</div></div>
+          <div class="col-6 col-md-3"><div class="text-muted small text-uppercase fw-semibold">Cajero</div><div>${escapar(c.cajero)}</div></div>
+          <div class="col-6 col-md-3"><div class="text-muted small text-uppercase fw-semibold">Caja</div><div>${escapar(c.caja)}</div></div>
+          <div class="col-6 col-md-3"><div class="text-muted small text-uppercase fw-semibold">Saldo de la factura tras este cobro</div><div class="font-monospace fw-bold">${gs(Math.max(c.saldo_despues, 0))}</div></div>
+          ${c.observacion ? `<div class="col-12"><div class="text-muted small text-uppercase fw-semibold">Observación</div><div>${escapar(c.observacion)}</div></div>` : ''}
+        </div>
+        <div class="table-responsive mb-3 border rounded-3"><table class="table table-sm card-table mb-0">
+          <thead class="bg-light text-muted small text-uppercase"><tr><th class="ps-3 py-2">Forma de cobro</th><th class="py-2">Detalle</th><th class="pe-3 py-2 text-end">Monto</th></tr></thead>
+          <tbody>${c.detalle.map((d) => `<tr><td class="ps-3 fw-semibold">${escapar(d.forma_cobro)}</td><td class="small">${detalleForma(d)}</td>
+            <td class="pe-3 text-end text-nowrap font-monospace fw-bold">${gs(d.monto)}</td></tr>`).join('')}</tbody></table></div>
+        <div class="d-flex justify-content-end"><div class="fs-3 fw-bold">Total cobrado: <span class="font-monospace text-primary">${gs(c.total)}</span></div></div>`;
+      modalVer.show();
+    } catch (e) { Swal.fire('Error', 'Ocurrió un error de conexión.', 'error'); }
+  }
+
+  /* ---------- anular ---------- */
+  async function anularCobro(id, info) {
+    const c = await Swal.fire({
+      title: '¿Anular este cobro?',
+      text: `Se anulará el ${info}. El saldo de la factura se repone y la cuenta vuelve a PENDIENTE. Esta acción no se puede deshacer.`,
+      icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí, anular', cancelButtonText: 'Cancelar', confirmButtonColor: '#d63939'
+    });
+    if (!c.isConfirmed) return;
+    try {
+      const { data } = await pedir(`${API}/${id}`, { method: 'DELETE' });
+      await cargarListado();
+      if (data && data.success) Swal.fire('Cobro anulado', data.mensaje, 'success');
+      else Swal.fire('No se pudo anular', (data && data.error) || 'Ocurrió un error.', 'error');
+    } catch (e) { Swal.fire('Error', 'Ocurrió un error de conexión.', 'error'); }
+  }
+
+  /* ---------- nuevo cobro ---------- */
+  let cuentaSel = null, cajaAbierta = false, formasDisp = [], adheridas = [], emisoras = [], lineas = [], uid = 0;
+
+  const mostrarNuevo = (si) => { seccionNuevo.style.display = si ? 'block' : 'none'; seccionListado.style.display = si ? 'none' : 'block'; };
+  const totalCobro = () => lineas.reduce((s, l) => s + (/^\d+$/.test(String(l.monto).trim()) ? parseInt(l.monto, 10) : 0), 0);
+  const actualizarBoton = () => { btnGuardar.disabled = !(cajaAbierta && cuentaSel && lineas.length); };
+
+  function pintarTotales() {
+    const t = totalCobro(), saldo = cuentaSel ? cuentaSel.saldo : 0, resta = saldo - t;
+    $('resSaldo').textContent = gs(saldo); $('resTotal').textContent = gs(t);
+    const r = $('resRestante'); r.textContent = gs(resta);
+    r.className = 'text-end font-monospace fw-bold ' + (resta < 0 ? 'text-danger' : (resta === 0 ? 'text-success' : ''));
+  }
+
+  async function cargarCaja() {
+    const tarjeta = $('tarjetaCaja'), cuerpo = $('cuerpoCaja');
+    try {
+      const { data } = await pedir(`${API}/caja-actual`);
+      const a = data && data.success ? data.data : null;
+      cajaAbierta = !!a;
+      if (a) {
+        tarjeta.className = 'card fc-hero-card fc-hero-card-open mb-3';
+        cuerpo.innerHTML = `<span class="fc-badge fc-badge-open me-2"><span class="fc-status-dot fc-status-dot-green"></span>Caja abierta</span><strong>${escapar(a.caja)}</strong> <span class="text-muted ms-2">desde ${fecha(a.fecha_apertura, true)}</span>`;
+      } else {
+        tarjeta.className = 'card fc-hero-card fc-hero-card-closed mb-3';
+        cuerpo.innerHTML = `<span class="fc-badge fc-badge-neutral me-2"><span class="fc-status-dot fc-status-dot-gray"></span>Sin caja abierta</span><span class="text-danger fw-semibold">${MSG_SIN_CAJA}</span>`;
+      }
+    } catch (e) { cajaAbierta = false; cuerpo.innerHTML = '<span class="text-danger">No se pudo verificar la caja.</span>'; }
+    actualizarBoton();
+  }
+
+  async function cargarCatalogos() {
+    const [f, a, e] = await Promise.all([pedir(`${API}/formas`), pedir(`${API}/adheridas`), pedir(`${API}/emisoras`)]);
+    formasDisp = (f.data && f.data.success) ? f.data.data : [];
+    adheridas = (a.data && a.data.success) ? a.data.data : [];
+    emisoras = (e.data && e.data.success) ? e.data.data : [];
+    $('selForma').innerHTML = '<option value="">Elegir forma de cobro…</option>' +
+      formasDisp.map((x) => `<option value="${x.id_forma_cobro}">${escapar(x.descripcion)} (${TIPO_ETIQUETA[x.tipo] || x.tipo})</option>`).join('');
+  }
+
+  const opciones = (lista, id, texto, actual) => '<option value="">Seleccione…</option>' +
+    lista.map((x) => `<option value="${x[id]}" ${String(actual) === String(x[id]) ? 'selected' : ''}>${escapar(texto(x))}</option>`).join('');
+  const tipoTarjetaDeducido = (desc) => { const d = (desc || '').toUpperCase().replace('É', 'E'); return d.includes('DEBITO') ? 'DEBITO' : (d.includes('CREDITO') ? 'CREDITO' : ''); };
+
+  function pintarGrilla() {
+    const cont = $('gridFormas');
+    if (!lineas.length) { cont.innerHTML = '<div class="text-center text-muted py-4">Agregue una forma de cobro con el botón "Agregar forma".</div>'; pintarTotales(); actualizarBoton(); return; }
+    cont.innerHTML = lineas.map((l, n) => {
+      let extra = '';
+      if (l.tipo === 'TRANSFERENCIA') {
+        extra = `<div class="col-12 col-md-6"><label class="form-label small mb-1">N.º de referencia</label><input type="text" class="form-control form-control-sm" data-uid="${l.uid}" data-campo="numero_referencia" maxlength="30" value="${escapar(l.numero_referencia)}" autocomplete="off"></div>`;
+      } else if (l.tipo === 'TARJETA') {
+        const ded = tipoTarjetaDeducido(l.descripcion);
+        extra = `<div class="col-12 col-md-5"><label class="form-label small mb-1">Entidad adherida</label><select class="form-select form-select-sm" data-uid="${l.uid}" data-campo="id_entidad_adherida">${opciones(adheridas, 'id_entidad_adherida', (x) => `${x.descripcion} — ${x.marca} / ${x.emisora}`, l.tarjeta.id_entidad_adherida)}</select></div>
+          <div class="col-6 col-md-2"><label class="form-label small mb-1">Tipo</label><select class="form-select form-select-sm" data-uid="${l.uid}" data-campo="tipo_tarjeta" ${ded ? 'disabled' : ''}>
+            <option value="CREDITO" ${(ded || l.tarjeta.tipo_tarjeta) === 'CREDITO' ? 'selected' : ''}>Crédito</option><option value="DEBITO" ${(ded || l.tarjeta.tipo_tarjeta) === 'DEBITO' ? 'selected' : ''}>Débito</option></select></div>
+          <div class="col-6 col-md-2"><label class="form-label small mb-1">Últimos 4 dígitos</label><input type="text" inputmode="numeric" class="form-control form-control-sm" data-uid="${l.uid}" data-campo="ultimos_digitos" maxlength="4" value="${escapar(l.tarjeta.ultimos_digitos)}" autocomplete="off"></div>
+          <div class="col-12 col-md-3"><label class="form-label small mb-1">N.º de autorización</label><input type="text" class="form-control form-control-sm" data-uid="${l.uid}" data-campo="numero_autorizacion" maxlength="20" value="${escapar(l.tarjeta.numero_autorizacion)}" autocomplete="off"></div>`;
+      } else if (l.tipo === 'CHEQUE') {
+        extra = `<div class="col-12 col-md-4"><label class="form-label small mb-1">Entidad emisora</label><select class="form-select form-select-sm" data-uid="${l.uid}" data-campo="id_entidad_emisora">${opciones(emisoras, 'id_entidad_emisora', (x) => x.descripcion, l.cheque.id_entidad_emisora)}</select></div>
+          <div class="col-6 col-md-2"><label class="form-label small mb-1">N.º de cheque</label><input type="text" class="form-control form-control-sm" data-uid="${l.uid}" data-campo="numero_cheque" maxlength="20" value="${escapar(l.cheque.numero_cheque)}" autocomplete="off"></div>
+          <div class="col-6 col-md-3"><label class="form-label small mb-1">Titular</label><input type="text" class="form-control form-control-sm" data-uid="${l.uid}" data-campo="titular" maxlength="100" value="${escapar(l.cheque.titular)}" autocomplete="off"></div>
+          <div class="col-6 col-md-3"><label class="form-label small mb-1">Fecha de emisión</label><input type="date" class="form-control form-control-sm" data-uid="${l.uid}" data-campo="fecha_emision" max="${hoy()}" value="${escapar(l.cheque.fecha_emision)}"></div>
+          <div class="col-6 col-md-3"><label class="form-label small mb-1">Fecha de cobro</label><input type="date" class="form-control form-control-sm" data-uid="${l.uid}" data-campo="fecha_cobro" value="${escapar(l.cheque.fecha_cobro)}"></div>`;
+      }
+      return `<div class="border rounded-3 p-3 mb-3" data-fila="${l.uid}">
+        <div class="row g-2 align-items-end">
+          <div class="col-12 col-md-4"><span class="badge bg-blue-lt me-2">${n + 1}</span><strong>${escapar(l.descripcion)}</strong> <span class="text-muted small">${TIPO_ETIQUETA[l.tipo] || ''}</span></div>
+          <div class="col-8 col-md-3 ms-md-auto"><label class="form-label small mb-1">Monto (Gs.)</label><input type="text" inputmode="numeric" class="form-control form-control-sm font-monospace fw-bold text-end" data-uid="${l.uid}" data-campo="monto" maxlength="12" value="${escapar(l.monto)}" autocomplete="off"></div>
+          <div class="col-4 col-md-auto"><button type="button" class="btn btn-sm btn-outline-danger" data-quitar="${l.uid}" title="Quitar"><i class="fas fa-trash-alt"></i></button></div>
+          ${extra}
+        </div>
+        <div class="text-danger small mt-2" data-error-fila="${l.uid}" style="display:none;"></div></div>`;
+    }).join('');
+    pintarTotales(); actualizarBoton();
+  }
+
+  $('btnAgregarForma').addEventListener('click', () => {
+    const f = formasDisp.find((x) => String(x.id_forma_cobro) === $('selForma').value);
+    if (!f) return;
+    lineas.push({ uid: ++uid, id_forma_cobro: f.id_forma_cobro, descripcion: f.descripcion, tipo: f.tipo, monto: '', numero_referencia: '',
+                  tarjeta: { id_entidad_adherida: '', tipo_tarjeta: tipoTarjetaDeducido(f.descripcion) || 'CREDITO', ultimos_digitos: '', numero_autorizacion: '' },
+                  cheque: { id_entidad_emisora: '', numero_cheque: '', titular: '', fecha_emision: hoy(), fecha_cobro: hoy() } });
+    $('selForma').value = ''; errCobro.style.display = 'none';
+    pintarGrilla();
+    const inp = $('gridFormas').querySelector(`input[data-uid="${uid}"][data-campo="monto"]`); if (inp) inp.focus();
+  });
+
+  $('btnTodoSaldo').addEventListener('click', () => {
+    if (!cuentaSel || !lineas.length) return;
+    lineas.forEach((l, i) => { l.monto = i === 0 ? String(cuentaSel.saldo) : l.monto; });
+    pintarGrilla();
+  });
+
+  $('gridFormas').addEventListener('input', (ev) => {
+    const el = ev.target.closest('[data-campo]'); if (!el) return;
+    const l = lineas.find((x) => String(x.uid) === el.dataset.uid); if (!l) return;
+    const c = el.dataset.campo, v = el.value;
+    if (c === 'monto' || c === 'numero_referencia') l[c] = v;
+    else if (['id_entidad_adherida', 'tipo_tarjeta', 'ultimos_digitos', 'numero_autorizacion'].includes(c)) l.tarjeta[c] = v;
+    else l.cheque[c] = v;
+    el.classList.remove('is-invalid'); errCobro.style.display = 'none';
+    if (c === 'monto') pintarTotales();
+  });
+  $('gridFormas').addEventListener('change', (ev) => { const el = ev.target.closest('select[data-campo]'); if (el) el.dispatchEvent(new Event('input', { bubbles: true })); });
+  $('gridFormas').addEventListener('click', (ev) => {
+    const b = ev.target.closest('button[data-quitar]'); if (!b) return;
+    lineas = lineas.filter((l) => String(l.uid) !== b.dataset.quitar); pintarGrilla();
+  });
+
+  /* --- cuenta a cobrar --- */
+  function elegirCuenta(c) {
+    cuentaSel = c; txtCuenta.value = `${c.numero_factura} — ${c.cliente}`; txtCuenta.readOnly = true; V.limpiarCampo(txtCuenta);
+    $('lblCliente').textContent = c.cliente; $('lblCiRuc').textContent = c.ci_ruc; $('lblFactura').textContent = c.numero_factura;
+    $('lblTotalFactura').textContent = gs(c.monto_total); $('lblSaldo').textContent = gs(c.saldo);
+    const vencida = c.fecha_vencimiento < hoy();
+    $('lblVencimiento').innerHTML = `${fecha(c.fecha_vencimiento)} ${vencida ? '<span class="badge bg-red-lt ms-1">Vencida</span>' : ''}`;
+    $('bloqueCuenta').style.display = 'block'; errCobro.style.display = 'none';
+    pintarGrilla();
+  }
+
+  let resultados = [], indice = -1;
+  const buscarCuenta = debounce(async () => {
+    if (cuentaSel) return;
+    try {
+      const { data } = await pedir(`${API}/cuentas?q=${encodeURIComponent(txtCuenta.value.trim())}`);
+      resultados = (data && data.success) ? data.data : []; indice = -1;
+      resCuenta.innerHTML = resultados.length ? resultados.map((c, i) => `
+        <button type="button" class="list-group-item list-group-item-action fc-autocomplete-item py-2" data-idx="${i}">
+          <div class="d-flex justify-content-between align-items-center"><span><span class="font-monospace fw-bold text-primary">${escapar(c.numero_factura)}</span> <span class="fw-bold text-dark">${escapar(c.cliente)}</span></span>
+            <span class="font-monospace fw-bold">${gs(c.saldo)}</span></div>
+          <div class="text-muted small">${escapar(c.ci_ruc)} &bull; Total ${gs(c.monto_total)} &bull; vence ${fecha(c.fecha_vencimiento)}${c.fecha_vencimiento < hoy() ? ' (vencida)' : ''}</div></button>`).join('')
+        : '<div class="list-group-item text-muted small p-3">No hay cuentas pendientes que coincidan.</div>';
+      resCuenta.style.display = 'block';
+    } catch (e) { resCuenta.style.display = 'none'; }
+  }, 220);
+  txtCuenta.addEventListener('input', () => { V.limpiarCampo(txtCuenta); buscarCuenta(); });
+  txtCuenta.addEventListener('focus', buscarCuenta);
+  txtCuenta.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter') ev.preventDefault();   // Enter nunca envía el formulario desde el buscador
+    if (resCuenta.style.display !== 'block' || !resultados.length) return;
+    const items = resCuenta.querySelectorAll('.fc-autocomplete-item');
+    if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+      ev.preventDefault(); indice = (indice + (ev.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+      items.forEach((it, i) => it.classList.toggle('active', i === indice)); items[indice].scrollIntoView({ block: 'nearest' });
+    } else if (ev.key === 'Enter') { const t = indice >= 0 ? items[indice] : items[0]; if (t) t.click(); }
+    else if (ev.key === 'Escape') resCuenta.style.display = 'none';
+  });
+  resCuenta.addEventListener('click', (ev) => { const b = ev.target.closest('button[data-idx]'); if (!b) return; resCuenta.style.display = 'none'; elegirCuenta(resultados[Number(b.dataset.idx)]); });
+  document.addEventListener('click', (ev) => { if (!ev.target.closest('#resCuenta, #txtCuenta')) resCuenta.style.display = 'none'; });
+
+  async function abrirNuevo(idCuenta) {
+    cuentaSel = null; lineas = []; txtCuenta.value = ''; txtCuenta.readOnly = false; V.limpiarCampo(txtCuenta);
+    $('bloqueCuenta').style.display = 'none'; errCobro.style.display = 'none'; $('txtObservacion').value = '';
+    mostrarNuevo(true);
+    await Promise.all([cargarCaja(), cargarCatalogos()]);
+    if (idCuenta) {
+      try {
+        const { data } = await pedir(`${API}/cuentas/${idCuenta}`);
+        if (!data || !data.success) { errCobro.textContent = (data && data.error) || 'No se encontró la cuenta a cobrar.'; errCobro.style.display = 'block'; return; }
+        const c = data.data;
+        if (c.estado !== 'PENDIENTE') { errCobro.textContent = c.estado === 'PAGADA' ? 'La cuenta a cobrar ya está pagada.' : 'La cuenta a cobrar está anulada.'; errCobro.style.display = 'block'; return; }
+        elegirCuenta(c);
+      } catch (e) { errCobro.textContent = 'No se pudo cargar la cuenta a cobrar.'; errCobro.style.display = 'block'; }
+    } else txtCuenta.focus();
+  }
+
+  /* --- validación en el formulario (el servidor valida siempre; esto solo avisa antes de enviar) --- */
+  function validarLineas() {
+    document.querySelectorAll('[data-error-fila]').forEach((e) => { e.style.display = 'none'; });
+    for (let n = 0; n < lineas.length; n++) {
+      const l = lineas[n]; let e = V.montoPositivo(l.monto);
+      if (!e && l.tipo === 'TRANSFERENCIA') e = V.codigo(l.numero_referencia, 'número de referencia', 30, true);
+      if (!e && l.tipo === 'TARJETA') {
+        if (!l.tarjeta.id_entidad_adherida) e = 'debe seleccionar la entidad adherida.';
+        else e = V.ultimosDigitos(l.tarjeta.ultimos_digitos) || V.codigo(l.tarjeta.numero_autorizacion, 'número de autorización', 20, true);
+      }
+      if (!e && l.tipo === 'CHEQUE') {
+        const c = l.cheque;
+        if (!c.id_entidad_emisora) e = 'debe seleccionar la entidad emisora del cheque.';
+        else e = V.codigo(c.numero_cheque, 'número de cheque', 20, true) || V.nombre(c.titular, 'titular', true) ||
+          (!c.fecha_emision ? 'la fecha de emisión es obligatoria.' : (c.fecha_emision > hoy() ? 'la fecha de emisión del cheque no puede ser posterior a hoy.' :
+          (!c.fecha_cobro ? 'la fecha de cobro es obligatoria.' : (c.fecha_cobro < c.fecha_emision ? 'la fecha de cobro no puede ser anterior a la de emisión.' : ''))));
+      }
+      if (e) {
+        const caja = document.querySelector(`[data-error-fila="${l.uid}"]`);
+        if (caja) { caja.textContent = `Forma ${n + 1}: ${e}`; caja.style.display = 'block'; }
+        return `Forma ${n + 1}: ${e}`;
+      }
+    }
+    return '';
+  }
+
+  $('formCobro').addEventListener('submit', async (ev) => {
+    ev.preventDefault(); errCobro.style.display = 'none';
+    if (!cajaAbierta) { errCobro.textContent = MSG_SIN_CAJA; errCobro.style.display = 'block'; return; }
+    if (!cuentaSel) { V.marcarCampo(txtCuenta, 'Debe seleccionar una cuenta a cobrar.'); txtCuenta.focus(); return; }
+    if (!lineas.length) { errCobro.textContent = 'Debe agregar al menos una forma de cobro.'; errCobro.style.display = 'block'; return; }
+    const eo = V.observacion($('txtObservacion').value); if (eo) { V.marcarCampo($('txtObservacion'), eo); return; }
+    const err = validarLineas(); if (err) { errCobro.textContent = err; errCobro.style.display = 'block'; return; }
+    if (totalCobro() > cuentaSel.saldo) { errCobro.textContent = `El monto supera el saldo pendiente de ${gs(cuentaSel.saldo)}.`; errCobro.style.display = 'block'; return; }
+
+    const formas = lineas.map((l) => {
+      const f = { id_forma_cobro: l.id_forma_cobro, monto: l.monto };
+      if (l.tipo === 'TRANSFERENCIA') f.numero_referencia = l.numero_referencia;
+      if (l.tipo === 'TARJETA') f.tarjeta = Object.assign({}, l.tarjeta, { tipo_tarjeta: tipoTarjetaDeducido(l.descripcion) || l.tarjeta.tipo_tarjeta });
+      if (l.tipo === 'CHEQUE') f.cheque = l.cheque;
+      return f;
+    });
+    btnGuardar.disabled = true;
+    try {
+      const { data } = await pedir(API, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_cuenta: cuentaSel.id_cuenta, observacion: $('txtObservacion').value, formas }) });
+      if (data && data.success) {
+        mostrarNuevo(false); await cargarListado();
+        const r = await Swal.fire({ title: 'Cobro registrado', text: data.mensaje, icon: 'success', showCancelButton: true, confirmButtonText: 'Ver recibo (PDF)', cancelButtonText: 'Cerrar' });
+        if (r.isConfirmed) window.open(`${API}/${data.data.id_cobro}/pdf`, '_blank');
+      } else {
+        errCobro.textContent = (data && data.error) || 'Ocurrió un error. Intente nuevamente.'; errCobro.style.display = 'block';
+        if (data && data.fila) { const caja = document.querySelector(`[data-error-fila="${lineas[data.fila - 1] && lineas[data.fila - 1].uid}"]`); if (caja) { caja.textContent = data.error; caja.style.display = 'block'; } }
+        Swal.fire('No se pudo registrar el cobro', errCobro.textContent, 'error'); await cargarCaja();
+      }
+    } catch (e) { Swal.fire('Error', 'Ocurrió un error de conexión. Intente nuevamente.', 'error'); }
+    finally { actualizarBoton(); }
+  });
+
+  /* ---------- eventos ---------- */
+  const btnNuevo = $('btnNuevo'); if (btnNuevo) btnNuevo.addEventListener('click', () => abrirNuevo());
+  $('btnVolverListado').addEventListener('click', () => mostrarNuevo(false));
+  $('btnCancelarNuevo').addEventListener('click', () => mostrarNuevo(false));
+  document.addEventListener('click', (ev) => {
+    const btn = ev.target.closest('button[data-accion]'); if (!btn) return;
+    if (btn.dataset.accion === 'ver') verCobro(btn.dataset.id);
+    if (btn.dataset.accion === 'anular') anularCobro(btn.dataset.id, btn.dataset.info);
+  });
+  [filtroEstado, filtroDesde, filtroHasta].forEach((el) => el.addEventListener('change', cargarListado));
+  filtroCliente.addEventListener('input', debounce(cargarListado, 300));
+  $('btnLimpiarFiltros').addEventListener('click', () => { filtroEstado.value = ''; filtroCliente.value = ''; filtroDesde.value = ''; filtroHasta.value = ''; cargarListado(); });
+
+  cargarListado();
+  if (CUENTA_PRECARGADA && btnNuevo) abrirNuevo(CUENTA_PRECARGADA);   // "¿Cobrar ahora?" de la venta
+})();
+</script>
+{% endblock %}

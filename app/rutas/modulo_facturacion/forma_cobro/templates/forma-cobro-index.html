@@ -31,12 +31,13 @@
       <thead>
         <tr>
           <th>Descripción</th>
+          <th style="width: 160px;">Tipo</th>
           <th style="width: 120px;">Estado</th>
           <th class="w-1">Acciones</th>
         </tr>
       </thead>
       <tbody id="tbodyFormas">
-        <tr><td colspan="3" class="text-center text-muted py-4">Cargando…</td></tr>
+        <tr><td colspan="4" class="text-center text-muted py-4">Cargando…</td></tr>
       </tbody>
     </table>
   </div>
@@ -58,6 +59,18 @@
             <input type="text" class="form-control" id="txtDescripcion" maxlength="60"
                    placeholder="Ej.: EFECTIVO" autocomplete="off" style="text-transform: uppercase;">
             <div class="invalid-feedback" id="errDescripcion"></div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label required" for="selTipo">Tipo</label>
+            <select class="form-select" id="selTipo">
+              <option value="">Seleccione el tipo…</option>
+              <option value="EFECTIVO">Efectivo</option>
+              <option value="TARJETA">Tarjeta</option>
+              <option value="CHEQUE">Cheque</option>
+              <option value="TRANSFERENCIA">Transferencia</option>
+            </select>
+            <div class="invalid-feedback" id="errTipo"></div>
+            <div class="form-hint">Define qué datos pide el cobro (tarjeta, cheque, referencia) y qué se suma al efectivo del cierre de caja.</div>
           </div>
         </div>
         <div class="modal-footer">
@@ -86,6 +99,10 @@
   const inpId = document.getElementById('txtIdFormaCobro');
   const inpDesc = document.getElementById('txtDescripcion');
   const errDesc = document.getElementById('errDescripcion');
+  const selTipo = document.getElementById('selTipo');
+  const errTipo = document.getElementById('errTipo');
+  const TIPOS = { EFECTIVO: 'Efectivo', TARJETA: 'Tarjeta', CHEQUE: 'Cheque', TRANSFERENCIA: 'Transferencia' };
+  const MSG_TIPO = 'El tipo debe ser Efectivo, Tarjeta, Cheque o Transferencia.';
   const btnGuardar = document.getElementById('btnGuardar');
 
   const L = window.FacturacionListado;
@@ -98,6 +115,12 @@
   const limpiarError = () => {
     errDesc.textContent = '';
     inpDesc.classList.remove('is-invalid');
+    errTipo.textContent = '';
+    selTipo.classList.remove('is-invalid');
+  };
+  const mostrarErrorTipo = (msg) => {
+    errTipo.textContent = msg;
+    selTipo.classList.add('is-invalid');
   };
 
   async function cargar() {
@@ -105,26 +128,28 @@
       const { ok, data } = await pedir(L.urlListado(API, chkInactivos));
       if (!ok || !data || !data.success) throw new Error();
       if (!data.data.length) {
-        tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-4">No hay formas de cobro registradas.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">No hay formas de cobro registradas.</td></tr>';
         return;
       }
       tbody.innerHTML = data.data.map((f) => {
         const acciones = L.acciones({ activo: f.activo, id: f.id_forma_cobro, descripcion: f.descripcion, puedeEditar: PUEDE_EDITAR, puedeAnular: PUEDE_ANULAR });
         return `<tr class="${L.claseFila(f.activo)}">
           <td>${escapar(f.descripcion)}</td>
+          <td>${f.tipo ? escapar(TIPOS[f.tipo] || f.tipo) : '<span class="badge bg-yellow-lt" title="Edite la forma de cobro para asignarle un tipo">Sin tipo</span>'}</td>
           <td>${L.badgeEstado(f.activo)}</td>
           <td class="text-nowrap"><div class="btn-list flex-nowrap">${acciones}</div></td>
         </tr>`;
       }).join('');
     } catch (e) {
-      tbody.innerHTML = '<tr><td colspan="3" class="text-center text-danger py-4">No se pudo cargar el listado.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger py-4">No se pudo cargar el listado.</td></tr>';
     }
   }
 
-  function abrirModal(titulo, id, descripcion) {
+  function abrirModal(titulo, id, descripcion, tipo) {
     document.getElementById('modalTitle').textContent = titulo;
     inpId.value = id || '';
     inpDesc.value = descripcion || '';
+    selTipo.value = tipo || '';
     limpiarError();
     modal.show();
   }
@@ -134,6 +159,7 @@
 
   modalEl.addEventListener('shown.bs.modal', () => inpDesc.focus());
   inpDesc.addEventListener('input', limpiarError);
+  selTipo.addEventListener('change', limpiarError);
 
   form.addEventListener('submit', async (ev) => {
     ev.preventDefault();
@@ -141,7 +167,11 @@
 
     const id = inpId.value;
     const descripcion = inpDesc.value.trim();
-    if (!descripcion) { mostrarError('El campo Descripción no puede estar vacío.'); return; }
+    const tipo = selTipo.value;
+    let invalido = false;
+    if (!descripcion) { mostrarError('El campo Descripción no puede estar vacío.'); invalido = true; }
+    if (!tipo) { mostrarErrorTipo(MSG_TIPO); invalido = true; }
+    if (invalido) return;
 
     if (id) {
       const c = await Swal.fire({
@@ -160,15 +190,16 @@
       const { data } = await pedir(id ? `${API}/${id}` : API, {
         method: id ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ descripcion })
+        body: JSON.stringify({ descripcion, tipo })
       });
       if (data && data.success) {
         modal.hide();
         await cargar();
         Swal.fire(id ? 'Actualizada' : 'Agregada', data.mensaje, 'success');
       } else {
-        // Validaciones (duplicado, longitud, etc.) se muestran dentro del modal.
-        mostrarError((data && data.error) || 'No se pudo guardar la forma de cobro.');
+        // Validaciones (duplicado, longitud, tipo, etc.) se muestran dentro del modal.
+        if (data && data.campo === 'tipo') mostrarErrorTipo(data.error);
+        else mostrarError((data && data.error) || 'No se pudo guardar la forma de cobro.');
       }
     } catch (e) {
       mostrarError('Ocurrió un error de conexión. Intente nuevamente.');
@@ -186,7 +217,7 @@
       try {
         const { data } = await pedir(`${API}/${id}`);
         if (data && data.success) {
-          abrirModal('Editar Forma de Cobro', data.data.id_forma_cobro, data.data.descripcion);
+          abrirModal('Editar Forma de Cobro', data.data.id_forma_cobro, data.data.descripcion, data.data.tipo);
         } else {
           Swal.fire('Error', (data && data.error) || 'No se pudo cargar la forma de cobro.', 'error');
           cargar();

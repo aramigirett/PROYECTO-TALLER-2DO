@@ -27,6 +27,8 @@ _RE_NOMBRE = re.compile(r"^[A-ZÁÉÍÓÚÜÑ0-9][A-ZÁÉÍÓÚÜÑ0-9 .,\-&'/()
 _RE_CEDULA = re.compile(r'^\d{5,10}$')
 _RE_RUC = re.compile(r'^(\d{5,10})-(\d)$')
 _RE_CONTROL = re.compile(r'[\x00-\x1f\x7f]')
+_RE_CODIGO = re.compile(r'^[A-Z0-9][A-Z0-9 ._/\-]*$')
+_RE_ULTIMOS_DIGITOS = re.compile(r'^\d{4}$')
 _RE_TELEFONO = re.compile(r'^\+?[0-9][0-9 \-]*$')
 _RE_CORREO = re.compile(r'^[a-z0-9._%+\-]+@[a-z0-9\-]+(\.[a-z0-9\-]+)*\.[a-z]{2,}$')
 
@@ -196,6 +198,40 @@ def validar_observacion(valor):
         return None, f'La observación no puede superar los {MAX_OBSERVACION} caracteres.'
     if _RE_CONTROL.search(texto):
         return None, 'La observación contiene caracteres no permitidos.'
+    return texto, None
+
+
+def validar_monto_positivo(valor):
+    """Monto de una forma de cobro: entero MAYOR a 0 (guaraníes). Un único mensaje para cualquier valor inválido.
+    Devuelve (monto, error)."""
+    n = _entero_estricto(valor)
+    if n is None or n <= 0:
+        return None, 'El monto debe ser un número entero mayor a 0.'
+    if n > MAX_PRECIO:
+        return None, f'El monto no puede superar {_miles(MAX_PRECIO)}.'
+    return n, None
+
+
+def validar_codigo(valor, nombre, max_len, obligatorio=True):
+    """
+    Código o número que se tipea (referencia de transferencia, autorización de tarjeta, número de cheque): mayúsculas,
+    letras A-Z, dígitos, espacios y . _ / -. Vacío => error si es obligatorio, o (None, None) si no. Devuelve (texto, error).
+    """
+    texto = _como_texto(valor).upper() if isinstance(valor, str) else ''
+    if not texto:
+        return (None, f'El campo {nombre} es obligatorio y no puede estar vacío.') if obligatorio else (None, None)
+    if len(texto) > max_len:
+        return None, f'El campo {nombre} no puede superar los {max_len} caracteres.'
+    if not _RE_CODIGO.match(texto):
+        return None, f'El campo {nombre} solo puede contener letras, números, espacios y los símbolos . _ / -'
+    return texto, None
+
+
+def validar_ultimos_digitos(valor):
+    """Últimos 4 dígitos de la tarjeta: exactamente 4 números. Devuelve (texto, error)."""
+    texto = valor.strip() if isinstance(valor, str) else (str(valor) if isinstance(valor, int) and not isinstance(valor, bool) else '')
+    if not _RE_ULTIMOS_DIGITOS.match(texto):
+        return None, 'Los últimos dígitos de la tarjeta deben ser 4 números.'
     return texto, None
 
 

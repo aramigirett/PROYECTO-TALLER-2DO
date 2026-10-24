@@ -136,8 +136,20 @@ class EntidadEmisoraDao:
             (id_entidad_emisora,))
         if cur.fetchone()[0]:
             return "No se puede dar de baja, el banco está asociado a una entidad adherida."
-        # TODO: debe consultar cobro_tarjeta y cobro_cheque (WHERE id_entidad_emisora = %s)
-        # cuando existan esas tablas. Mientras tanto no hay nada más que pueda referenciarla.
+        # Cobranzas EMITIDAS con tarjeta (la emisora sale de la entidad adherida) o con cheque de este banco.
+        cur.execute("""SELECT 1 FROM cobro_tarjeta t
+                       JOIN entidad_adherida ea ON ea.id_entidad_adherida = t.id_entidad_adherida
+                       JOIN cobro_det d ON d.id_cobro_det = t.id_cobro_det
+                       JOIN cobro_cab c ON c.id_cobro = d.id_cobro
+                       WHERE ea.id_entidad_emisora = %s AND c.estado = 'EMITIDO' LIMIT 1""", (id_entidad_emisora,))
+        if cur.fetchone():
+            return "No se puede dar de baja, el banco está usado en una cobranza con tarjeta."
+        cur.execute("""SELECT 1 FROM cobro_cheque ch
+                       JOIN cobro_det d ON d.id_cobro_det = ch.id_cobro_det
+                       JOIN cobro_cab c ON c.id_cobro = d.id_cobro
+                       WHERE ch.id_entidad_emisora = %s AND c.estado = 'EMITIDO' LIMIT 1""", (id_entidad_emisora,))
+        if cur.fetchone():
+            return "No se puede dar de baja, el banco está usado en una cobranza con cheque."
         return False
 
     def esta_en_uso(self, id_entidad_emisora):

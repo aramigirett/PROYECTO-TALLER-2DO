@@ -273,6 +273,7 @@
   const { escapar, pedir } = window.FacturacionListado;
   const V = window.FacturacionValidadores;
   const PUEDE_ANULAR = {{ 'true' if puede('venta', 'anular') else 'false' }};
+  const PUEDE_COBRAR = {{ 'true' if puede('cobro', 'nuevo') else 'false' }};
   const MSG_SIN_CAJA = 'Debe abrir la caja antes de registrar una venta.';
 
   const $ = (id) => document.getElementById(id);
@@ -699,9 +700,12 @@
       if (data && data.success) {
         mostrarNueva(false);
         await cargarListado();
+        // ¿Cobrar ahora? abre el cobro de la cuenta de esta venta; Ver factura abre el PDF; Cerrar no hace nada
         const r = await Swal.fire({ title: 'Venta registrada', text: data.mensaje, icon: 'success', showCancelButton: true,
-                                    confirmButtonText: 'Ver factura (PDF)', cancelButtonText: 'Cerrar' });
-        if (r.isConfirmed) window.open(`${API}/${data.data.id_venta}/pdf`, '_blank');
+                                    showDenyButton: PUEDE_COBRAR, confirmButtonText: PUEDE_COBRAR ? '¿Cobrar ahora?' : 'Ver factura (PDF)',
+                                    denyButtonText: 'Ver factura (PDF)', cancelButtonText: 'Cerrar' });
+        if (PUEDE_COBRAR && r.isConfirmed) window.location.href = `/referenciales/cobro/cobro-index?cuenta=${data.data.id_cuenta}`;
+        else if (r.isConfirmed || r.isDenied) window.open(`${API}/${data.data.id_venta}/pdf`, '_blank');
       } else {
         errVenta.textContent = (data && data.error) || 'Ocurrió un error. Intente nuevamente.';
         errVenta.style.display = 'block';

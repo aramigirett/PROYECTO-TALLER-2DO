@@ -9,13 +9,15 @@ NO_EXISTE = "NO_EXISTE"
 YA_ACTIVO = "YA_ACTIVO"
 
 MSG_BAJA_EN_COBRANZA = "No se puede dar de baja, la forma de cobro está usada en una cobranza."
+MSG_TIPO_EN_COBRANZA = "No se puede cambiar el tipo: la forma de cobro está usada en cobranzas."
+TIPOS = ('EFECTIVO', 'TARJETA', 'CHEQUE', 'TRANSFERENCIA')
 
 
 class FormaCobroDao:
 
     def getFormasCobro(self, incluir_inactivos=False):
         sql = """
-        SELECT id_forma_cobro, descripcion, activo
+        SELECT id_forma_cobro, descripcion, activo, tipo
         FROM forma_cobro
         """ + ("" if incluir_inactivos else " WHERE activo = true") + " ORDER BY activo DESC, descripcion"
         conexion = Conexion()
@@ -24,7 +26,7 @@ class FormaCobroDao:
         try:
             cur.execute(sql)
             return [
-                {'id_forma_cobro': f[0], 'descripcion': f[1], 'activo': f[2]}
+                {'id_forma_cobro': f[0], 'descripcion': f[1], 'activo': f[2], 'tipo': f[3]}
                 for f in cur.fetchall()
             ]
         except Exception as e:
@@ -36,7 +38,7 @@ class FormaCobroDao:
 
     def getFormaCobroById(self, id_forma_cobro, incluir_inactivos=False):
         sql = """
-        SELECT id_forma_cobro, descripcion, activo
+        SELECT id_forma_cobro, descripcion, activo, tipo
         FROM forma_cobro
         WHERE id_forma_cobro = %s
         """ + ("" if incluir_inactivos else " AND activo = true")
@@ -47,7 +49,7 @@ class FormaCobroDao:
             cur.execute(sql, (id_forma_cobro,))
             f = cur.fetchone()
             if f:
-                return {'id_forma_cobro': f[0], 'descripcion': f[1], 'activo': f[2]}
+                return {'id_forma_cobro': f[0], 'descripcion': f[1], 'activo': f[2], 'tipo': f[3]}
             return None
         except Exception as e:
             app.logger.error(f"Error al obtener forma de cobro: {str(e)}")
@@ -77,21 +79,21 @@ class FormaCobroDao:
             cur.close()
             con.close()
 
-    def guardarFormaCobro(self, descripcion):
+    def guardarFormaCobro(self, descripcion, tipo):
         """
         Returns:
             int | str | bool: ID nuevo, "DUPLICADO" si el índice único lo rechaza
             (carrera entre dos altas simultáneas), False ante otro error.
         """
         sql = """
-        INSERT INTO forma_cobro(descripcion)
-        VALUES(%s) RETURNING id_forma_cobro
+        INSERT INTO forma_cobro(descripcion, tipo)
+        VALUES(%s, %s) RETURNING id_forma_cobro
         """
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(sql, (descripcion.upper(),))
+            cur.execute(sql, (descripcion.upper(), tipo))
             nuevo_id = cur.fetchone()[0]
             con.commit()
             return nuevo_id
@@ -106,25 +108,34 @@ class FormaCobroDao:
             cur.close()
             con.close()
 
-    def updateFormaCobro(self, id_forma_cobro, descripcion):
+    def updateFormaCobro(self, id_forma_cobro, descripcion, tipo):
         """
+        Actualiza descripción y tipo en una transacción, con la fila bloqueada. El TIPO no se puede cambiar si la forma
+        de cobro ya está usada en una cobranza (cambiaría retroactivamente qué cuenta como efectivo en los cierres).
+
         Returns:
-            bool | str: True si se actualizó, False si no existe o falló,
-            "DUPLICADO" si el índice único lo rechaza.
-        """
-        sql = """
-        UPDATE forma_cobro
-        SET descripcion = %s
-        WHERE id_forma_cobro = %s AND activo = true
+            bool | str | tuple: True si se actualizó, False si no existe o falló, "DUPLICADO" si el índice único lo
+            rechaza, ("EN_USO", motivo) si se intenta cambiar el tipo de una forma ya usada.
         """
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(sql, (descripcion.upper(), id_forma_cobro))
-            filas_afectadas = cur.rowcount
+            cur.execute("SELECT tipo FROM forma_cobro WHERE id_forma_cobro = %s AND activo = true FOR UPDATE",
+                        (id_forma_cobro,))
+            fila = cur.fetchone()
+            if fila is None:
+                con.rollback()
+                return False
+            if fila[0] != tipo:
+                cur.execute("SELECT 1 FROM cobro_det WHERE id_forma_cobro = %s LIMIT 1", (id_forma_cobro,))
+                if cur.fetchone() is not None:
+                    con.rollback()
+                    return ("EN_USO", MSG_TIPO_EN_COBRANZA)
+            cur.execute("UPDATE forma_cobro SET descripcion = %s, tipo = %s WHERE id_forma_cobro = %s",
+                        (descripcion.upper(), tipo, id_forma_cobro))
             con.commit()
-            return filas_afectadas > 0
+            return True
         except psycopg2.errors.UniqueViolation:
             con.rollback()
             return "DUPLICADO"
@@ -135,12 +146,12 @@ class FormaCobroDao:
         finally:
             cur.close()
             con.close()
-
     def _motivo_en_uso(self, cur, id_forma_cobro):
         """Devuelve el motivo (texto para el usuario) si la forma de cobro está en uso, o False."""
-        # TODO: debe consultar cobro_cabecera (WHERE id_forma_cobro = %s) cuando exista la tabla de
-        # cobros y devolver MSG_BAJA_EN_COBRANZA. Mientras tanto no hay nada que pueda referenciarla.
-        return False
+        # Cobranzas EMITIDAS que usan esta forma de cobro (las anuladas no cuentan).
+        cur.execute("""SELECT 1 FROM cobro_det d JOIN cobro_cab c ON c.id_cobro = d.id_cobro
+                       WHERE d.id_forma_cobro = %s AND c.estado = 'EMITIDO' LIMIT 1""", (id_forma_cobro,))
+        return MSG_BAJA_EN_COBRANZA if cur.fetchone() else False
 
     def esta_en_uso(self, id_forma_cobro):
         """False si se puede anular; si no, el texto con el motivo (truthy)."""

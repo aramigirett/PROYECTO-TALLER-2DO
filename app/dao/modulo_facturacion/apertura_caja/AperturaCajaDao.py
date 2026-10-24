@@ -214,15 +214,40 @@ class AperturaCajaDao:
         """Devuelve el motivo (texto) si la apertura ya tiene movimientos del turno, o False."""
         # Ventas EMITIDAS de esta apertura. anularApertura la llama con la apertura bloqueada (FOR UPDATE) y una
         # venta nueva toma FOR SHARE sobre ella, así que no puede colarse entre la verificación y el UPDATE.
-        # TODO: debe consultar también cobro_cabecera (cobros de esta apertura) cuando exista esa tabla.
+        # Un cobro nuevo toma FOR SHARE sobre la apertura, igual que la venta, así que tampoco puede colarse.
         cur.execute("SELECT 1 FROM venta_cab WHERE id_apertura = %s AND estado = 'EMITIDA' LIMIT 1", (id_apertura,))
+        if cur.fetchone():
+            return MSG_ANULAR_CON_MOVIMIENTOS
+        cur.execute("SELECT 1 FROM cobro_cab WHERE id_apertura = %s AND estado = 'EMITIDO' LIMIT 1", (id_apertura,))
         return MSG_ANULAR_CON_MOVIMIENTOS if cur.fetchone() else False
 
     def _total_recaudado(self, cur, id_apertura):
-        """Total cobrado en el turno, en guaraníes."""
-        # TODO: sumar los cobros del turno en cobro_cabecera cuando exista esa tabla.
-        return 0
+        """TODO lo cobrado en el turno (todas las formas de cobro), en guaraníes: fn_total_recaudado (cobros EMITIDOS)."""
+        cur.execute("SELECT fn_total_recaudado(%s)", (id_apertura,))
+        return int(cur.fetchone()[0])
 
+    def _total_efectivo(self, cur, id_apertura):
+        """Solo lo cobrado en EFECTIVO en el turno, en guaraníes: fn_total_efectivo_apertura (cobros EMITIDOS)."""
+        cur.execute("SELECT fn_total_efectivo_apertura(%s)", (id_apertura,))
+        return int(cur.fetchone()[0])
+
+    def _resumen_por_forma(self, cur, id_apertura):
+        """Desglose de lo cobrado por forma de cobro (vista v_resumen_caja), para el detalle del Cierre."""
+        cur.execute("""SELECT id_forma_cobro, forma_cobro, tipo_forma, cantidad_pagos, total_cobrado
+                       FROM v_resumen_caja WHERE id_apertura = %s ORDER BY total_cobrado DESC, forma_cobro""", (id_apertura,))
+        return [{'id_forma_cobro': r[0], 'forma_cobro': r[1], 'tipo': r[2], 'cantidad_pagos': r[3], 'total_cobrado': int(r[4])}
+                for r in cur.fetchall()]
+
+    def _totales_cierre(self, cur, id_apertura, monto_apertura):
+        """
+        Importes del cierre, calculados por el servidor: total_recaudado = todo lo cobrado (todas las formas);
+        monto_cierre = monto_apertura + solo lo cobrado en EFECTIVO (tarjetas, cheques y transferencias no son plata
+        en el cajón; su desglose va en `resumen`).
+        """
+        total = self._total_recaudado(cur, id_apertura)
+        efectivo = self._total_efectivo(cur, id_apertura)
+        return {'monto_apertura': monto_apertura, 'total_recaudado': total, 'efectivo': efectivo,
+                'monto_cierre': monto_apertura + efectivo, 'resumen': self._resumen_por_forma(cur, id_apertura)}
     # ------------------------------------------------------------------ anulación
     def anularApertura(self, id_apertura, id_usuario, es_admin):
         """
@@ -263,7 +288,7 @@ class AperturaCajaDao:
         Lo calcula el servidor; no cambia nada.
 
         Returns:
-            dict | str | tuple: {'monto_apertura', 'total_recaudado', 'monto_cierre'}; NO_EXISTE,
+            dict | str | tuple: {'monto_apertura', 'total_recaudado', 'efectivo', 'monto_cierre', 'resumen'}; NO_EXISTE,
             SIN_PERMISO_PROPIO o (NO_ABIERTA, estado); False ante otro error.
         """
         conexion = Conexion()
@@ -273,9 +298,7 @@ class AperturaCajaDao:
             error, fila = self._bloquear_y_validar(cur, id_apertura, id_usuario, es_admin, bloquear=False)
             if error:
                 return error
-            monto_apertura = int(fila[2])
-            total = int(self._total_recaudado(cur, id_apertura))
-            return {'monto_apertura': monto_apertura, 'total_recaudado': total, 'monto_cierre': monto_apertura + total}
+            return self._totales_cierre(cur, id_apertura, int(fila[2]))
         except Exception as e:
             app.logger.error(f"Error al calcular el cierre de caja: {str(e)}")
             return False
@@ -285,11 +308,11 @@ class AperturaCajaDao:
 
     def cerrarApertura(self, id_apertura, id_usuario, es_admin):
         """
-        Cierra una apertura ABIERTA: fecha_cierre = now(), total_recaudado, monto_cierre = apertura + recaudado,
+        Cierra una apertura ABIERTA: fecha_cierre = now(), total_recaudado = TODO lo cobrado, monto_cierre = apertura + solo EFECTIVO,
         estado CERRADA. Los importes los calcula el servidor en la misma transacción (el cliente no los manda).
 
         Returns:
-            dict | str | tuple: {'monto_apertura', 'total_recaudado', 'monto_cierre'}; NO_EXISTE,
+            dict | str | tuple: {'monto_apertura', 'total_recaudado', 'efectivo', 'monto_cierre', 'resumen'}; NO_EXISTE,
             SIN_PERMISO_PROPIO o (NO_ABIERTA, estado); False ante otro error.
         """
         conexion = Conexion()
@@ -300,16 +323,14 @@ class AperturaCajaDao:
             if error:
                 con.rollback()
                 return error
-            monto_apertura = int(fila[2])
-            total = int(self._total_recaudado(cur, id_apertura))
-            monto_cierre = monto_apertura + total
+            totales = self._totales_cierre(cur, id_apertura, int(fila[2]))
             cur.execute("""
                 UPDATE apertura_cierre_caja
                 SET fecha_cierre = now(), total_recaudado = %s, monto_cierre = %s, estado = 'CERRADA'
                 WHERE id_apertura = %s
-            """, (total, monto_cierre, id_apertura))
+            """, (totales['total_recaudado'], totales['monto_cierre'], id_apertura))
             con.commit()
-            return {'monto_apertura': monto_apertura, 'total_recaudado': total, 'monto_cierre': monto_cierre}
+            return totales
         except Exception as e:
             app.logger.error(f"Error al cerrar la caja: {str(e)}")
             con.rollback()

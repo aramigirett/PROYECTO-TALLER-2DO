@@ -97,7 +97,7 @@ try:
 
     # ---------- las 4 entidades simples ----------
     flujo_comun('Forma de cobro', '/api/v1/formas-cobro', 'formacobro', 'forma_cobro', 'id_forma_cobro',
-                lambda d: {'descripcion': d},
+                lambda d: {'descripcion': d, 'tipo': 'EFECTIVO'},   # el tipo es obligatorio desde Cobranzas
                 'No se puede reactivar: ya existe una forma de cobro activa con esa descripción.',
                 'La forma de cobro ya está activa.', 'reactivada')
     flujo_comun('Marca de tarjeta', '/api/v1/marcas-tarjeta', 'marcatarjeta', 'marca_tarjeta', 'id_marca_tarjeta',
@@ -204,7 +204,7 @@ try:
     print('--- Forma de Cobro: protocolo EN_USO')
     from app.dao.modulo_facturacion.forma_cobro.FormaCobroDao import FormaCobroDao
     FC = '/api/v1/formas-cobro'
-    f1 = reg('forma_cobro', api('post', FC, 201, {'descripcion': 'zz fc en uso'}, 'forma de cobro: alta para el test de EN_USO')['data']['id_forma_cobro'])
+    f1 = reg('forma_cobro', api('post', FC, 201, {'descripcion': 'zz fc en uso', 'tipo': 'EFECTIVO'}, 'forma de cobro: alta para el test de EN_USO')['data']['id_forma_cobro'])
     with app.app_context():
         chk('esta_en_uso() devuelve False cuando nada la usa', FormaCobroDao().esta_en_uso(f1) is False)
         chk('deleteFormaCobro devuelve True al anular y False si ya no existe',

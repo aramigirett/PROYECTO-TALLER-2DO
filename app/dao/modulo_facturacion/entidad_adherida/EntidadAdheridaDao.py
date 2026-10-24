@@ -177,38 +177,53 @@ class EntidadAdheridaDao:
             cur.close()
             con.close()
 
+    def _motivo_en_uso(self, cur, id_entidad_adherida):
+        """Devuelve el motivo (texto para el usuario) si la entidad adherida está usada en una cobranza con tarjeta, o False."""
+        cur.execute("""SELECT 1 FROM cobro_tarjeta t
+                       JOIN cobro_det d ON d.id_cobro_det = t.id_cobro_det
+                       JOIN cobro_cab c ON c.id_cobro = d.id_cobro
+                       WHERE t.id_entidad_adherida = %s AND c.estado = 'EMITIDO' LIMIT 1""", (id_entidad_adherida,))
+        return "No se puede dar de baja, la entidad adherida está usada en una cobranza con tarjeta." if cur.fetchone() else False
+
     def esta_en_uso(self, id_entidad_adherida):
-        """Indica si la entidad adherida está usada en algún cobro con tarjeta."""
-        # TODO: debe consultar cobro_tarjeta (WHERE id_entidad_adherida = %s) cuando exista
-        # la tabla. Mientras tanto no hay nada que pueda referenciarla.
-        return False
+        """False si se puede anular; si no, el texto con el motivo (truthy)."""
+        conexion = Conexion()
+        con = conexion.getConexion()
+        cur = con.cursor()
+        try:
+            return self._motivo_en_uso(cur, id_entidad_adherida)
+        except Exception as e:
+            app.logger.error(f"Error al verificar uso de entidad adherida: {str(e)}")
+            return "No se pudo verificar si la entidad adherida está en uso."  # ante la duda, bloquear
+        finally:
+            cur.close()
+            con.close()
 
     def deleteEntidadAdherida(self, id_entidad_adherida):
         """
-        Anula (baja lógica) una entidad adherida, validando antes que no esté en uso.
+        Anula (baja lógica) una entidad adherida. Verificación de uso y UPDATE en la misma transacción, con la fila
+        bloqueada (FOR UPDATE; un cobro con tarjeta toma FOR SHARE sobre ella, así que no puede colarse).
 
         Returns:
             bool | tuple: True si se anuló, False si no existía o falló, ("EN_USO", motivo) si está en uso.
-        """
-        motivo = self.esta_en_uso(id_entidad_adherida)
-        if motivo:
-            app.logger.warning(f"No se puede anular entidad adherida {id_entidad_adherida}: está en uso")
-            return ("EN_USO", motivo if isinstance(motivo, str) else
-                    "No se puede dar de baja, la entidad adherida está usada en un cobro con tarjeta.")
-
-        sql = """
-        UPDATE entidad_adherida
-        SET activo = false
-        WHERE id_entidad_adherida = %s AND activo = true
         """
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(sql, (id_entidad_adherida,))
-            filas_afectadas = cur.rowcount
+            cur.execute("SELECT 1 FROM entidad_adherida WHERE id_entidad_adherida = %s AND activo = true FOR UPDATE",
+                        (id_entidad_adherida,))
+            if cur.fetchone() is None:
+                con.rollback()
+                return False
+            motivo = self._motivo_en_uso(cur, id_entidad_adherida)
+            if motivo:
+                con.rollback()
+                app.logger.warning(f"No se puede anular entidad adherida {id_entidad_adherida}: está en uso")
+                return ("EN_USO", motivo)
+            cur.execute("UPDATE entidad_adherida SET activo = false WHERE id_entidad_adherida = %s", (id_entidad_adherida,))
             con.commit()
-            return filas_afectadas > 0
+            return True
         except Exception as e:
             app.logger.error(f"Error al anular entidad adherida: {str(e)}")
             con.rollback()
@@ -216,7 +231,6 @@ class EntidadAdheridaDao:
         finally:
             cur.close()
             con.close()
-
     def reactivarEntidadAdherida(self, id_entidad_adherida):
         """
         Reactiva una entidad adherida anulada. En una sola transacción: bloquea la adherida, bloquea
