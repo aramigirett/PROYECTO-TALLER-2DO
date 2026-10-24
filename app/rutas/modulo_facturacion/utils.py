@@ -7,6 +7,7 @@ formulario antes de enviar. Si cambia una regla, cambiar los dos archivos.
 import re
 from flask import jsonify, request, session
 from app.dao.modulo_facturacion.AuditoriaCambiosDao import AuditoriaCambiosDao
+from app.Services.auditoria_detalle import DetalleAuditoria, estado_de_accion, modulo_de, parsear_detalle
 
 MAX_DESCRIPCION = 60
 MAX_DIRECCION = 150
@@ -345,13 +346,16 @@ def detalle_cambios(anterior, nuevo, etiquetas):
     "Teléfono: A -> B; Correo: X -> Y". `etiquetas` = {clave: texto visible}.
     Si `anterior` está vacío (alta) lista los valores: "Teléfono: B; Correo: Y".
     Devuelve '' si no hay cambios.
+    El resultado es un DetalleAuditoria (un `str` que además lleva los campos que cambiaron, con su etiqueta): auditar()
+    los guarda en las columnas JSONB valores_anteriores / valores_nuevos sin que la API tenga que hacer nada más.
     """
     if not anterior:
-        return '; '.join(f'{etq}: {nuevo.get(k)}' for k, etq in etiquetas.items())
-    return '; '.join(
-        f'{etq}: {anterior.get(k)} -> {nuevo.get(k)}'
-        for k, etq in etiquetas.items() if anterior.get(k) != nuevo.get(k)
-    )
+        texto = '; '.join(f'{etq}: {nuevo.get(k)}' for k, etq in etiquetas.items())
+        return DetalleAuditoria(texto, {}, {etq: nuevo.get(k) for k, etq in etiquetas.items()})
+    cambiados = [(k, etq) for k, etq in etiquetas.items() if anterior.get(k) != nuevo.get(k)]
+    texto = '; '.join(f'{etq}: {anterior.get(k)} -> {nuevo.get(k)}' for k, etq in cambiados)
+    return DetalleAuditoria(texto, {etq: anterior.get(k) for k, etq in cambiados},
+                            {etq: nuevo.get(k) for k, etq in cambiados})
 
 
 def respuesta_error(mensaje, status, campo=None):
@@ -361,10 +365,31 @@ def respuesta_error(mensaje, status, campo=None):
     return jsonify(cuerpo), status
 
 
+def estructura_auditoria(entidad, accion, detalle):
+    """
+    (valores_anteriores, valores_nuevos) a guardar en JSONB, solo con los campos que cambiaron (None = sin datos):
+      - ALTA / MODIFICACION: los que trae el DetalleAuditoria de detalle_cambios(); si la API armó el texto a mano, lo que
+        pueda separar parsear_detalle() (y si no puede, None: queda solo el texto).
+      - BAJA / REACTIVACION / CIERRE: el estado.
+    """
+    anteriores, nuevos = estado_de_accion(accion, entidad)
+    if nuevos is not None:
+        return anteriores, nuevos
+    if isinstance(detalle, DetalleAuditoria):
+        return (detalle.anteriores or None), (detalle.nuevos or None)
+    parseado = parsear_detalle(detalle, accion)
+    if parseado:
+        return (parseado[0] or None), parseado[1]
+    return None, None
+
+
 def auditar(entidad, id_registro, accion, detalle):
-    """Registra en auditoria_cambios. id_usuario e ip salen de la sesión y del request, nunca del cliente."""
-    AuditoriaCambiosDao().registrar(session.get('id_usuario'), entidad, id_registro,
-                                    accion, detalle, request.remote_addr)
+    """Registra en auditoria_cambios. id_usuario e ip salen de la sesión y del request, nunca del cliente.
+    El módulo sale del mapa de entidades y los valores anterior / nuevo, de estructura_auditoria()."""
+    anteriores, nuevos = estructura_auditoria(entidad, accion, detalle)
+    AuditoriaCambiosDao().registrar(session.get('id_usuario'), entidad, id_registro, accion, detalle,
+                                    request.remote_addr, modulo=modulo_de(entidad),
+                                    valores_anteriores=anteriores, valores_nuevos=nuevos)
 
 
 def error_interno():

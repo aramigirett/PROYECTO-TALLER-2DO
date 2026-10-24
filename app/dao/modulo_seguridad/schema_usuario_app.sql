@@ -40,6 +40,8 @@ DECLARE
     r    RECORD;
     -- Tablas de auditoría: la aplicación solo las lee y les inserta
     v_auditoria TEXT[] := ARRAY['auditoria_cambios', 'auditoria_acceso'];
+    -- Configuración que solo cambia quien administra la base (umbrales de las alertas de auditoría)
+    v_solo_lectura TEXT[] := ARRAY['auditoria_umbrales'];
 BEGIN
     EXECUTE format('GRANT CONNECT ON DATABASE %I TO odontoclinic_app, odontoclinic_backup', v_db);
     GRANT USAGE ON SCHEMA public TO odontoclinic_app, odontoclinic_backup;
@@ -58,6 +60,8 @@ BEGIN
             EXECUTE format('GRANT SELECT ON public.%I TO odontoclinic_app', r.relname);
         ELSIF r.relname = ANY (v_auditoria) THEN
             EXECUTE format('GRANT SELECT, INSERT ON public.%I TO odontoclinic_app', r.relname);
+        ELSIF r.relname = ANY (v_solo_lectura) THEN
+            EXECUTE format('GRANT SELECT ON public.%I TO odontoclinic_app', r.relname);
         ELSE
             EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON public.%I TO odontoclinic_app', r.relname);
         END IF;

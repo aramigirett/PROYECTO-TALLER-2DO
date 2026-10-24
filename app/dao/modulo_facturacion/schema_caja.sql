@@ -17,7 +17,7 @@ CREATE INDEX IF NOT EXISTS ix_caja_consultorio ON caja (id_consultorio);
 -- La auditoría de cambios admite también la reactivación de un registro anulado.
 ALTER TABLE auditoria_cambios DROP CONSTRAINT IF EXISTS auditoria_cambios_accion_check;
 ALTER TABLE auditoria_cambios ADD CONSTRAINT auditoria_cambios_accion_check
-    CHECK (accion IN ('ALTA', 'MODIFICACION', 'BAJA', 'REACTIVACION'));
+    CHECK (accion IN ('ALTA', 'MODIFICACION', 'BAJA', 'REACTIVACION', 'CIERRE', 'EXPORTACION'));   -- completo: no debe quitar CIERRE ni EXPORTACION (Etapas posteriores)
 
 -- Datos iniciales: consultorios ordenados por código.
 --   CAJA RECEPCIÓN y CAJA ORTODONCIA -> primer consultorio.

@@ -31,4 +31,4 @@ CREATE INDEX IF NOT EXISTS ix_apertura_fecha ON apertura_cierre_caja (fecha_aper
 -- La auditoría de cambios admite también el cierre de caja (apertura = ALTA, anulación = BAJA).
 ALTER TABLE auditoria_cambios DROP CONSTRAINT IF EXISTS auditoria_cambios_accion_check;
 ALTER TABLE auditoria_cambios ADD CONSTRAINT auditoria_cambios_accion_check
-    CHECK (accion IN ('ALTA', 'MODIFICACION', 'BAJA', 'REACTIVACION', 'CIERRE'));
+    CHECK (accion IN ('ALTA', 'MODIFICACION', 'BAJA', 'REACTIVACION', 'CIERRE', 'EXPORTACION'));   -- EXPORTACION: Etapa C (schema_auditoria_estructurada.sql)

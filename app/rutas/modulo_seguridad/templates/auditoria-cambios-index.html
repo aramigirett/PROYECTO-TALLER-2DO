@@ -1,0 +1,349 @@
+{% extends 'base_tabler.html' %}
+
+{% block titulo %}Auditoría de Cambios{% endblock %}
+
+{% block contenido %}
+<div class="page-header d-print-none mb-3">
+  <div class="row align-items-center g-2">
+    <div class="col">
+      <div class="page-pretitle text-muted">Seguridad &bull; Auditoría</div>
+      <h2 class="page-title fw-bold" style="color: var(--oc-text-main);">Auditoría de Cambios</h2>
+    </div>
+    <div class="col-auto d-flex flex-wrap gap-2">
+      <a class="btn btn-outline-secondary" id="lnkTablero" href="{{ url_for('auditoria.auditoriaIndex') }}"><i class="fas fa-shield-alt me-2"></i>Tablero de Accesos</a>
+      <button type="button" class="btn btn-outline-danger" id="btnPdf"><i class="fas fa-file-pdf me-2"></i>Exportar PDF</button>
+      <button type="button" class="btn btn-outline-success" id="btnCsv"><i class="fas fa-file-csv me-2"></i>Exportar CSV</button>
+    </div>
+  </div>
+</div>
+
+{# ══════════════════ ALERTAS ══════════════════ #}
+<div class="card border shadow-sm rounded-3 mb-3">
+  <div class="card-header bg-white py-3 d-flex align-items-center justify-content-between" style="cursor: pointer;" id="cabAlertas"
+       role="button" tabindex="0" aria-expanded="true" aria-controls="cuerpoAlertas">
+    <h3 class="card-title mb-0"><i class="fas fa-bell me-2 text-warning"></i>Alertas
+      <span class="badge bg-secondary ms-2" id="badgeAlertas">0</span></h3>
+    <i class="fas fa-chevron-up text-muted" id="icoAlertas"></i>
+  </div>
+  <div id="cuerpoAlertas">
+    <div class="list-group list-group-flush" id="listaAlertas">
+      <div class="list-group-item text-muted">Cargando alertas…</div>
+    </div>
+    <div class="card-footer small text-muted bg-white">
+      Umbrales: 5 o más bajas en un día, operaciones fuera de lunes a sábado de 07:00 a 20:00, 3 o más reactivaciones del mismo registro
+      en 30 días. Se editan en la tabla <code>auditoria_umbrales</code>.
+    </div>
+  </div>
+</div>
+
+{# ══════════════════ FILTROS Y LISTADO ══════════════════ #}
+<div class="card border shadow-sm rounded-3">
+  <div class="card-header bg-white py-3 border-bottom">
+    <div class="row g-2 align-items-end w-100">
+      <div class="col-6 col-md-2">
+        <label class="form-label small fw-semibold text-muted mb-1" for="fDesde">Desde</label>
+        <input type="date" class="form-control form-control-sm" id="fDesde">
+      </div>
+      <div class="col-6 col-md-2">
+        <label class="form-label small fw-semibold text-muted mb-1" for="fHasta">Hasta</label>
+        <input type="date" class="form-control form-control-sm" id="fHasta">
+      </div>
+      <div class="col-12 col-md-2">
+        <label class="form-label small fw-semibold text-muted mb-1" for="fUsuario">Usuario</label>
+        <select class="form-select form-select-sm" id="fUsuario"><option value="">Todos</option></select>
+      </div>
+      <div class="col-6 col-md-2">
+        <label class="form-label small fw-semibold text-muted mb-1" for="fModulo">Módulo</label>
+        <select class="form-select form-select-sm" id="fModulo"><option value="">Todos</option></select>
+      </div>
+      <div class="col-6 col-md-2">
+        <label class="form-label small fw-semibold text-muted mb-1" for="fEntidad">Entidad</label>
+        <select class="form-select form-select-sm" id="fEntidad"><option value="">Todas</option></select>
+      </div>
+      <div class="col-6 col-md-2">
+        <label class="form-label small fw-semibold text-muted mb-1" for="fAccion">Acción</label>
+        <select class="form-select form-select-sm" id="fAccion"><option value="">Todas</option></select>
+      </div>
+    </div>
+    <div class="d-flex flex-wrap align-items-center gap-2 mt-2 w-100">
+      <span class="badge bg-azure-lt" id="chipRegistro" style="display: none;"></span>
+      <button type="button" class="btn btn-sm btn-primary" id="btnFiltrar"><i class="fas fa-filter me-1"></i>Filtrar</button>
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="btnLimpiar"><i class="fas fa-eraser me-1"></i>Limpiar (últimos 7 días)</button>
+      <span class="text-danger small" id="errFiltros" style="display: none;"></span>
+    </div>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-vcenter table-hover card-table mb-0">
+      <thead class="bg-light text-muted small text-uppercase">
+        <tr>
+          <th class="ps-3 py-3">Fecha y hora</th><th class="py-3">Usuario</th><th class="py-3">IP</th><th class="py-3">Módulo</th>
+          <th class="py-3">Entidad</th><th class="py-3 text-end">ID</th><th class="py-3">Acción</th><th class="pe-3 py-3 text-end w-1">Detalle</th>
+        </tr>
+      </thead>
+      <tbody id="tbodyAuditoria">
+        <tr><td colspan="8" class="text-center text-muted py-4"><div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>Cargando…</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="card-footer bg-white d-flex flex-wrap align-items-center justify-content-between gap-2">
+    <div class="small text-muted" id="infoPagina"></div>
+    <div class="d-flex align-items-center gap-2">
+      <select class="form-select form-select-sm" id="porPagina" aria-label="Filas por página" style="width: auto;">
+        <option value="10">10</option><option value="25" selected>25</option><option value="50">50</option><option value="100">100</option>
+      </select>
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="btnAnterior"><i class="fas fa-chevron-left"></i></button>
+      <span class="small" id="lblPagina"></span>
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="btnSiguiente"><i class="fas fa-chevron-right"></i></button>
+    </div>
+  </div>
+</div>
+
+{# ══════════════════ DETALLE ══════════════════ #}
+<div class="modal fade" id="modalDetalle" tabindex="-1" aria-labelledby="tituloDetalle" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="tituloDetalle">Detalle del registro</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <dl class="row mb-3 small" id="datosDetalle"></dl>
+        <div class="table-responsive">
+          <table class="table table-sm table-bordered mb-0">
+            <thead class="bg-light text-muted small text-uppercase"><tr><th>Campo</th><th>Valor anterior</th><th>Valor nuevo</th></tr></thead>
+            <tbody id="camposDetalle"></tbody>
+          </table>
+        </div>
+        <div class="mt-3 small" id="textoDetalle" style="display: none;"></div>
+        <div class="mt-3 small text-muted"><i class="fas fa-lock me-1"></i>Solo lectura: los registros de auditoría no se pueden modificar ni eliminar.</div>
+      </div>
+      <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cerrar</button></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script src="{{ url_for('static', filename='js/facturacion-listado.js') }}"></script>
+<script>
+(function () {
+  'use strict';
+  var L = window.FacturacionListado;
+  var API = '/api/v1/auditoria-cambios';
+  var $ = function (id) { return document.getElementById(id); };
+  var pagina = 1, paginas = 1;
+  var filtroRegistro = null;      // N.º de registro (solo desde una alerta)
+
+  function iso(d) {
+    var m = String(d.getMonth() + 1), dia = String(d.getDate());
+    return d.getFullYear() + '-' + (m.length < 2 ? '0' + m : m) + '-' + (dia.length < 2 ? '0' + dia : dia);
+  }
+  function ultimos7() {
+    var hoy = new Date(), ini = new Date();
+    ini.setDate(hoy.getDate() - 6);
+    $('fDesde').value = iso(ini);
+    $('fHasta').value = iso(hoy);
+  }
+  function fmtFecha(t) {      // 'AAAA-MM-DD HH:MM:SS' -> 'DD/MM/AAAA HH:MM:SS'
+    return t ? t.substr(8, 2) + '/' + t.substr(5, 2) + '/' + t.substr(0, 4) + ' ' + t.substr(11, 8) : '';
+  }
+
+  function consulta(extra) {
+    var p = new URLSearchParams();
+    [['desde', 'fDesde'], ['hasta', 'fHasta'], ['id_usuario', 'fUsuario'], ['modulo', 'fModulo'], ['entidad', 'fEntidad'], ['accion', 'fAccion']]
+      .forEach(function (par) { if ($(par[1]).value) p.set(par[0], $(par[1]).value); });
+    if (filtroRegistro !== null) p.set('id_registro', filtroRegistro);
+    if (extra) Object.keys(extra).forEach(function (k) { p.set(k, extra[k]); });
+    return p.toString();
+  }
+
+  function error(msg) { var e = $('errFiltros'); e.textContent = msg || ''; e.style.display = msg ? '' : 'none'; }
+
+  function badgeAccion(a, etiqueta) {
+    var clase = { ALTA: 'bg-success-lt', MODIFICACION: 'bg-azure-lt', BAJA: 'bg-danger-lt', REACTIVACION: 'bg-teal-lt',
+                  CIERRE: 'bg-purple-lt', EXPORTACION: 'bg-secondary-lt' }[a] || 'bg-secondary-lt';
+    return '<span class="badge ' + clase + '">' + L.escapar(etiqueta || a) + '</span>';
+  }
+
+  function cargar() {
+    var desde = $('fDesde').value, hasta = $('fHasta').value;
+    if (desde && hasta && desde > hasta) { error('La fecha "desde" no puede ser posterior a "hasta".'); return; }
+    error('');
+    var cuerpo = $('tbodyAuditoria');
+    L.pedir(API + '?' + consulta({ pagina: pagina, por_pagina: $('porPagina').value })).then(function (r) {
+      if (!r.data || !r.data.success) {
+        error((r.data && r.data.error) || 'No se pudo cargar la auditoría.');
+        cuerpo.innerHTML = '<tr><td colspan="8" class="text-center text-danger py-4">No se pudo cargar la auditoría.</td></tr>';
+        return;
+      }
+      var d = r.data; paginas = d.paginas;
+      if (!d.data.length) {
+        cuerpo.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No hay registros para los filtros indicados.</td></tr>';
+      } else {
+        cuerpo.innerHTML = d.data.map(function (f) {
+          return '<tr><td class="ps-3 text-nowrap">' + L.escapar(fmtFecha(f.fecha_hora)) + '</td>' +
+            '<td>' + L.escapar(f.usuario || '(sistema)') + '</td><td class="text-nowrap">' + L.escapar(f.ip || '') + '</td>' +
+            '<td>' + L.escapar(f.modulo) + '</td><td>' + L.escapar(f.entidad_etiqueta) + '</td>' +
+            '<td class="text-end">' + L.escapar(f.id_registro) + '</td><td>' + badgeAccion(f.accion, f.accion_etiqueta) + '</td>' +
+            '<td class="pe-3 text-end"><button type="button" class="btn btn-sm btn-outline-primary" data-id="' + L.escapar(f.id_auditoria_cambio) +
+            '" title="Ver detalle"><i class="fas fa-eye"></i></button></td></tr>';
+        }).join('');
+      }
+      var desdeN = d.total ? (d.pagina - 1) * d.por_pagina + 1 : 0, hastaN = Math.min(d.total, d.pagina * d.por_pagina);
+      $('infoPagina').textContent = 'Mostrando ' + desdeN + ' a ' + hastaN + ' de ' + d.total + ' registros';
+      $('lblPagina').textContent = 'Página ' + d.pagina + ' de ' + d.paginas;
+      $('btnAnterior').disabled = d.pagina <= 1;
+      $('btnSiguiente').disabled = d.pagina >= d.paginas;
+    });
+  }
+
+  function filtrar() { pagina = 1; actualizarEnlaces(); cargar(); }
+
+  function actualizarEnlaces() {
+    var p = new URLSearchParams();
+    if ($('fDesde').value) p.set('desde', $('fDesde').value);
+    if ($('fHasta').value) p.set('hasta', $('fHasta').value);
+    $('lnkTablero').href = "{{ url_for('auditoria.auditoriaIndex') }}" + (p.toString() ? '?' + p.toString() : '');
+  }
+
+  function mostrarChipRegistro() {
+    var chip = $('chipRegistro');
+    if (filtroRegistro === null) { chip.style.display = 'none'; return; }
+    chip.style.display = '';
+    chip.innerHTML = 'Registro N.º ' + L.escapar(filtroRegistro) + ' <a href="#" id="quitarRegistro" class="ms-1" title="Quitar">&times;</a>';
+    $('quitarRegistro').addEventListener('click', function (e) { e.preventDefault(); filtroRegistro = null; mostrarChipRegistro(); filtrar(); });
+  }
+
+  /* ── Opciones de los combos ── */
+  function cargarFiltros(preseleccion) {
+    return L.pedir(API + '/filtros').then(function (r) {
+      if (!r.data || !r.data.success) return;
+      var d = r.data.data;
+      $('fUsuario').innerHTML = '<option value="">Todos</option>' + d.usuarios.map(function (u) {
+        return '<option value="' + L.escapar(u.id_usuario) + '">' + L.escapar(u.nombre + (u.ci_ruc ? ' (' + u.ci_ruc + ')' : '')) + '</option>';
+      }).join('');
+      $('fModulo').innerHTML = '<option value="">Todos</option>' + d.modulos.map(function (m) {
+        return '<option value="' + L.escapar(m) + '">' + L.escapar(m) + '</option>';
+      }).join('');
+      $('fEntidad').innerHTML = '<option value="">Todas</option>' + d.entidades.map(function (e) {
+        return '<option value="' + L.escapar(e.valor) + '">' + L.escapar(e.etiqueta) + '</option>';
+      }).join('');
+      $('fAccion').innerHTML = '<option value="">Todas</option>' + d.acciones.map(function (a) {
+        return '<option value="' + L.escapar(a.valor) + '">' + L.escapar(a.etiqueta) + '</option>';
+      }).join('');
+      if (preseleccion) Object.keys(preseleccion).forEach(function (id) { $(id).value = preseleccion[id]; });
+    });
+  }
+
+  /* ── Alertas ── */
+  var TIPOS = {
+    BAJAS_EN_EL_DIA: { texto: 'Muchas bajas en un día', icono: 'fa-ban', clase: 'text-danger' },
+    FUERA_DE_HORARIO: { texto: 'Operaciones fuera de horario', icono: 'fa-clock', clase: 'text-warning' },
+    REACTIVACIONES_REPETIDAS: { texto: 'Reactivaciones repetidas', icono: 'fa-redo', clase: 'text-orange' }
+  };
+
+  function cargarAlertas() {
+    L.pedir(API + '/alertas').then(function (r) {
+      var lista = $('listaAlertas');
+      if (!r.data || !r.data.success) { lista.innerHTML = '<div class="list-group-item text-danger">No se pudieron cargar las alertas.</div>'; return; }
+      var alertas = r.data.data;
+      var badge = $('badgeAlertas');
+      badge.textContent = alertas.length;
+      badge.className = 'badge ms-2 ' + (alertas.length ? 'bg-danger' : 'bg-success');
+      if (!alertas.length) { lista.innerHTML = '<div class="list-group-item text-muted">Sin alertas en los últimos días.</div>'; return; }
+      lista.innerHTML = alertas.map(function (a, i) {
+        var t = TIPOS[a.tipo] || { texto: a.tipo, icono: 'fa-exclamation-triangle', clase: 'text-warning' };
+        return '<div class="list-group-item d-flex flex-wrap align-items-center justify-content-between gap-2">' +
+          '<div><i class="fas ' + t.icono + ' ' + t.clase + ' me-2"></i><strong>' + L.escapar(t.texto) + '</strong>' +
+          (a.usuario ? ' &mdash; ' + L.escapar(a.usuario) : '') +
+          '<div class="small text-muted">' + L.escapar(a.desde === a.hasta ? a.desde : a.desde + ' a ' + a.hasta) + ' &bull; ' + L.escapar(a.descripcion) + '</div></div>' +
+          '<button type="button" class="btn btn-sm btn-outline-primary" data-alerta="' + i + '"><i class="fas fa-filter me-1"></i>Ver en el listado</button></div>';
+      }).join('');
+      lista.onclick = function (ev) {
+        var b = ev.target.closest('[data-alerta]');
+        if (b) aplicarAlerta(alertas[Number(b.getAttribute('data-alerta'))]);
+      };
+    });
+  }
+
+  /* Cada alerta lleva al listado ya filtrado por lo que la disparó. */
+  function aplicarAlerta(a) {
+    $('fDesde').value = a.desde; $('fHasta').value = a.hasta;
+    $('fUsuario').value = a.tipo === 'REACTIVACIONES_REPETIDAS' ? '' : (a.id_usuario || '');
+    $('fModulo').value = '';
+    $('fEntidad').value = a.entidad || '';
+    $('fAccion').value = a.accion || '';
+    filtroRegistro = (a.id_registro === null || a.id_registro === undefined) ? null : a.id_registro;
+    mostrarChipRegistro();
+    filtrar();
+    $('tbodyAuditoria').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  /* ── Detalle ── */
+  function verDetalle(id) {
+    L.pedir(API + '/' + encodeURIComponent(id)).then(function (r) {
+      if (!r.data || !r.data.success) { Swal.fire('Error', (r.data && r.data.error) || 'No se pudo cargar el detalle.', 'error'); return; }
+      var f = r.data.data;
+      $('datosDetalle').innerHTML = [
+        ['Fecha y hora', fmtFecha(f.fecha_hora)], ['Usuario', (f.usuario || '(sistema)') + (f.ci_ruc ? ' (' + f.ci_ruc + ')' : '')],
+        ['IP', f.ip || ''], ['Módulo', f.modulo], ['Entidad', f.entidad_etiqueta], ['ID del registro', f.id_registro], ['Acción', f.accion_etiqueta]
+      ].map(function (p) {
+        return '<dt class="col-sm-4 text-muted">' + L.escapar(p[0]) + '</dt><dd class="col-sm-8 mb-1">' + L.escapar(p[1]) + '</dd>';
+      }).join('');
+      $('camposDetalle').innerHTML = f.campos.length ? f.campos.map(function (c) {
+        return '<tr><td class="fw-semibold">' + L.escapar(c.campo) + '</td><td>' + (c.anterior === '' ? '<span class="text-muted">—</span>' : L.escapar(c.anterior)) +
+               '</td><td>' + (c.nuevo === '' ? '<span class="text-muted">—</span>' : L.escapar(c.nuevo)) + '</td></tr>';
+      }).join('') : '<tr><td colspan="3" class="text-center text-muted">Sin detalle.</td></tr>';
+      var texto = $('textoDetalle');
+      texto.style.display = (f.mostrar_texto && f.detalle) ? '' : 'none';
+      texto.innerHTML = '<span class="text-muted">Detalle:</span> ' + L.escapar(f.detalle || '');
+      bootstrap.Modal.getOrCreateInstance($('modalDetalle')).show();
+    });
+  }
+
+  /* ── Exportar: abre el archivo con los filtros aplicados (el servidor audita cada exportación) ── */
+  function exportar(formato) {
+    var desde = $('fDesde').value, hasta = $('fHasta').value;
+    if (desde && hasta && desde > hasta) { error('La fecha "desde" no puede ser posterior a "hasta".'); return; }
+    error('');
+    var url = API + '/exportar?' + consulta({ formato: formato });
+    if (formato === 'pdf') { window.open(url, '_blank'); } else { window.location.href = url; }
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    var q = new URLSearchParams(window.location.search);
+    if (q.get('desde') || q.get('hasta')) { $('fDesde').value = q.get('desde') || ''; $('fHasta').value = q.get('hasta') || ''; } else { ultimos7(); }
+    actualizarEnlaces();
+    cargarFiltros().then(function () { cargar(); });
+    cargarAlertas();
+
+    $('btnFiltrar').addEventListener('click', filtrar);
+    $('btnLimpiar').addEventListener('click', function () {
+      ultimos7();
+      ['fUsuario', 'fModulo', 'fEntidad', 'fAccion'].forEach(function (id) { $(id).value = ''; });
+      filtroRegistro = null; mostrarChipRegistro(); filtrar();
+    });
+    ['fUsuario', 'fModulo', 'fEntidad', 'fAccion', 'fDesde', 'fHasta'].forEach(function (id) { $(id).addEventListener('change', filtrar); });
+    $('porPagina').addEventListener('change', filtrar);
+    $('btnAnterior').addEventListener('click', function () { if (pagina > 1) { pagina--; cargar(); } });
+    $('btnSiguiente').addEventListener('click', function () { if (pagina < paginas) { pagina++; cargar(); } });
+    $('tbodyAuditoria').addEventListener('click', function (ev) {
+      var b = ev.target.closest('button[data-id]');
+      if (b) verDetalle(b.getAttribute('data-id'));
+    });
+    $('btnPdf').addEventListener('click', function () { exportar('pdf'); });
+    $('btnCsv').addEventListener('click', function () { exportar('csv'); });
+
+    var cab = $('cabAlertas');
+    function alternar() {
+      var cuerpo = $('cuerpoAlertas'), abierto = cuerpo.style.display !== 'none';
+      cuerpo.style.display = abierto ? 'none' : '';
+      cab.setAttribute('aria-expanded', String(!abierto));
+      $('icoAlertas').className = 'fas text-muted ' + (abierto ? 'fa-chevron-down' : 'fa-chevron-up');
+    }
+    cab.addEventListener('click', alternar);
+    cab.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); alternar(); } });
+  });
+})();
+</script>
+{% endblock %}

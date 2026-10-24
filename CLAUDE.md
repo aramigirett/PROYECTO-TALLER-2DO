@@ -64,7 +64,7 @@ Basado en el CUS "Mantener Acceso" ya documentado:
 ## Estado real del Módulo Seguridad (actualizado — COMPLETO)
 - ✅ Login + 2FA por correo: terminado y probado end-to-end.
 - ✅ Mantener Usuario (alta, edición, baja lógica, reactivar): terminado y probado.
-- ✅ Tablero de Administrador (ver auditoria_acceso en pantalla): terminado y probado.
+- ✅ Tablero de Administrador (ver auditoria_acceso en pantalla): terminado y probado. Etapa C: migrado a Tabler, con exportación y enlace a Auditoría de Cambios.
 - ✅ Mantener Roles y Permisos: terminado y probado (Roles de solo lectura,
   Permisos con CRUD completo, FK permisos→roles, baja física).
 - ⏳ Pendiente para más adelante: Mantener Menú (buscador general, control de
@@ -539,7 +539,7 @@ Todo referencial —nuevo o migrado— cumple estos 6 puntos. Implementación de
    fila bloqueada (`FOR UPDATE`; el alta/edición del hijo toma `FOR SHARE` sobre el padre). Cuando la tabla que
    lo usa todavía no existe, queda un TODO que dice cuál consultar. La API compara el resultado explícitamente
    (nunca `if resultado:` sobre un string).
-6. **Auditoría en `auditoria_cambios`** vía `AuditoriaCambiosDao`/`utils.auditar`: `ALTA`, `MODIFICACION`, `BAJA`
+6. **Auditoría en `auditoria_cambios`** (formato estructurado de la Etapa C: **todo módulo que se migre debe auditar así**, con `detalle_cambios()` + `utils.auditar`, que guardan módulo y los JSON `valores_anteriores`/`valores_nuevos`; ver "Auditoría — tanda de cierre, Etapa C") vía `AuditoriaCambiosDao`/`utils.auditar`: `ALTA`, `MODIFICACION`, `BAJA`
    y `REACTIVACION` (y `CIERRE` para los movimientos que se cierran: Apertura y Cierre de Caja), con `id_usuario`
    de la sesión e `ip` del request (nunca del cliente). El detalle muestra
    NOMBRES (no IDs) y solo lo que cambió; una edición sin cambios no audita.
@@ -1058,6 +1058,7 @@ EXISTS`), con comentarios de propósito, parámetros y excepciones, bloque `BEGI
   quite; no depender de datos que se editan a mano (los `seed` pueden fallar si se renombran desde la pantalla).
 - **Los tests importan `from tests._conexion_pruebas import Conexion`** (postgres, `TEST_DB_*`) para preparar y limpiar datos;
   la app y los DAO que ejercitan usan `odontoclinic_app`. Sumó `smoke_permisos_app` y `smoke_backup` (Etapa B).
+- `tests/seguridad/smoke_auditoria_consulta.py` y `browser_auditoria.py` (Etapa C, ver "Auditoría — tanda de cierre, Etapa C"); el segundo necesita Edge y recibe una carpeta de salida: `.\.venv\Scripts\python.exe -I tests\seguridad\browser_auditoria.py <carpeta>`.
 - `tests/seguridad/` (Etapa A de la tanda de cierre): `smoke_inactividad` (usa también Edge headless para la lógica de
   `inactividad.js`), `smoke_ip_pais` y `smoke_acceso_basico`. Borran solo la auditoría y los códigos 2FA que generan, por ID.
 - `browser_test.py` ejecuta las vistas en Edge headless con `fetch` simulado (necesita Edge; la ruta está en la
@@ -1132,6 +1133,7 @@ Tests: `tests/seguridad/smoke_permisos_app.py` y `smoke_backup.py`. Guías: `doc
   acceso por red documentado.
 - ✅ **Rúbrica 8 (Seguridad) — completa con esta etapa:** copias de seguridad y separación de privilegios (suma lo de la Etapa A:
   contraseñas con scrypt, cierre por inactividad, IP por país, recordar usuario, HTTPS justificado).
+- ✅ **Rúbrica 9 (Auditoría) — completa con la Etapa C** (consulta, informes y alertas; ver "Auditoría — tanda de cierre, Etapa C").
 - Las demás no cambian en esta etapa.
 
 ### Usuarios de base de datos (`schema_usuario_app.sql`, idempotente, SIN contraseñas)
@@ -1189,6 +1191,60 @@ Tests: `tests/seguridad/smoke_permisos_app.py` y `smoke_backup.py`. Guías: `doc
   en el `.env` de la otra PC. Subred de este equipo al escribir la guía: `192.168.100.0/24` (servidor `192.168.100.80`).
 - Dos servidores PostgreSQL conviven en la PC (14 y 16): editar siempre la carpeta de la 14.
 - Tras cambiar `DB_USER` hay que **reiniciar `run.py`**: un servidor ya iniciado conserva las credenciales viejas.
+
+## Auditoría — tanda de cierre, Etapa C (rama `finalizando`)
+Rúbrica 9. Tests: `tests/seguridad/smoke_auditoria_consulta.py` (servidor/API/base) y `tests/seguridad/browser_auditoria.py` (las dos
+pantallas en Edge headless con `fetch` simulado). Scripts SQL idempotentes, como postgres, con `PGCLIENTENCODING=UTF8`:
+`app/dao/modulo_seguridad/schema_auditoria_estructurada.sql` y `schema_permisos_auditoria_cambios.sql` (+ re-aplicar `schema_usuario_app.sql`,
+que ahora deja `auditoria_umbrales` en solo lectura para la app).
+
+### Estructura de `auditoria_cambios` (formato estructurado)
+- ⚠️ **Hay que agregar al DER:** `modulo VARCHAR(30) NULL`, `valores_anteriores JSONB NULL`, `valores_nuevos JSONB NULL` (todas con `COMMENT ON`),
+  `detalle` pasó de `VARCHAR(255)` a `TEXT` (ya no se corta), la acción `EXPORTACION` en el CHECK, la tabla `auditoria_umbrales` y la vista
+  `v_auditoria_anomalias`.
+- Las filas anteriores a la Etapa C quedan con `modulo` y JSON en NULL (la tabla es inmutable, no se reescribe): la pantalla deduce el módulo de la
+  `entidad` (`MODULO_POR_ENTIDAD` en `app/Services/auditoria_detalle.py`; el filtro por módulo también las alcanza) y arma campo / anterior / nuevo
+  con el parser del texto.
+- **Cómo se guarda (sin tocar la lógica de cada API):** `utils.detalle_cambios()` devuelve un `DetalleAuditoria` (un `str` con los campos que cambiaron
+  pegados) y `utils.auditar()` guarda el módulo y los JSON: **ALTA** solo `valores_nuevos`; **MODIFICACION** solo los campos que cambiaron (una edición sin
+  cambios no guarda JSON); **BAJA / REACTIVACION / CIERRE** el estado (`Activo`↔`Inactivo`, `Anulado` en los movimientos, `Abierta`→`Cerrada`). Si una API
+  arma el texto a mano (concatenándolo), se separa con `parsear_detalle()` solo si tiene exactamente la forma `Campo: A -> B; ...`; si no, el JSON queda NULL.
+  Los booleanos se guardan como `Sí`/`No`. **Una entidad nueva debe sumarse a `MODULO_POR_ENTIDAD` y `ETIQUETA_ENTIDAD`** (si no, se guarda sin módulo y se muestra como "Otro").
+- La app sigue con solo `SELECT`/`INSERT` en la tabla y el trigger `trg_auditoria_inmutable` sigue rechazando UPDATE/DELETE (verificado en el test, incluso como postgres).
+- **BAJA se sigue guardando como `BAJA`**, pero pantalla, PDF y CSV la muestran como **"Baja / Anulación"** (`ETIQUETA_ACCION`).
+
+### Relevamiento: qué registra hoy en `auditoria_cambios` y qué no
+- **Sí registran (19 APIs):** Referenciales de Facturación (Forma de Cobro, Marca de Tarjeta, Entidad Emisora, Entidad Adherida, Tipo Ítems, Ítems, Caja,
+  Depósito, Cliente, Cuenta Bancaria); movimientos de Facturación (Apertura y Cierre de Caja, Pedido Cliente, Venta, Cobro, Nota de Remisión, Notas de
+  Crédito/Débito, Arqueo y Recaudación a depositar); Seguridad: solo Copias de Seguridad (y ahora las exportaciones de los informes de auditoría).
+- **NO registran (se suman en la migración a Tabler, NO en esta etapa):**
+  - **Agendamiento:** Paciente, Médico, Funcionario, Agenda (cabecera/detalle), Cita, Avisos y Recordatorios, Historial; referenciales Ciudad, Cargo, Consultorio,
+    Disponibilidad Horaria, Especialidad, Día, Turno.
+  - **Consultorio:** los 10 movimientos (Consulta, Diagnóstico, Ficha Médica, Odontograma, Tratamiento, Sesiones e Insumos, Receta, Orden de Estudios, Orden de
+    Análisis, Justificativo) y los 8 referenciales (Tipo Tratamiento, Tipo Insumo, Tipo Procedimiento, Medicamentos, Tipo Estudio, Tipo Análisis, Tipo Diagnóstico, Síntomas).
+  - **Seguridad:** alta/edición/baja de Usuarios y Roles y Permisos (los accesos sí van a `auditoria_acceso`, otra tabla).
+  - Al migrar cada uno: auditar con `detalle_cambios()` + `utils.auditar` (formato estructurado) y sumar la entidad a `MODULO_POR_ENTIDAD`/`ETIQUETA_ENTIDAD`
+    y, si es un movimiento que se anula, a los de módulo distinto de Referenciales (`ENTIDADES_MOVIMIENTO`) para que su BAJA diga "Anulado".
+
+### Pantalla "Auditoría de Cambios" (solo Administrador)
+- Ventana `auditoriacambios` (`solo_admin`, acción `ver`, "Módulo Seguridad"), `base_tabler.html`; fila en `menu` y **ningún** permiso para otros roles; el
+  buscador general la encuentra. Archivos: `auditoria_cambios_routes.py` / `auditoria_cambios_api.py` / `templates/auditoria-cambios-index.html` (planos en
+  `modulo_seguridad/`, como Backup), `AuditoriaConsultaDao.py` (solo SELECT), `app/Services/auditoria_detalle.py` y `auditoria_pdf_service.py`.
+- Filtros: fechas (la pantalla arranca con los últimos 7 días; la API sin fechas no filtra), usuario, módulo, entidad, acción y N.º de registro (este último
+  solo llega desde una alerta). Listado paginado (10/25/50/100) de más reciente a más antiguo; modal con la tabla campo / valor anterior / valor nuevo.
+- **Solo lectura:** el blueprint solo tiene `GET` (POST/PUT/PATCH/DELETE dan 405).
+- **Exportar a PDF y CSV** con los filtros aplicados, tope **5.000 filas** (`TOPE_EXPORTACION`) con aviso en el PDF y el CSV. PDF A4 apaisado, mismo estilo
+  que la factura (empresa, título, filtros, emitido el/por). CSV UTF-8 con BOM, separador `;`, textos que empiezan con `= + - @` con comilla (sin fórmulas).
+  **Cada exportación válida se audita** (`entidad='auditoria_cambios'` o `'auditoria_acceso'`, acción `EXPORTACION`, `id_registro = 0`, detalle con formato, filas y filtros).
+- **Alertas** (`v_auditoria_anomalias`, umbrales en la tabla de una fila `auditoria_umbrales`, que la app solo lee; se cambian con `UPDATE` como postgres):
+  `BAJAS_EN_EL_DIA` (5 o más bajas de un usuario en un día), `FUERA_DE_HORARIO` (operaciones, no exportaciones, antes de 07:00, desde 20:00 o en domingo:
+  lunes a sábado de 07:00 a 20:00) y `REACTIVACIONES_REPETIDAS` (3 o más del mismo registro en 30 días). Solo mira los últimos 30 días (`ventana_alertas_dias`).
+  Sección "Alertas" arriba, con badge con la cantidad; cada alerta aplica sus filtros al listado.
+
+### Tablero de Accesos
+- Migrado a Tabler (`auditoria-index.html`; endpoint y ventana `auditoria` iguales). Mismo filtro de fechas + resultado, **exportación a PDF y CSV**
+  (`GET /api/v1/auditoria/intentos/exportar`, permiso `ver` de `auditoria`, también auditada) y **enlace cruzado** en ambos sentidos con Auditoría de Cambios
+  (llevan las fechas elegidas). En pantalla muestra hasta 1.000 intentos paginados de a 25; la exportación llega a 5.000.
 
 ## Convenciones de código
 - SQL crudo con psycopg2, sin ORM.

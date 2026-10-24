@@ -182,7 +182,7 @@ try:
     chk('tablero: resultado con formato inválido -> 400', c.get("/api/v1/auditoria/intentos?resultado=x'%3B--").status_code == 400)
     html = c.get('/referenciales/auditoria/auditoria-index').get_data(as_text=True)
     chk('tablero: la pantalla tiene el filtro de resultado con IP_NO_PERMITIDA, IP_SIN_GEOLOCALIZAR y CIERRE_INACTIVIDAD y la columna País',
-        all(t in html for t in ('id="fResultado"', 'value="IP_NO_PERMITIDA"', 'value="IP_SIN_GEOLOCALIZAR"', 'value="CIERRE_INACTIVIDAD"', '<th>País</th>')))
+        all(t in html for t in ('id="fResultado"', 'value="IP_NO_PERMITIDA"', 'value="IP_SIN_GEOLOCALIZAR"', 'value="CIERRE_INACTIVIDAD"', 'País</th>')))
 
     # =========================================================================================================================
     # 6. TABLA paises Y ATRIBUCIÓN

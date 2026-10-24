@@ -60,6 +60,25 @@ class AuditoriaDao:
         return self.registrar(id_usuario, cedula_nueva, f"ANTES: {cedula_anterior}"[:30],
                               ip, 'CAMBIO_CEDULA', id_usuario_actor)
 
+    def contar_intentos(self, desde=None, hasta=None, resultado=None):
+        """Cantidad de intentos de acceso que cumplen el filtro (los mismos de get_ultimos_intentos)."""
+        filtros, params = [], []
+        if desde:
+            filtros.append("fecha_hora >= %s"); params.append(desde)
+        if hasta:
+            filtros.append("fecha_hora < %s::date + 1"); params.append(hasta)
+        if resultado:
+            filtros.append("resultado = %s"); params.append(resultado)
+        where = ("WHERE " + " AND ".join(filtros)) if filtros else ""
+        con = Conexion().getConexion()
+        cur = con.cursor()
+        try:
+            cur.execute(f"SELECT count(*) FROM auditoria_acceso {where}", tuple(params))
+            return cur.fetchone()[0]
+        finally:
+            cur.close()
+            con.close()
+
     def get_ultimos_intentos(self, limite, desde=None, hasta=None, resultado=None):
         """
         Trae los últimos intentos de acceso (exitosos y fallidos) para el

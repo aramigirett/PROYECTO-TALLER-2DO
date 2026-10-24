@@ -15,6 +15,7 @@ from app.rutas.modulo_seguridad.menu_catalog import CATALOGO_MENU
 
 fallos = []
 AUDITORIAS = ('auditoria_cambios', 'auditoria_acceso')
+SOLO_LECTURA = ('auditoria_umbrales',)   # configuración que solo cambia quien administra la base (Etapa C)
 
 
 def chk(nombre, cond):
@@ -79,12 +80,14 @@ try:
     tablas = [x for x in p if x[1] in ('r', 'p')]
     vistas = [x for x in p if x[1] in ('v', 'm')]
     chk(f'hay tablas y vistas que revisar ({len(tablas)} tablas, {len(vistas)} vistas)', len(tablas) > 50 and len(vistas) >= 5)
-    normales = [x for x in tablas if x[0] not in AUDITORIAS]
+    normales = [x for x in tablas if x[0] not in AUDITORIAS and x[0] not in SOLO_LECTURA]
     chk('tablas: SELECT/INSERT/UPDATE/DELETE en todas menos las dos de auditoría', all(x[2:6] == (True,) * 4 for x in normales))
     chk('tablas: nunca TRUNCATE, REFERENCES ni TRIGGER', all(x[6:9] == (False,) * 3 for x in tablas))
     aud = {x[0]: x for x in tablas if x[0] in AUDITORIAS}
     chk('auditoria_cambios y auditoria_acceso: SOLO SELECT e INSERT (sin UPDATE ni DELETE)',
         set(aud) == set(AUDITORIAS) and all(a[2:6] == (True, True, False, False) for a in aud.values()))
+    chk('auditoria_umbrales: SOLO SELECT (la app no cambia sus propios umbrales)',
+        all(x[2:6] == (True, False, False, False) for x in tablas if x[0] in SOLO_LECTURA) and any(x[0] in SOLO_LECTURA for x in tablas))
     chk('vistas: solo SELECT', all(x[2:6] == (True, False, False, False) for x in vistas))
     ca.execute("""SELECT bool_and(has_sequence_privilege('odontoclinic_app', c.oid, 'USAGE') AND has_sequence_privilege('odontoclinic_app', c.oid, 'SELECT')),
                          bool_or(has_sequence_privilege('odontoclinic_app', c.oid, 'UPDATE')), count(*)

@@ -1,29 +1,38 @@
-{% extends 'base.html' %}
+{% extends 'base_tabler.html' %}
 
-{% block titulo %}
-Tablero de Administrador
-{% endblock %}
+{% block titulo %}Tablero de Administrador{% endblock %}
 
 {% block contenido %}
-<div class="container mt-10">
-  <h3>Tablero de Administrador - Intentos de Acceso</h3>
-
-  <!-- Tarjeta -->
-  <div class="card">
-    <div class="card-header d-flex justify-content-between align-items-center">
-      <span>Últimos intentos de acceso registrados</span>
-      <button type="button" class="btn btn-outline-primary btn-sm" id="btnActualizar">
-        <i class="fas fa-sync-alt"></i> Actualizar
-      </button>
+<div class="page-header d-print-none mb-3">
+  <div class="row align-items-center g-2">
+    <div class="col">
+      <div class="page-pretitle text-muted">Seguridad &bull; Auditoría</div>
+      <h2 class="page-title fw-bold" style="color: var(--oc-text-main);">Tablero de Administrador &mdash; Intentos de Acceso</h2>
     </div>
-    <div class="card-body">
-      <form class="form-inline mb-3" id="frmFiltro" onsubmit="return false;">
-        <label class="mr-2" for="fDesde">Desde</label>
-        <input type="date" class="form-control mr-3 mb-2 mb-sm-0" id="fDesde">
-        <label class="mr-2" for="fHasta">Hasta</label>
-        <input type="date" class="form-control mr-3 mb-2 mb-sm-0" id="fHasta">
-        <label class="mr-2" for="fResultado">Resultado</label>
-        <select class="form-control mr-3 mb-2 mb-sm-0" id="fResultado">
+    <div class="col-auto d-flex flex-wrap gap-2">
+      {% if puede('auditoriacambios', 'ver') %}
+      <a class="btn btn-outline-secondary" id="lnkCambios" href="{{ url_for('auditoriacambios.auditoriaCambiosIndex') }}"><i class="fas fa-history me-2"></i>Auditoría de Cambios</a>
+      {% endif %}
+      <button type="button" class="btn btn-outline-danger" id="btnPdf"><i class="fas fa-file-pdf me-2"></i>Exportar PDF</button>
+      <button type="button" class="btn btn-outline-success" id="btnCsv"><i class="fas fa-file-csv me-2"></i>Exportar CSV</button>
+    </div>
+  </div>
+</div>
+
+<div class="card border shadow-sm rounded-3">
+  <div class="card-header bg-white py-3 border-bottom">
+    <div class="row g-2 align-items-end w-100">
+      <div class="col-6 col-md-3">
+        <label class="form-label small fw-semibold text-muted mb-1" for="fDesde">Desde</label>
+        <input type="date" class="form-control form-control-sm" id="fDesde">
+      </div>
+      <div class="col-6 col-md-3">
+        <label class="form-label small fw-semibold text-muted mb-1" for="fHasta">Hasta</label>
+        <input type="date" class="form-control form-control-sm" id="fHasta">
+      </div>
+      <div class="col-12 col-md-3">
+        <label class="form-label small fw-semibold text-muted mb-1" for="fResultado">Resultado</label>
+        <select class="form-select form-select-sm" id="fResultado">
           <option value="">Todos</option>
           <option value="EXITOSO">EXITOSO</option>
           <option value="CREDENCIALES_INVALIDAS">CREDENCIALES_INVALIDAS</option>
@@ -32,104 +41,139 @@ Tablero de Administrador
           <option value="IP_SIN_GEOLOCALIZAR">IP_SIN_GEOLOCALIZAR</option>
           <option value="CIERRE_INACTIVIDAD">CIERRE_INACTIVIDAD</option>
         </select>
-        <button type="button" class="btn btn-primary mr-2" id="btnFiltrar">
-          <i class="fas fa-filter"></i> Filtrar
-        </button>
-        <button type="button" class="btn btn-outline-secondary" id="btnLimpiar">Limpiar</button>
-      </form>
-      <div class="table-responsive">
-        <table class="table table-striped" id="tbl">
-          <thead>
-            <tr>
-              <th>Fecha/Hora</th>
-              <th>CI/RUC ingresado</th>
-              <th>Acción</th>
-              <th>Resultado</th>
-              <th>IP</th>
-              <th>País</th>
-              <th>Realizado por</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
+      </div>
+      <div class="col-12 col-md-3 d-flex gap-2">
+        <button type="button" class="btn btn-sm btn-primary" id="btnFiltrar"><i class="fas fa-filter me-1"></i>Filtrar</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnLimpiar">Limpiar</button>
+        <button type="button" class="btn btn-sm btn-outline-primary" id="btnActualizar" title="Actualizar"><i class="fas fa-sync-alt"></i></button>
       </div>
     </div>
+    <div class="text-danger small mt-2 w-100" id="errFiltros" style="display: none;"></div>
   </div>
-  <!-- /Tarjeta -->
+  <div class="table-responsive">
+    <table class="table table-vcenter table-hover card-table mb-0">
+      <thead class="bg-light text-muted small text-uppercase">
+        <tr>
+          <th class="ps-3 py-3">Fecha/Hora</th><th class="py-3">CI/RUC ingresado</th><th class="py-3">Acción</th><th class="py-3">Resultado</th>
+          <th class="py-3">IP</th><th class="py-3">País</th><th class="pe-3 py-3">Realizado por</th>
+        </tr>
+      </thead>
+      <tbody id="tbodyIntentos">
+        <tr><td colspan="7" class="text-center text-muted py-4"><div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>Cargando…</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="card-footer bg-white d-flex flex-wrap align-items-center justify-content-between gap-2">
+    <div class="small text-muted" id="infoPagina"></div>
+    <div class="d-flex align-items-center gap-2">
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="btnAnterior"><i class="fas fa-chevron-left"></i></button>
+      <span class="small" id="lblPagina"></span>
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="btnSiguiente"><i class="fas fa-chevron-right"></i></button>
+    </div>
+  </div>
 </div>
-
 {% endblock %}
 
-
 {% block js %}
+<script src="{{ url_for('static', filename='js/facturacion-listado.js') }}"></script>
 <script>
+(function () {
+  'use strict';
+  var L = window.FacturacionListado;
+  var API = '/api/v1/auditoria/intentos';
+  var POR_PAGINA = 25, LIMITE = 1000;       // el API devuelve hasta LIMITE intentos; se paginan acá
+  var $ = function (id) { return document.getElementById(id); };
+  var intentos = [], pagina = 1;
 
-  const badgeResultado = (resultado) => {
-    const exitosos = ['EXITOSO', 'DESBLOQUEADO', 'CODIGO_VERIFICADO'];
-    const neutros = ['SOLICITADO', 'CIERRE_INACTIVIDAD'];
-    const advertencias = ['IP_SIN_GEOLOCALIZAR'];
-    // 'ANTES: <cédula>' = cambio de CI/RUC por edición de la persona (informativo)
-    const clase = exitosos.includes(resultado) ? 'badge-success'
-                : advertencias.includes(resultado) ? 'badge-warning'
-                : (neutros.includes(resultado) || resultado.startsWith('ANTES:')) ? 'badge-info' : 'badge-danger';
-    return `<span class="badge ${clase}">${resultado}</span>`;
-  };
+  function badgeResultado(resultado) {
+    var exitosos = ['EXITOSO', 'DESBLOQUEADO', 'CODIGO_VERIFICADO'];
+    var neutros = ['SOLICITADO', 'CIERRE_INACTIVIDAD'];
+    var clase = exitosos.indexOf(resultado) >= 0 ? 'bg-success-lt'
+              : resultado === 'IP_SIN_GEOLOCALIZAR' ? 'bg-warning-lt'
+              : (neutros.indexOf(resultado) >= 0 || String(resultado).indexOf('ANTES:') === 0) ? 'bg-azure-lt' : 'bg-danger-lt';
+    return '<span class="badge ' + clase + '">' + L.escapar(resultado) + '</span>';
+  }
 
-  const initDatatable = () => {
-    return $('#tbl').DataTable({
-      language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
-      ajax: {
-        url: '/api/v1/auditoria/intentos',
-        data: function() {
-          const params = { limite: 1000 };
-          if ($('#fDesde').val()) params.desde = $('#fDesde').val();
-          if ($('#fHasta').val()) params.hasta = $('#fHasta').val();
-          if ($('#fResultado').val()) params.resultado = $('#fResultado').val();
-          return params;
-        },
-        dataSrc: 'data'
-      },
-      order: [[0, 'desc']],
-      columns: [
-        { data: 'fecha_hora' },
-        { data: 'ci_ruc_ingresado' },
-        { data: 'accion' },
-        { data: function(row) { return badgeResultado(row.resultado); } },
-        { data: function(row) { return row.ip || ''; } },
-        { data: function(row) { return row.pais_detectado || ''; } },
-        { data: function(row) { return row.actor_ci_ruc || ''; } }
-      ]
-    });
-  };
+  function consulta(extra) {
+    var p = new URLSearchParams();
+    if ($('fDesde').value) p.set('desde', $('fDesde').value);
+    if ($('fHasta').value) p.set('hasta', $('fHasta').value);
+    if ($('fResultado').value) p.set('resultado', $('fResultado').value);
+    if (extra) Object.keys(extra).forEach(function (k) { p.set(k, extra[k]); });
+    return p.toString();
+  }
 
-  $(function() {
-    const tabla = initDatatable();
-    $.fn.dataTable.ext.errMode = 'none';
+  function error(msg) { var e = $('errFiltros'); e.textContent = msg || ''; e.style.display = msg ? '' : 'none'; }
 
-    // Un 400 del API (fechas inválidas o desde > hasta) se muestra con su mensaje
-    $('#tbl').on('error.dt', function(e, settings, techNote, message) {
-      const resp = settings.jqXHR && settings.jqXHR.responseJSON;
-      Swal.fire('Error', (resp && resp.error) || 'No se pudieron cargar los intentos de acceso.', 'error');
-    });
+  function fechasValidas() {
+    var d = $('fDesde').value, h = $('fHasta').value;
+    if (d && h && d > h) { error('La fecha "desde" no puede ser posterior a "hasta".'); return false; }
+    error('');
+    return true;
+  }
 
-    const recargar = () => {
-      const desde = $('#fDesde').val();
-      const hasta = $('#fHasta').val();
-      if (desde && hasta && desde > hasta) {
-        Swal.fire('Error', 'La fecha "desde" no puede ser posterior a "hasta".', 'error');
+  function enlazar() {
+    var lnk = $('lnkCambios');
+    if (!lnk) return;
+    var p = new URLSearchParams();
+    if ($('fDesde').value) p.set('desde', $('fDesde').value);
+    if ($('fHasta').value) p.set('hasta', $('fHasta').value);
+    lnk.href = "{{ url_for('auditoriacambios.auditoriaCambiosIndex') if puede('auditoriacambios', 'ver') else '#' }}" + (p.toString() ? '?' + p.toString() : '');
+  }
+
+  function dibujar() {
+    var cuerpo = $('tbodyIntentos');
+    var paginas = Math.max(1, Math.ceil(intentos.length / POR_PAGINA));
+    pagina = Math.min(pagina, paginas);
+    var ini = (pagina - 1) * POR_PAGINA;
+    var trozo = intentos.slice(ini, ini + POR_PAGINA);
+    cuerpo.innerHTML = trozo.length ? trozo.map(function (i) {
+      return '<tr><td class="ps-3 text-nowrap">' + L.escapar((i.fecha_hora || '').substr(0, 19)) + '</td><td>' + L.escapar(i.ci_ruc_ingresado) +
+        '</td><td>' + L.escapar(i.accion) + '</td><td>' + badgeResultado(i.resultado) + '</td><td>' + L.escapar(i.ip || '') +
+        '</td><td>' + L.escapar(i.pais_detectado || '') + '</td><td class="pe-3">' + L.escapar(i.actor_ci_ruc || '') + '</td></tr>';
+    }).join('') : '<tr><td colspan="7" class="text-center text-muted py-4">No hay intentos para los filtros indicados.</td></tr>';
+    $('infoPagina').textContent = intentos.length ? 'Mostrando ' + (ini + 1) + ' a ' + (ini + trozo.length) + ' de ' + intentos.length +
+      (intentos.length >= LIMITE ? ' (máximo ' + LIMITE + ' en pantalla; la exportación llega a 5.000)' : '') : '';
+    $('lblPagina').textContent = 'Página ' + pagina + ' de ' + paginas;
+    $('btnAnterior').disabled = pagina <= 1;
+    $('btnSiguiente').disabled = pagina >= paginas;
+  }
+
+  function cargar() {
+    if (!fechasValidas()) return;
+    enlazar();
+    L.pedir(API + '?' + consulta({ limite: LIMITE })).then(function (r) {
+      if (!r.data || !r.data.success) {
+        error((r.data && r.data.error) || 'No se pudieron cargar los intentos de acceso.');
+        $('tbodyIntentos').innerHTML = '<tr><td colspan="7" class="text-center text-danger py-4">No se pudieron cargar los intentos de acceso.</td></tr>';
         return;
       }
-      tabla.ajax.reload(null, false);
-    };
-
-    $('#btnActualizar').on('click', recargar);
-    $('#btnFiltrar').on('click', recargar);
-    $('#btnLimpiar').on('click', function() {
-      $('#fDesde').val('');
-      $('#fHasta').val('');
-      $('#fResultado').val('');
-      tabla.ajax.reload(null, false);
+      intentos = r.data.data; pagina = 1; dibujar();
     });
+  }
+
+  function exportar(formato) {
+    if (!fechasValidas()) return;
+    var url = API + '/exportar?' + consulta({ formato: formato });
+    if (formato === 'pdf') { window.open(url, '_blank'); } else { window.location.href = url; }
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    var q = new URLSearchParams(window.location.search);
+    $('fDesde').value = q.get('desde') || '';
+    $('fHasta').value = q.get('hasta') || '';
+    cargar();
+    $('btnFiltrar').addEventListener('click', cargar);
+    $('btnActualizar').addEventListener('click', cargar);
+    $('btnLimpiar').addEventListener('click', function () {
+      $('fDesde').value = ''; $('fHasta').value = ''; $('fResultado').value = ''; cargar();
+    });
+    ['fDesde', 'fHasta', 'fResultado'].forEach(function (id) { $(id).addEventListener('change', cargar); });
+    $('btnAnterior').addEventListener('click', function () { if (pagina > 1) { pagina--; dibujar(); } });
+    $('btnSiguiente').addEventListener('click', function () { pagina++; dibujar(); });
+    $('btnPdf').addEventListener('click', function () { exportar('pdf'); });
+    $('btnCsv').addEventListener('click', function () { exportar('csv'); });
   });
+})();
 </script>
 {% endblock %}

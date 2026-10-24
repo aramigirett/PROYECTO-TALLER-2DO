@@ -115,6 +115,7 @@ CATALOGO_MENU = [
     # Módulo Seguridad
     {"etiqueta": "Gestión de Usuarios", "endpoint": "usuario.usuarioIndex", "icono": "fa-users-cog", "modulo": "Módulo Seguridad", "ventana": "usuario", "acciones": ["ver", "nuevo", "editar", "anular", "desbloquear"]},
     {"etiqueta": "Tablero de Administrador", "endpoint": "auditoria.auditoriaIndex", "icono": "fa-shield-alt", "modulo": "Módulo Seguridad", "ventana": "auditoria", "acciones": ["ver"]},
+    {"etiqueta": "Auditoría de Cambios", "endpoint": "auditoriacambios.auditoriaCambiosIndex", "icono": "fa-history", "modulo": "Módulo Seguridad", "ventana": "auditoriacambios", "acciones": ["ver"], "solo_admin": True},
     {"etiqueta": "Copias de Seguridad", "endpoint": "backup.backupIndex", "icono": "fa-database", "modulo": "Módulo Seguridad", "ventana": "backup", "acciones": ["ver", "nuevo"], "solo_admin": True},
 ]
 
