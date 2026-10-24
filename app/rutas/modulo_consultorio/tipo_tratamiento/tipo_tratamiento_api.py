@@ -2,8 +2,12 @@ from flask import Blueprint, request, jsonify, current_app as app
 import re
 from app.dao.referenciales_consultorio.tipo_tratamiento.TipoTratamientoDao import TipoTratamientoDao
 from app.rutas.modulo_seguridad.decorators import require_permiso, require_login
+# validar_precio se comparte con Ítems (Facturación): entero en guaraníes, mayor a 0, máx. NUMERIC(12,0)
+from app.rutas.modulo_facturacion.utils import validar_precio
 
 tipotratamientoapi = Blueprint('tipotratamientoapi', __name__)
+
+MSG_PRECIO = 'El precio debe ser un número entero mayor a 0.'
 
 
 # -------------------------
@@ -65,15 +69,20 @@ def addTipoTratamiento():
     if not descripcion_valida(descripcion):
         return jsonify({'success': False, 'error': 'La descripción solo puede contener letras y espacios, sin números ni caracteres especiales.'}), 400
 
+    precio, error_precio = validar_precio(data.get('precio'))
+    if error_precio:
+        # Un único mensaje para cualquier precio inválido (vacío, decimal, texto, <= 0, fuera de rango)
+        return jsonify({'success': False, 'error': MSG_PRECIO, 'campo': 'precio'}), 400
+
     try:
         if dao.existeDuplicado(descripcion):
             return jsonify({'success': False, 'error': 'Ya existe un tipo de tratamiento con esa descripción.'}), 400
 
-        nuevo_id = dao.guardarTipoTratamiento(descripcion)
+        nuevo_id = dao.guardarTipoTratamiento(descripcion, precio)
         if nuevo_id:
             return jsonify({
                 'success': True,
-                'data': {'id_tipo_tratamiento': nuevo_id, 'descripcion': descripcion},
+                'data': {'id_tipo_tratamiento': nuevo_id, 'descripcion': descripcion, 'precio': precio},
                 'error': None
             }), 201
         else:
@@ -100,14 +109,19 @@ def updateTipoTratamiento(id_tipo_tratamiento):
     if not descripcion_valida(descripcion):
         return jsonify({'success': False, 'error': 'La descripción solo puede contener letras y espacios, sin números ni caracteres especiales.'}), 400
 
+    precio, error_precio = validar_precio(data.get('precio'))
+    if error_precio:
+        # Un único mensaje para cualquier precio inválido (vacío, decimal, texto, <= 0, fuera de rango)
+        return jsonify({'success': False, 'error': MSG_PRECIO, 'campo': 'precio'}), 400
+
     try:
         if dao.existeDuplicado(descripcion, excluir_id=id_tipo_tratamiento):
             return jsonify({'success': False, 'error': 'Ya existe otro tipo de tratamiento con esa descripción.'}), 400
 
-        if dao.updateTipoTratamiento(id_tipo_tratamiento, descripcion):
+        if dao.updateTipoTratamiento(id_tipo_tratamiento, descripcion, precio):
             return jsonify({
                 'success': True,
-                'data': {'id_tipo_tratamiento': id_tipo_tratamiento, 'descripcion': descripcion},
+                'data': {'id_tipo_tratamiento': id_tipo_tratamiento, 'descripcion': descripcion, 'precio': precio},
                 'error': None
             }), 200
         else:

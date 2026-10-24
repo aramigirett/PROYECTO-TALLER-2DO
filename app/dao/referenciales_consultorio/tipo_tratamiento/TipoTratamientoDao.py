@@ -6,7 +6,7 @@ class TipoTratamientoDao:
 
     def getTiposTratamiento(self):
         sql = """
-        SELECT id_tipo_tratamiento, descripcion, fecha_registro
+        SELECT id_tipo_tratamiento, descripcion, fecha_registro, precio
         FROM tipos_tratamiento
         WHERE activo = true
         ORDER BY descripcion
@@ -21,7 +21,8 @@ class TipoTratamientoDao:
                 {
                     'id_tipo_tratamiento': t[0],
                     'descripcion': t[1],
-                    'fecha_registro': str(t[2]) if t[2] else None
+                    'fecha_registro': str(t[2]) if t[2] else None,
+                    'precio': int(t[3])
                 }
                 for t in tipos
             ]
@@ -34,7 +35,7 @@ class TipoTratamientoDao:
 
     def getTipoTratamientoById(self, id_tipo_tratamiento):
         sql = """
-        SELECT id_tipo_tratamiento, descripcion, fecha_registro
+        SELECT id_tipo_tratamiento, descripcion, fecha_registro, precio
         FROM tipos_tratamiento
         WHERE id_tipo_tratamiento = %s AND activo = true
         """
@@ -48,7 +49,8 @@ class TipoTratamientoDao:
                 return {
                     'id_tipo_tratamiento': t[0],
                     'descripcion': t[1],
-                    'fecha_registro': str(t[2]) if t[2] else None
+                    'fecha_registro': str(t[2]) if t[2] else None,
+                    'precio': int(t[3])
                 }
             return None
         except Exception as e:
@@ -83,16 +85,16 @@ class TipoTratamientoDao:
             cur.close()
             con.close()
 
-    def guardarTipoTratamiento(self, descripcion):
+    def guardarTipoTratamiento(self, descripcion, precio):
         sql = """
-        INSERT INTO tipos_tratamiento(descripcion)
-        VALUES(%s) RETURNING id_tipo_tratamiento
+        INSERT INTO tipos_tratamiento(descripcion, precio)
+        VALUES(%s, %s) RETURNING id_tipo_tratamiento
         """
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(sql, (descripcion,))
+            cur.execute(sql, (descripcion, precio))
             nuevo_id = cur.fetchone()[0]
             con.commit()
             return nuevo_id
@@ -104,17 +106,17 @@ class TipoTratamientoDao:
             cur.close()
             con.close()
 
-    def updateTipoTratamiento(self, id_tipo_tratamiento, descripcion):
+    def updateTipoTratamiento(self, id_tipo_tratamiento, descripcion, precio):
         sql = """
         UPDATE tipos_tratamiento
-        SET descripcion = %s
+        SET descripcion = %s, precio = %s
         WHERE id_tipo_tratamiento = %s
         """
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(sql, (descripcion, id_tipo_tratamiento))
+            cur.execute(sql, (descripcion, precio, id_tipo_tratamiento))
             filas_afectadas = cur.rowcount
             con.commit()
             return filas_afectadas > 0
