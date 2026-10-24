@@ -579,7 +579,7 @@ Además, como en todo endpoint: `@require_permiso(ventana, acción)`, botones en
    tratamientos no copian el precio ni el IVA del tipo; si cambian, cambian para todos).
 5. **Facturación — nuevo referencial "Mantener Timbrado"** (*pendiente de definir en el análisis*): no programarlo
    hasta tener el CUS (campos, validaciones y reglas de uso). Cuando se programe, cumple el estándar completo.
-6. **Facturación — movimientos**: ✅ Registrar Apertura y Cierre de Caja y ✅ Registrar Pedido Cliente y ✅ Registrar Ventas (etapas 1 y 2) y ✅ Registrar Cobranzas (ver
+6. **Facturación — movimientos**: ✅ Registrar Apertura y Cierre de Caja y ✅ Registrar Pedido Cliente y ✅ Registrar Ventas (etapas 1 y 2) y ✅ Registrar Cobranzas y ✅ Registrar Nota de Remisión (ver
    "Movimientos de Facturación");
    el resto de los movimientos (sin empezar) se programa después de los puntos anteriores.
 
@@ -662,7 +662,7 @@ Además, como en todo endpoint: `@require_permiso(ventana, acción)`, botones en
     con `FOR SHARE` (siempre después del tipo, para no generar deadlocks). El formulario de Ítems tiene combo
     Depósito (solo activos) y el listado la columna Depósito.
   - **Baja de depósito** bloqueada con ítems activos ("No se puede dar de baja, el depósito tiene ítems
-    asignados."). TODO: consultar `nota_remision`.
+    asignados."); y, desde Remisión, con remisiones EMITIDAS (ver "Registrar Nota de Remisión").
   - **Migración** `migracion_items_deposito.sql` (idempotente; no hace nada si `items` aún no existe). Orden:
     `schema_tipo_items` → `schema_deposito` → `migracion_items_deposito` → `schema_items` → `schema_permisos_deposito`.
     Asigna ítems de tipo ORTODONCIA a DEPÓSITO ORTODONCIA y el resto a DEPÓSITO PRINCIPAL (solo filas sin depósito).
@@ -893,6 +893,36 @@ auditoría como siempre. Las URL siguen la convención del proyecto (`/referenci
   - **Pendiente:** Nota de Crédito (anular con la caja cerrada), Arqueo de Caja (`arqueo_caja_det` ya existe en el DER) y, cuando exista,
     cobrar en el momento de la venta de contado sin pasar por la pantalla de cobros.
 
+- ✅ **Registrar Nota de Remisión** (`nota_remision_cab` + `nota_remision_det` del DER, usadas **tal cual**, ventana `remision`, acciones `ver`,
+  `nuevo`, `anular`; el Cajero las recibe todas, queda con 27 filas). Scripts (idempotentes): `app/dao/modulo_facturacion/schema_remision.sql`
+  (solo funciones, triggers y vista; ninguna tabla) y `app/dao/modulo_seguridad/schema_permisos_remision.sql` (fila `remision` en `menu` + permisos
+  del Cajero), más `schema_permisos_cajero.sql`. Aplicar con `PGCLIENTENCODING=UTF8`.
+  - **Negocio:** documenta la ENTREGA de mercadería de una **Venta de Ítems EMITIDA**; **no mueve stock** (ya se descontó en el Pedido). Solo
+    entran ítems cuyo tipo **controla stock** (los servicios no aparecen). **Entregas parciales:** lo remitido (remisiones EMITIDAS) por ítem no
+    puede superar lo facturado ("Cantidad a remitir de <ÍTEM> supera lo pendiente de entrega: N."). El **depósito de origen se elige a mano**
+    (solo activos) y la remisión incluye SOLO los ítems de la venta guardados en ese depósito (`items.id_deposito`; "El ítem <ÍTEM> no está en el
+    depósito seleccionado."): si la venta tiene ítems en varios depósitos se emiten remisiones separadas. **Motivo de traslado fijo `VENTA`**
+    (lo que mande el navegador se ignora, igual que usuario, número y estado). La cabecera pide además fecha de traslado (no anterior a hoy),
+    dirección de llegada (máx. 150) y responsable del traslado (mayúsculas, máx. 80); observación opcional.
+  - **Numeración** `REM-0000001` sin huecos (`fn_siguiente_numero_remision`: mayor usado + 1 bajo un bloqueo asesor; la anulada conserva el suyo).
+  - **Objetos de BD:** `trg_validar_remision_cab` (BEFORE INSERT: venta de ítems y EMITIDA, la bloquea `FOR UPDATE`), `trg_validar_remision_det`
+    (BEFORE INSERT/UPDATE del detalle: remisión emitida, ítem de la venta, que controle stock, en el depósito de la remisión y cantidad ≤ pendiente;
+    bloquea la venta, así que dos remisiones simultáneas de la misma venta se serializan), `trg_remision_estado` (una anulada no se reactiva),
+    `trg_bloquear_anular_venta_remitida` (red de seguridad en `venta_cab`) y la vista **`v_pendientes_entrega`** (por venta e ítem que controla
+    stock: facturado, remitido —solo EMITIDAS— y pendiente, con el depósito). Todo con comentarios y `COMMENT ON`.
+  - **Anular** (`DELETE /remisiones/<id>`, cualquiera con `anular`): pasa a `ANULADA` y **libera las cantidades** (la vista solo cuenta EMITIDAS);
+    no exige caja abierta (no mueve dinero) y no toca el stock. Todos los usuarios con `ver` ven todas las remisiones.
+  - **Conexiones:** anular una **venta** con remisiones EMITIDAS se bloquea (409 "No es posible anular, existen remisiones emitidas. Anule primero las
+    remisiones.", también en la base); una venta ANULADA o de tratamiento no admite remisión; `DepositoDao._motivo_en_uso` ya consulta las remisiones
+    EMITIDAS (cerró el TODO de `nota_remision`). `ItemDao.esta_en_uso` NO bloquea por remisiones (misma decisión que con las ventas EMITIDAS).
+  - **PDF** (`app/Services/remision_pdf_service.py`, mismo patrón que factura y recibo: `calcular_datos_remision` / `dibujar_remision` /
+    `generarRemisionPdf`; ORIGINAL y DUPLICADO, continúa en otra página si hay muchos ítems, marca "ANULADA"), `GET /remisiones/<id>/pdf`.
+  - **Pantalla** `remision-index.html`: listado con filtros (estado, cliente/N.º de factura/N.º de remisión, fechas) y Ver/PDF/Anular; Nueva Remisión:
+    buscar la venta (solo ventas con mercadería pendiente), combo de depósitos (muestra cuántos ítems pendientes tiene cada uno y deshabilita los
+    que no tienen), datos del traslado y grilla facturado / ya remitido / pendiente / a remitir, con "Remitir todo lo pendiente".
+  - Tests: `tests/facturacion/smoke_remision.py` (158 chequeos; no depende de que alguien tenga una caja abierta: la apertura de prueba se crea por SQL a
+    nombre de un usuario libre).
+  - **Pendiente:** Nota de Crédito/Débito (`nota_credito_debito_*` ya existe en el DER) y Arqueo de Caja.
 ### Objetos de base de datos (rúbricas de Base de Datos II: procedimientos almacenados, triggers y vistas)
 Todos viven en `app/dao/modulo_facturacion/schema_objetos_bd.sql` (idempotente: `CREATE OR REPLACE` y `DROP TRIGGER IF
 EXISTS`), con comentarios de propósito, parámetros y excepciones, bloque `BEGIN … EXCEPTION` y `COMMENT ON`.
@@ -981,10 +1011,10 @@ EXISTS`), con comentarios de propósito, parámetros y excepciones, bloque `BEGI
   Si hay que delegarlo, se agrega `editar` a la ventana en el catálogo y al seed.
 - **Permisos del rol Cajero** (`app/dao/modulo_seguridad/schema_permisos_cajero.sql`, idempotente; define el conjunto
   COMPLETO del Cajero: quita lo que sobra e inserta lo que falta, y solo toca ese rol):
-  - **Módulo Facturación (movimientos, hoy `aperturacaja`, `pedidocliente`, `venta` y `cobro`): todas las acciones de la ventana.**
+  - **Módulo Facturación (movimientos, hoy `aperturacaja`, `pedidocliente`, `venta`, `cobro` y `remision`): todas las acciones de la ventana.**
   - **Cliente: `ver`, `nuevo`, `editar`** (sin `anular`).
   - **Forma de Cobro, Marca de Tarjeta, Entidad Emisora, Entidad Adherida, Caja, Depósito, Tipo Ítems e Ítems: solo `ver`.**
-  - **Agendamiento, Consultorio y Seguridad: ningún permiso.** El Cajero queda con 24 filas de permisos (15 + las 3 de `pedidocliente` + las 3 de `venta` + las 3 de `cobro`).
+  - **Agendamiento, Consultorio y Seguridad: ningún permiso.** El Cajero queda con 27 filas de permisos (15 + las 3 de `pedidocliente` + las 3 de `venta` + las 3 de `cobro` + las 3 de `remision`).
   - **Cada movimiento NUEVO de Facturación debe sumar su ventana (con todas sus acciones) a ese seed**, y todo
     referencial nuevo de Facturación entra con `ver`. `tests/facturacion/smoke_permisos_cajero.py` falla si el
     catálogo tiene una ventana de "Módulo Facturación" que el Cajero no puede usar por completo.

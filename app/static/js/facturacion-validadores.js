@@ -206,7 +206,7 @@
   }
 
   global.FacturacionValidadores = {
-    descripcion: descripcion, direccion: direccion, ubicacion: ubicacion, telefono: telefono, correo: correo,
+    descripcion: descripcion, texto: texto, direccion: direccion, ubicacion: ubicacion, telefono: telefono, correo: correo,
     ciRuc: ciRuc, calcularDvRuc: calcularDvRuc, nombre: nombre,
     telefonoOpcional: telefonoOpcional, correoOpcional: correoOpcional,
     precio: precio, monto: monto, iva: iva, cantidad: cantidad, cantidadPositiva: cantidadPositiva,

@@ -9,6 +9,7 @@ NO_EXISTE = "NO_EXISTE"
 YA_ACTIVO = "YA_ACTIVO"
 
 MSG_BAJA_CON_ITEMS = "No se puede dar de baja, el depósito tiene ítems asignados."
+MSG_BAJA_CON_REMISIONES = "No se puede dar de baja, el depósito tiene remisiones emitidas."
 
 _COLUMNAS = "id_deposito, descripcion, ubicacion, activo"
 
@@ -134,7 +135,9 @@ class DepositoDao:
         cur.execute("SELECT EXISTS(SELECT 1 FROM items WHERE id_deposito = %s AND activo = true)", (id_deposito,))
         if cur.fetchone()[0]:
             return MSG_BAJA_CON_ITEMS
-        # TODO: debe consultar nota_remision (WHERE id_deposito = %s) cuando exista esa tabla.
+        cur.execute("SELECT EXISTS(SELECT 1 FROM nota_remision_cab WHERE id_deposito = %s AND estado = 'EMITIDA')", (id_deposito,))
+        if cur.fetchone()[0]:
+            return MSG_BAJA_CON_REMISIONES
         return False
 
     def esta_en_uso(self, id_deposito):

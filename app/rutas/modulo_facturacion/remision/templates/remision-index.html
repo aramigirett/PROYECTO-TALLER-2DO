@@ -1,0 +1,481 @@
+{% extends 'base_tabler.html' %}
+
+{% block titulo %}Registrar Nota de Remisión{% endblock %}
+
+{% block css %}
+<link href="{{ url_for('static', filename='css/facturacion.css') }}" rel="stylesheet">
+{% endblock %}
+
+{% block contenido %}
+{# ══════════════════ LISTADO DE REMISIONES ══════════════════ #}
+<div id="seccionListado">
+  <div class="page-header d-print-none mb-3">
+    <div class="row align-items-center">
+      <div class="col">
+        <div class="page-pretitle text-muted">Facturación &bull; Entregas</div>
+        <h2 class="page-title fw-bold" style="color: var(--fc-text-main, #0f172a);">Registrar Nota de Remisión</h2>
+      </div>
+      {% if puede('remision', 'nuevo') %}
+      <div class="col-auto">
+        <button type="button" class="btn btn-primary px-3 rounded-pill" id="btnNuevo"><i class="fas fa-plus me-2"></i>Nueva Remisión</button>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card border shadow-sm rounded-3">
+    <div class="card-header bg-white py-3 border-bottom">
+      <div class="row g-2 align-items-end w-100">
+        <div class="col-6 col-md-2">
+          <label class="form-label small fw-semibold text-muted mb-1" for="filtroEstado">Estado</label>
+          <select class="form-select form-select-sm" id="filtroEstado">
+            <option value="">Todas</option><option value="EMITIDA">Emitida</option><option value="ANULADA">Anulada</option>
+          </select>
+        </div>
+        <div class="col-12 col-md-4">
+          <label class="form-label small fw-semibold text-muted mb-1" for="filtroCliente">Cliente, N.º de factura o de remisión</label>
+          <input type="text" class="form-control form-control-sm" id="filtroCliente" maxlength="80" placeholder="Nombre, CI/RUC o N.º" autocomplete="off">
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label small fw-semibold text-muted mb-1" for="filtroDesde">Desde</label>
+          <input type="date" class="form-control form-control-sm" id="filtroDesde">
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label small fw-semibold text-muted mb-1" for="filtroHasta">Hasta</label>
+          <input type="date" class="form-control form-control-sm" id="filtroHasta">
+        </div>
+        <div class="col-12 col-md-2">
+          <button type="button" class="btn btn-sm btn-outline-secondary w-100" id="btnLimpiarFiltros"><i class="fas fa-eraser me-1"></i>Limpiar</button>
+        </div>
+      </div>
+      <div class="text-danger small mt-2 w-100" id="errFiltros" style="display: none;"></div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-vcenter table-hover card-table mb-0">
+        <thead class="bg-light text-muted small text-uppercase">
+          <tr>
+            <th class="ps-3 py-3">N.º remisión</th><th class="py-3">Emisión</th><th class="py-3">Cliente</th><th class="py-3">Factura</th>
+            <th class="py-3">Depósito</th><th class="py-3 text-end">Unidades</th>
+            <th class="py-3 text-center" style="width: 120px;">Estado</th><th class="pe-3 py-3 text-end w-1">Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="tbodyRemisiones">
+          <tr><td colspan="8" class="text-center text-muted py-4"><div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>Cargando remisiones…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{# ══════════════════ NUEVA REMISIÓN ══════════════════ #}
+<div id="seccionNuevo" style="display: none;">
+  <div class="page-header d-print-none mb-3">
+    <div class="row align-items-center">
+      <div class="col">
+        <div class="page-pretitle text-muted">Registrar Nota de Remisión</div>
+        <h2 class="page-title fw-bold" style="color: var(--fc-text-main, #0f172a);">Nueva Remisión</h2>
+      </div>
+      <div class="col-auto"><button type="button" class="btn btn-outline-secondary" id="btnVolverListado"><i class="fas fa-arrow-left me-2"></i>Volver al listado</button></div>
+    </div>
+  </div>
+
+  <form id="formRemision" novalidate>
+    <div class="card border shadow-sm rounded-3 mb-3">
+      <div class="card-body position-relative">
+        <label class="form-label required fw-semibold" for="txtVenta">Venta (factura)</label>
+        <input type="text" class="form-control" id="txtVenta" placeholder="Buscar por N.º de factura o cliente (nombre o CI/RUC)…" autocomplete="off">
+        <div class="invalid-feedback"></div>
+        <div class="list-group fc-autocomplete-list position-absolute shadow" id="resVenta" style="z-index: 1050; display: none; left: 1rem; right: 1rem;"></div>
+        <div class="form-hint text-muted small mt-1">Solo se listan ventas de ítems EMITIDAS con mercadería pendiente de entrega. Los servicios no se entregan.</div>
+      </div>
+    </div>
+
+    <div id="bloqueVenta" style="display: none;">
+      <div class="card border shadow-sm rounded-3 mb-3">
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-12 col-md-5"><div class="text-muted small text-uppercase fw-semibold">Cliente</div>
+              <div class="fw-bold text-dark" id="lblCliente"></div><div class="text-muted small font-monospace" id="lblCiRuc"></div></div>
+            <div class="col-6 col-md-3"><div class="text-muted small text-uppercase fw-semibold">Factura</div><div class="fw-bold font-monospace text-primary" id="lblFactura"></div></div>
+            <div class="col-6 col-md-2"><div class="text-muted small text-uppercase fw-semibold">Fecha</div><div id="lblFecha"></div></div>
+            <div class="col-6 col-md-2"><div class="text-muted small text-uppercase fw-semibold">Total</div><div class="font-monospace" id="lblTotal"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card border shadow-sm rounded-3 mb-3">
+        <div class="card-header bg-white"><h3 class="card-title mb-0">Datos del traslado</h3></div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-12 col-md-4">
+              <label class="form-label required" for="selDeposito">Depósito de origen</label>
+              <select class="form-select" id="selDeposito"></select>
+              <div class="invalid-feedback"></div>
+              <div class="form-hint text-muted small mt-1">Si la venta tiene ítems en varios depósitos, se emite una remisión por depósito.</div>
+            </div>
+            <div class="col-6 col-md-2">
+              <label class="form-label required" for="txtFechaTraslado">Fecha de traslado</label>
+              <input type="date" class="form-control" id="txtFechaTraslado">
+              <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-6 col-md-2">
+              <label class="form-label" for="txtMotivo">Motivo</label>
+              <input type="text" class="form-control" id="txtMotivo" value="VENTA" readonly>
+            </div>
+            <div class="col-12 col-md-4">
+              <label class="form-label required" for="txtResponsable">Responsable del traslado</label>
+              <input type="text" class="form-control" id="txtResponsable" maxlength="80" autocomplete="off">
+              <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-12 col-md-8">
+              <label class="form-label required" for="txtDireccion">Dirección de llegada</label>
+              <input type="text" class="form-control" id="txtDireccion" maxlength="150" autocomplete="off">
+              <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-12 col-md-4">
+              <label class="form-label" for="txtObservacion">Observación (opcional)</label>
+              <input type="text" class="form-control" id="txtObservacion" maxlength="200" autocomplete="off">
+              <div class="invalid-feedback"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card border shadow-sm rounded-3 mb-3">
+        <div class="card-header bg-white d-flex flex-wrap gap-2 align-items-center justify-content-between">
+          <h3 class="card-title mb-0">Ítems a remitir</h3>
+          <button type="button" class="btn btn-sm btn-outline-secondary text-nowrap" id="btnTodoPendiente">Remitir todo lo pendiente</button>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-vcenter card-table mb-0">
+            <thead class="bg-light text-muted small text-uppercase">
+              <tr><th class="ps-3 py-2">Ítem</th><th class="py-2 text-end">Facturado</th><th class="py-2 text-end">Ya remitido</th>
+                  <th class="py-2 text-end">Pendiente</th><th class="pe-3 py-2 text-end" style="width: 150px;">A remitir</th></tr>
+            </thead>
+            <tbody id="tbodyItems"><tr><td colspan="5" class="text-center text-muted py-4">Elija un depósito de origen.</td></tr></tbody>
+          </table>
+        </div>
+        <div class="card-footer d-flex justify-content-end"><div class="fs-4 fw-bold">Total a remitir: <span class="font-monospace text-primary" id="resTotal">0</span> unidades</div></div>
+      </div>
+    </div>
+
+    <div class="text-danger small mb-2" id="errRemision" style="display: none;"></div>
+    <div class="d-flex justify-content-end gap-2">
+      <button type="button" class="btn btn-link link-secondary" id="btnCancelarNuevo">Cancelar</button>
+      <button type="submit" class="btn btn-primary" id="btnGuardar" disabled><i class="fas fa-truck me-2"></i>Registrar Remisión</button>
+    </div>
+  </form>
+</div>
+
+{# ══════════════════ MODAL: VER ══════════════════ #}
+<div class="modal modal-blur fade" id="modalVer" tabindex="-1" aria-labelledby="modalVerTitulo" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header border-bottom"><h5 class="modal-title fw-bold" id="modalVerTitulo">Remisión</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+      <div class="modal-body p-4" id="cuerpoVer"></div>
+      <div class="modal-footer border-top bg-light py-2">
+        <a class="btn btn-outline-primary" id="btnVerPdf" target="_blank" rel="noopener"><i class="fas fa-file-pdf me-2"></i>PDF</a>
+        <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script src="{{ url_for('static', filename='js/facturacion-listado.js') }}"></script>
+<script src="{{ url_for('static', filename='js/facturacion-validadores.js') }}"></script>
+<script>
+(function () {
+  const API = '/api/v1/remisiones';
+  const { escapar, pedir } = window.FacturacionListado;
+  const V = window.FacturacionValidadores;
+  const PUEDE_ANULAR = {{ 'true' if puede('remision', 'anular') else 'false' }};
+
+  const $ = (id) => document.getElementById(id);
+  const seccionListado = $('seccionListado'), seccionNuevo = $('seccionNuevo');
+  const tbody = $('tbodyRemisiones'), errFiltros = $('errFiltros');
+  const filtroEstado = $('filtroEstado'), filtroCliente = $('filtroCliente'), filtroDesde = $('filtroDesde'), filtroHasta = $('filtroHasta');
+  const txtVenta = $('txtVenta'), resVenta = $('resVenta'), selDeposito = $('selDeposito'), btnGuardar = $('btnGuardar'), errRemision = $('errRemision');
+  const modalVer = bootstrap.Modal.getOrCreateInstance($('modalVer'));
+
+  const num = (n) => V.formatoGs(n).replace('Gs. ', '');
+  const gs = (n) => (n === null || n === undefined) ? '—' : V.formatoGs(n);
+  const fecha = (s, conHora) => {
+    if (!s) return '—';
+    const m = /^(\d{4})-(\d{2})-(\d{2})(?: (\d{2}):(\d{2}))?/.exec(s);
+    return m ? `${m[3]}/${m[2]}/${m[1]}` + (conHora && m[4] ? ` ${m[4]}:${m[5]}` : '') : s;
+  };
+  const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+  const hoy = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+  const badge = (e) => e === 'EMITIDA'
+    ? '<span class="fc-badge fc-badge-open"><span class="fc-status-dot fc-status-dot-green"></span>Emitida</span>'
+    : (e === 'ANULADA' ? '<span class="fc-badge fc-badge-anulada"><span class="fc-status-dot fc-status-dot-red"></span>Anulada</span>'
+      : `<span class="fc-badge fc-badge-neutral"><span class="fc-status-dot fc-status-dot-gray"></span>${escapar(e)}</span>`);
+
+  /* ---------- listado ---------- */
+  function urlListado() {
+    const p = [];
+    if (filtroEstado.value) p.push('estado=' + encodeURIComponent(filtroEstado.value));
+    if (filtroCliente.value.trim()) p.push('cliente=' + encodeURIComponent(filtroCliente.value.trim()));
+    if (filtroDesde.value) p.push('desde=' + encodeURIComponent(filtroDesde.value));
+    if (filtroHasta.value) p.push('hasta=' + encodeURIComponent(filtroHasta.value));
+    return p.length ? `${API}?${p.join('&')}` : API;
+  }
+
+  async function cargarListado() {
+    errFiltros.style.display = 'none';
+    if (filtroDesde.value && filtroHasta.value && filtroDesde.value > filtroHasta.value) {
+      errFiltros.textContent = 'La fecha "desde" no puede ser posterior a "hasta".'; errFiltros.style.display = 'block'; return;
+    }
+    try {
+      const { ok, data } = await pedir(urlListado());
+      if (!ok || !data || !data.success) throw new Error((data && data.error) || '');
+      if (!data.data.length) {
+        tbody.innerHTML = `<tr><td colspan="8" class="p-0"><div class="fc-empty-state"><div class="fc-empty-icon-circle"><i class="fas fa-truck"></i></div>
+          <h6 class="fw-bold text-dark mb-1">No hay remisiones para mostrar</h6><p class="text-muted small mb-0">Probá ajustando los filtros o registrá una nueva remisión.</p></div></td></tr>`;
+        return;
+      }
+      tbody.innerHTML = data.data.map((r) => {
+        const acc = [`<button type="button" class="btn btn-sm btn-outline-secondary" data-accion="ver" data-id="${r.id_remision}" title="Ver remisión"><i class="fas fa-eye"></i></button>`,
+                     `<a class="btn btn-sm btn-outline-primary" href="${API}/${r.id_remision}/pdf" target="_blank" rel="noopener" title="Nota de remisión en PDF"><i class="fas fa-file-pdf"></i></a>`];
+        if (PUEDE_ANULAR && r.estado === 'EMITIDA') {
+          acc.push(`<button type="button" class="btn btn-sm btn-outline-danger" data-accion="anular" data-id="${r.id_remision}" data-info="${escapar('remisión ' + r.numero_remision + ' de ' + r.cliente)}" title="Anular remisión"><i class="fas fa-ban"></i></button>`);
+        }
+        return `<tr class="${r.estado === 'ANULADA' ? 'text-muted' : ''}">
+          <td class="ps-3 font-monospace fw-bold text-primary">${escapar(r.numero_remision)}</td>
+          <td class="text-nowrap">${fecha(r.fecha_emision, true)}</td>
+          <td><span class="fw-semibold text-dark">${escapar(r.cliente)}</span><div class="text-muted small font-monospace">${escapar(r.ci_ruc)}</div></td>
+          <td class="font-monospace">${escapar(r.numero_factura)}</td><td>${escapar(r.deposito)}</td>
+          <td class="text-end text-nowrap font-monospace fw-bold text-dark">${num(r.total_unidades)}</td>
+          <td class="text-center">${badge(r.estado)}</td>
+          <td class="pe-3 text-end text-nowrap"><div class="btn-list flex-nowrap justify-content-end">${acc.join('')}</div></td></tr>`;
+      }).join('');
+    } catch (e) {
+      tbody.innerHTML = `<tr><td colspan="8" class="text-center text-danger py-4">${escapar(e.message || 'No se pudo cargar el listado.')}</td></tr>`;
+    }
+  }
+
+  /* ---------- ver remisión ---------- */
+  async function verRemision(id) {
+    try {
+      const { data } = await pedir(`${API}/${id}`);
+      if (!data || !data.success) { Swal.fire('Error', (data && data.error) || 'No se pudo cargar la remisión.', 'error'); return; }
+      const r = data.data;
+      $('modalVerTitulo').textContent = `Remisión ${r.numero_remision}`;
+      $('btnVerPdf').href = `${API}/${r.id_remision}/pdf`;
+      $('cuerpoVer').innerHTML = `
+        ${r.estado === 'ANULADA' ? '<div class="alert alert-danger py-2 text-center fw-bold">*** ANULADA ***</div>' : ''}
+        <div class="row g-2 mb-3">
+          <div class="col-12 col-md-6"><div class="text-muted small text-uppercase fw-semibold">Cliente</div><div class="fw-bold text-dark">${escapar(r.cliente)} <span class="text-muted font-monospace">(${escapar(r.ci_ruc)})</span></div></div>
+          <div class="col-6 col-md-3"><div class="text-muted small text-uppercase fw-semibold">Emisión</div><div>${fecha(r.fecha_emision, true)}</div></div>
+          <div class="col-6 col-md-3"><div class="text-muted small text-uppercase fw-semibold">Estado</div><div>${badge(r.estado)}</div></div>
+          <div class="col-6 col-md-3"><div class="text-muted small text-uppercase fw-semibold">Factura</div><div class="font-monospace">${escapar(r.numero_factura)}</div></div>
+          <div class="col-6 col-md-3"><div class="text-muted small text-uppercase fw-semibold">Fecha de traslado</div><div>${fecha(r.fecha_traslado)}</div></div>
+          <div class="col-6 col-md-3"><div class="text-muted small text-uppercase fw-semibold">Motivo</div><div>${escapar(r.motivo_traslado)}</div></div>
+          <div class="col-6 col-md-3"><div class="text-muted small text-uppercase fw-semibold">Emitida por</div><div>${escapar(r.usuario)}</div></div>
+          <div class="col-12 col-md-6"><div class="text-muted small text-uppercase fw-semibold">Punto de partida</div><div>${escapar(r.deposito)} — ${escapar(r.ubicacion_deposito)}</div></div>
+          <div class="col-12 col-md-6"><div class="text-muted small text-uppercase fw-semibold">Punto de llegada</div><div>${escapar(r.direccion_llegada)}</div></div>
+          <div class="col-12 col-md-6"><div class="text-muted small text-uppercase fw-semibold">Responsable del traslado</div><div>${escapar(r.responsable_traslado)}</div></div>
+          ${r.observacion ? `<div class="col-12 col-md-6"><div class="text-muted small text-uppercase fw-semibold">Observación</div><div>${escapar(r.observacion)}</div></div>` : ''}
+        </div>
+        <div class="table-responsive mb-3 border rounded-3"><table class="table table-sm card-table mb-0">
+          <thead class="bg-light text-muted small text-uppercase"><tr><th class="ps-3 py-2">Ítem</th><th class="pe-3 py-2 text-end">Cantidad</th></tr></thead>
+          <tbody>${r.detalle.map((d) => `<tr><td class="ps-3 fw-semibold">${escapar(d.item)}</td><td class="pe-3 text-end font-monospace fw-bold">${num(d.cantidad)}</td></tr>`).join('')}</tbody></table></div>
+        <div class="d-flex justify-content-end"><div class="fs-4 fw-bold">Total remitido: <span class="font-monospace text-primary">${num(r.total_unidades)}</span> unidades</div></div>`;
+      modalVer.show();
+    } catch (e) { Swal.fire('Error', 'Ocurrió un error de conexión.', 'error'); }
+  }
+
+  /* ---------- anular ---------- */
+  async function anularRemision(id, info) {
+    const c = await Swal.fire({
+      title: '¿Anular esta remisión?',
+      text: `Se anulará la ${info}. Las cantidades vuelven a quedar pendientes de entrega (el stock no cambia). Esta acción no se puede deshacer.`,
+      icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí, anular', cancelButtonText: 'Cancelar', confirmButtonColor: '#d63939'
+    });
+    if (!c.isConfirmed) return;
+    try {
+      const { data } = await pedir(`${API}/${id}`, { method: 'DELETE' });
+      await cargarListado();
+      if (data && data.success) Swal.fire('Remisión anulada', data.mensaje, 'success');
+      else Swal.fire('No se pudo anular', (data && data.error) || 'Ocurrió un error.', 'error');
+    } catch (e) { Swal.fire('Error', 'Ocurrió un error de conexión.', 'error'); }
+  }
+
+  /* ---------- nueva remisión ---------- */
+  let ventaSel = null, depositos = [], cantidades = {};   // cantidades: id_item -> texto escrito
+
+  const mostrarNuevo = (si) => { seccionNuevo.style.display = si ? 'block' : 'none'; seccionListado.style.display = si ? 'none' : 'block'; };
+  const itemsDelDeposito = () => ventaSel ? ventaSel.items.filter((i) => String(i.id_deposito) === selDeposito.value) : [];
+  const cantidadDe = (i) => { const t = String(cantidades[i.id_item] || '').trim(); return /^\d+$/.test(t) ? parseInt(t, 10) : 0; };
+  const totalARemitir = () => itemsDelDeposito().reduce((s, i) => s + cantidadDe(i), 0);
+  const actualizarBoton = () => { btnGuardar.disabled = !(ventaSel && selDeposito.value); };   // el mensaje de lo que falta lo da el envío
+
+  function pintarItems() {
+    const items = itemsDelDeposito();
+    if (!selDeposito.value) { $('tbodyItems').innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">Elija un depósito de origen.</td></tr>'; }
+    else if (!items.length) { $('tbodyItems').innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">La venta no tiene ítems guardados en este depósito.</td></tr>'; }
+    else {
+      $('tbodyItems').innerHTML = items.map((i) => `<tr data-fila-item="${i.id_item}">
+        <td class="ps-3 fw-semibold text-dark">${escapar(i.item)}<div class="text-danger small" data-error-item="${i.id_item}" style="display:none;"></div></td>
+        <td class="text-end font-monospace">${num(i.facturado)}</td><td class="text-end font-monospace">${num(i.remitido)}</td>
+        <td class="text-end font-monospace fw-bold ${i.pendiente > 0 ? 'text-dark' : 'text-muted'}">${num(i.pendiente)}</td>
+        <td class="pe-3"><input type="text" inputmode="numeric" class="form-control form-control-sm font-monospace text-end" data-item="${i.id_item}" maxlength="9"
+              value="${escapar(cantidades[i.id_item] || '')}" ${i.pendiente > 0 ? '' : 'disabled'} autocomplete="off" placeholder="0"></td></tr>`).join('');
+    }
+    $('resTotal').textContent = num(totalARemitir()); actualizarBoton();
+  }
+
+  function pintarDepositos() {
+    const conPendiente = {};
+    (ventaSel ? ventaSel.items : []).forEach((i) => { if (i.pendiente > 0) conPendiente[i.id_deposito] = (conPendiente[i.id_deposito] || 0) + 1; });
+    selDeposito.innerHTML = '<option value="">Seleccione…</option>' + depositos.map((d) => {
+      const n = conPendiente[d.id_deposito] || 0;
+      return `<option value="${d.id_deposito}" ${n ? '' : 'disabled'}>${escapar(d.descripcion)} (${n ? n + (n === 1 ? ' ítem pendiente' : ' ítems pendientes') : 'sin pendientes'})</option>`;
+    }).join('');
+    const unico = Object.keys(conPendiente);
+    if (unico.length === 1) selDeposito.value = unico[0];   // un solo depósito con pendientes: queda elegido (se puede cambiar)
+  }
+
+  async function elegirVenta(v) {
+    try {
+      const [p, d] = await Promise.all([pedir(`${API}/ventas/${v.id_venta}/pendientes`), pedir(`${API}/depositos`)]);
+      if (!p.data || !p.data.success) { errRemision.textContent = (p.data && p.data.error) || 'No se pudo cargar la venta.'; errRemision.style.display = 'block'; return; }
+      ventaSel = p.data.data; depositos = (d.data && d.data.success) ? d.data.data : []; cantidades = {};
+    } catch (e) { errRemision.textContent = 'No se pudo cargar la venta.'; errRemision.style.display = 'block'; return; }
+    txtVenta.value = `${ventaSel.numero_factura} — ${ventaSel.cliente}`; txtVenta.readOnly = true; V.limpiarCampo(txtVenta);
+    $('lblCliente').textContent = ventaSel.cliente; $('lblCiRuc').textContent = ventaSel.ci_ruc; $('lblFactura').textContent = ventaSel.numero_factura;
+    $('lblFecha').textContent = fecha(ventaSel.fecha); $('lblTotal').textContent = gs(ventaSel.total);
+    $('bloqueVenta').style.display = 'block'; errRemision.style.display = 'none';
+    pintarDepositos(); pintarItems();
+  }
+
+  async function refrescarPendientes() {
+    try {
+      const { data } = await pedir(`${API}/ventas/${ventaSel.id_venta}/pendientes`);
+      if (!data || !data.success) return;
+      const dep = selDeposito.value; ventaSel = data.data; pintarDepositos();
+      const o = Array.from(selDeposito.options).find((x) => x.value === dep && !x.disabled); selDeposito.value = o ? dep : '';
+      pintarItems();
+    } catch (e) { /* si falla, queda lo que había */ }
+  }
+
+  selDeposito.addEventListener('change', () => { cantidades = {}; V.limpiarCampo(selDeposito); pintarItems(); });
+  $('tbodyItems').addEventListener('input', (ev) => {
+    const el = ev.target.closest('input[data-item]'); if (!el) return;
+    cantidades[el.dataset.item] = el.value; el.classList.remove('is-invalid');
+    const e = document.querySelector(`[data-error-item="${el.dataset.item}"]`); if (e) e.style.display = 'none';
+    errRemision.style.display = 'none'; $('resTotal').textContent = num(totalARemitir()); actualizarBoton();
+  });
+  $('btnTodoPendiente').addEventListener('click', () => {
+    itemsDelDeposito().forEach((i) => { cantidades[i.id_item] = i.pendiente > 0 ? String(i.pendiente) : ''; });
+    pintarItems();
+  });
+
+  let resultados = [], indice = -1;
+  const buscarVenta = debounce(async () => {
+    if (ventaSel) return;
+    try {
+      const { data } = await pedir(`${API}/ventas?q=${encodeURIComponent(txtVenta.value.trim())}`);
+      resultados = (data && data.success) ? data.data : []; indice = -1;
+      resVenta.innerHTML = resultados.length ? resultados.map((v, i) => `
+        <button type="button" class="list-group-item list-group-item-action fc-autocomplete-item py-2" data-idx="${i}">
+          <div class="d-flex justify-content-between align-items-center"><span><span class="font-monospace fw-bold text-primary">${escapar(v.numero_factura)}</span> <span class="fw-bold text-dark">${escapar(v.cliente)}</span></span>
+            <span class="font-monospace fw-bold">${num(v.unidades_pendientes)} u. pendientes</span></div>
+          <div class="text-muted small">${escapar(v.ci_ruc)} &bull; ${fecha(v.fecha)} &bull; Total ${gs(v.total)} &bull; ${escapar((v.depositos || []).join(', '))}</div></button>`).join('')
+        : '<div class="list-group-item text-muted small p-3">No hay ventas con mercadería pendiente de entrega que coincidan.</div>';
+      resVenta.style.display = 'block';
+    } catch (e) { resVenta.style.display = 'none'; }
+  }, 220);
+  txtVenta.addEventListener('input', () => { V.limpiarCampo(txtVenta); buscarVenta(); });
+  txtVenta.addEventListener('focus', buscarVenta);
+  txtVenta.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter') ev.preventDefault();   // Enter nunca envía el formulario desde el buscador
+    if (resVenta.style.display !== 'block' || !resultados.length) return;
+    const items = resVenta.querySelectorAll('.fc-autocomplete-item');
+    if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+      ev.preventDefault(); indice = (indice + (ev.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+      items.forEach((it, i) => it.classList.toggle('active', i === indice)); items[indice].scrollIntoView({ block: 'nearest' });
+    } else if (ev.key === 'Enter') { const t = indice >= 0 ? items[indice] : items[0]; if (t) t.click(); }
+    else if (ev.key === 'Escape') resVenta.style.display = 'none';
+  });
+  resVenta.addEventListener('click', (ev) => { const b = ev.target.closest('button[data-idx]'); if (!b) return; resVenta.style.display = 'none'; elegirVenta(resultados[Number(b.dataset.idx)]); });
+  document.addEventListener('click', (ev) => { if (!ev.target.closest('#resVenta, #txtVenta')) resVenta.style.display = 'none'; });
+
+  function abrirNuevo() {
+    ventaSel = null; cantidades = {}; txtVenta.value = ''; txtVenta.readOnly = false; V.limpiarCampo(txtVenta);
+    $('bloqueVenta').style.display = 'none'; errRemision.style.display = 'none';
+    ['txtResponsable', 'txtDireccion', 'txtObservacion'].forEach((id) => { $(id).value = ''; V.limpiarCampo($(id)); });
+    $('txtFechaTraslado').value = hoy(); $('txtFechaTraslado').min = hoy(); V.limpiarCampo($('txtFechaTraslado'));
+    mostrarNuevo(true); actualizarBoton(); txtVenta.focus();
+  }
+
+  /* --- validación en el formulario (el servidor valida siempre; esto solo avisa antes de enviar) --- */
+  function validarFormulario() {
+    if (!ventaSel) { V.marcarCampo(txtVenta, 'Debe seleccionar una venta.'); txtVenta.focus(); return false; }
+    if (!selDeposito.value) { V.marcarCampo(selDeposito, 'Debe seleccionar el depósito de origen.'); selDeposito.focus(); return false; }
+    const f = $('txtFechaTraslado').value;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(f)) { V.marcarCampo($('txtFechaTraslado'), 'La fecha de traslado no es válida (use AAAA-MM-DD).'); return false; }
+    if (f < hoy()) { V.marcarCampo($('txtFechaTraslado'), 'La fecha de traslado no puede ser anterior a hoy.'); return false; }
+    let e = V.texto($('txtDireccion').value, 'dirección de llegada', 150);
+    if (e) { V.marcarCampo($('txtDireccion'), e); $('txtDireccion').focus(); return false; }
+    e = V.nombre($('txtResponsable').value, 'responsable del traslado', true);
+    if (e) { V.marcarCampo($('txtResponsable'), e); $('txtResponsable').focus(); return false; }
+    e = V.observacion($('txtObservacion').value);
+    if (e) { V.marcarCampo($('txtObservacion'), e); return false; }
+    for (const i of itemsDelDeposito()) {
+      const t = String(cantidades[i.id_item] || '').trim(); if (t === '' || /^0+$/.test(t)) continue;
+      let m = V.cantidadPositiva(t);
+      if (!m && parseInt(t, 10) > i.pendiente) m = `Cantidad a remitir de ${i.item} supera lo pendiente de entrega: ${i.pendiente}.`;
+      if (m) {
+        const c = document.querySelector(`[data-error-item="${i.id_item}"]`); if (c) { c.textContent = m; c.style.display = 'block'; }
+        const inp = document.querySelector(`input[data-item="${i.id_item}"]`); if (inp) { inp.classList.add('is-invalid'); inp.focus(); }
+        errRemision.textContent = m; errRemision.style.display = 'block'; return false;
+      }
+    }
+    if (totalARemitir() <= 0) { errRemision.textContent = 'Debe indicar al menos un ítem a remitir.'; errRemision.style.display = 'block'; return false; }
+    return true;
+  }
+
+  $('formRemision').addEventListener('submit', async (ev) => {
+    ev.preventDefault(); errRemision.style.display = 'none';
+    document.querySelectorAll('[data-error-item]').forEach((e) => { e.style.display = 'none'; });
+    if (!validarFormulario()) return;
+    const items = itemsDelDeposito().filter((i) => cantidadDe(i) > 0).map((i) => ({ id_item: i.id_item, cantidad: String(cantidadDe(i)) }));
+    btnGuardar.disabled = true;
+    try {
+      const { data } = await pedir(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+        id_venta: ventaSel.id_venta, id_deposito: selDeposito.value, fecha_traslado: $('txtFechaTraslado').value,
+        direccion_llegada: $('txtDireccion').value, responsable_traslado: $('txtResponsable').value, observacion: $('txtObservacion').value, items }) });
+      if (data && data.success) {
+        mostrarNuevo(false); await cargarListado();
+        const r = await Swal.fire({ title: 'Remisión registrada', text: data.mensaje, icon: 'success', showCancelButton: true, confirmButtonText: 'Ver nota de remisión (PDF)', cancelButtonText: 'Cerrar' });
+        if (r.isConfirmed) window.open(`${API}/${data.data.id_remision}/pdf`, '_blank');
+      } else {
+        errRemision.textContent = (data && data.error) || 'Ocurrió un error. Intente nuevamente.'; errRemision.style.display = 'block';
+        Swal.fire('No se pudo registrar la remisión', errRemision.textContent, 'error');
+        if (data && data.campo === 'items' && ventaSel) await refrescarPendientes();   // lo pendiente pudo cambiar (otra remisión): se recarga sin perder lo escrito
+      }
+    } catch (e) { Swal.fire('Error', 'Ocurrió un error de conexión. Intente nuevamente.', 'error'); }
+    finally { actualizarBoton(); }
+  });
+
+  /* ---------- eventos ---------- */
+  const btnNuevo = $('btnNuevo'); if (btnNuevo) btnNuevo.addEventListener('click', abrirNuevo);
+  $('btnVolverListado').addEventListener('click', () => mostrarNuevo(false));
+  $('btnCancelarNuevo').addEventListener('click', () => mostrarNuevo(false));
+  document.addEventListener('click', (ev) => {
+    const btn = ev.target.closest('button[data-accion]'); if (!btn) return;
+    if (btn.dataset.accion === 'ver') verRemision(btn.dataset.id);
+    if (btn.dataset.accion === 'anular') anularRemision(btn.dataset.id, btn.dataset.info);
+  });
+  [filtroEstado, filtroDesde, filtroHasta].forEach((el) => el.addEventListener('change', cargarListado));
+  filtroCliente.addEventListener('input', debounce(cargarListado, 300));
+  $('btnLimpiarFiltros').addEventListener('click', () => { filtroEstado.value = ''; filtroCliente.value = ''; filtroDesde.value = ''; filtroHasta.value = ''; cargarListado(); });
+
+  cargarListado();
+})();
+</script>
+{% endblock %}

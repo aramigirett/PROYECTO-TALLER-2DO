@@ -25,6 +25,7 @@ TRATAMIENTO_CANCELADO = "TRATAMIENTO_CANCELADO"          # se devuelve como (có
 TRATAMIENTO_FACTURADO = "TRATAMIENTO_FACTURADO"          # se devuelve como (código, descripción, número de factura)
 
 MSG_ANULAR_CON_COBROS = "No es posible anular, existen cobros registrados. Utilice una Nota de Crédito."
+MSG_ANULAR_CON_REMISIONES = "No es posible anular, existen remisiones emitidas. Anule primero las remisiones."
 
 _SELECT = """
 SELECT v.id_venta, v.numero_factura, v.fecha, v.id_cliente, c.nombre || COALESCE(' ' || c.apellido, ''), c.ci_ruc,
@@ -437,6 +438,12 @@ class VentaDao:
         cur.execute("SELECT 1 FROM cobro_cab WHERE id_cuenta = %s AND estado = 'EMITIDO' LIMIT 1", (cuenta[0],))
         return MSG_ANULAR_CON_COBROS if cur.fetchone() else False
 
+    def _motivo_con_remisiones(self, cur, id_venta):
+        """Devuelve el motivo (texto) si la venta tiene remisiones EMITIDAS, o False. La venta ya está bloqueada (FOR UPDATE), el mismo
+        bloqueo que toma la emisión de una remisión (trg_validar_remision_cab): no puede colarse una remisión nueva."""
+        cur.execute("SELECT 1 FROM nota_remision_cab WHERE id_venta = %s AND estado = 'EMITIDA' LIMIT 1", (id_venta,))
+        return MSG_ANULAR_CON_REMISIONES if cur.fetchone() else False
+
     def anularVenta(self, id_venta, anular_pedido=False):
         """
         Anula una venta EMITIDA. Solo si la apertura de caja de la venta sigue ABIERTA (FOR SHARE: un cierre
@@ -470,7 +477,7 @@ class VentaDao:
                 con.rollback()
                 return CAJA_CERRADA
 
-            motivo = self._motivo_con_cobros(cur, id_venta)
+            motivo = self._motivo_con_cobros(cur, id_venta) or self._motivo_con_remisiones(cur, id_venta)
             if motivo:
                 con.rollback()
                 return ("EN_USO", motivo)
