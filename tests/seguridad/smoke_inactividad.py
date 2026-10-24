@@ -7,7 +7,7 @@ import os, re, subprocess, sys, time, pathlib, tempfile
 RAIZ = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(RAIZ))
 from app import app
-from app.conexion.Conexion import Conexion
+from tests._conexion_pruebas import Conexion
 from app.dao.modulo_seguridad.UsuarioDao import UsuarioDao
 
 EDGE = r'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe'

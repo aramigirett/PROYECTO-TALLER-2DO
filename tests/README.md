@@ -3,6 +3,11 @@
 Scripts de verificación (sin pytest): cada uno imprime líneas `OK` / `FAIL` y cierra con `FALLOS: ninguno`
 (o la lista de lo que falló). Se corren **desde la raíz del proyecto** con el Python del entorno virtual.
 
+**Dos conexiones a la base.** La aplicación se conecta como `odontoclinic_app` (`DB_*` del `.env`, mínimo privilegio). Los tests
+preparan y limpian datos con **postgres** (`TEST_DB_*`) importando `from tests._conexion_pruebas import Conexion`; así lo que la app
+y los DAO hacen durante el test corre con los permisos reales y la limpieza (que necesita superusuario) también funciona. Un test
+nuevo debe importar `Conexion` de `tests._conexion_pruebas`, no de `app.conexion.Conexion`.
+
 ```powershell
 # uno solo
 .\.venv\Scripts\python.exe -I tests\facturacion\smoke_caja.py
@@ -34,6 +39,8 @@ Get-ChildItem tests -Recurse -Filter smoke_*.py | ForEach-Object { "== $($_.Name
 | `consultorio/` | `smoke_tipo_tratamiento` | Tipo Tratamiento con precio e IVA: alta, modificación, precio e IVA inválidos, datos iniciales (relajado), las dos migraciones idempotentes (en una base temporal que crea y borra, en ambos órdenes) y regresión de Gestionar Tratamientos. El resto del módulo Consultorio todavía no tiene tests |
 | `seguridad/` | `smoke_inactividad` | Cierre por inactividad: el servidor vence la sesión (vistas y `/api/`), audita `CIERRE_INACTIVIDAD`, `/sesion/estado` no renueva y `/sesion/extender` sí, el tiempo sale del `.env`, el aviso está en `base.html` y `base_tabler.html`, y la lógica del modal con cuenta regresiva (`inactividad_test.html`) en **Edge headless** con reloj y red simulados |
 | `seguridad/` | `smoke_ip_pais` | Validación de IP por país con la base GeoIP local: clasificación (interna / permitida / no permitida / sin geolocalizar), `IP_SIMULADA` solo en modo debug, rechazo ANTES de usuario y contraseña con mensaje genérico, auditoría (`IP_NO_PERMITIDA`, `IP_SIN_GEOLOCALIZAR`, país), `/recuperar`, tablero con filtro por resultado y baja de `paises` |
+| `seguridad/` | `smoke_permisos_app` | Usuario de BD de la aplicación: atributos de `odontoclinic_app` y `odontoclinic_backup`, privilegios exactos (tablas, vistas, secuencias, funciones, esquema), sin UPDATE/DELETE en las auditorías ni DDL ni `session_replication_role`, privilegios por defecto para objetos futuros, script idempotente, contraseñas fuera de los archivos y barrido de todas las pantallas del menú y APIs de lectura con la app como `odontoclinic_app` (ninguna da 500) |
+| `seguridad/` | `smoke_backup` | Copias de seguridad: `pg_dump -Fc` con el rol de solo lectura, nombre con fecha y hora, retención de 7, `backup.log`, contraseña ausente de comandos/logs/errores, errores sin archivos a medias, **restauración real** en `odontosisbd_restore_test` con las mismas filas, `scripts/backup_db.py`, pantalla solo Administrador (auditada) y guías. Usa una carpeta temporal y borra la base de restauración |
 | `seguridad/` | `smoke_acceso_basico` | Hash scrypt de las contraseñas, "Recordar usuario" (cookie solo con el CI/RUC, 30 días, HttpOnly, SameSite=Lax), `SECRET_KEY` obligatoria fuera de debug, credenciales de la base fuera del código y `.env`/`geoip/` fuera de git. Usa un Administrador real con el 2FA simulado y borra lo que genera |
 
 ## Navegador y espejo JS

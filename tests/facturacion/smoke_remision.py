@@ -10,7 +10,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
 from datetime import date, timedelta
 import psycopg2
 from app import app
-from app.conexion.Conexion import Conexion
+from tests._conexion_pruebas import Conexion
 from app.dao.modulo_facturacion.remision.RemisionDao import RemisionDao, ERROR_BD, YA_ANULADA
 from app.dao.modulo_facturacion.deposito.DepositoDao import DepositoDao, MSG_BAJA_CON_ITEMS, MSG_BAJA_CON_REMISIONES
 from app.Services.remision_pdf_service import generarRemisionPdf

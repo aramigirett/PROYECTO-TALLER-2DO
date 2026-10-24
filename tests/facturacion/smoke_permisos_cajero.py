@@ -8,7 +8,7 @@ import sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
 from flask import url_for
 from app import app
-from app.conexion.Conexion import Conexion
+from tests._conexion_pruebas import Conexion
 from app.rutas.modulo_seguridad.menu_catalog import CATALOGO_MENU
 
 c = app.test_client()

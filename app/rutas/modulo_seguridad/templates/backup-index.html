@@ -1,0 +1,93 @@
+{% extends 'base_tabler.html' %}
+
+{% block titulo %}Copias de Seguridad{% endblock %}
+
+{% block contenido %}
+<div class="page-header d-print-none mb-3">
+  <div class="row align-items-center">
+    <div class="col">
+      <div class="page-pretitle">Seguridad</div>
+      <h2 class="page-title">Copias de Seguridad</h2>
+    </div>
+    {% if puede('backup', 'nuevo') %}
+    <div class="col-auto ms-auto">
+      <button type="button" class="btn btn-primary" id="btnGenerar">
+        <i class="fas fa-database me-2"></i>Generar backup ahora
+      </button>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="alert alert-info" role="alert">
+  Se conservan las últimas <strong id="lblRetencion">7</strong> copias; se genera una automática todas las noches a las 23:00.
+  La restauración no se hace desde esta pantalla: seguí la guía <code>docs/backups.md</code>.
+</div>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table" id="tbl">
+      <thead>
+        <tr>
+          <th>Archivo</th>
+          <th style="width: 220px;">Fecha y hora</th>
+          <th style="width: 140px;" class="text-end">Tamaño</th>
+        </tr>
+      </thead>
+      <tbody id="tbodyBackups">
+        <tr><td colspan="3" class="text-center text-muted py-4">Cargando…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script src="{{ url_for('static', filename='js/facturacion-listado.js') }}"></script>
+<script>
+(function () {
+  const API = '/api/v1/backups';
+  const { escapar, pedir } = window.FacturacionListado;
+  const tbody = document.getElementById('tbodyBackups');
+  const btnGenerar = document.getElementById('btnGenerar');
+
+  const cargar = () => pedir(API).then((r) => {
+    if (!r.ok || !r.data || !r.data.success) {
+      tbody.innerHTML = '<tr><td colspan="3" class="text-center text-danger py-4">No se pudieron cargar las copias.</td></tr>';
+      return;
+    }
+    document.getElementById('lblRetencion').textContent = r.data.retencion;
+    if (!r.data.data.length) {
+      tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-4">Todavía no hay copias de seguridad.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = r.data.data.map((c) =>
+      '<tr><td><i class="fas fa-file-archive text-muted me-2"></i>' + escapar(c.nombre) + '</td>' +
+      '<td>' + escapar(c.fecha) + '</td><td class="text-end">' + escapar(c.tamano_texto) + '</td></tr>'
+    ).join('');
+  });
+
+  if (btnGenerar) {
+    btnGenerar.addEventListener('click', () => {
+      Swal.fire({
+        title: 'Generar backup ahora', text: 'Se creará una copia completa de la base de datos.',
+        icon: 'question', showCancelButton: true, confirmButtonText: 'Generar', cancelButtonText: 'Cancelar',
+      }).then((res) => {
+        if (!res.isConfirmed) return;
+        btnGenerar.disabled = true;
+        Swal.fire({ title: 'Generando copia…', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        pedir(API, { method: 'POST' }).then((r) => {
+          if (r.data && r.data.success) {
+            return cargar().then(() => Swal.fire('Copia generada', r.data.mensaje, 'success'));
+          }
+          Swal.fire('Error', (r.data && r.data.error) || 'No se pudo generar la copia de seguridad.', 'error');
+        }, () => Swal.fire('Error', 'Ocurrió un error de conexión.', 'error'))
+          .finally(() => { btnGenerar.disabled = false; });
+      });
+    });
+  }
+
+  cargar();
+})();
+</script>
+{% endblock %}

@@ -6,7 +6,7 @@ RAIZ = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(RAIZ))
 from werkzeug.security import check_password_hash, generate_password_hash
 from app import app
-from app.conexion.Conexion import Conexion
+from tests._conexion_pruebas import Conexion
 from app.dao.modulo_seguridad.UsuarioDao import UsuarioDao
 from app.dao.modulo_seguridad.TokenDao import TokenDao
 import app.rutas.modulo_seguridad.seguridad_routes as rutas
@@ -30,6 +30,8 @@ if not ADMIN:
 ADMIN = ADMIN[0]
 CI = UsuarioDao().get_by_id(ADMIN)['ci_ruc']
 
+# Contraseñas reales de la base (del .env): no deben aparecer en el código ni en .env.example
+CLAVES_BD = [os.environ.get(v) for v in ('DB_PASSWORD', 'TEST_DB_PASSWORD', 'BACKUP_DB_PASSWORD')]
 validar_original = UsuarioDao.validar_password
 correo_original = rutas.enviar_codigo_2fa
 
@@ -59,11 +61,11 @@ try:
     chk('el código ya no contiene la clave por defecto', 'dev-secret-key' not in codigo_app)
     conexion_py = (RAIZ / 'app' / 'conexion' / 'Conexion.py').read_text(encoding='utf-8')
     chk('Conexion.py no contiene credenciales y lee DB_HOST/PORT/NAME/USER/PASSWORD del entorno',
-        '15dediciembre' not in conexion_py and all(f"'{v}'" in conexion_py for v in ('DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PASSWORD')))
+        not any(v and v in conexion_py for v in CLAVES_BD) and all(f"'{v}'" in conexion_py for v in ('DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PASSWORD')))
     ejemplo = (RAIZ / '.env.example').read_text(encoding='utf-8')
     chk('.env.example lista las variables DB_* sin valores',
         all(re.search(rf'^{v}=\s*$', ejemplo, re.M) for v in ('DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PASSWORD', 'SECRET_KEY')))
-    chk('.env.example no contiene la contraseña real ni la SECRET_KEY real', '15dediciembre' not in ejemplo and app.secret_key not in ejemplo)
+    chk('.env.example no contiene la contraseña real ni la SECRET_KEY real', not any(v and v in ejemplo for v in CLAVES_BD) and app.secret_key not in ejemplo)
     ignorados = [l.strip() for l in (RAIZ / '.gitignore').read_text(encoding='utf-8').splitlines()]
     chk('.gitignore excluye .env y geoip/', '.env' in ignorados and 'geoip/' in ignorados)
     rastreados = subprocess.run(['git', 'ls-files', '.env', 'geoip'], capture_output=True, text=True, cwd=RAIZ).stdout.strip()

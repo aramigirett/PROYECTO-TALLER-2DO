@@ -1,6 +1,7 @@
 from flask import g, session
 
 from app.dao.modulo_seguridad.PermisoDao import PermisoDao
+from app.rutas.modulo_seguridad.menu_catalog import VENTANAS_SOLO_ADMIN
 
 
 def _permisos_del_rol():
@@ -22,4 +23,6 @@ def puede(ventana, accion):
     """
     if session.get('nombre_rol') == 'Administrador':
         return True
+    if ventana in VENTANAS_SOLO_ADMIN:
+        return False   # ventana exclusiva del Administrador (ver menu_catalog.solo_admin)
     return (ventana, accion) in _permisos_del_rol()

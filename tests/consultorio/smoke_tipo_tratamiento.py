@@ -6,7 +6,7 @@ import sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
 import psycopg2
 from app import app
-from app.conexion.Conexion import Conexion
+from tests._conexion_pruebas import Conexion
 
 RAIZ = pathlib.Path(__file__).resolve().parents[2]
 SQL_PRECIO = RAIZ / 'app' / 'dao' / 'referenciales_consultorio' / 'tipo_tratamiento' / 'schema_tipo_tratamiento_precio.sql'

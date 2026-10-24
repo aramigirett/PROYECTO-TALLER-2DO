@@ -9,7 +9,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
 from tests.facturacion._limpieza import borrar_auditoria
 from datetime import date, timedelta
 from app import app
-from app.conexion.Conexion import Conexion
+from tests._conexion_pruebas import Conexion
 from app.dao.modulo_facturacion.pedido_cliente.PedidoClienteDao import (
     PedidoClienteDao, calcular_totales, STOCK_INSUFICIENTE, YA_ANULADO, CLIENTE_INVALIDO, ITEM_INVALIDO)
 from app.dao.modulo_facturacion.items.ItemDao import ItemDao

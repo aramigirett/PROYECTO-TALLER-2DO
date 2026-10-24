@@ -11,6 +11,8 @@
 #   ventana    -> clave estable usada en la tabla `permisos` (rol+ventana+accion)
 #   en_menu    -> (opcional, default True) False = no se muestra en sidebar ni buscador,
 #                 solo en la matriz de permisos (pantallas contextuales)
+#   solo_admin -> (opcional) True = ventana exclusiva del Administrador: no sale en la matriz de Roles y Permisos y
+#                 puede() devuelve False para cualquier otro rol (hoy: Copias de Seguridad).
 #   acciones   -> subconjunto de ('ver','nuevo','editar','anular','estado','desbloquear') que expone
 #                 esa ventana. 'ver' siempre debe estar. 'editar' solo en las
 #                 ventanas donde el CUS lo contempla explícitamente (hoy:
@@ -113,7 +115,11 @@ CATALOGO_MENU = [
     # Módulo Seguridad
     {"etiqueta": "Gestión de Usuarios", "endpoint": "usuario.usuarioIndex", "icono": "fa-users-cog", "modulo": "Módulo Seguridad", "ventana": "usuario", "acciones": ["ver", "nuevo", "editar", "anular", "desbloquear"]},
     {"etiqueta": "Tablero de Administrador", "endpoint": "auditoria.auditoriaIndex", "icono": "fa-shield-alt", "modulo": "Módulo Seguridad", "ventana": "auditoria", "acciones": ["ver"]},
+    {"etiqueta": "Copias de Seguridad", "endpoint": "backup.backupIndex", "icono": "fa-database", "modulo": "Módulo Seguridad", "ventana": "backup", "acciones": ["ver", "nuevo"], "solo_admin": True},
 ]
+
+# Ventanas que solo puede usar el Administrador, aunque alguien intentara otorgarles permisos
+VENTANAS_SOLO_ADMIN = frozenset(item["ventana"] for item in CATALOGO_MENU if item.get("solo_admin"))
 
 
 def agrupar_por_modulo_visible():

@@ -13,7 +13,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
 from datetime import date, timedelta
 import psycopg2
 from app import app
-from app.conexion.Conexion import Conexion
+from tests._conexion_pruebas import Conexion
 from app.dao.modulo_facturacion.cobro.CobroDao import CobroDao, CUENTA_NO_PENDIENTE, YA_ANULADO
 from app.dao.modulo_facturacion.apertura_caja.AperturaCajaDao import AperturaCajaDao
 from app.dao.modulo_facturacion.marca_tarjeta.MarcaTarjetaDao import MarcaTarjetaDao

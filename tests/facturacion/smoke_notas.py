@@ -12,7 +12,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
 from datetime import date, timedelta
 import psycopg2
 from app import app
-from app.conexion.Conexion import Conexion
+from tests._conexion_pruebas import Conexion
 from app.dao.modulo_facturacion.nota_credito_debito.NotaCreditoDebitoDao import NotaCreditoDebitoDao, ERROR_BD
 from tests.facturacion._limpieza import borrar_auditoria
 from tests.facturacion._pdf import paginas_pdf, texto_pdf

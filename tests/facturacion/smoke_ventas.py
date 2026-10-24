@@ -14,7 +14,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
 from datetime import date, timedelta
 import psycopg2
 from app import app
-from app.conexion.Conexion import Conexion
+from tests._conexion_pruebas import Conexion
 from app.dao.modulo_facturacion.venta.VentaDao import (
     VentaDao, PEDIDO_NO_PENDIENTE, TRATAMIENTO_FACTURADO, TRATAMIENTO_CANCELADO)
 from app.dao.modulo_facturacion.apertura_caja.AperturaCajaDao import AperturaCajaDao

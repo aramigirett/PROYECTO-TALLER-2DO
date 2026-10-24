@@ -5,7 +5,7 @@ tabla `paises`. Usa IP de prueba y borra SOLO las filas de auditoría que él mi
 import os, sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
 from app import app
-from app.conexion.Conexion import Conexion
+from tests._conexion_pruebas import Conexion
 from app.Services import geoip_service as geo
 from app.dao.modulo_seguridad.UsuarioDao import UsuarioDao
 

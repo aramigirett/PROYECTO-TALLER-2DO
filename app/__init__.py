@@ -32,6 +32,7 @@ from app.rutas.modulo_seguridad.seguridad_routes import seguridadmod
 from app.rutas.modulo_seguridad.usuario_routes import usuariomod
 from app.rutas.modulo_seguridad.auditoria_routes import auditoriamod
 from app.rutas.modulo_seguridad.permiso_routes import permisomod
+from app.rutas.modulo_seguridad.backup_routes import backupmod
 from app.rutas.referenciales.ciudad.ciudad_routes import ciumod #ciudad
 from app.rutas.referenciales.especialidad.especialidad_routes import especimod  #especialidad
 from app.rutas.referenciales.dia.dia_routes import diamod  #dia
@@ -78,6 +79,7 @@ app.register_blueprint(seguridadmod)
 app.register_blueprint(usuariomod, url_prefix=f'{modulo0}/usuario')
 app.register_blueprint(auditoriamod, url_prefix=f'{modulo0}/auditoria')
 app.register_blueprint(permisomod, url_prefix=f'{modulo0}/permiso')
+app.register_blueprint(backupmod, url_prefix=f'{modulo0}/backup')
 app.register_blueprint(ciumod, url_prefix=f'{modulo0}/ciudad') #ciudad
 app.register_blueprint(especimod, url_prefix=f'{modulo0}/especialidad') #especialidad
 app.register_blueprint(diamod, url_prefix=f'{modulo0}/dia') #dia
@@ -137,6 +139,9 @@ from app.rutas.modulo_seguridad.auditoria_api import auditoriaapi
 
 #permiso (Módulo Seguridad)
 from app.rutas.modulo_seguridad.permiso_api import permisoapi
+
+#backup (Módulo Seguridad - copias de seguridad)
+from app.rutas.modulo_seguridad.backup_api import backupapi
 
 #menu (Módulo Seguridad - buscador general)
 from app.rutas.modulo_seguridad.menu_api import menuapi
@@ -200,6 +205,9 @@ app.register_blueprint(auditoriaapi, url_prefix=version1)
 
 version1 = '/api/v1'
 app.register_blueprint(permisoapi, url_prefix=version1)
+
+version1 = '/api/v1'
+app.register_blueprint(backupapi, url_prefix=version1)
 
 version1 = '/api/v1'
 app.register_blueprint(menuapi, url_prefix=version1)

@@ -10,7 +10,7 @@ from datetime import date, timedelta
 from unittest import mock
 import psycopg2
 from app import app
-from app.conexion.Conexion import Conexion
+from tests._conexion_pruebas import Conexion
 from app.dao.modulo_facturacion.apertura_caja.AperturaCajaDao import AperturaCajaDao
 from app.rutas.modulo_facturacion import utils
 from app.rutas.modulo_seguridad.menu_catalog import CATALOGO_MENU, MODULOS

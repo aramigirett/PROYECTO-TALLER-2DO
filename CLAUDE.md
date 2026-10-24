@@ -1043,10 +1043,7 @@ EXISTS`), con comentarios de propósito, parámetros y excepciones, bloque `BEGI
   comentarios de propósito, parámetros y excepciones y `COMMENT ON`.
 - **`trg_permisos_resolver_menu`** (BEFORE INSERT en `permisos`, `schema_permisos_id_menu.sql`): completa `permisos.id_menu` desde
   `menu.clave = ventana` (compatibilidad con la migración del DER; ver "Modelo de permisos").
-- ⏳ **Pendiente de la tanda de cierre:** crear un **usuario de base de datos propio de la aplicación, sin superusuario y
-  con permisos mínimos** (SELECT/INSERT/UPDATE/DELETE solo donde haga falta, solo INSERT en las tablas de auditoría y
-  EXECUTE en el procedimiento), para que la app no pueda saltarse los triggers (hoy se conecta como `postgres`, que sí
-  puede con `session_replication_role`). Los tests seguirán usando un usuario con privilegios para su limpieza.
+- ✅ **Hecho en la Etapa B de la tanda de cierre:** la app ya NO se conecta como `postgres` sino como `odontoclinic_app` (sin superusuario, sin UPDATE/DELETE en las auditorías, sin DDL); ver "Base de datos — tanda de cierre, Etapa B". Los tests siguen usando postgres para su limpieza, con `TEST_DB_*`.
 
 ## Tests (carpeta `tests/`, ver `tests/README.md`)
 - Scripts de verificación sin pytest, organizados por módulo: `tests/facturacion/` (los 8 referenciales + Ítems, la
@@ -1059,6 +1056,8 @@ EXISTS`), con comentarios de propósito, parámetros y excepciones, bloque `BEGI
   creado por el test** (por ID; nunca un `DELETE` por entidad completa: un script viejo de Forma de Cobro borró de
   esa manera la auditoría hecha a mano y por eso no se conservó); restaurar en un `finally` cualquier permiso que se
   quite; no depender de datos que se editan a mano (los `seed` pueden fallar si se renombran desde la pantalla).
+- **Los tests importan `from tests._conexion_pruebas import Conexion`** (postgres, `TEST_DB_*`) para preparar y limpiar datos;
+  la app y los DAO que ejercitan usan `odontoclinic_app`. Sumó `smoke_permisos_app` y `smoke_backup` (Etapa B).
 - `tests/seguridad/` (Etapa A de la tanda de cierre): `smoke_inactividad` (usa también Edge headless para la lógica de
   `inactividad.js`), `smoke_ip_pais` y `smoke_acceso_basico`. Borran solo la auditoría y los códigos 2FA que generan, por ID.
 - `browser_test.py` ejecuta las vistas en Edge headless con `fetch` simulado (necesita Edge; la ruta está en la
@@ -1123,11 +1122,81 @@ credenciales de la base se quitaron del código.
 - Scripts SQL (idempotentes): `schema_ip_inactividad.sql` (columna `pais_detectado` + índice por `resultado`) y
   `schema_eliminar_paises.sql`.
 
+## Base de datos — tanda de cierre, Etapa B (rama `finalizando`)
+Tests: `tests/seguridad/smoke_permisos_app.py` y `smoke_backup.py`. Guías: `docs/backups.md` y `docs/acceso_red.md`.
+
+### Rúbricas del profesor (hojas de evaluación)
+1 Acceso · 2 Menú · **3 Base de datos** · 4 Vistas · 5 Procedimientos almacenados · 6 Triggers · 7 Codificación de ventanas ·
+**8 Seguridad** · 9 Auditoría.
+- ✅ **Rúbrica 3 (Base de datos) — completa con esta etapa:** usuario de la app con mínimo privilegio, backup automático y
+  acceso por red documentado.
+- ✅ **Rúbrica 8 (Seguridad) — completa con esta etapa:** copias de seguridad y separación de privilegios (suma lo de la Etapa A:
+  contraseñas con scrypt, cierre por inactividad, IP por país, recordar usuario, HTTPS justificado).
+- Las demás no cambian en esta etapa.
+
+### Usuarios de base de datos (`schema_usuario_app.sql`, idempotente, SIN contraseñas)
+- **`odontoclinic_app`** (la usa la aplicación; `DB_USER`/`DB_PASSWORD` del `.env`): `LOGIN`, sin superusuario, `CREATEDB`,
+  `CREATEROLE`, `REPLICATION` ni `BYPASSRLS`. `SELECT/INSERT/UPDATE/DELETE` en las tablas; **solo `SELECT` en las vistas**;
+  `USAGE/SELECT` en las secuencias; `EXECUTE` en funciones y procedimientos. **`auditoria_cambios` y `auditoria_acceso`: solo
+  `SELECT` e `INSERT`** (doble protección junto con `trg_auditoria_inmutable`). Sin `TRUNCATE`, `REFERENCES`, `TRIGGER` ni DDL
+  (`CREATE` revocado a `PUBLIC` en el esquema `public`). `ALTER DEFAULT PRIVILEGES FOR ROLE postgres`: lo que cree postgres de
+  ahora en más le llega con los mismos permisos.
+  - ⚠️ **Una tabla de auditoría NUEVA hay que agregarla a la lista `v_auditoria` del script** (los privilegios por defecto le
+    darían `UPDATE/DELETE`) y re-aplicarlo. Los objetos futuros no listados se tratan como tablas normales.
+  - **Después de crear tablas/funciones nuevas con postgres no hace falta hacer nada** (privilegios por defecto); si se quiere
+    re-aplicar todo: `python -m app.dao.modulo_seguridad.crear_usuario_app --solo-permisos`.
+- **`odontoclinic_backup`** (`BACKUP_DB_USER`/`BACKUP_DB_PASSWORD`): `LOGIN` y miembro de `pg_read_all_data` (solo lectura).
+- **Crear los roles / cambiar contraseñas:** `python -m app.dao.modulo_seguridad.crear_usuario_app` (como postgres, con
+  `TEST_DB_*`; toma las contraseñas de `APP_DB_PASSWORD` / `BACKUP_DB_PASSWORD` o las pide por teclado; mínimo 12 caracteres;
+  viajan por la conexión, nunca por línea de comandos).
+- **Tres cuentas, tres contraseñas distintas en el `.env`:** `DB_*` (aplicación), `TEST_DB_*` (**postgres**: migraciones,
+  creación de roles y tests; `app/conexion/ConexionAdmin.py`) y `BACKUP_DB_*`. La app NUNCA usa `TEST_DB_*`. Las migraciones
+  (`schema_*.sql`) se aplican con postgres; los scripts de la app (`seed_admin_usuario`) corren con `odontoclinic_app` y alcanzan.
+- **Auditoría del hallazgo de DDL:** se revisó `app/` buscando `CREATE/ALTER/DROP/TRUNCATE`: **no hay DDL en el código Python**
+  (ni al arrancar ni en ningún DAO); todo el esquema vive en los `schema_*.sql`.
+- ⚠️ La contraseña anterior de `postgres` estuvo escrita en `Conexion.py` desde el primer commit y **sigue en el historial de
+  git**: conviene cambiarla (`ALTER ROLE postgres PASSWORD ...` y actualizar `TEST_DB_PASSWORD`).
+
+### Tests con dos conexiones
+- Los tests hacen `from tests._conexion_pruebas import Conexion` (en lugar de la de la app): lo que preparan/limpian DIRECTO en
+  la base va con postgres (`TEST_DB_*`; necesitan superusuario para `session_replication_role` y bases temporales), mientras la
+  app y los DAO que ejercitan van con `odontoclinic_app`. Así cada regresión prueba los permisos reales. Un test nuevo debe
+  seguir esta convención.
+- `smoke_permisos_app.py` además recorre TODAS las pantallas del menú y las APIs de lectura con el rol de la app (ninguna debe
+  dar 500). La ruta suelta `/vista` de `app/__init__.py` renderiza `vista-index.html` sin `stats` y falla con cualquier usuario
+  (pendiente aparte, no es de permisos).
+
+### Copias de seguridad (`docs/backups.md`)
+- `app/Services/backup_service.py` (`pg_dump -Fc`, nombre `odontosisbd_AAAAMMDD_HHMMSS.dump`, retención de **7**, `backup.log`
+  con OK/ERROR, archivo y tamaño; la contraseña solo por `PGPASSWORD` del proceso hijo, nunca en comandos, logs ni errores).
+  `scripts/backup_db.py` (código 0/1) y `scripts/backup_diario.bat` para el Programador de tareas a las 23:00 (pasos en la guía;
+  la tarea programada **la crea quien administra el servidor**, no el proyecto).
+- **`BACKUP_DIR=C:\OdontoClinic\backups`, fuera de OneDrive** (decisión: las copias tienen datos de pacientes y el proyecto está
+  en una carpeta sincronizada con la nube). `PG_BIN_DIR` = `bin` de PostgreSQL 14 (la versión del servidor; el `pg_dump` del
+  PATH es el 16).
+- Pantalla **Copias de Seguridad** (`/referenciales/backup/backup-index`, `/api/v1/backups`, ventana `backup` en el catálogo con
+  `solo_admin: True`): lista (fecha, tamaño) y "Generar backup ahora", auditado en `auditoria_cambios` (`entidad='backup'`,
+  `ALTA`, `id_registro=0`, el detalle lleva el archivo). **No restaura** (solo con la guía). Ventana EXCLUSIVA del Administrador:
+  `puede()` devuelve False para los demás roles, no sale en la matriz de Roles y Permisos y la API de la matriz rechaza otorgarla.
+  Seed: `schema_permisos_backup.sql` (solo la fila de `menu`).
+- Restauración probada en `odontosisbd_restore_test` (mismas filas, vistas, funciones, triggers y permisos); la prueba está en
+  `smoke_backup.py`, que borra la base temporal.
+
+### Acceso por red (`docs/acceso_red.md`, solo guía; no se editó ningún archivo de PostgreSQL)
+- Hoy: servidor PostgreSQL 14 en el 5432, `listen_addresses='*'` pero `pg_hba.conf` solo admite localhost, o sea sin acceso por red.
+- Para abrirlo: `listen_addresses` a la IP de la red local, UNA línea `host odontosisbd odontoclinic_app <subred>/24 scram-sha-256`
+  en `pg_hba.conf`, regla de firewall de Windows para el 5432 solo desde la subred (perfil Privado) y `DB_HOST=<IP del servidor>`
+  en el `.env` de la otra PC. Subred de este equipo al escribir la guía: `192.168.100.0/24` (servidor `192.168.100.80`).
+- Dos servidores PostgreSQL conviven en la PC (14 y 16): editar siempre la carpeta de la 14.
+- Tras cambiar `DB_USER` hay que **reiniciar `run.py`**: un servidor ya iniciado conserva las credenciales viejas.
+
 ## Convenciones de código
 - SQL crudo con psycopg2, sin ORM.
 - Conexión vía `app/conexion/Conexion.py` — reusar esa clase, no crear una nueva.
   Las credenciales salen de `.env` (`DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`); si falta alguna,
   `Conexion()` falla con un error que nombra la variable. Nunca escribirlas en el código.
+  `DB_USER` es `odontoclinic_app` (mínimo privilegio). Para algo que necesite postgres (migraciones, tests) usar
+  `app/conexion/ConexionAdmin.py` (`TEST_DB_*`), nunca en código que corra la aplicación.
 - Cada DAO abre su propia conexión y la cierra en un `finally`.
 - Los blueprints de rutas se registran en `app/__init__.py` bajo `/referenciales/<modulo>`
   o bajo `/api/v1`.

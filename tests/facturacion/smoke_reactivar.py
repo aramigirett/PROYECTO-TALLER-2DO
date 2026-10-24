@@ -4,7 +4,7 @@ from unittest import mock
 sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parents[2]))
 from tests.facturacion._limpieza import borrar_auditoria
 from app import app
-from app.conexion.Conexion import Conexion
+from tests._conexion_pruebas import Conexion
 
 c = app.test_client()
 fallos = []

@@ -3,7 +3,7 @@ from flask import Blueprint, request, jsonify, current_app as app
 from app.dao.modulo_seguridad.PermisoDao import PermisoDao
 from app.dao.modulo_seguridad.RolDao import RolDao
 from app.rutas.modulo_seguridad.decorators import require_admin
-from app.rutas.modulo_seguridad.menu_catalog import CATALOGO_MENU, MODULOS
+from app.rutas.modulo_seguridad.menu_catalog import CATALOGO_MENU, MODULOS, VENTANAS_SOLO_ADMIN
 
 permisoapi = Blueprint('permisoapi', __name__)
 
@@ -32,6 +32,8 @@ def getCatalogoPermisos():
     try:
         por_modulo = {}
         for item in CATALOGO_MENU:
+            if item.get('solo_admin'):
+                continue   # exclusiva del Administrador: no se delega desde la matriz
             por_modulo.setdefault(item['modulo'], []).append({
                 'ventana': item['ventana'],
                 'etiqueta': item['etiqueta'],
@@ -77,6 +79,8 @@ def otorgarPermiso():
 
     if not id_rol or not ventana or not accion:
         return jsonify({'success': False, 'error': 'Rol, ventana y acción son obligatorios.'}), 400
+    if ventana in VENTANAS_SOLO_ADMIN:
+        return jsonify({'success': False, 'error': 'Esa ventana es exclusiva del Administrador.'}), 400
 
     try:
         if PermisoDao().otorgar(id_rol, ventana, accion):

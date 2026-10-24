@@ -5,7 +5,7 @@ import sys, pathlib, time
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
 import psycopg2
 from app import app
-from app.conexion.Conexion import Conexion
+from tests._conexion_pruebas import Conexion
 from app.dao.modulo_facturacion.cuenta_bancaria.CuentaBancariaDao import CuentaBancariaDao
 from tests.facturacion._limpieza import borrar_auditoria
 
