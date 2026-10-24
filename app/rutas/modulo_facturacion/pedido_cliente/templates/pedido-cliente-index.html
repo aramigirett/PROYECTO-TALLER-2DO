@@ -2,171 +2,285 @@
 
 {% block titulo %}Registrar Pedido Cliente{% endblock %}
 
+{% block css %}
+<link href="{{ url_for('static', filename='css/facturacion.css') }}" rel="stylesheet">
+{% endblock %}
+
 {% block contenido %}
-{# ══════════════════ LISTADO ══════════════════ #}
+{# ══════════════════ LISTADO DE PEDIDOS ══════════════════ #}
 <div id="seccionListado">
   <div class="page-header d-print-none mb-3">
     <div class="row align-items-center">
       <div class="col">
-        <div class="page-pretitle">Facturación</div>
-        <h2 class="page-title">Registrar Pedido Cliente</h2>
+        <div class="page-pretitle text-muted">Facturación &bull; Ventas</div>
+        <h2 class="page-title fw-bold" style="color: var(--fc-text-main, #0f172a);">Registrar Pedido Cliente</h2>
       </div>
       {% if puede('pedidocliente', 'nuevo') %}
       <div class="col-auto">
-        <button type="button" class="btn btn-primary" id="btnNuevo"><i class="fas fa-plus me-2"></i>Nuevo Pedido</button>
+        <button type="button" class="btn btn-primary px-3 rounded-pill" id="btnNuevo">
+          <i class="fas fa-plus me-2"></i>Nuevo Pedido
+        </button>
       </div>
       {% endif %}
     </div>
   </div>
 
-  <div class="card">
-    <div class="card-header">
+  <div class="card border shadow-sm rounded-3">
+    <div class="card-header bg-white py-3 border-bottom">
       <div class="row g-2 align-items-end w-100">
         <div class="col-12 col-md-2">
-          <label class="form-label mb-1" for="filtroEstado">Estado</label>
-          <select class="form-select" id="filtroEstado">
-            <option value="">Todos</option>
+          <label class="form-label small fw-semibold text-muted mb-1" for="filtroEstado">Estado</label>
+          <select class="form-select form-select-sm" id="filtroEstado">
+            <option value="">Todos los estados</option>
             <option value="PENDIENTE">Pendiente</option>
             <option value="FACTURADO">Facturado</option>
             <option value="ANULADO">Anulado</option>
           </select>
         </div>
-        <div class="col-12 col-md-3">
-          <label class="form-label mb-1" for="filtroCliente">Cliente</label>
-          <input type="text" class="form-control" id="filtroCliente" maxlength="80" placeholder="Nombre o CI/RUC" autocomplete="off">
+        <div class="col-12 col-md-4">
+          <label class="form-label small fw-semibold text-muted mb-1" for="filtroCliente">Cliente</label>
+          <div class="input-icon">
+            <input type="text" class="form-control form-control-sm" id="filtroCliente" maxlength="80" placeholder="Buscar por nombre o CI/RUC…" autocomplete="off">
+          </div>
         </div>
         <div class="col-6 col-md-2">
-          <label class="form-label mb-1" for="filtroDesde">Desde</label>
-          <input type="date" class="form-control" id="filtroDesde">
+          <label class="form-label small fw-semibold text-muted mb-1" for="filtroDesde">Desde</label>
+          <input type="date" class="form-control form-control-sm" id="filtroDesde">
         </div>
         <div class="col-6 col-md-2">
-          <label class="form-label mb-1" for="filtroHasta">Hasta</label>
-          <input type="date" class="form-control" id="filtroHasta">
+          <label class="form-label small fw-semibold text-muted mb-1" for="filtroHasta">Hasta</label>
+          <input type="date" class="form-control form-control-sm" id="filtroHasta">
         </div>
-        <div class="col-12 col-md-3">
-          <button type="button" class="btn btn-outline-secondary" id="btnLimpiarFiltros">Limpiar</button>
+        <div class="col-12 col-md-2">
+          <button type="button" class="btn btn-sm btn-outline-secondary w-100" id="btnLimpiarFiltros">
+            <i class="fas fa-eraser me-1"></i> Limpiar
+          </button>
         </div>
       </div>
       <div class="text-danger small mt-2 w-100" id="errFiltros" style="display: none;"></div>
     </div>
     <div class="table-responsive">
-      <table class="table table-vcenter card-table">
-        <thead>
+      <table class="table table-vcenter table-hover card-table mb-0">
+        <thead class="bg-light text-muted small text-uppercase">
           <tr>
-            <th>N.º</th>
-            <th>Fecha</th>
-            <th>Cliente</th>
-            <th>Cajero</th>
-            <th class="text-end">Total</th>
-            <th style="width: 110px;">Estado</th>
-            <th class="w-1">Acciones</th>
+            <th class="ps-3 py-3" style="width: 80px;">N.º</th>
+            <th class="py-3">Fecha</th>
+            <th class="py-3">Cliente</th>
+            <th class="py-3">Cajero</th>
+            <th class="py-3 text-end">Total</th>
+            <th class="py-3 text-center" style="width: 120px;">Estado</th>
+            <th class="pe-3 py-3 text-end w-1">Acciones</th>
           </tr>
         </thead>
         <tbody id="tbodyPedidos">
-          <tr><td colspan="7" class="text-center text-muted py-4">Cargando…</td></tr>
+          <tr>
+            <td colspan="7" class="text-center text-muted py-4">
+              <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+              Cargando pedidos…
+            </td>
+          </tr>
         </tbody>
       </table>
     </div>
   </div>
 </div>
 
-{# ══════════════════ NUEVO PEDIDO ══════════════════ #}
+{# ══════════════════ NUEVO PEDIDO (CARGA DE CABECERA + DETALLE) ══════════════════ #}
 <div id="seccionNuevo" style="display: none;">
   <div class="page-header d-print-none mb-3">
     <div class="row align-items-center">
       <div class="col">
-        <div class="page-pretitle">Registrar Pedido Cliente</div>
-        <h2 class="page-title">Nuevo Pedido</h2>
+        <div class="page-pretitle text-muted">Facturación &bull; Ventas</div>
+        <h2 class="page-title fw-bold" style="color: var(--fc-text-main, #0f172a);">Nuevo Pedido Cliente</h2>
+      </div>
+      <div class="col-auto">
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="btnVolverListado">
+          <i class="fas fa-arrow-left me-1"></i> Volver al listado
+        </button>
       </div>
     </div>
   </div>
 
   <form id="formPedido" novalidate>
-    <div class="card mb-3">
-      <div class="card-body">
+    
+    {# ── Tarjeta de Cabecera ──────────────────────────────────────── #}
+    <div class="card border shadow-sm rounded-3 mb-3">
+      <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between">
+        <div class="d-flex align-items-center gap-2">
+          <i class="fas fa-file-invoice text-primary fs-4"></i>
+          <h5 class="card-title mb-0 fw-bold">Datos del Pedido</h5>
+        </div>
+        <span class="badge bg-light text-muted border px-2 py-1">Cabecera</span>
+      </div>
+      <div class="card-body p-3 p-md-4">
         <div class="row g-3">
+          
+          {# Buscador / Chip de Cliente #}
           <div class="col-12 col-lg-6 position-relative">
-            <label class="form-label required" for="txtCliente">Cliente</label>
+            <label class="form-label required fw-semibold" for="txtCliente">Cliente</label>
             <div class="input-group">
-              <input type="text" class="form-control" id="txtCliente" placeholder="Buscar por nombre o CI/RUC…" autocomplete="off">
-              <button type="button" class="btn btn-outline-secondary" id="btnCambiarCliente" style="display: none;">Cambiar</button>
+              <span class="input-group-text bg-light"><i class="fas fa-user text-muted"></i></span>
+              <input type="text" class="form-control" id="txtCliente" placeholder="Escribí nombre o CI/RUC para buscar…" autocomplete="off">
+              <button type="button" class="btn btn-outline-secondary" id="btnCambiarCliente" style="display: none;">
+                <i class="fas fa-exchange-alt me-1"></i> Cambiar
+              </button>
               <div class="invalid-feedback"></div>
             </div>
-            <div class="list-group position-absolute w-100 shadow" id="resCliente" style="z-index: 1050; display: none; max-height: 260px; overflow-y: auto;"></div>
+            <div class="list-group position-absolute w-100 shadow fc-autocomplete-list" id="resCliente" style="display: none;"></div>
           </div>
-          <div class="col-6 col-lg-3">
-            <label class="form-label" for="txtFecha">Fecha</label>
-            <input type="text" class="form-control" id="txtFecha" readonly>
+
+          {# Fecha de Emisión #}
+          <div class="col-12 col-sm-6 col-lg-3">
+            <label class="form-label fw-semibold" for="txtFecha">Fecha y hora</label>
+            <div class="input-group">
+              <span class="input-group-text bg-light"><i class="far fa-calendar-alt text-muted"></i></span>
+              <input type="text" class="form-control bg-light font-monospace" id="txtFecha" readonly>
+            </div>
           </div>
-          <div class="col-12">
-            <label class="form-label" for="txtObservacion">Observación</label>
-            <input type="text" class="form-control" id="txtObservacion" maxlength="200" autocomplete="off">
+
+          {# Observación #}
+          <div class="col-12 col-sm-6 col-lg-3">
+            <label class="form-label fw-semibold" for="txtObservacion">Observación <small class="text-muted fw-normal">(opcional)</small></label>
+            <input type="text" class="form-control" id="txtObservacion" maxlength="200" placeholder="Nota breve del pedido…" autocomplete="off">
             <div class="invalid-feedback"></div>
           </div>
+
         </div>
       </div>
     </div>
 
-    <div class="card mb-3">
-      <div class="card-header"><h3 class="card-title">Detalle</h3></div>
-      <div class="card-body border-bottom position-relative">
-        <label class="form-label" for="txtItem">Agregar ítem</label>
-        <input type="text" class="form-control" id="txtItem" placeholder="Buscar ítem por descripción…" autocomplete="off">
-        <div class="list-group position-absolute shadow" id="resItem" style="z-index: 1050; display: none; max-height: 280px; overflow-y: auto; left: 1rem; right: 1rem;"></div>
-        <div class="text-danger small mt-2" id="errItems" style="display: none;"></div>
-      </div>
-      <div class="table-responsive">
-        <table class="table table-vcenter card-table">
-          <thead>
-            <tr>
-              <th>Ítem</th>
-              <th class="text-end">Stock</th>
-              <th style="width: 120px;">Cantidad</th>
-              <th class="text-end">Precio</th>
-              <th class="text-end">IVA</th>
-              <th class="text-end">Subtotal</th>
-              <th class="w-1"></th>
-            </tr>
-          </thead>
-          <tbody id="tbodyDetalle">
-            <tr><td colspan="7" class="text-center text-muted py-4">Todavía no agregó ítems.</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="card-footer">
-        <div class="row justify-content-end">
-          <div class="col-12 col-md-5 col-lg-4">
-            <table class="table table-sm table-borderless mb-0">
-              <tr><td>Exentas</td><td class="text-end" id="totExentas">Gs. 0</td></tr>
-              <tr><td>Gravadas 5%</td><td class="text-end" id="totG5">Gs. 0</td></tr>
-              <tr><td>Gravadas 10%</td><td class="text-end" id="totG10">Gs. 0</td></tr>
-              <tr class="fw-bold fs-3"><td>Total</td><td class="text-end" id="totTotal">Gs. 0</td></tr>
-              <tr class="text-muted small"><td>IVA 5% (liquidado)</td><td class="text-end" id="totIva5">Gs. 0</td></tr>
-              <tr class="text-muted small"><td>IVA 10% (liquidado)</td><td class="text-end" id="totIva10">Gs. 0</td></tr>
+    {# ── Tarjeta de Detalle y Grilla de Ítems ──────────────────────── #}
+    <div class="row g-3 mb-3">
+      
+      {# Columna Izquierda: Grilla de Ítems (8 cols en desktop) #}
+      <div class="col-12 col-xl-8">
+        <div class="card border shadow-sm rounded-3 h-100">
+          <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between">
+            <div class="d-flex align-items-center gap-2">
+              <i class="fas fa-list text-primary fs-4"></i>
+              <h5 class="card-title mb-0 fw-bold">Detalle de Ítems</h5>
+            </div>
+            <span class="text-muted small">Carga rápida con teclado (<kbd>Enter</kbd>)</span>
+          </div>
+
+          {# Buscador interactivo de ítems #}
+          <div class="card-body p-3 border-bottom bg-light-subtle position-relative">
+            <label class="form-label fw-semibold mb-1" for="txtItem">
+              <i class="fas fa-barcode me-1 text-primary"></i> Buscar producto o servicio para agregar
+            </label>
+            <div class="input-group">
+              <span class="input-group-text bg-white"><i class="fas fa-search text-muted"></i></span>
+              <input type="text" class="form-control" id="txtItem" placeholder="Buscar ítem por descripción… (flechas para elegir, Enter para agregar)" autocomplete="off">
+            </div>
+            <div class="list-group position-absolute shadow fc-autocomplete-list" id="resItem" style="display: none; left: 1rem; right: 1rem;"></div>
+            <div class="text-danger small mt-2" id="errItems" style="display: none;"></div>
+          </div>
+
+          {# Grilla de líneas cargadas #}
+          <div class="table-responsive">
+            <table class="table table-vcenter table-hover card-table mb-0">
+              <thead class="bg-light text-muted small text-uppercase">
+                <tr>
+                  <th class="ps-3 py-3">Ítem / Descripción</th>
+                  <th class="py-3 text-center" style="width: 100px;">Stock</th>
+                  <th class="py-3 text-center" style="width: 120px;">Cantidad</th>
+                  <th class="py-3 text-end" style="width: 120px;">Precio</th>
+                  <th class="py-3 text-center" style="width: 90px;">IVA</th>
+                  <th class="py-3 text-end" style="width: 130px;">Subtotal</th>
+                  <th class="pe-3 py-3 text-center w-1"></th>
+                </tr>
+              </thead>
+              <tbody id="tbodyDetalle">
+                <tr>
+                  <td colspan="7" class="text-center text-muted py-4">
+                    <i class="fas fa-inbox fa-2x mb-2 text-muted opacity-50 d-block"></i>
+                    Todavía no agregó ítems al pedido.
+                  </td>
+                </tr>
+              </tbody>
             </table>
           </div>
         </div>
       </div>
+
+      {# Columna Derecha: Panel de Totales y Liquidación (4 cols en desktop) #}
+      <div class="col-12 col-xl-4">
+        <div class="card border shadow-sm rounded-3 fc-totals-card h-100 d-flex flex-column justify-content-between">
+          <div class="card-header bg-white py-3 border-bottom">
+            <div class="d-flex align-items-center gap-2">
+              <i class="fas fa-calculator text-primary fs-4"></i>
+              <h5 class="card-title mb-0 fw-bold">Resumen y Liquidación</h5>
+            </div>
+          </div>
+          <div class="card-body p-0">
+            <table class="table fc-totals-table mb-0">
+              <tbody>
+                <tr>
+                  <td class="text-muted ps-3">Subtotal Exentas</td>
+                  <td class="text-end pe-3 font-monospace fw-semibold" id="totExentas">Gs. 0</td>
+                </tr>
+                <tr>
+                  <td class="text-muted ps-3">Subtotal Gravadas 5%</td>
+                  <td class="text-end pe-3 font-monospace fw-semibold" id="totG5">Gs. 0</td>
+                </tr>
+                <tr>
+                  <td class="text-muted ps-3">Subtotal Gravadas 10%</td>
+                  <td class="text-end pe-3 font-monospace fw-semibold" id="totG10">Gs. 0</td>
+                </tr>
+                <tr class="fc-total-highlight-row">
+                  <td class="ps-3 align-middle">
+                    <span class="text-uppercase fw-bold text-dark d-block" style="letter-spacing: 0.05em; font-size: 0.85rem;">Total General</span>
+                    <small class="text-muted">Guaraníes</small>
+                  </td>
+                  <td class="text-end pe-3 align-middle">
+                    <div class="fc-total-big-amount" id="totTotal">Gs. 0</div>
+                  </td>
+                </tr>
+                <tr class="border-top">
+                  <td class="text-muted ps-3 small">IVA 5% (liquidado)</td>
+                  <td class="text-end pe-3 font-monospace text-muted small" id="totIva5">Gs. 0</td>
+                </tr>
+                <tr>
+                  <td class="text-muted ps-3 small">IVA 10% (liquidado)</td>
+                  <td class="text-end pe-3 font-monospace text-muted small" id="totIva10">Gs. 0</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="card-footer bg-light border-top p-3">
+            <div class="d-grid gap-2">
+              <button type="submit" class="btn btn-primary btn-lg" id="btnGuardar">
+                <i class="fas fa-save me-2"></i>Registrar Pedido
+              </button>
+              <button type="button" class="btn btn-link link-secondary" id="btnCancelarNuevo">
+                Cancelar y regresar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
 
-    <div class="d-flex justify-content-end gap-2">
-      <button type="button" class="btn btn-link link-secondary" id="btnCancelarNuevo">Cancelar</button>
-      <button type="submit" class="btn btn-primary" id="btnGuardar"><i class="fas fa-save me-2"></i>Registrar Pedido</button>
-    </div>
   </form>
 </div>
 
-{# ══════════════════ MODAL: VER ══════════════════ #}
+{# ══════════════════ MODAL: VER PEDIDO ══════════════════ #}
 <div class="modal modal-blur fade" id="modalVer" tabindex="-1" aria-labelledby="modalVerTitulo" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="modalVerTitulo">Pedido</h5>
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header border-bottom">
+        <div class="d-flex align-items-center gap-2">
+          <i class="fas fa-file-invoice text-primary fs-4"></i>
+          <h5 class="modal-title fw-bold" id="modalVerTitulo">Comprobante de Pedido</h5>
+        </div>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
       </div>
-      <div class="modal-body" id="cuerpoVer"></div>
-      <div class="modal-footer">
-        <a class="btn btn-outline-primary" id="btnVerPdf" target="_blank" rel="noopener"><i class="fas fa-file-pdf me-2"></i>PDF</a>
+      <div class="modal-body p-4" id="cuerpoVer"></div>
+      <div class="modal-footer border-top bg-light py-2">
+        <a class="btn btn-outline-primary" id="btnVerPdf" target="_blank" rel="noopener">
+          <i class="fas fa-file-pdf me-2"></i>Descargar PDF
+        </a>
         <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cerrar</button>
       </div>
     </div>
@@ -184,8 +298,6 @@
   const V = window.FacturacionValidadores;
   const { escapar, pedir } = L;
   const PUEDE_ANULAR = {{ 'true' if puede('pedidocliente', 'anular') else 'false' }};
-  const BADGES = { PENDIENTE: 'bg-yellow-lt', FACTURADO: 'bg-green-lt', ANULADO: 'bg-red-lt' };
-  const ETIQUETAS = { PENDIENTE: 'Pendiente', FACTURADO: 'Facturado', ANULADO: 'Anulado' };
 
   const $ = (id) => document.getElementById(id);
   const seccionListado = $('seccionListado'), seccionNuevo = $('seccionNuevo');
@@ -203,16 +315,43 @@
     const m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})/.exec(s);
     return m ? `${m[3]}/${m[2]}/${m[1]} ${m[4]}:${m[5]}` : s;
   };
-  const badge = (e) => `<span class="badge ${BADGES[e] || 'bg-secondary-lt'}">${ETIQUETAS[e] || escapar(e)}</span>`;
+
+  /* Badges con punto CSS (sin emojis) */
+  const badge = (e) => {
+    if (e === 'PENDIENTE') {
+      return '<span class="fc-badge fc-badge-pendiente"><span class="fc-status-dot fc-status-dot-yellow"></span>Pendiente</span>';
+    }
+    if (e === 'FACTURADO') {
+      return '<span class="fc-badge fc-badge-facturado"><span class="fc-status-dot fc-status-dot-green"></span>Facturado</span>';
+    }
+    if (e === 'ANULADO') {
+      return '<span class="fc-badge fc-badge-anulado"><span class="fc-status-dot fc-status-dot-red"></span>Anulado</span>';
+    }
+    return `<span class="fc-badge fc-badge-neutral"><span class="fc-status-dot fc-status-dot-gray"></span>${escapar(e)}</span>`;
+  };
+
   const ivaTxt = (iva) => iva === 0 ? 'Exenta' : iva + '%';
   const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+
+  /* Badge visual para el stock en los resultados */
+  const stockBadge = (i) => {
+    if (!i.controla_stock) {
+      return '<span class="badge bg-light text-muted border">No controla stock</span>';
+    }
+    const c = i.cantidad_disponible;
+    if (c <= 0) return '<span class="fc-stock-badge fc-stock-empty">Agotado (0)</span>';
+    if (c <= 5) return `<span class="fc-stock-badge fc-stock-low">Stock bajo: ${c}</span>`;
+    return `<span class="fc-stock-badge fc-stock-ok">Stock: ${c}</span>`;
+  };
 
   /* ---------- totales (informativos: el servidor recalcula todo) ---------- */
   function totales(items) {
     let ex = 0, g5 = 0, g10 = 0;
     items.forEach((l) => { if (l.iva === 0) ex += l.subtotal; else if (l.iva === 5) g5 += l.subtotal; else g10 += l.subtotal; });
-    return { exentas: ex, gravadas_5: g5, gravadas_10: g10, total: ex + g5 + g10,
-             iva_5: Math.round(g5 / 21), iva_10: Math.round(g10 / 11) };
+    return {
+      exentas: ex, gravadas_5: g5, gravadas_10: g10, total: ex + g5 + g10,
+      iva_5: Math.round(g5 / 21), iva_10: Math.round(g10 / 11)
+    };
   }
 
   /* ---------- listado ---------- */
@@ -236,23 +375,39 @@
       const { ok, data } = await pedir(urlListado());
       if (!ok || !data || !data.success) throw new Error((data && data.error) || '');
       if (!data.data.length) {
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">No hay pedidos para mostrar.</td></tr>';
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="7" class="p-0">
+              <div class="fc-empty-state">
+                <div class="fc-empty-icon-circle">
+                  <i class="fas fa-file-invoice"></i>
+                </div>
+                <h6 class="fw-bold text-dark mb-1">No hay pedidos para mostrar</h6>
+                <p class="text-muted small mb-0">Probá ajustando los filtros o registrá un nuevo pedido.</p>
+              </div>
+            </td>
+          </tr>`;
         return;
       }
       tbody.innerHTML = data.data.map((p) => {
-        const acc = [`<button type="button" class="btn btn-sm btn-outline-secondary" data-accion="ver" data-id="${p.id_pedido}" title="Ver"><i class="fas fa-eye"></i></button>`,
-                     `<a class="btn btn-sm btn-outline-primary" href="${API}/${p.id_pedido}/pdf" target="_blank" rel="noopener" title="PDF"><i class="fas fa-file-pdf"></i></a>`];
+        const acc = [
+          `<button type="button" class="btn btn-sm btn-outline-secondary" data-accion="ver" data-id="${p.id_pedido}" title="Ver detalle"><i class="fas fa-eye"></i></button>`,
+          `<a class="btn btn-sm btn-outline-primary" href="${API}/${p.id_pedido}/pdf" target="_blank" rel="noopener" title="Descargar PDF"><i class="fas fa-file-pdf"></i></a>`
+        ];
         if (PUEDE_ANULAR && p.estado === 'PENDIENTE') {
-          acc.push(`<button type="button" class="btn btn-sm btn-outline-danger" data-accion="anular" data-id="${p.id_pedido}" data-info="${escapar('N.º ' + p.id_pedido + ' de ' + p.cliente)}" title="Anular"><i class="fas fa-ban"></i></button>`);
+          acc.push(`<button type="button" class="btn btn-sm btn-outline-danger" data-accion="anular" data-id="${p.id_pedido}" data-info="${escapar('N.º ' + p.id_pedido + ' de ' + p.cliente)}" title="Anular pedido"><i class="fas fa-ban"></i></button>`);
         }
         return `<tr class="${p.estado === 'ANULADO' ? 'text-muted' : ''}">
-          <td>${p.id_pedido}</td>
+          <td class="ps-3 font-monospace fw-bold text-primary">#${p.id_pedido}</td>
           <td class="text-nowrap">${fecha(p.fecha_pedido)}</td>
-          <td>${escapar(p.cliente)}<div class="text-muted small">${escapar(p.ci_ruc)}</div></td>
+          <td>
+            <span class="fw-semibold text-dark">${escapar(p.cliente)}</span>
+            <div class="text-muted small font-monospace">${escapar(p.ci_ruc)}</div>
+          </td>
           <td>${escapar(p.cajero)}</td>
-          <td class="text-end text-nowrap">${gs(p.total)}</td>
-          <td>${badge(p.estado)}</td>
-          <td class="text-nowrap"><div class="btn-list flex-nowrap">${acc.join('')}</div></td>
+          <td class="text-end text-nowrap font-monospace fw-bold text-dark">${gs(p.total)}</td>
+          <td class="text-center">${badge(p.estado)}</td>
+          <td class="pe-3 text-end text-nowrap"><div class="btn-list flex-nowrap justify-content-end">${acc.join('')}</div></td>
         </tr>`;
       }).join('');
     } catch (e) {
@@ -260,7 +415,7 @@
     }
   }
 
-  /* ---------- ver detalle ---------- */
+  /* ---------- ver detalle (con logo y OdontoClinic en cabecera) ---------- */
   async function verPedido(id) {
     try {
       const { data } = await pedir(`${API}/${id}`);
@@ -269,28 +424,78 @@
       $('modalVerTitulo').textContent = `Pedido N.º ${p.id_pedido}`;
       $('btnVerPdf').href = `${API}/${p.id_pedido}/pdf`;
       $('cuerpoVer').innerHTML = `
-        <div class="row g-2 mb-3">
-          <div class="col-12 col-md-6"><div class="text-muted small">Cliente</div>${escapar(p.cliente)} <span class="text-muted">(${escapar(p.ci_ruc)})</span></div>
-          <div class="col-6 col-md-3"><div class="text-muted small">Fecha</div>${fecha(p.fecha_pedido)}</div>
-          <div class="col-6 col-md-3"><div class="text-muted small">Estado</div>${badge(p.estado)}</div>
-          <div class="col-12 col-md-6"><div class="text-muted small">Cajero</div>${escapar(p.cajero)}</div>
-          <div class="col-12 col-md-6"><div class="text-muted small">Observación</div>${p.observacion ? escapar(p.observacion) : '—'}</div>
+        {# Cabecera solo logo y OdontoClinic #}
+        <div class="d-flex align-items-center justify-content-between pb-3 mb-3 border-bottom">
+          <div class="d-flex align-items-center gap-2">
+            <img src="{{ url_for('static', filename='img/logo_sistema.png') }}" alt="Logo" style="height: 34px; width: auto; object-fit: contain;">
+            <span class="fw-bold fs-3 text-dark">OdontoClinic</span>
+          </div>
+          <div class="text-end">
+            <div class="fw-bold fs-3 text-primary font-monospace">Pedido #${p.id_pedido}</div>
+            <div class="text-muted small">${fecha(p.fecha_pedido)}</div>
+          </div>
         </div>
-        <div class="table-responsive"><table class="table table-sm">
-          <thead><tr><th>Ítem</th><th class="text-end">Cant.</th><th class="text-end">Precio</th><th class="text-end">IVA</th><th class="text-end">Subtotal</th></tr></thead>
-          <tbody>${p.detalle.map((d) => `<tr><td>${escapar(d.item)}</td><td class="text-end">${d.cantidad}</td>
-            <td class="text-end text-nowrap">${gs(d.precio_unitario)}</td><td class="text-end">${ivaTxt(d.iva)}</td>
-            <td class="text-end text-nowrap">${gs(d.subtotal)}</td></tr>`).join('')}</tbody>
-        </table></div>
-        <div class="row justify-content-end"><div class="col-12 col-md-6">
-          <table class="table table-sm table-borderless mb-0">
-            <tr><td>Exentas</td><td class="text-end">${gs(t.exentas)}</td></tr>
-            <tr><td>Gravadas 5%</td><td class="text-end">${gs(t.gravadas_5)}</td></tr>
-            <tr><td>Gravadas 10%</td><td class="text-end">${gs(t.gravadas_10)}</td></tr>
-            <tr class="fw-bold"><td>Total</td><td class="text-end">${gs(t.total)}</td></tr>
-            <tr class="text-muted small"><td>IVA 5% (liquidado)</td><td class="text-end">${gs(t.iva_5)}</td></tr>
-            <tr class="text-muted small"><td>IVA 10% (liquidado)</td><td class="text-end">${gs(t.iva_10)}</td></tr>
-          </table></div></div>`;
+
+        <div class="row g-2 mb-3">
+          <div class="col-12 col-md-6">
+            <div class="text-muted small text-uppercase fw-semibold">Cliente</div>
+            <div class="fw-bold text-dark">${escapar(p.cliente)} <span class="text-muted font-monospace">(${escapar(p.ci_ruc)})</span></div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="text-muted small text-uppercase fw-semibold">Fecha</div>
+            <div>${fecha(p.fecha_pedido)}</div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="text-muted small text-uppercase fw-semibold">Estado</div>
+            <div>${badge(p.estado)}</div>
+          </div>
+          <div class="col-12 col-md-6">
+            <div class="text-muted small text-uppercase fw-semibold">Cajero</div>
+            <div>${escapar(p.cajero)}</div>
+          </div>
+          <div class="col-12 col-md-6">
+            <div class="text-muted small text-uppercase fw-semibold">Observación</div>
+            <div>${p.observacion ? escapar(p.observacion) : '<span class="text-muted">—</span>'}</div>
+          </div>
+        </div>
+
+        <div class="table-responsive mb-3 border rounded-3">
+          <table class="table table-sm card-table mb-0">
+            <thead class="bg-light text-muted small text-uppercase">
+              <tr>
+                <th class="ps-3 py-2">Ítem</th>
+                <th class="py-2 text-center" style="width: 80px;">Cant.</th>
+                <th class="py-2 text-end">Precio</th>
+                <th class="py-2 text-center" style="width: 80px;">IVA</th>
+                <th class="pe-3 py-2 text-end">Subtotal</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${p.detalle.map((d) => `<tr>
+                <td class="ps-3 fw-semibold">${escapar(d.item)}</td>
+                <td class="text-center font-monospace">${d.cantidad}</td>
+                <td class="text-end text-nowrap font-monospace">${gs(d.precio_unitario)}</td>
+                <td class="text-center">${ivaTxt(d.iva)}</td>
+                <td class="pe-3 text-end text-nowrap font-monospace fw-bold">${gs(d.subtotal)}</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="row justify-content-end">
+          <div class="col-12 col-md-6">
+            <div class="card border bg-light-subtle rounded-3 p-3">
+              <table class="table table-sm table-borderless mb-0">
+                <tr><td class="text-muted">Exentas</td><td class="text-end font-monospace">${gs(t.exentas)}</td></tr>
+                <tr><td class="text-muted">Gravadas 5%</td><td class="text-end font-monospace">${gs(t.gravadas_5)}</td></tr>
+                <tr><td class="text-muted">Gravadas 10%</td><td class="text-end font-monospace">${gs(t.gravadas_10)}</td></tr>
+                <tr class="border-top"><td class="fw-bold fs-3 text-dark">Total</td><td class="text-end font-monospace fw-bold fs-3 text-primary">${gs(t.total)}</td></tr>
+                <tr><td class="text-muted small">IVA 5% (liquidado)</td><td class="text-end font-monospace text-muted small">${gs(t.iva_5)}</td></tr>
+                <tr><td class="text-muted small">IVA 10% (liquidado)</td><td class="text-end font-monospace text-muted small">${gs(t.iva_10)}</td></tr>
+              </table>
+            </div>
+          </div>
+        </div>`;
       modalVer.show();
     } catch (e) {
       Swal.fire('Error', 'Ocurrió un error de conexión.', 'error');
@@ -342,19 +547,52 @@
     return (data && data.success) ? data.data : [];
   }
 
-  /* cliente */
+  /* cliente: búsqueda y navegación con teclado */
+  let clientesResultados = [];
+  let indexClienteActivo = -1;
+
   const buscarCliente = debounce(async () => {
     if (clienteSel) return;
     try {
       const r = await buscar('clientes', txtCliente.value.trim());
-      resCliente.innerHTML = r.length ? r.map((c) => `<button type="button" class="list-group-item list-group-item-action" data-cliente="${c.id_cliente}" data-nombre="${escapar(c.nombre)}" data-ci="${escapar(c.ci_ruc)}">
-          ${escapar(c.nombre)} <span class="text-muted">— ${escapar(c.ci_ruc)}</span></button>`).join('')
-        : '<div class="list-group-item text-muted">Sin resultados.</div>';
+      clientesResultados = r;
+      indexClienteActivo = -1;
+      resCliente.innerHTML = r.length ? r.map((c, idx) => `
+        <button type="button" class="list-group-item list-group-item-action fc-autocomplete-item py-2" data-idx="${idx}" data-cliente="${c.id_cliente}" data-nombre="${escapar(c.nombre)}" data-ci="${escapar(c.ci_ruc)}">
+          <div class="fw-bold text-dark">${escapar(c.nombre)}</div>
+          <div class="text-muted small font-monospace"><i class="fas fa-id-card me-1"></i>${escapar(c.ci_ruc)}</div>
+        </button>`).join('')
+        : '<div class="list-group-item text-muted small p-3">Sin resultados para el cliente ingresado.</div>';
       resCliente.style.display = 'block';
     } catch (e) { resCliente.style.display = 'none'; }
-  }, 250);
+  }, 220);
+
   txtCliente.addEventListener('input', () => { V.limpiarCampo(txtCliente); buscarCliente(); });
   txtCliente.addEventListener('focus', buscarCliente);
+
+  txtCliente.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter') ev.preventDefault();   // con el desplegable cerrado, Enter no envía el formulario
+    if (resCliente.style.display !== 'block' || !clientesResultados.length) return;
+    const items = resCliente.querySelectorAll('.fc-autocomplete-item');
+    if (ev.key === 'ArrowDown') {
+      ev.preventDefault();
+      indexClienteActivo = (indexClienteActivo + 1) % items.length;
+      items.forEach((it, i) => it.classList.toggle('active', i === indexClienteActivo));
+      items[indexClienteActivo].scrollIntoView({ block: 'nearest' });
+    } else if (ev.key === 'ArrowUp') {
+      ev.preventDefault();
+      indexClienteActivo = (indexClienteActivo - 1 + items.length) % items.length;
+      items.forEach((it, i) => it.classList.toggle('active', i === indexClienteActivo));
+      items[indexClienteActivo].scrollIntoView({ block: 'nearest' });
+    } else if (ev.key === 'Enter') {
+      ev.preventDefault();
+      const target = indexClienteActivo >= 0 ? items[indexClienteActivo] : items[0];
+      if (target) target.click();
+    } else if (ev.key === 'Escape') {
+      resCliente.style.display = 'none';
+    }
+  });
+
   resCliente.addEventListener('click', (ev) => {
     const b = ev.target.closest('button[data-cliente]');
     if (!b) return;
@@ -363,25 +601,65 @@
     txtCliente.readOnly = true; btnCambiarCliente.style.display = 'inline-block';
     resCliente.style.display = 'none';
     V.limpiarCampo(txtCliente);
+    txtItem.focus();
   });
+
   btnCambiarCliente.addEventListener('click', () => {
     clienteSel = null; txtCliente.value = ''; txtCliente.readOnly = false;
     btnCambiarCliente.style.display = 'none'; txtCliente.focus();
   });
 
-  /* ítems */
+  /* ítems: búsqueda y navegación con teclado */
+  let itemsResultados = [];
+  let indexItemActivo = -1;
+
   const buscarItem = debounce(async () => {
     try {
       const r = await buscar('items', txtItem.value.trim());
-      resItem.innerHTML = r.length ? r.map((i) => `<button type="button" class="list-group-item list-group-item-action" data-item='${escapar(JSON.stringify(i))}'>
-          <div class="d-flex justify-content-between"><span>${escapar(i.descripcion)}</span><span>${gs(i.precio_unitario)}</span></div>
-          <div class="text-muted small">${escapar(i.tipo_item)} · IVA ${ivaTxt(i.iva)} · ${i.controla_stock ? 'Stock disponible: ' + i.cantidad_disponible : 'No controla stock'}</div></button>`).join('')
-        : '<div class="list-group-item text-muted">Sin resultados.</div>';
+      itemsResultados = r;
+      indexItemActivo = -1;
+      resItem.innerHTML = r.length ? r.map((i, idx) => `
+        <button type="button" class="list-group-item list-group-item-action fc-autocomplete-item py-2" data-idx="${idx}" data-item='${escapar(JSON.stringify(i))}'>
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <span class="fw-bold text-dark">${escapar(i.descripcion)}</span>
+            <span class="font-monospace fw-bold text-primary">${gs(i.precio_unitario)}</span>
+          </div>
+          <div class="d-flex justify-content-between align-items-center small text-muted">
+            <span>${escapar(i.tipo_item)} &bull; IVA ${ivaTxt(i.iva)}</span>
+            ${stockBadge(i)}
+          </div>
+        </button>`).join('')
+        : '<div class="list-group-item text-muted small p-3">No se encontraron productos o servicios.</div>';
       resItem.style.display = 'block';
     } catch (e) { resItem.style.display = 'none'; }
-  }, 250);
+  }, 220);
+
   txtItem.addEventListener('input', buscarItem);
   txtItem.addEventListener('focus', buscarItem);
+
+  txtItem.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter') ev.preventDefault();   // con el desplegable cerrado, Enter no envía el formulario
+    if (resItem.style.display !== 'block' || !itemsResultados.length) return;
+    const items = resItem.querySelectorAll('.fc-autocomplete-item');
+    if (ev.key === 'ArrowDown') {
+      ev.preventDefault();
+      indexItemActivo = (indexItemActivo + 1) % items.length;
+      items.forEach((it, i) => it.classList.toggle('active', i === indexItemActivo));
+      items[indexItemActivo].scrollIntoView({ block: 'nearest' });
+    } else if (ev.key === 'ArrowUp') {
+      ev.preventDefault();
+      indexItemActivo = (indexItemActivo - 1 + items.length) % items.length;
+      items.forEach((it, i) => it.classList.toggle('active', i === indexItemActivo));
+      items[indexItemActivo].scrollIntoView({ block: 'nearest' });
+    } else if (ev.key === 'Enter') {
+      ev.preventDefault();
+      const target = indexItemActivo >= 0 ? items[indexItemActivo] : items[0];
+      if (target) target.click();
+    } else if (ev.key === 'Escape') {
+      resItem.style.display = 'none';
+    }
+  });
+
   resItem.addEventListener('click', (ev) => {
     const b = ev.target.closest('button[data-item]');
     if (!b) return;
@@ -394,42 +672,75 @@
       if (inp) { inp.focus(); inp.select(); }
       return;
     }
-    lineas.push({ id_item: i.id_item, descripcion: i.descripcion, precio: i.precio_unitario, iva: i.iva,
-                  controla_stock: i.controla_stock, stock: i.cantidad_disponible, cantidad: 1 });
+    lineas.push({
+      id_item: i.id_item, descripcion: i.descripcion, precio: i.precio_unitario, iva: i.iva,
+      controla_stock: i.controla_stock, stock: i.cantidad_disponible, cantidad: 1
+    });
     renderDetalle();
     const inp = tbodyDetalle.querySelector(`input[data-id="${i.id_item}"]`);
     if (inp) { inp.focus(); inp.select(); }
   });
+
   document.addEventListener('click', (ev) => {
     if (!ev.target.closest('#resCliente, #txtCliente')) resCliente.style.display = 'none';
     if (!ev.target.closest('#resItem, #txtItem')) resItem.style.display = 'none';
   });
 
-  /* grilla */
+  /* grilla de detalle */
   const subtotal = (l) => { const n = parseInt(l.cantidad, 10); return (Number.isFinite(n) && n > 0 ? n : 0) * l.precio; };
 
   function renderDetalle() {
     if (!lineas.length) {
-      tbodyDetalle.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">Todavía no agregó ítems.</td></tr>';
+      tbodyDetalle.innerHTML = `
+        <tr>
+          <td colspan="7" class="text-center text-muted py-5">
+            <div class="fc-empty-icon-circle mx-auto mb-2" style="width: 44px; height: 44px; font-size: 1.2rem;">
+              <i class="fas fa-cart-plus"></i>
+            </div>
+            <div class="fw-semibold text-dark mb-1">El pedido no tiene ítems</div>
+            <div class="small text-muted">Buscá un ítem arriba o presioná Enter para comenzar a cargarlo.</div>
+          </td>
+        </tr>`;
     } else {
-      tbodyDetalle.innerHTML = lineas.map((l) => `<tr>
-        <td>${escapar(l.descripcion)}</td>
-        <td class="text-end">${l.controla_stock ? l.stock : '—'}</td>
-        <td><input type="text" inputmode="numeric" class="form-control form-control-sm" data-id="${l.id_item}" value="${escapar(l.cantidad)}" maxlength="10" autocomplete="off"><div class="invalid-feedback"></div></td>
-        <td class="text-end text-nowrap">${gs(l.precio)}</td>
-        <td class="text-end">${ivaTxt(l.iva)}</td>
-        <td class="text-end text-nowrap" data-sub="${l.id_item}">${gs(subtotal(l))}</td>
-        <td><button type="button" class="btn btn-sm btn-outline-danger" data-quitar="${l.id_item}" title="Quitar"><i class="fas fa-times"></i></button></td>
-      </tr>`).join('');
+      tbodyDetalle.innerHTML = lineas.map((l) => `
+        <tr>
+          <td class="ps-3">
+            <span class="fw-semibold text-dark">${escapar(l.descripcion)}</span>
+          </td>
+          <td class="text-center font-monospace">
+            ${l.controla_stock
+              ? (l.stock <= 0
+                  ? '<span class="fc-stock-badge fc-stock-empty">0</span>'
+                  : (l.stock <= 5
+                      ? `<span class="fc-stock-badge fc-stock-low">${l.stock}</span>`
+                      : `<span class="fc-stock-badge fc-stock-ok">${l.stock}</span>`))
+              : '<span class="text-muted">—</span>'}
+          </td>
+          <td class="text-center">
+            <input type="text" inputmode="numeric" class="form-control form-control-sm text-center font-monospace fw-bold mx-auto" data-id="${l.id_item}" value="${escapar(l.cantidad)}" maxlength="10" autocomplete="off" style="max-width: 90px;">
+            <div class="invalid-feedback"></div>
+          </td>
+          <td class="text-end text-nowrap font-monospace">${gs(l.precio)}</td>
+          <td class="text-center text-muted small">${ivaTxt(l.iva)}</td>
+          <td class="text-end text-nowrap font-monospace fw-bold text-dark" data-sub="${l.id_item}">${gs(subtotal(l))}</td>
+          <td class="pe-3 text-center">
+            <button type="button" class="btn btn-sm btn-outline-danger" data-quitar="${l.id_item}" title="Quitar ítem">
+              <i class="fas fa-trash-alt"></i>
+            </button>
+          </td>
+        </tr>`).join('');
     }
     actualizarTotales();
   }
 
   function actualizarTotales() {
     const t = totales(lineas.map((l) => ({ iva: l.iva, subtotal: subtotal(l) })));
-    $('totExentas').textContent = gs(t.exentas); $('totG5').textContent = gs(t.gravadas_5);
-    $('totG10').textContent = gs(t.gravadas_10); $('totTotal').textContent = gs(t.total);
-    $('totIva5').textContent = gs(t.iva_5); $('totIva10').textContent = gs(t.iva_10);
+    $('totExentas').textContent = gs(t.exentas);
+    $('totG5').textContent = gs(t.gravadas_5);
+    $('totG10').textContent = gs(t.gravadas_10);
+    $('totTotal').textContent = gs(t.total);
+    $('totIva5').textContent = gs(t.iva_5);
+    $('totIva10').textContent = gs(t.iva_10);
   }
 
   tbodyDetalle.addEventListener('input', (ev) => {
@@ -442,6 +753,16 @@
     if (celda) celda.textContent = gs(subtotal(l));
     actualizarTotales();
   });
+
+  /* Permitir Enter en cantidad para volver a txtItem */
+  tbodyDetalle.addEventListener('keydown', (ev) => {
+    const inp = ev.target.closest('input[data-id]');
+    if (inp && ev.key === 'Enter') {
+      ev.preventDefault();
+      txtItem.focus();
+    }
+  });
+
   tbodyDetalle.addEventListener('click', (ev) => {
     const b = ev.target.closest('button[data-quitar]');
     if (!b) return;
@@ -459,7 +780,7 @@
     const eo = V.observacion(txtObservacion.value);
     if (eo) { V.marcarCampo(txtObservacion, eo); primero = primero || txtObservacion; }
     if (!lineas.length) {
-      errItems.textContent = 'Debe agregar al menos un ítem.'; errItems.style.display = 'block'; primero = primero || txtItem;
+      errItems.textContent = 'Debe agregar al menos un ítem al pedido.'; errItems.style.display = 'block'; primero = primero || txtItem;
     }
     lineas.forEach((l) => {
       const inp = tbodyDetalle.querySelector(`input[data-id="${l.id_item}"]`);
@@ -475,8 +796,11 @@
     try {
       const { data } = await pedir(API, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id_cliente: clienteSel, observacion: txtObservacion.value,
-                               items: lineas.map((l) => ({ id_item: l.id_item, cantidad: l.cantidad })) })
+        body: JSON.stringify({
+          id_cliente: clienteSel,
+          observacion: txtObservacion.value,
+          items: lineas.map((l) => ({ id_item: l.id_item, cantidad: l.cantidad }))
+        })
       });
       if (data && data.success) {
         mostrarNuevo(false);
@@ -487,7 +811,6 @@
       } else if (data && data.campo === 'observacion') {
         V.marcarCampo(txtObservacion, data.error); txtObservacion.focus();
       } else {
-        // p. ej. "Stock insuficiente para <ÍTEM>: disponible N, solicitado M."
         errItems.textContent = (data && data.error) || 'Ocurrió un error. Intente nuevamente.';
         errItems.style.display = 'block';
         Swal.fire('No se pudo registrar el pedido', errItems.textContent, 'error');
@@ -503,12 +826,16 @@
   const btnNuevo = $('btnNuevo');
   if (btnNuevo) btnNuevo.addEventListener('click', abrirNuevo);
   $('btnCancelarNuevo').addEventListener('click', () => mostrarNuevo(false));
+  const btnVolver = $('btnVolverListado');
+  if (btnVolver) btnVolver.addEventListener('click', () => mostrarNuevo(false));
+
   document.addEventListener('click', (ev) => {
     const btn = ev.target.closest('button[data-accion]');
     if (!btn) return;
     if (btn.dataset.accion === 'ver') verPedido(btn.dataset.id);
     if (btn.dataset.accion === 'anular') anularPedido(btn.dataset.id, btn.dataset.info);
   });
+
   [filtroEstado, filtroDesde, filtroHasta].forEach((el) => el.addEventListener('change', cargarListado));
   filtroCliente.addEventListener('input', debounce(cargarListado, 300));
   $('btnLimpiarFiltros').addEventListener('click', () => {

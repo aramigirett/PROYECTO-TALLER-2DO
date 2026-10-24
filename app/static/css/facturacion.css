@@ -1,0 +1,305 @@
+/* ==========================================================================
+   OdontoClinic - Módulo Facturación (CSS Compartido)
+   Patrón de diseño para movimientos de facturación
+   Color primario: #0e7c86
+   ========================================================================== */
+
+:root {
+  --fc-primary: #0e7c86;
+  --fc-primary-light: #e6f6f7;
+  --fc-primary-hover: #0b666e;
+  --fc-border: #e2e8f0;
+  --fc-card-bg: #ffffff;
+  --fc-text-main: #0f172a;
+  --fc-text-muted: #64748b;
+}
+
+/* ── Puntos de estado con CSS (sin emojis) ────────────────────────── */
+.fc-status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.fc-status-dot-green {
+  background-color: #2fb344;
+  box-shadow: 0 0 0 rgba(47, 179, 68, 0.4);
+  animation: fc-pulse-green 2s infinite;
+}
+
+.fc-status-dot-gray {
+  background-color: #94a3b8;
+}
+
+.fc-status-dot-yellow {
+  background-color: #f59f00;
+}
+
+.fc-status-dot-red {
+  background-color: #d63939;
+}
+
+.fc-status-dot-blue {
+  background-color: #206bc4;
+}
+
+@keyframes fc-pulse-green {
+  0% {
+    box-shadow: 0 0 0 0 rgba(47, 179, 68, 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(47, 179, 68, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(47, 179, 68, 0);
+  }
+}
+
+/* Desactivar pulso con prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  .fc-status-dot-green {
+    animation: none !important;
+  }
+}
+
+/* ── Tarjetas de Estado (Hero Cards) ──────────────────────────────── */
+.fc-hero-card {
+  border: 1px solid var(--fc-border);
+  border-radius: 12px;
+  background: var(--fc-card-bg);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.2s ease;
+}
+
+.fc-hero-card-open {
+  border-left: 4px solid var(--fc-primary);
+}
+
+.fc-hero-card-closed {
+  border-left: 4px solid #cbd5e1;
+}
+
+.fc-chip {
+  background: #f8fafc;
+  border: 1px solid var(--fc-border);
+  border-radius: 8px;
+  padding: 0.6rem 0.85rem;
+  height: 100%;
+}
+
+.fc-chip-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--fc-text-muted);
+  margin-bottom: 0.2rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.fc-chip-value {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--fc-text-main);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Badges semánticos para tablas ────────────────────────────────── */
+.fc-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.28rem 0.65rem;
+  border-radius: 9999px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.fc-badge-open,
+.fc-badge-facturado {
+  background-color: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.fc-badge-closed,
+.fc-badge-cerrada {
+  background-color: #eff6ff;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+}
+
+.fc-badge-pending,
+.fc-badge-pendiente {
+  background-color: #fffbeb;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.fc-badge-anulado,
+.fc-badge-anulada {
+  background-color: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.fc-badge-neutral {
+  background-color: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+/* ── Badges de Stock ──────────────────────────────────────────────── */
+.fc-stock-badge {
+  display: inline-block;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.fc-stock-ok {
+  background-color: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.fc-stock-low {
+  background-color: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.fc-stock-empty {
+  background-color: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+/* ── Autocompletados y búsqueda interactiva ──────────────────────── */
+.fc-autocomplete-list {
+  background: #ffffff;
+  border: 1px solid var(--fc-border);
+  border-radius: 8px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+  max-height: 280px;
+  overflow-y: auto;
+  z-index: 1050;
+}
+
+.fc-autocomplete-item {
+  padding: 0.65rem 0.9rem;
+  border-bottom: 1px solid #f1f5f9;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  text-decoration: none;
+  display: block;
+  color: var(--fc-text-main);
+}
+
+.fc-autocomplete-item:last-child {
+  border-bottom: none;
+}
+
+.fc-autocomplete-item:hover,
+.fc-autocomplete-item.active {
+  background: var(--fc-primary-light);
+  color: var(--fc-primary);
+}
+
+.fc-autocomplete-item.active {
+  border-left: 3px solid var(--fc-primary);
+}
+
+/* ── Ficha de Cliente Seleccionado ────────────────────────────────── */
+.fc-selected-client-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 0.9rem;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+}
+
+/* ── Panel de Totales ─────────────────────────────────────────────── */
+.fc-totals-card {
+  border: 1px solid var(--fc-border);
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.fc-totals-table td {
+  padding: 0.45rem 0.75rem;
+  font-size: 0.88rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.fc-total-highlight-row {
+  background-color: var(--fc-primary-light);
+  border-top: 2px solid var(--fc-primary) !important;
+  border-bottom: 2px solid var(--fc-primary) !important;
+}
+
+.fc-total-highlight-row td {
+  padding: 0.75rem !important;
+}
+
+.fc-total-big-amount {
+  font-size: 1.55rem;
+  font-weight: 800;
+  color: var(--fc-primary);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+/* ── Estados Vacíos ───────────────────────────────────────────────── */
+.fc-empty-state {
+  text-align: center;
+  padding: 3rem 1.5rem;
+}
+
+.fc-empty-icon-circle {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #f1f5f9;
+  border: 1px dashed #cbd5e1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1rem;
+  color: #94a3b8;
+  font-size: 1.5rem;
+}
+
+/* ── Skeleton Loader ──────────────────────────────────────────────── */
+.fc-skeleton {
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: fc-skeleton-shine 1.5s infinite;
+  border-radius: 6px;
+}
+
+@keyframes fc-skeleton-shine {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fc-skeleton {
+    animation: none;
+    background: #f1f5f9;
+  }
+}
