@@ -1,0 +1,25 @@
+"""Compara las salidas del JS (ejecutado con JScript) contra utils.py para los mismos casos."""
+import sys
+sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parents[2]))
+from app.rutas.modulo_facturacion import utils as u
+
+ruta = sys.argv[1]
+filas = [l.split('\t') for l in open(ruta, encoding='utf-8-sig').read().split('\n') if l.strip('\r')]
+fallos = 0
+def py(tipo, entrada):
+    if tipo == 'ciRuc': return u.validar_ci_ruc(entrada)[1] or ''
+    if tipo == 'dv': return str(u.calcular_dv_ruc(entrada))
+    if tipo == 'nombre': return u.validar_nombre(entrada, 'nombre', True)[1] or ''
+    if tipo == 'apellido': return u.validar_nombre(entrada, 'apellido', False)[1] or ''
+    if tipo == 'telOpc': return u.validar_telefono_opcional(entrada)[1] or ''
+    if tipo == 'corOpc': return u.validar_correo_opcional(entrada)[1] or ''
+    if tipo == 'ubicacion': return None
+for f in filas:
+    tipo, entrada, js = f[0], f[1], (f[2].rstrip('\r') if len(f) > 2 else '')
+    esperado = py(tipo, entrada)
+    if esperado is None:
+        continue
+    ok = esperado == js
+    fallos += (not ok)
+    print(('OK  ' if ok else 'DIFF'), tipo, repr(entrada), '->', repr(js) if ok else f'JS={js!r} PY={esperado!r}')
+print('DIFERENCIAS:', fallos, 'de', len(filas))

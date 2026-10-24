@@ -677,6 +677,19 @@ Además, como en todo endpoint: `@require_permiso(ventana, acción)`, botones en
   - Las 6 vistas usan `facturacion-listado.js`. Verificadas con un navegador real (Edge headless, `fetch` simulado):
     switch, filas, badges, botón Reactivar, diálogos de SweetAlert2, PATCH/DELETE, recarga y los modales Agregar/Editar.
 
+## Tests (carpeta `tests/`, ver `tests/README.md`)
+- Scripts de verificación sin pytest, organizados por módulo: `tests/facturacion/` (los 8 referenciales + Ítems, la
+  reactivación, `browser_test.py` y la comparación JS↔Python de los validadores), `tests/agendamiento/` (regresión de
+  Consultorio y Paciente) y `tests/consultorio/` (vacía: el módulo Consultorio todavía no tiene tests).
+- Se corren desde la raíz: `.\.venv\Scripts\python.exe -I tests\<módulo>\smoke_xxx.py`. Terminan con
+  `FALLOS: ninguno` o la lista de lo que falló.
+- **Usan la base real `odontosisbd`.** Reglas para escribir más: crear datos con prefijo `ZZ` y **borrar solo lo
+  creado por el test** (por ID; nunca un `DELETE` por entidad completa: un script viejo de Forma de Cobro borró de
+  esa manera la auditoría hecha a mano y por eso no se conservó); restaurar en un `finally` cualquier permiso que se
+  quite; no depender de datos que se editan a mano (los `seed` pueden fallar si se renombran desde la pantalla).
+- `browser_test.py` ejecuta las vistas en Edge headless con `fetch` simulado (necesita Edge; la ruta está en la
+  constante `EDGE`). No reemplaza probar el guardado real en el navegador (regla 7 de "Reglas generales aprendidas").
+
 ## Convenciones de código
 - SQL crudo con psycopg2, sin ORM.
 - Conexión vía `app/conexion/Conexion.py` — reusar esa clase, no crear una nueva.
