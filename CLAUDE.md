@@ -707,7 +707,8 @@ auditoría como siempre. Las URL siguen la convención del proyecto (`/referenci
 - ✅ **Registrar Apertura y Cierre de Caja** (`apertura_cierre_caja`, ventana `aperturacaja`, acciones `ver`, `nuevo` =
   abrir, `anular`, `estado` = cerrar). Script: `app/dao/modulo_facturacion/schema_apertura_cierre_caja.sql` (+
   `schema_permisos_apertura_caja.sql`). **Solo el rol Cajero recibe los permisos** por el seed (son movimientos de
-  dinero; el Administrador pasa siempre; Recepción/Médico se habilitan desde la matriz si hace falta).
+  dinero; el Administrador pasa siempre; Recepción/Médico se habilitan desde la matriz si hace falta). La regla
+  completa del Cajero está en "Modelo de permisos".
   - Estados `ABIERTA → CERRADA | ANULADA` (finales). Índices únicos parciales `WHERE estado = 'ABIERTA'` por cajero
     y por caja: un cajero, una apertura; una caja no se abre dos veces. Mensajes: "Debe cerrar la apertura actual antes
     de abrir una nueva." y "La caja ya está abierta por otro usuario." (la verificación previa da el mensaje; los
@@ -776,6 +777,19 @@ auditoría como siempre. Las URL siguen la convención del proyecto (`/referenci
   tiene un PUT de datos pero la ventana no expone `editar`, el endpoint exige
   `editar` igual y nadie más que Administrador lo tiene; se oculta el botón Editar.
   Si hay que delegarlo, se agrega `editar` a la ventana en el catálogo y al seed.
+- **Permisos del rol Cajero** (`app/dao/modulo_seguridad/schema_permisos_cajero.sql`, idempotente; define el conjunto
+  COMPLETO del Cajero: quita lo que sobra e inserta lo que falta, y solo toca ese rol):
+  - **Módulo Facturación (movimientos, hoy `aperturacaja`): todas las acciones de la ventana.**
+  - **Cliente: `ver`, `nuevo`, `editar`** (sin `anular`).
+  - **Forma de Cobro, Marca de Tarjeta, Entidad Emisora, Entidad Adherida, Caja, Depósito, Tipo Ítems e Ítems: solo `ver`.**
+  - **Agendamiento, Consultorio y Seguridad: ningún permiso.** El Cajero queda con 15 filas de permisos.
+  - **Cada movimiento NUEVO de Facturación debe sumar su ventana (con todas sus acciones) a ese seed**, y todo
+    referencial nuevo de Facturación entra con `ver`. `tests/facturacion/smoke_permisos_cajero.py` falla si el
+    catálogo tiene una ventana de "Módulo Facturación" que el Cajero no puede usar por completo.
+  - Los GET que alimentan combos siguen con `@require_login`, así que los combos de Facturación funcionan igual.
+    Con `nuevo` en Cliente, el Cajero puede usar el buscador de pacientes (`/clientes/pacientes`) sin tener permiso
+    sobre la ventana Pacientes (decisión confirmada).
+  - Los tests que necesiten anular/crear un referencial deben usar la sesión del Administrador, no la del Cajero.
 - **Roles y Permisos** (la matriz) queda con `@require_admin` fijo y fuera del
   catálogo, para que nadie pueda autoconcederse acceso.
 - **Páginas de error propias 403/404/500** (`app/rutas/errores.py`, plantillas en

@@ -263,6 +263,7 @@ try:
     api('delete', f"/api/v1/cajas/{cajas['C']}", 200, nombre='baja de la caja C (su apertura está ANULADA)')
     api('delete', f"/api/v1/cajas/{cajas['A']}", 200, nombre='baja de la caja A (sus aperturas están CERRADAS)')
     abrir(CAJERO, 'B', 5000, nombre='abre B para el control de la baja'); b2 = max(aperturas)
+    como(ADMIN)  # el Cajero ya no puede anular cajas (solo ver); la baja la hace el Administrador
     api('delete', f"/api/v1/cajas/{cajas['B']}", 409, nombre='baja de B con apertura ABIERTA otra vez bloqueada', exacto=MSG_BAJA_CAJA)
     como(CAJERO); api('patch', f'{AP}/{b2}/cerrar', 200, nombre='cierra B')
     como(ADMIN); api('delete', f"/api/v1/cajas/{cajas['B']}", 200, nombre='y ahora la baja de B sí se permite')
