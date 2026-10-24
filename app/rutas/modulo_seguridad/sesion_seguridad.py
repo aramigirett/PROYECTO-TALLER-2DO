@@ -102,7 +102,11 @@ def _controlar_inactividad():
     if ultima is not None and ahora - ultima > limite_segundos():
         id_usuario = session.get('id_usuario')
         ci_ruc = session.get('ci_ruc', '')
-        AuditoriaDao().registrar(id_usuario, ci_ruc, 'CIERRE_INACTIVIDAD', request.remote_addr, 'LOGOUT')
+        try:
+            AuditoriaDao().registrar(id_usuario, ci_ruc, 'CIERRE_INACTIVIDAD', request.remote_addr, 'LOGOUT')
+        except Exception as e:
+            # Si la base no responde, igual se cierra la sesión y se redirige: la falla solo se registra en el log
+            current_app.logger.error(f"No se pudo auditar el cierre por inactividad: {str(e)}")
         session.clear()
         from flask import flash
         flash(MENSAJE_INACTIVIDAD, 'warning')
