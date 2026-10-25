@@ -151,8 +151,8 @@ Además, como en todo endpoint: `@require_permiso(ventana, acción)`, botones en
 | Facturación | Caja, Depósito, Cliente | **Lógico** | Tabler (con su propia copia del código de listado) | — (cumplen los 6 puntos); falta migrarlas al helper y unificar `?inactivas` de Caja |
 | Consultorio | Tipo Tratamiento, Tipo Insumo Utilizado, Tipo Procedimiento Médico, Medicamentos, Tipo Estudio, Tipo Análisis | **Lógico** (`activo`, único parcial con `UPPER`) | **Tabler** (etapa 1, `catalogo_api.py` + `CatalogoDao`) | — (cumplen los 6 puntos) |
 | Consultorio | Tipo Diagnóstico, Síntomas | **Lógico** (`activo`, único parcial con `UPPER`) | **Tabler** (etapa 2, mismo `CatalogoDao` / `catalogo_api.py`) | — (cumplen los 6 puntos) |
-| Agendamiento | Ciudad, Cargo, Consultorio, Disponibilidad Horaria, Especialidad, Día, Turno | **Físico** (con `estaEnUso()` → 409) | SB Admin 2 | Pasar a lógico (agregar `activo`, únicos parciales) y puntos 1, 4 y 6 |
-| Agendamiento | Paciente, Funcionario, Médico (datos maestros, no referenciales) | **Físico** (sin validar uso, salvo Paciente→cliente) | SB Admin 2 | Fuera de este estándar; ver riesgos de CASCADE más arriba |
+| Agendamiento | Ciudad, Cargo, Consultorio, Disponibilidad Horaria, Especialidad, Día, Turno | **Lógico** (etapa 1 de `agendamiento-tabler`; reutilizan `CatalogoDao` / `crear_api_catalogo`, Disponibilidad con DAO propio) | **Tabler** | — (cumplen los 6 puntos) |
+| Agendamiento | Paciente, Funcionario, Médico (datos maestros) | **Lógico** (etapa 2; `PersonaDao`, baja bloqueada con trabajo en curso, 409) | **Tabler** | — |
 
 
 ## Estándar de movimientos (resumen; detalle en `docs/historial_modulos.md` y `docs/historial_consultorio.md`)
@@ -247,10 +247,6 @@ Reglas comunes (con test), vigentes tras la migración a Tabler:
   layout standalone (SB Admin 2). `require_permiso`/`require_admin` hacen
   `abort(403)` en las vistas (ya no redirigen con flash); el 403 muestra qué ventana
   se intentó abrir cuando `require_permiso` la conoce.
-- **Pendiente (limpieza al final):** carpetas duplicadas sin uso
-  `app/rutas/referenciales/consultorio/` y `app/rutas/referenciales/avisosRecordatorios/`
-  (el sistema usa las de `modulo_agendamiento/`).
-
 
 ## Tests (carpeta `tests/`, ver `tests/README.md`)
 - Scripts de verificación sin pytest, organizados por módulo: `tests/facturacion/` (los 8 referenciales + Ítems, la
@@ -297,11 +293,11 @@ Reglas comunes (con test), vigentes tras la migración a Tabler:
 
 ## Estado actual de cada módulo (resumen)
 - **Seguridad — COMPLETO** (menos Mantener Menú). Login + 2FA, bloqueo, recuperación, Usuarios, Roles y Permisos (matriz), Tablero de Accesos y Auditoría de Cambios, Copias de Seguridad. Pendiente: **Mantener Menú** (buscador general ya existe; falta control de opciones visibles por permiso; revisar si el borrado físico de `permisos` sigue siendo seguro). Alta/edición/baja de Usuarios y Roles todavía no audita en `auditoria_cambios`.
-- **Agendamiento — COMPLETO funcionalmente, en SB Admin 2.** 4 movimientos (Agenda, Cita, Avisos, Historial) con baja lógica. Los 7 referenciales (Ciudad, Cargo, Consultorio, Disponibilidad Horaria, Especialidad, Día, Turno) y los datos maestros (Paciente, Médico, Funcionario) siguen con **borrado físico** protegido por `estaEnUso()`. Pendiente: migrarlos a Tabler con baja lógica y auditoría; baja lógica del Médico con mensaje de "en uso"; riesgo de CASCADE al borrar un paciente con citas; botón "Eliminar" → "Anular"; "Historial Médico" sigue en SB Admin 2; versionar los `CREATE TABLE` de Agendamiento y Seguridad.
+- **Agendamiento — migrado a Tabler (rama `agendamiento-tabler`, plan en `plan_agendamiento.md`; 3 etapas hechas).** Base versionada + 7 referenciales con baja lógica; Paciente / Médico / Funcionario con baja lógica (`PersonaDao` + `crear_api_persona`); Agenda, Cita (cupo transaccional), Avisos con envío por WhatsApp Web (sesión persistente) y respaldo por correo, Historial Médico (acceso por rol), Usuarios y Roles/Permisos en Tabler, con auditoría y rechazo de personas y referenciales anulados. Pendiente: probar a mano el envío real por WhatsApp (los tests usan dobles) y, si se quiere retirar `base.html`, migrar las páginas de error.
 - **Consultorio — COMPLETO y migrado a Tabler** (rama `consultorio-tabler` cerrada): 10 movimientos + 8 referenciales con baja lógica, 24 tablas versionadas, tests por movimiento. Rediseño visual reciente de la Atención de la Consulta y del Odontograma. Detalle en `docs/historial_consultorio.md`.
 - **Facturación — COMPLETO**: 10 referenciales (Forma de Cobro, Marca de Tarjeta, Entidad Emisora, Entidad Adherida, Tipo Ítems, Ítems, Caja, Depósito, Cliente, + Cuenta Bancaria) y los movimientos Apertura/Cierre de Caja, Pedido Cliente, Ventas (ítems y tratamiento), Cobranzas, Nota de Remisión, Notas de Crédito/Débito y Arqueo de Caja. Pendiente: migrar Caja/Depósito/Cliente a `facturacion-listado.js` y unificar `?inactivas` → `?inactivos`; el referencial **Mantener Timbrado** (esperando el CUS); cobrar en el momento de la venta de contado; la fila `#17 "BHDJDGJ"` de `forma_cobro` sin tipo (deja `NOT NULL` de `forma_cobro.tipo` pendiente).
 - **Tanda de cierre (rama `finalizando`) — hecha**: Etapa A (acceso), B (base de datos y backups), C (auditoría). Rúbricas del profesor 3, 8 y 9 completas.
-- **Deuda general**: reflejar en el DER y en los CUS lo listado en `docs/pendientes_der_cus.md`; cambiar la contraseña de `postgres` (quedó en el historial de git); la ruta suelta `/vista` de `app/__init__.py` falla (`stats` sin definir); limpiar las carpetas duplicadas `app/rutas/referenciales/consultorio/` y `app/rutas/referenciales/avisosRecordatorios/`; el pie del login dice "Conexión segura" sin HTTPS; corregir en el Word de la tesis los 6 CUS de referenciales de Consultorio (ya no tienen Código).
+- **Deuda general**: reflejar en el DER y en los CUS lo listado en `docs/pendientes_der_cus.md`; cambiar la contraseña de `postgres` (quedó en el historial de git); la ruta suelta `/vista` de `app/__init__.py` falla (`stats` sin definir); el pie del login dice "Conexión segura" sin HTTPS; corregir en el Word de la tesis los 6 CUS de referenciales de Consultorio (ya no tienen Código).
 
 ## Cómo trabajar conmigo en este proyecto
 - Antes de tocar código existente, mostrame el plan de archivos que vas a crear/modificar.

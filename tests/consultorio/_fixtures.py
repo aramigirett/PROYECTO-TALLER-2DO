@@ -260,6 +260,26 @@ class Fixtures:
         self.cx.commit()
 
     # ---- limpieza ----
+    def borrar_hijos_de_consulta(self, i):
+        """Borra lo clínico que cuelga de la consulta `i` (no la consulta). Lo usan limpiar() y los tests que borran citas antes que sus consultas."""
+        for hija, col in (('ficha_medica_consulta', 'id_consulta_cab'), ('odontograma', 'id_consulta_cab'),
+                          ('recetas', 'id_consulta_cab'), ('orden_estudios', 'id_consulta_cab'), ('orden_analisis', 'id_consulta_cab'),
+                          ('justificativo_medico', 'id_consulta_cab'), ('tratamientos', 'id_consulta_cab'), ('diagnosticos', 'id_consulta_cab')):
+            if col is None:
+                continue
+            if hija == 'odontograma':
+                self.cu.execute("DELETE FROM odontograma_detalle WHERE id_odontograma IN (SELECT id_odontograma FROM odontograma WHERE id_consulta_cab = %s)", (i,))
+            if hija == 'diagnosticos':
+                self.cu.execute("DELETE FROM diagnostico_sintoma WHERE id_diagnostico IN (SELECT id_diagnostico FROM diagnosticos WHERE id_consulta_cab = %s)", (i,))
+            if hija == 'tratamientos':
+                sub = "SELECT id_sesion FROM sesiones_tratamiento WHERE id_consulta_cab = %s OR id_tratamiento IN (SELECT id_tratamiento FROM tratamientos WHERE id_consulta_cab = %s)"
+                self.cu.execute(f"DELETE FROM sesion_insumos WHERE id_sesion IN ({sub})", (i, i))
+                self.cu.execute(f"DELETE FROM sesion_procedimientos WHERE id_sesion IN ({sub})", (i, i))
+                self.cu.execute("DELETE FROM sesiones_tratamiento WHERE id_consulta_cab = %s OR id_tratamiento IN (SELECT id_tratamiento FROM tratamientos WHERE id_consulta_cab = %s)", (i, i))
+            if hija == 'recetas':
+                self.cu.execute("DELETE FROM receta_medicamento WHERE id_receta IN (SELECT id_receta FROM recetas WHERE id_consulta_cab = %s)", (i,))
+            self.cu.execute(f"DELETE FROM {hija} WHERE {col} = %s", (i,))
+
     def limpiar(self):
         self.cx.rollback()
         # los usuarios ZZ aparecen en la auditoría que generaron: se borra antes (solo en esta conexión se salta el trigger de inmutabilidad)
@@ -270,23 +290,7 @@ class Fixtures:
             self.cu.execute("RESET session_replication_role")
         for tabla, pk, i in reversed(self._borrar):
             if tabla == 'consultas_cab':
-                for hija, col in (('ficha_medica_consulta', 'id_consulta_cab'), ('odontograma', 'id_consulta_cab'),
-                                  ('recetas', 'id_consulta_cab'), ('orden_estudios', 'id_consulta_cab'), ('orden_analisis', 'id_consulta_cab'),
-                                  ('justificativo_medico', 'id_consulta_cab'), ('tratamientos', 'id_consulta_cab'), ('diagnosticos', 'id_consulta_cab')):
-                    if col is None:
-                        continue
-                    if hija == 'odontograma':
-                        self.cu.execute("DELETE FROM odontograma_detalle WHERE id_odontograma IN (SELECT id_odontograma FROM odontograma WHERE id_consulta_cab = %s)", (i,))
-                    if hija == 'diagnosticos':
-                        self.cu.execute("DELETE FROM diagnostico_sintoma WHERE id_diagnostico IN (SELECT id_diagnostico FROM diagnosticos WHERE id_consulta_cab = %s)", (i,))
-                    if hija == 'tratamientos':
-                        sub = "SELECT id_sesion FROM sesiones_tratamiento WHERE id_consulta_cab = %s OR id_tratamiento IN (SELECT id_tratamiento FROM tratamientos WHERE id_consulta_cab = %s)"
-                        self.cu.execute(f"DELETE FROM sesion_insumos WHERE id_sesion IN ({sub})", (i, i))
-                        self.cu.execute(f"DELETE FROM sesion_procedimientos WHERE id_sesion IN ({sub})", (i, i))
-                        self.cu.execute("DELETE FROM sesiones_tratamiento WHERE id_consulta_cab = %s OR id_tratamiento IN (SELECT id_tratamiento FROM tratamientos WHERE id_consulta_cab = %s)", (i, i))
-                    if hija == 'recetas':
-                        self.cu.execute("DELETE FROM receta_medicamento WHERE id_receta IN (SELECT id_receta FROM recetas WHERE id_consulta_cab = %s)", (i,))
-                    self.cu.execute(f"DELETE FROM {hija} WHERE {col} = %s", (i,))
+                self.borrar_hijos_de_consulta(i)
             if tabla == 'tipo_procedimiento_medico':
                 self.cu.execute("DELETE FROM sesion_procedimientos WHERE id_tipo_procedimiento = %s", (i,))
             if tabla == 'insumos':

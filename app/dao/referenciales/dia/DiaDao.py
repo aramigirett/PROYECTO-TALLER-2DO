@@ -1,165 +1,26 @@
-# Data access object - DAO
-from flask import current_app as app
-from app.conexion.Conexion import Conexion
+# Data Access Object - DAO
+from app.dao.referenciales_consultorio.CatalogoDao import CatalogoDao, DUPLICADO, NO_EXISTE, YA_ACTIVO  # noqa: F401
 
-class DiaDao:
 
-    def getDias(self):
+class DiaDao(CatalogoDao):
+    """
+    Referencial `dias` (borrado lógico, único parcial por descripción entre los activos, Estado / Reactivar). La baja se bloquea
+    si lo usa una disponibilidad horaria vigente o un horario de agenda no cancelado.
+    """
+    TABLA = 'dias'
+    PK = 'id_dia'
+    CLAVE = 'descripcion'
+    FECHA = False
+    NOMBRE = 'día'
 
-        diaSQL = """
-        SELECT id_dia, descripcion
-        FROM dias
-        """
-        # objeto conexion
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-        try:
-            cur.execute(diaSQL)
-            dias = cur.fetchall() # trae datos de la bd
-
-            # Transformar los datos en una lista de diccionarios
-            return [{'id_dia': dia[0], 'descripcion': dia[1]} for dia in dias]
-
-        except Exception as e:
-            app.logger.error(f"Error al obtener todos los dias: {str(e)}")
-            return []
-
-        finally:
-            cur.close()
-            con.close()
-
-    def getDiaById(self, id_dia):
-
-        diaSQL = """
-        SELECT id_dia, descripcion
-        FROM dias WHERE id_dia=%s
-        """
-        # objeto conexion
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-        try:
-            cur.execute(diaSQL, (id_dia,))
-            diaEncontrada = cur.fetchone() # Obtener una sola fila
-            if diaEncontrada:
-                return {
-                        "id_dia": diaEncontrada[0],
-                        "descripcion": diaEncontrada[1]
-                    }  # Retornar los datos de los dias
-            else:
-                return None # Retornar None si no se encuentra el dia
-        except Exception as e:
-            app.logger.error(f"Error al obtener dia: {str(e)}")
-            return None
-
-        finally:
-            cur.close()
-            con.close()
-
-    def guardarDia(self, descripcion):
-
-        insertDiaSQL = """
-        INSERT INTO dias(descripcion) VALUES(%s) RETURNING id_dia
-        """
-
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-
-        # Ejecucion exitosa
-        try:
-            cur.execute(insertDiaSQL, (descripcion,))
-            dia_id = cur.fetchone()[0]
-            con.commit() # se confirma la insercion
-            return dia_id
-
-        # Si algo fallo entra aqui
-        except Exception as e:
-            app.logger.error(f"Error al insertar dia: {str(e)}")
-            con.rollback() # retroceder si hubo error
-            return False
-
-        # Siempre se va ejecutar
-        finally:
-            cur.close()
-            con.close()
-
-    def updateDia(self, id_dia, descripcion):
-
-        updateDiaSQL = """
-        UPDATE dias
-        SET descripcion=%s
-        WHERE id_dia=%s
-        """
-
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-
-        try:
-            cur.execute(updateDiaSQL, (descripcion, id_dia,))
-            filas_afectadas = cur.rowcount # Obtener el número de filas afectadas
-            con.commit()
-
-            return filas_afectadas > 0 # Retornar True si se actualizó al menos una fila
-
-        except Exception as e:
-            app.logger.error(f"Error al actualizar dia: {str(e)}")
-            con.rollback()
-            return False
-
-        finally:
-            cur.close()
-            con.close()
-
-    def estaEnUso(self, id_dia):
-        """Indica si el día está usado en algún horario de agenda o disponibilidad."""
-        sql = """
-        SELECT
-            EXISTS(SELECT 1 FROM agenda_detalle WHERE id_dia = %s) AS en_agenda_detalle,
-            EXISTS(SELECT 1 FROM disponibilidad_horaria WHERE id_dia = %s) AS en_disponibilidad
-        """
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-        try:
-            cur.execute(sql, (id_dia, id_dia))
-            en_agenda_detalle, en_disponibilidad = cur.fetchone()
-            return bool(en_agenda_detalle or en_disponibilidad)
-        except Exception as e:
-            app.logger.error(f"Error al verificar uso de dia: {str(e)}")
-            return True  # Ante la duda, bloquear el borrado
-        finally:
-            cur.close()
-            con.close()
-
-    def deleteDia(self, id_dia):
-        if self.estaEnUso(id_dia):
-            app.logger.warning(f"No se puede eliminar dia {id_dia}: está en uso")
-            return "EN_USO"
-
-        updateDiaSQL = """
-        DELETE FROM dias
-        WHERE id_dia=%s
-        """
-
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-
-        try:
-            cur.execute(updateDiaSQL, (id_dia,))
-            rows_affected = cur.rowcount
-            con.commit()
-
-            return rows_affected > 0  # Retornar True si se eliminó al menos una fila
-
-        except Exception as e:
-            app.logger.error(f"Error al eliminar dia: {str(e)}")
-            con.rollback()
-            return False
-
-        finally:
-            cur.close()
-            con.close()
+    def _motivo_en_uso(self, cur, id_registro):
+        cur.execute("SELECT COUNT(*) FROM disponibilidad_horaria WHERE id_dia = %s AND activo = true", (id_registro,))
+        disponibilidades = cur.fetchone()[0]
+        if disponibilidades:
+            return f"No se puede anular, el día está en {disponibilidades} disponibilidad(es) horaria(s)."
+        cur.execute("""SELECT COUNT(*) FROM agenda_detalle d JOIN agenda_cabecera c ON c.id_agenda_cabecera = d.id_agenda_cabecera
+                       WHERE d.id_dia = %s AND d.estado_detalle <> 'Cancelado' AND c.estado <> 'Inactivo'""", (id_registro,))
+        horarios = cur.fetchone()[0]
+        if horarios:
+            return f"No se puede anular, el día está en {horarios} horario(s) de agenda vigente(s)."
+        return False

@@ -12,7 +12,7 @@ cajaapi = Blueprint('cajaapi', __name__)
 ENTIDAD = 'caja'
 ETIQUETAS = {'descripcion': 'Descripción', 'consultorio': 'Consultorio'}
 MSG_DUPLICADO = 'Ya existe una caja con esa descripción en el consultorio.'
-MSG_CONSULTORIO = 'El consultorio seleccionado no existe.'
+MSG_CONSULTORIO = 'El consultorio seleccionado no existe o está anulado.'
 
 
 def auditar(id_registro, accion, detalle):

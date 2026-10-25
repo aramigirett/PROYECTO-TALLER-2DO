@@ -1,559 +1,234 @@
 """
 =====================================================
 MÓDULO: Historial Médico del Paciente
-DESCRIPCIÓN: API para gestionar documentos médicos del paciente
-             (antecedentes, alergias, medicamentos habituales, estudios)
-AUTOR: [Tu nombre]
-FECHA: 2025
+DESCRIPCIÓN: documentos médicos del paciente (antecedentes, alergias, medicamentos habituales, estudios y otros), con archivo adjunto opcional.
+REGLAS (datos de salud):
+  - Recepción y Cajero no tienen acceso. El Administrador SOLO LEE. El Médico lee, registra y anula, pero únicamente los documentos de los pacientes
+    que atendió (tiene una consulta no cancelada con él): lo valida el servidor.
+  - Se registra y se anula (anulación definitiva); no se modifica. El usuario que registra sale de la sesión.
+  - Auditoría SIN contenido clínico: quién, cuándo, paciente, tipo de documento y si lleva archivo. Cada descarga de un adjunto queda auditada (EXPORTACION).
+  - Los adjuntos se guardan en `uploads/historial_medico/` (fuera de git), con el tipo verificado por su contenido, y solo se bajan por este endpoint.
 =====================================================
 """
-
-# ==================== IMPORTS ====================
-from flask import Blueprint, request, jsonify, current_app as app
-from app.dao.referenciales_agendamiento.historial.HistorialDao import HistorialMedicoDao
 import os
 import time
+from flask import Blueprint, current_app as app, jsonify, request, send_file
 from werkzeug.utils import secure_filename
-from app.rutas.modulo_seguridad.decorators import require_permiso
 
-# ==================== CONFIGURACIÓN DEL BLUEPRINT ====================
+from app.dao.referenciales_agendamiento.historial.HistorialDao import HistorialMedicoDao
+from app.rutas.modulo_agendamiento.utils import auditar, detalle_cambios, entero_id, error_interno, respuesta_error, validar_fecha
+from app.rutas.modulo_seguridad.decorators import require_permiso
+from app.rutas.modulo_seguridad.permisos_contexto import id_medico_sesion
+from flask import session
+
 historialapi = Blueprint('historialapi', __name__)
 
-# ==================== CONFIGURACIÓN PARA ARCHIVOS ====================
-# Carpeta donde se guardarán los archivos subidos (PDFs, imágenes, etc.)
-UPLOAD_FOLDER = 'uploads/historial_medico'
-
-# Extensiones de archivo permitidas
-ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'doc', 'docx'}
-
-# Tamaño máximo de archivo: 5 MB
+RAIZ = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+UPLOAD_FOLDER = os.path.join(RAIZ, 'uploads', 'historial_medico')
 MAX_FILE_SIZE = 5 * 1024 * 1024
+TIPOS = ('antecedente', 'alergia', 'medicamento_habitual', 'estudio', 'otro')
+ETIQUETA_TIPO = {'antecedente': 'Antecedente', 'alergia': 'Alergia', 'medicamento_habitual': 'Medicamento habitual', 'estudio': 'Estudio', 'otro': 'Otro'}
+# extensión -> (tipo de archivo, cómo reconocer su contenido)
+FIRMAS = {'pdf': ('pdf', (b'%PDF',)), 'png': ('imagen', (b'\x89PNG',)), 'jpg': ('imagen', (b'\xff\xd8\xff',)), 'jpeg': ('imagen', (b'\xff\xd8\xff',)),
+          'doc': ('documento', (b'\xd0\xcf\x11\xe0',)), 'docx': ('documento', (b'PK\x03\x04',))}
+ETIQ = {'nombre_paciente': 'Paciente', 'tipo': 'Tipo de documento', 'archivo': 'Archivo adjunto'}
 
-def allowed_file(filename):
+
+def _auditado(h):
+    return {'nombre_paciente': h['nombre_paciente'], 'tipo': ETIQUETA_TIPO.get(h['tipo_documento'], h['tipo_documento']), 'archivo': 'Sí' if h['tiene_archivo'] else 'No'}
+
+
+def _acceso(id_paciente):
     """
-    Verifica si la extensión del archivo está permitida
-    
-    Args:
-        filename (str): Nombre del archivo
-        
-    Returns:
-        bool: True si la extensión es válida, False si no
+    Quién puede tocar el historial de un paciente. Devuelve (id_medico | None, None) si puede LEER, o (None, respuesta_de_error).
+    Administrador: lee todo (id_medico None). Médico: solo sus pacientes atendidos. Cualquier otro rol con permiso 'ver' (no debería existir): nada.
     """
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+    if session.get('nombre_rol') == 'Administrador':
+        return None, None
+    id_medico = id_medico_sesion()
+    if not id_medico:
+        return None, respuesta_error('Solo el médico que atendió al paciente puede ver su historial médico.', 403)
+    if not HistorialMedicoDao().esPacienteAtendido(id_medico, id_paciente):
+        return None, respuesta_error('Solo puede ver el historial de los pacientes que atendió.', 403)
+    return id_medico, None
 
 
-# =====================================================
-# ENDPOINT: OBTENER TODO EL HISTORIAL DE UN PACIENTE
-# =====================================================
+def _solo_medico(id_paciente):
+    """Escribir (registrar / anular) lo hace únicamente el médico que atendió al paciente; el Administrador solo lee."""
+    id_medico = id_medico_sesion()
+    if not id_medico:
+        return respuesta_error('Solo el médico que atendió al paciente puede registrar o anular documentos de su historial (el Administrador solo consulta).', 403)
+    if not HistorialMedicoDao().esPacienteAtendido(id_medico, id_paciente):
+        return respuesta_error('Solo puede registrar documentos de los pacientes que atendió.', 403)
+    return None
+
+
+@historialapi.route('/historial-medico/pacientes', methods=['GET'])
+@require_permiso('historial', 'ver')
+def getPacientes():
+    """Los pacientes que la persona puede elegir en la pantalla (el médico, los que atendió)."""
+    if session.get('nombre_rol') == 'Administrador':
+        datos = HistorialMedicoDao().pacientesAtendidos(None)
+    else:
+        id_medico = id_medico_sesion()
+        if not id_medico:
+            return respuesta_error('Solo el médico que atendió al paciente puede ver su historial médico.', 403)
+        datos = HistorialMedicoDao().pacientesAtendidos(id_medico)
+    return jsonify({'success': True, 'data': datos, 'error': None}), 200
+
+
 @historialapi.route('/historial-medico/paciente/<int:id_paciente>', methods=['GET'])
 @require_permiso('historial', 'ver')
-def getHistorialByPaciente(id_paciente):
-    """
-    Obtiene TODOS los documentos del historial médico de un paciente específico
-    
-    URL: GET /api/v1/historial-medico/paciente/5
-    
-    Respuesta exitosa:
-    {
-        "success": true,
-        "data": [
-            {
-                "id_historial": 1,
-                "tipo_documento": "alergia",
-                "descripcion": "Alergia a la penicilina",
-                ...
-            }
-        ]
-    }
-    """
-    historialDao = HistorialMedicoDao()
-
+def getHistorialPaciente(id_paciente):
+    _, error = _acceso(id_paciente)
+    if error:
+        return error
+    tipo = request.args.get('tipo') or None
+    if tipo and tipo not in TIPOS:
+        return respuesta_error('Tipo de documento inválido.', 400)
     try:
-        # Llamar al DAO para obtener el historial
-        historial = historialDao.getHistorialByPaciente(id_paciente)
-
-        return jsonify({
-            'success': True,
-            'data': historial,
-            'error': None
-        }), 200
-
+        return jsonify({'success': True, 'data': HistorialMedicoDao().getHistorialByPaciente(id_paciente, tipo), 'error': None}), 200
     except Exception as e:
-        app.logger.error(f"Error al obtener historial del paciente: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': 'Ocurrió un error interno. Consulte con el administrador.'
-        }), 500
+        app.logger.error(f"Error al obtener el historial: {str(e)}")
+        return error_interno()
 
 
-# =====================================================
-# ENDPOINT: OBTENER HISTORIAL FILTRADO POR TIPO
-# =====================================================
-@historialapi.route('/historial-medico/paciente/<int:id_paciente>/tipo/<string:tipo_documento>', methods=['GET'])
-@require_permiso('historial', 'ver')
-def getHistorialByTipo(id_paciente, tipo_documento):
-    """
-    Obtiene documentos filtrados por tipo (solo antecedentes, solo alergias, etc.)
-    
-    URL: GET /api/v1/historial-medico/paciente/5/tipo/alergia
-    
-    Tipos válidos:
-    - antecedente
-    - alergia
-    - medicamento_habitual
-    - estudio
-    - otro
-    """
-    historialDao = HistorialMedicoDao()
-
-    # Validar que el tipo de documento sea válido
-    tipos_validos = ['antecedente', 'alergia', 'medicamento_habitual', 'estudio', 'otro']
-    if tipo_documento not in tipos_validos:
-        return jsonify({
-            'success': False,
-            'error': f'Tipo de documento inválido. Debe ser uno de: {", ".join(tipos_validos)}'
-        }), 400
-
-    try:
-        # Obtener documentos filtrados por tipo
-        historial = historialDao.getHistorialByTipo(id_paciente, tipo_documento)
-
-        return jsonify({
-            'success': True,
-            'data': historial,
-            'error': None
-        }), 200
-
-    except Exception as e:
-        app.logger.error(f"Error al obtener historial por tipo: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': 'Ocurrió un error interno. Consulte con el administrador.'
-        }), 500
-
-
-# =====================================================
-# ENDPOINT: OBTENER UN DOCUMENTO ESPECÍFICO POR ID
-# =====================================================
-@historialapi.route('/historial-medico/<int:id_historial>', methods=['GET'])
-@require_permiso('historial', 'ver')
-def getHistorial(id_historial):
-    """
-    Obtiene los detalles de UN documento específico del historial
-    
-    URL: GET /api/v1/historial-medico/15
-    
-    Se usa para:
-    - Ver detalles completos
-    - Editar un documento existente
-    """
-    historialDao = HistorialMedicoDao()
-
-    try:
-        # Buscar el documento por su ID
-        historial = historialDao.getHistorialById(id_historial)
-
-        if historial:
-            return jsonify({
-                'success': True,
-                'data': historial,
-                'error': None
-            }), 200
-        else:
-            return jsonify({
-                'success': False,
-                'error': 'No se encontró el documento con el ID proporcionado.'
-            }), 404
-
-    except Exception as e:
-        app.logger.error(f"Error al obtener historial: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': 'Ocurrió un error interno. Consulte con el administrador.'
-        }), 500
-
-
-# =====================================================
-# ENDPOINT: AGREGAR NUEVO DOCUMENTO AL HISTORIAL
-# =====================================================
-@historialapi.route('/historial-medico', methods=['POST'])
-@require_permiso('historial', 'nuevo')
-def addHistorial():
-    """
-    Agrega un nuevo documento al historial médico del paciente
-    
-    Puede recibir:
-    1. Solo JSON (sin archivo)
-    2. FormData con archivo adjunto
-    
-    Campos obligatorios:
-    - id_paciente
-    - tipo_documento
-    - descripcion
-    
-    Campos adicionales según tipo:
-    - Para alergias: tipo_alergia, gravedad_alergia
-    - Para medicamentos: nombre_medicamento, dosis_medicamento, frecuencia_medicamento
-    """
-    
-    # Verificar si viene con archivo adjunto o solo datos JSON
-    if 'archivo' in request.files:
-        # Viene con archivo: los datos están en request.form
-        data = request.form.to_dict()
-        archivo = request.files['archivo']
-    else:
-        # Solo JSON: los datos están en request.get_json()
-        data = request.get_json()
-        archivo = None
-
-    historialDao = HistorialMedicoDao()
-
-    # ========== VALIDACIONES ==========
-    
-    # Validar campos obligatorios
-    campos_requeridos = ['id_paciente', 'tipo_documento', 'descripcion']
-    for campo in campos_requeridos:
-        if campo not in data or data[campo] is None:
-            return jsonify({
-                'success': False,
-                'error': f'El campo {campo} es obligatorio.'
-            }), 400
-
-    # Validar que descripción no esté vacía
-    if isinstance(data['descripcion'], str) and len(data['descripcion'].strip()) == 0:
-        return jsonify({
-            'success': False,
-            'error': 'El campo descripcion no puede estar vacío.'
-        }), 400
-
-    # Validar tipo de documento
-    tipos_validos = ['antecedente', 'alergia', 'medicamento_habitual', 'estudio', 'otro']
-    if data['tipo_documento'] not in tipos_validos:
-        return jsonify({
-            'success': False,
-            'error': f'Tipo de documento inválido. Debe ser uno de: {", ".join(tipos_validos)}'
-        }), 400
-
-    # Validaciones específicas para ALERGIAS
-    if data['tipo_documento'] == 'alergia':
-        if 'gravedad_alergia' not in data or not data['gravedad_alergia']:
-            return jsonify({
-                'success': False,
-                'error': 'Para alergias, el campo gravedad_alergia es obligatorio.'
-            }), 400
-
-    # Validaciones específicas para MEDICAMENTOS HABITUALES
-    if data['tipo_documento'] == 'medicamento_habitual':
-        campos_medicamento = ['nombre_medicamento', 'dosis_medicamento', 'frecuencia_medicamento']
-        for campo in campos_medicamento:
-            if campo not in data or not data[campo]:
-                return jsonify({
-                    'success': False,
-                    'error': f'Para medicamentos habituales, el campo {campo} es obligatorio.'
-                }), 400
-
-    try:
-        # ========== PREPARAR DATOS PARA GUARDAR ==========
-        datos_historial = {
-            'id_paciente': int(data['id_paciente']),
-            'tipo_documento': data['tipo_documento'],
-            'descripcion': data['descripcion'].strip(),
-            'tipo_alergia': data.get('tipo_alergia'),
-            'gravedad_alergia': data.get('gravedad_alergia'),
-            'nombre_medicamento': data.get('nombre_medicamento'),
-            'dosis_medicamento': data.get('dosis_medicamento'),
-            'frecuencia_medicamento': data.get('frecuencia_medicamento'),
-            'fecha_inicio_medicamento': data.get('fecha_inicio_medicamento'),
-            'id_usuario_registro': data.get('id_usuario_registro')
-        }
-
-        # ========== PROCESAR ARCHIVO SI EXISTE ==========
-        if archivo and archivo.filename != '':
-            # Validar extensión del archivo
-            if not allowed_file(archivo.filename):
-                return jsonify({
-                    'success': False,
-                    'error': f'Tipo de archivo no permitido. Extensiones válidas: {", ".join(ALLOWED_EXTENSIONS)}'
-                }), 400
-
-            # Verificar tamaño del archivo
-            archivo.seek(0, os.SEEK_END)  # Ir al final del archivo
-            file_size = archivo.tell()     # Obtener posición (tamaño)
-            archivo.seek(0)                # Volver al inicio
-
-            if file_size > MAX_FILE_SIZE:
-                return jsonify({
-                    'success': False,
-                    'error': 'El archivo excede el tamaño máximo permitido (5MB).'
-                }), 400
-
-            # Crear nombre único para el archivo (timestamp + nombre original)
-            filename = secure_filename(archivo.filename)  # Sanitizar nombre
-            timestamp = int(time.time())                   # Timestamp actual
-            unique_filename = f"{timestamp}_{filename}"    # Nombre único
-            
-            # Crear carpeta si no existe
-            os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-            
-            # Guardar archivo en el servidor
-            filepath = os.path.join(UPLOAD_FOLDER, unique_filename)
-            archivo.save(filepath)
-
-            # Determinar tipo de archivo según extensión
-            extension = filename.rsplit('.', 1)[1].lower()
-            if extension == 'pdf':
-                archivo_tipo = 'pdf'
-            elif extension in ['jpg', 'jpeg', 'png']:
-                archivo_tipo = 'imagen'
-            else:
-                archivo_tipo = 'documento'
-
-            # Agregar información del archivo a los datos
-            datos_historial['archivo_url'] = filepath
-            datos_historial['archivo_nombre'] = filename
-            datos_historial['archivo_tipo'] = archivo_tipo
-            datos_historial['archivo_tamano'] = file_size // 1024  # Convertir a KB
-
-        # ========== GUARDAR EN BASE DE DATOS ==========
-        historial_id = historialDao.guardarHistorial(datos_historial)
-
-        if historial_id is not None:
-            return jsonify({
-                'success': True,
-                'data': {
-                    'id_historial': historial_id,
-                    'mensaje': 'Documento agregado correctamente al historial.'
-                },
-                'error': None
-            }), 201
-        else:
-            return jsonify({
-                'success': False,
-                'error': 'No se pudo guardar el documento. Consulte con el administrador.'
-            }), 500
-
-    except Exception as e:
-        app.logger.error(f"Error al agregar documento al historial: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': 'Ocurrió un error interno. Consulte con el administrador.'
-        }), 500
-
-
-# =====================================================
-# ENDPOINT: ACTUALIZAR DOCUMENTO DEL HISTORIAL
-# =====================================================
-@historialapi.route('/historial-medico/<int:id_historial>', methods=['PUT'])
-@require_permiso('historial', 'editar')
-def updateHistorial(id_historial):
-    """
-    Actualiza un documento existente del historial
-    
-    Puede actualizar:
-    - Los datos del documento
-    - El archivo adjunto (reemplazándolo)
-    """
-    
-    # Verificar si viene con archivo o solo datos
-    if 'archivo' in request.files:
-        data = request.form.to_dict()
-        archivo = request.files['archivo']
-    else:
-        data = request.get_json()
-        archivo = None
-
-    historialDao = HistorialMedicoDao()
-
-    # ========== VALIDACIONES ==========
-    campos_requeridos = ['tipo_documento', 'descripcion']
-    for campo in campos_requeridos:
-        if campo not in data or data[campo] is None:
-            return jsonify({
-                'success': False,
-                'error': f'El campo {campo} es obligatorio.'
-            }), 400
-
-    if isinstance(data['descripcion'], str) and len(data['descripcion'].strip()) == 0:
-        return jsonify({
-            'success': False,
-            'error': 'El campo descripcion no puede estar vacío.'
-        }), 400
-
-    try:
-        # Verificar que el documento exista
-        historial_actual = historialDao.getHistorialById(id_historial)
-        if not historial_actual:
-            return jsonify({
-                'success': False,
-                'error': 'No se encontró el documento con el ID proporcionado.'
-            }), 404
-
-        # ========== PREPARAR DATOS ACTUALIZADOS ==========
-        datos_historial = {
-            'tipo_documento': data['tipo_documento'],
-            'descripcion': data['descripcion'].strip(),
-            'tipo_alergia': data.get('tipo_alergia'),
-            'gravedad_alergia': data.get('gravedad_alergia'),
-            'nombre_medicamento': data.get('nombre_medicamento'),
-            'dosis_medicamento': data.get('dosis_medicamento'),
-            'frecuencia_medicamento': data.get('frecuencia_medicamento'),
-            'fecha_inicio_medicamento': data.get('fecha_inicio_medicamento'),
-            'id_usuario_modificacion': data.get('id_usuario_modificacion'),
-            # Mantener datos de archivo actuales (por si no se sube uno nuevo)
-            'archivo_url': historial_actual.get('archivo_url'),
-            'archivo_nombre': historial_actual.get('archivo_nombre'),
-            'archivo_tipo': historial_actual.get('archivo_tipo'),
-            'archivo_tamano': historial_actual.get('archivo_tamano')
-        }
-
-        # ========== PROCESAR NUEVO ARCHIVO SI EXISTE ==========
-        if archivo and archivo.filename != '':
-            # Validar archivo
-            if not allowed_file(archivo.filename):
-                return jsonify({
-                    'success': False,
-                    'error': f'Tipo de archivo no permitido.'
-                }), 400
-
-            # Eliminar archivo anterior si existe
-            if historial_actual.get('archivo_url') and os.path.exists(historial_actual['archivo_url']):
-                try:
-                    os.remove(historial_actual['archivo_url'])
-                except Exception as e:
-                    app.logger.warning(f"No se pudo eliminar archivo anterior: {str(e)}")
-
-            # Guardar nuevo archivo
-            filename = secure_filename(archivo.filename)
-            timestamp = int(time.time())
-            unique_filename = f"{timestamp}_{filename}"
-            
-            os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-            filepath = os.path.join(UPLOAD_FOLDER, unique_filename)
-            archivo.save(filepath)
-
-            # Determinar tipo
-            extension = filename.rsplit('.', 1)[1].lower()
-            archivo_tipo = 'pdf' if extension == 'pdf' else 'imagen' if extension in ['jpg', 'jpeg', 'png'] else 'documento'
-
-            # Obtener tamaño
-            archivo.seek(0, os.SEEK_END)
-            file_size = archivo.tell()
-
-            # Actualizar datos del archivo
-            datos_historial['archivo_url'] = filepath
-            datos_historial['archivo_nombre'] = filename
-            datos_historial['archivo_tipo'] = archivo_tipo
-            datos_historial['archivo_tamano'] = file_size // 1024
-
-        # ========== ACTUALIZAR EN BASE DE DATOS ==========
-        if historialDao.updateHistorial(id_historial, datos_historial):
-            return jsonify({
-                'success': True,
-                'data': {
-                    'id_historial': id_historial,
-                    'mensaje': 'Documento actualizado correctamente.'
-                },
-                'error': None
-            }), 200
-        else:
-            return jsonify({
-                'success': False,
-                'error': 'No se pudo actualizar el documento.'
-            }), 404
-
-    except Exception as e:
-        app.logger.error(f"Error al actualizar historial: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': 'Ocurrió un error interno. Consulte con el administrador.'
-        }), 500
-
-
-# =====================================================
-# ENDPOINT: ELIMINAR (INACTIVAR) DOCUMENTO
-# =====================================================
-@historialapi.route('/historial-medico/<int:id_historial>', methods=['DELETE'])
-@require_permiso('historial', 'anular')
-def deleteHistorial(id_historial):
-    """
-    Elimina (inactiva) un documento del historial
-    
-    NOTA: No elimina físicamente el registro, solo lo marca como inactivo.
-    Esto permite mantener un historial de auditoría.
-    """
-    historialDao = HistorialMedicoDao()
-
-    try:
-        # Intentar eliminar (inactivar)
-        if historialDao.deleteHistorial(id_historial):
-            return jsonify({
-                'success': True,
-                'mensaje': f'Documento con ID {id_historial} eliminado correctamente.',
-                'error': None
-            }), 200
-        else:
-            return jsonify({
-                'success': False,
-                'error': 'No se encontró el documento con el ID proporcionado o no se pudo eliminar.'
-            }), 404
-
-    except Exception as e:
-        app.logger.error(f"Error al eliminar historial: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': 'Ocurrió un error interno. Consulte con el administrador.'
-        }), 500
-
-
-# =====================================================
-# ENDPOINT: OBTENER CONTADORES POR TIPO
-# =====================================================
 @historialapi.route('/historial-medico/paciente/<int:id_paciente>/contadores', methods=['GET'])
 @require_permiso('historial', 'ver')
 def getContadores(id_paciente):
-    """
-    Obtiene la cantidad de documentos por tipo para mostrar en los badges
-    
-    Respuesta:
-    {
-        "success": true,
-        "data": {
-            "antecedente": 3,
-            "alergia": 2,
-            "medicamento_habitual": 1,
-            "estudio": 5,
-            "otro": 0,
-            "total": 11
-        }
-    }
-    
-    Se usa para actualizar los contadores en los tabs del frontend
-    """
-    historialDao = HistorialMedicoDao()
+    _, error = _acceso(id_paciente)
+    if error:
+        return error
+    c = HistorialMedicoDao().contarDocumentosPorTipo(id_paciente)
+    r = {t: c.get(t, 0) for t in TIPOS}
+    r['total'] = sum(r.values())
+    return jsonify({'success': True, 'data': r, 'error': None}), 200
 
+
+@historialapi.route('/historial-medico/<int:id_historial>', methods=['GET'])
+@require_permiso('historial', 'ver')
+def getHistorial(id_historial):
+    h = HistorialMedicoDao().getHistorialById(id_historial)
+    if not h:
+        return respuesta_error('No se encontró el documento con el ID proporcionado.', 404)
+    _, error = _acceso(h['id_paciente'])
+    if error:
+        return error
+    return jsonify({'success': True, 'data': h, 'error': None}), 200
+
+
+def _texto(data, campo, etiqueta, max_len, obligatorio=False):
+    v = data.get(campo)
+    v = v.strip() if isinstance(v, str) else ''
+    if not v:
+        return (None, f'El campo {etiqueta} es obligatorio y no puede estar vacío.') if obligatorio else (None, None)
+    if len(v) > max_len:
+        return None, f'El campo {etiqueta} no puede superar los {max_len} caracteres.'
+    return v, None
+
+
+@historialapi.route('/historial-medico', methods=['POST'])
+@require_permiso('historial', 'nuevo')
+def addHistorial():
+    """Registra un documento (JSON, o FormData con un adjunto). Solo el médico que atendió al paciente."""
+    if 'archivo' in request.files:
+        data, archivo = request.form.to_dict(), request.files['archivo']
+    else:
+        data, archivo = (request.get_json(silent=True) or {}), None
+    id_paciente = entero_id(data.get('id_paciente'))
+    if id_paciente is None:
+        return respuesta_error('Debe seleccionar el paciente.', 400, 'id_paciente')
+    denegado = _solo_medico(id_paciente)
+    if denegado:
+        return denegado
+    tipo = data.get('tipo_documento')
+    if tipo not in TIPOS:
+        return respuesta_error(f'Tipo de documento inválido. Debe ser uno de: {", ".join(TIPOS)}', 400, 'tipo_documento')
+    d = {'id_paciente': id_paciente, 'tipo_documento': tipo}
+    for campo, etiqueta, maximo, obligatorio in (('descripcion', 'descripción', 1000, True), ('tipo_alergia', 'tipo de alergia', 100, False),
+                                                 ('gravedad_alergia', 'gravedad de la alergia', 50, tipo == 'alergia'),
+                                                 ('nombre_medicamento', 'nombre del medicamento', 100, tipo == 'medicamento_habitual'),
+                                                 ('dosis_medicamento', 'dosis del medicamento', 100, tipo == 'medicamento_habitual'),
+                                                 ('frecuencia_medicamento', 'frecuencia del medicamento', 100, tipo == 'medicamento_habitual')):
+        d[campo], error = _texto(data, campo, etiqueta, maximo, obligatorio)
+        if error:
+            return respuesta_error(error, 400, campo)
+    if data.get('fecha_inicio_medicamento'):
+        d['fecha_inicio_medicamento'], error = validar_fecha(data.get('fecha_inicio_medicamento'), 'fecha de inicio del medicamento')
+        if error:
+            return respuesta_error(error, 400, 'fecha_inicio_medicamento')
+    ruta = None
     try:
-        # Obtener contadores desde el DAO
-        contadores = historialDao.contarDocumentosPorTipo(id_paciente)
-
-        # Asegurar que todos los tipos tengan un valor (0 si no hay registros)
-        resultado = {
-            'antecedente': contadores.get('antecedente', 0),
-            'alergia': contadores.get('alergia', 0),
-            'medicamento_habitual': contadores.get('medicamento_habitual', 0),
-            'estudio': contadores.get('estudio', 0),
-            'otro': contadores.get('otro', 0),
-            'total': sum(contadores.values())
-        }
-
-        return jsonify({
-            'success': True,
-            'data': resultado,
-            'error': None
-        }), 200
-
+        if archivo and archivo.filename:
+            nombre = secure_filename(archivo.filename)
+            ext = nombre.rsplit('.', 1)[1].lower() if '.' in nombre else ''
+            if ext not in FIRMAS:
+                return respuesta_error(f'Tipo de archivo no permitido. Extensiones válidas: {", ".join(sorted(FIRMAS))}', 400, 'archivo')
+            contenido = archivo.read()
+            if len(contenido) > MAX_FILE_SIZE:
+                return respuesta_error('El archivo excede el tamaño máximo permitido (5 MB).', 400, 'archivo')
+            if not contenido or not any(contenido.startswith(f) for f in FIRMAS[ext][1]):
+                return respuesta_error('El contenido del archivo no corresponde a su extensión.', 400, 'archivo')
+            os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+            guardado = f"{int(time.time())}_{nombre}"
+            ruta = os.path.join(UPLOAD_FOLDER, guardado)
+            with open(ruta, 'wb') as f:
+                f.write(contenido)
+            d.update({'archivo_url': guardado, 'archivo_nombre': nombre, 'archivo_tipo': FIRMAS[ext][0], 'archivo_tamano': max(1, len(contenido) // 1024)})
+        dao = HistorialMedicoDao()
+        r = dao.guardarHistorial(d, session.get('id_usuario'))
+        if isinstance(r, tuple):
+            if ruta and os.path.exists(ruta):
+                os.remove(ruta)
+            return respuesta_error(r[2], 400, r[1])
+        if r:
+            h = dao.getHistorialById(r)
+            auditar('historial_medico_paciente', r, 'ALTA', detalle_cambios({}, _auditado(h), ETIQ))
+            return jsonify({'success': True, 'data': {'id_historial': r},
+                            'mensaje': f"Documento ({_auditado(h)['tipo']}) agregado al historial de {h['nombre_paciente']}.", 'error': None}), 201
+        if ruta and os.path.exists(ruta):
+            os.remove(ruta)
+        return respuesta_error('No se pudo guardar el documento. Consulte con el administrador.', 500)
     except Exception as e:
-        app.logger.error(f"Error al obtener contadores: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': 'Ocurrió un error interno. Consulte con el administrador.'
-        }), 500
+        app.logger.error(f"Error al agregar documento al historial: {str(e)}")
+        if ruta and os.path.exists(ruta):
+            os.remove(ruta)
+        return error_interno()
+
+
+@historialapi.route('/historial-medico/<int:id_historial>', methods=['DELETE'])
+@require_permiso('historial', 'anular')
+def deleteHistorial(id_historial):
+    """Anula el documento (definitivo; el registro y su archivo se conservan). Solo el médico que atendió al paciente."""
+    dao = HistorialMedicoDao()
+    try:
+        h = dao.getHistorialById(id_historial)
+        if not h:
+            return respuesta_error('No se encontró el documento con el ID proporcionado.', 404)
+        denegado = _solo_medico(h['id_paciente'])
+        if denegado:
+            return denegado
+        if dao.deleteHistorial(id_historial, session.get('id_usuario')):
+            auditar('historial_medico_paciente', id_historial, 'BAJA', detalle_cambios({}, _auditado(h), ETIQ))
+            return jsonify({'success': True, 'mensaje': f"Documento ({_auditado(h)['tipo']}) de {h['nombre_paciente']} anulado correctamente.", 'error': None}), 200
+        return respuesta_error('No se pudo anular el documento.', 404)
+    except Exception as e:
+        app.logger.error(f"Error al anular historial: {str(e)}")
+        return error_interno()
+
+
+@historialapi.route('/historial-medico/<int:id_historial>/archivo', methods=['GET'])
+@require_permiso('historial', 'ver')
+def descargarArchivo(id_historial):
+    """Baja el adjunto (misma regla de acceso que leer el historial). Cada descarga se audita."""
+    h = HistorialMedicoDao().getHistorialById(id_historial, con_ruta=True)
+    if not h or not h.get('archivo_ruta'):
+        return respuesta_error('El documento no tiene un archivo adjunto.', 404)
+    _, error = _acceso(h['id_paciente'])
+    if error:
+        return error
+    ruta = os.path.realpath(os.path.join(UPLOAD_FOLDER, os.path.basename(h['archivo_ruta'])))
+    if not ruta.startswith(os.path.realpath(UPLOAD_FOLDER) + os.sep) or not os.path.exists(ruta):
+        return respuesta_error('No se encontró el archivo en el servidor.', 404)
+    auditar('historial_medico_paciente', id_historial, 'EXPORTACION', f"Descarga de archivo adjunto del historial de {h['nombre_paciente']}")
+    return send_file(ruta, as_attachment=True, download_name=h['archivo_nombre'] or 'documento')

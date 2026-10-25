@@ -1,485 +1,251 @@
-{% extends 'base.html' %}
+{% extends 'base_tabler.html' %}
 
-{% block titulo %}
-Usuarios
-{% endblock %}
+{% block titulo %}Gestión de Usuarios{% endblock %}
 
 {% block contenido %}
-<div class="container mt-10">
-  <h3>Gestión de Usuarios</h3>
-
-  <!-- Tarjeta -->
-  <div class="card">
-    <div class="card-header">
-      {% if puede('usuario','nuevo') %}<button type="button" class="btn btn-outline-primary" id="btnAgregar">Agregar</button>{% endif %}
+<div class="page-header d-print-none mb-3">
+  <div class="row align-items-center">
+    <div class="col">
+      <div class="page-pretitle">Seguridad</div>
+      <h2 class="page-title">Gestión de Usuarios</h2>
     </div>
-    <div class="card-body">
-      <p class="small text-muted mb-2">
-        <i class="fas fa-info-circle"></i> El CI/RUC (login) y el correo se toman de la persona vinculada:
-        se editan en Funcionario/Médico.
-      </p>
-      <div class="table-responsive">
-        <table class="table table-striped" id="tbl">
-          <thead>
-            <tr>
-              <th>CI/RUC</th>
-              <th>Correo</th>
-              <th>Rol</th>
-              <th>Persona vinculada</th>
-              <th>Estado</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
+    {% if puede('usuario', 'nuevo') %}
+    <div class="col-auto ms-auto">
+      <button type="button" class="btn btn-primary" id="btnAgregar"><i class="fas fa-plus me-2"></i>Agregar</button>
     </div>
-  </div>
-  <!-- /Tarjeta -->
-
-  <!-- Modal formulario -->
-  <div class="modal" id="modalFormulario">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
-      <div class="modal-content">
-        <!-- Modal Header -->
-        <div class="modal-header">
-          <h4 class="modal-title" id="modalTitle"></h4>
-          <button type="button" class="close" data-dismiss="modal">&times;</button>
-        </div>
-
-        <!-- Modal Body -->
-        <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
-          <input type="hidden" id="txtIdUsuario">
-
-          <div class="container-fluid">
-            <div class="row">
-              <div class="col-md-6">
-                <div class="form-group">
-                  <label for="txtCiRuc">CI/RUC (login):</label>
-                  <input type="text" class="form-control" placeholder="Se toma de la persona" id="txtCiRuc" readonly>
-                  <small class="form-text text-muted">Se edita en Funcionario/Médico.</small>
-                </div>
-              </div>
-              <div class="col-md-6">
-                <div class="form-group">
-                  <label for="txtCorreo">Correo:</label>
-                  <input type="email" class="form-control" placeholder="Se toma de la persona" id="txtCorreo" readonly>
-                  <small class="form-text text-muted" id="hintCorreo">Se edita en Funcionario/Médico.</small>
-                </div>
-              </div>
-              <div class="col-md-6">
-                <div class="form-group">
-                  <label for="txtPassword">Contraseña:</label>
-                  <input type="password" class="form-control" placeholder="Ingrese la contraseña" id="txtPassword" autocomplete="new-password">
-                  <small class="form-text text-muted" id="hintPassword" style="display:none;">
-                    Dejar en blanco para no cambiar la contraseña actual.
-                  </small>
-                  <ul class="list-unstyled small mt-2 mb-0" id="reqPassword">
-                    <li data-req="largo"><i class="fas fa-times-circle text-danger"></i> Al menos 8 caracteres</li>
-                    <li data-req="mayuscula"><i class="fas fa-times-circle text-danger"></i> Una letra mayúscula</li>
-                    <li data-req="numero"><i class="fas fa-times-circle text-danger"></i> Un número</li>
-                    <li data-req="simbolo"><i class="fas fa-times-circle text-danger"></i> Un símbolo (! @ # $ % & *)</li>
-                  </ul>
-                </div>
-              </div>
-              <div class="col-md-6">
-                <div class="form-group">
-                  <label for="selRol">Rol:</label>
-                  <select class="form-control" id="selRol">
-                    <option value="">Seleccione un rol</option>
-                  </select>
-                </div>
-              </div>
-              <div class="col-md-12">
-                <div class="form-group">
-                  <label>Vincular a:</label>
-                  <div class="form-check form-check-inline">
-                    <input class="form-check-input" type="radio" name="tipoPersona" id="tipoFuncionario" value="funcionario" checked>
-                    <label class="form-check-label" for="tipoFuncionario">Funcionario</label>
-                  </div>
-                  <div class="form-check form-check-inline">
-                    <input class="form-check-input" type="radio" name="tipoPersona" id="tipoMedico" value="medico">
-                    <label class="form-check-label" for="tipoMedico">Médico</label>
-                  </div>
-                </div>
-              </div>
-              <div class="col-md-12">
-                <div class="form-group">
-                  <label for="selPersona">Persona:</label>
-                  <select class="form-control" id="selPersona">
-                    <option value="">Seleccione una persona</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Modal Footer -->
-        <div class="modal-footer">
-          <button type="button" class="btn btn-primary" id="btnGuardar">Guardar</button>
-          <button type="button" class="btn btn-danger" data-dismiss="modal">Cerrar</button>
-        </div>
-      </div>
-    </div>
+    {% endif %}
   </div>
 </div>
 
+<div class="card">
+  <div class="card-header">
+    <label class="form-check form-switch mb-0">
+      <input class="form-check-input" type="checkbox" id="chkInactivos">
+      <span class="form-check-label">Mostrar inactivos</span>
+    </label>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table" id="tbl">
+      <thead>
+        <tr><th>Persona</th><th>CI/RUC</th><th>Correo</th><th>Rol</th><th style="width: 130px;">Estado</th><th class="w-1">Acciones</th></tr>
+      </thead>
+      <tbody id="tbody"><tr><td colspan="6" class="text-center text-muted py-4">Cargando…</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="modal modal-blur fade" id="modalFormulario" tabindex="-1" aria-labelledby="modalTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalTitle"></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <form id="formulario" novalidate>
+        <div class="modal-body">
+          <input type="hidden" id="txtId">
+          <div class="mb-3">
+            <label class="form-label required">Tipo de persona</label>
+            <div class="form-selectgroup w-100">
+              <label class="form-selectgroup-item flex-fill"><input type="radio" name="tipo" value="funcionario" class="form-selectgroup-input" checked><span class="form-selectgroup-label">Funcionario</span></label>
+              <label class="form-selectgroup-item flex-fill"><input type="radio" name="tipo" value="medico" class="form-selectgroup-input"><span class="form-selectgroup-label">Médico</span></label>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label required" for="selPersona">Persona</label>
+            <select class="form-select" id="selPersona"><option value="">Seleccione…</option></select>
+            <div class="invalid-feedback"></div>
+            <div class="form-hint">El CI/RUC (su usuario) y el correo (2FA) salen de la persona: se editan en Funcionarios o Médicos.</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label required" for="selRol">Rol</label>
+            <select class="form-select" id="selRol"><option value="">Seleccione…</option></select>
+            <div class="invalid-feedback"></div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" id="lblPassword" for="txtPassword">Contraseña</label>
+            <input type="password" class="form-control" id="txtPassword" autocomplete="new-password">
+            <div class="invalid-feedback"></div>
+            <div class="form-hint" id="hintPassword">Mínimo 8 caracteres, una mayúscula, un número y un símbolo.</div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btnGuardar">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
-
 {% block js %}
+<script src="{{ url_for('static', filename='js/facturacion-validadores.js') }}"></script>
+<script src="{{ url_for('static', filename='js/facturacion-listado.js') }}"></script>
 <script>
-
+(function () {
+  const API = '/api/v1/usuarios';
   const PUEDE_EDITAR = {{ 'true' if puede('usuario', 'editar') else 'false' }};
   const PUEDE_ANULAR = {{ 'true' if puede('usuario', 'anular') else 'false' }};
-  const PUEDE_DESBLOQUEAR ={{ 'true' if puede('usuario', 'desbloquear') else 'false' }};
+  const PUEDE_DESBLOQUEAR = {{ 'true' if puede('usuario', 'desbloquear') else 'false' }};
 
-  const cargarRoles = () => {
-    return fetch('/api/v1/roles')
-      .then(resp => resp.json())
-      .then(result => {
-        const sel = $('#selRol');
-        sel.find('option:not(:first)').remove();
-        if (result && result.success) {
-          result.data.forEach(rol => {
-            sel.append(`<option value="${rol.id_rol}">${rol.nombre_rol}</option>`);
-          });
-        }
-      });
+  const tbody = document.getElementById('tbody');
+  const chk = document.getElementById('chkInactivos');
+  const modalEl = document.getElementById('modalFormulario');
+  const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+  const form = document.getElementById('formulario');
+  const inpId = document.getElementById('txtId');
+  const selPersona = document.getElementById('selPersona');
+  const selRol = document.getElementById('selRol');
+  const txtPassword = document.getElementById('txtPassword');
+  const btnGuardar = document.getElementById('btnGuardar');
+  const L = window.FacturacionListado;
+  const V = window.FacturacionValidadores;
+  const { escapar, pedir } = L;
+  let usuarios = [];
+
+  // Política de contraseñas (espejo de password_policy.py)
+  const errorPassword = (p) => {
+    const falta = [];
+    if (p.length < 8) falta.push('al menos 8 caracteres');
+    if (!/[A-ZÁÉÍÓÚÑ]/.test(p)) falta.push('una letra mayúscula');
+    if (!/\d/.test(p)) falta.push('un número');
+    if (!/[^\w\s]|_/.test(p)) falta.push('un símbolo');
+    return falta.length ? 'La contraseña debe tener: ' + falta.join('; ') + '.' : '';
   };
+  const tipo = () => document.querySelector('input[name="tipo"]:checked').value;
 
-  const cargarPersonas = (tipo, idSeleccionado) => {
-    const idUsuario = Number($('#txtIdUsuario').val()) || 0;
-    const url = tipo === 'medico'
-      ? `/api/v1/usuarios/medicos-disponibles?excluir_usuario=${idUsuario}`
-      : `/api/v1/usuarios/funcionarios-disponibles?excluir_usuario=${idUsuario}`;
+  function badge(u) {
+    if (!u.activo) return '<span class="badge bg-secondary-lt">Inactivo</span>';
+    if (u.bloqueado) return '<span class="badge bg-warning-lt">Bloqueado</span>';
+    return '<span class="badge bg-success-lt">Activo</span>';
+  }
 
-    return fetch(url)
-      .then(resp => resp.json())
-      .then(result => {
-        const sel = $('#selPersona');
-        sel.find('option:not(:first)').remove();
-        personasDisponibles = {};
-        if (result && result.success) {
-          result.data.forEach(p => {
-            const id = tipo === 'medico' ? p.id_medico : p.id_funcionario;
-            personasDisponibles[id] = p;
-            // Sin correo no hay 2FA ni alertas: se muestra pero no se puede elegir
-            // (salvo la persona ya vinculada al editar, para no dejar el combo roto)
-            const sinCorreo = !p.correo && String(id) !== String(idSeleccionado);
-            const detalle = tipo === 'medico' ? p.especialidad : p.cargo;
-            const texto = [p.nombre_completo, p.ci_ruc ? `CI ${p.ci_ruc}` : 'sin CI', detalle || 'sin ' + (tipo === 'medico' ? 'especialidad' : 'cargo')].join(' - ')
-                          + (sinCorreo ? ' (sin correo)' : '');
-            const opt = $('<option>').val(id).text(texto).prop('disabled', sinCorreo);
-            sel.append(opt);
-          });
-        }
-        if (idSeleccionado) {
-          sel.val(idSeleccionado);
-        }
-        mostrarDatosPersona();
-      });
-  };
-
-  // CI/RUC y correo de la persona elegida (solo lectura: se editan en Funcionario/Médico)
-  let personasDisponibles = {};
-  const mostrarDatosPersona = () => {
-    const p = personasDisponibles[$('#selPersona').val()];
-    $('#txtCiRuc').val(p ? (p.ci_ruc || '') : '');
-    $('#txtCorreo').val(p ? (p.correo || '') : '');
-    const faltan = p && (!p.ci_ruc || !p.correo);
-    $('#hintCorreo')
-      .toggleClass('text-danger', !!faltan).toggleClass('text-muted', !faltan)
-      .text(faltan
-        ? 'Esta persona no tiene cédula o correo cargados: no se puede vincular hasta completarlos en Funcionario/Médico.'
-        : 'Se edita en Funcionario/Médico.');
-  };
-
-  // Requisitos de contraseña (misma política que password_policy.py)
-  const REGLAS_PASSWORD = {
-    largo: p => p.length >= 8,
-    mayuscula: p => /[A-ZÁÉÍÓÚÑ]/.test(p),
-    numero: p => /\d/.test(p),
-    simbolo: p => /[^\w\s]|_/.test(p)
-  };
-
-  // Repinta la lista de requisitos y devuelve true si la contraseña cumple todos
-  const actualizarRequisitosPassword = () => {
-    const p = $('#txtPassword').val();
-    let todo = true;
-    $('#reqPassword li').each(function() {
-      const ok = REGLAS_PASSWORD[$(this).data('req')](p);
-      todo = todo && ok;
-      $(this).find('i')
-        .toggleClass('fa-check-circle text-success', ok)
-        .toggleClass('fa-times-circle text-danger', !ok);
-    });
-    return todo;
-  };
-
-  const tipoPersonaSeleccionado =() => $('input[name="tipoPersona"]:checked').val();
-
-  const initDatatable = () => {
-    $('#tbl').DataTable({
-      language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
-      ajax: { url: '/api/v1/usuarios', dataSrc: 'data' },
-      columns: [
-        { data: 'ci_ruc' },
-        { data: 'correo' },
-        { data: 'nombre_rol' },
-        { data: function(row) { return `${row.nombre_completo || ''} <small class="text-muted">(${row.tipo_persona})</small>`; } },
-        { data: function(row) {
-            const estado = row.activo
-              ? '<span class="badge badge-success">Activo</span>'
-              : '<span class="badge badge-secondary">Inactivo</span>';
-            const bloqueo = row.bloqueado ? ' <span class="badge badge-warning">Bloqueado</span>' : '';
-            return estado + bloqueo;
-          }
-        },
-        { data: function(row) {
-            const btnEditar = PUEDE_EDITAR
-              ? `<button type="button" name="btn_editar" class="btn btn-info" data-id="${row.id_usuario}" title="Editar"><i class="fas fa-edit"></i></button>`
-              : '';
-            const btnEstado = !PUEDE_ANULAR ? '' : row.activo
-              ? `<button type="button" name="btn_baja" class="btn btn-danger" data-id="${row.id_usuario}" title="Dar de baja"><i class="fas fa-user-slash"></i></button>`
-              : `<button type="button" name="btn_reactivar" class="btn btn-success" data-id="${row.id_usuario}" title="Reactivar"><i class="fas fa-user-check"></i></button>`;
-            const btnDesbloquear = (PUEDE_DESBLOQUEAR && row.bloqueado)
-              ? `<button type="button" name="btn_desbloquear" class="btn btn-warning" data-id="${row.id_usuario}" title="Desbloquear"><i class="fas fa-unlock"></i></button>`
-              : '';
-            return `${btnEditar} ${btnEstado} ${btnDesbloquear}`;
-          }
-        }
-      ]
-    });
-  };
-
-  const limpiarFormulario = () => {
-    $('#txtIdUsuario').val('');
-    $('#txtCiRuc').val('');
-    $('#txtCorreo').val('');
-    $('#txtPassword').val('');
-    $('#selRol').val('');
-    $('#tipoFuncionario').prop('checked', true);
-    $('#selPersona').val('');
-    actualizarRequisitosPassword();
-  };
-
-  const agregar = () => {
-    $('#btnAgregar').on('click', function() {
-      $('#modalTitle').text('Agregar Usuario');
-      limpiarFormulario();
-      $('#txtPassword').attr('placeholder', 'Ingrese la contraseña');
-      $('#hintPassword').hide();
-      cargarPersonas('funcionario');
-      $('#modalFormulario').modal('show');
-    });
-  };
-
-  const guardar = () => {
-    $('#btnGuardar').on('click', function() {
-      const idUsuario = Number($('#txtIdUsuario').val()) || 0;
-      const password = $('#txtPassword').val();
-      const id_rol = $('#selRol').val();
-      const idPersona = $('#selPersona').val();
-      const tipo = tipoPersonaSeleccionado();
-      const tabla = $('#tbl').DataTable();
-
-      if (!id_rol || !idPersona) {
-        Swal.fire('Error', 'Rol y persona vinculada son obligatorios.', 'error');
-        return;
+  function dibujar() {
+    const lista = usuarios.filter((u) => chk.checked || u.activo);
+    if (!lista.length) { tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">No hay usuarios registrados.</td></tr>'; return; }
+    tbody.innerHTML = lista.map((u) => {
+      let acciones = L.acciones({ activo: u.activo, id: u.id_usuario, descripcion: u.nombre_completo, puedeEditar: PUEDE_EDITAR, puedeAnular: PUEDE_ANULAR });
+      if (u.activo && u.bloqueado && PUEDE_DESBLOQUEAR) {
+        acciones += `<button type="button" class="btn btn-sm btn-outline-warning" data-accion="desbloquear" data-id="${escapar(u.id_usuario)}" data-desc="${escapar(u.nombre_completo)}" title="Desbloquear"><i class="fas fa-unlock"></i></button>`;
       }
+      return `<tr class="${L.claseFila(u.activo)}">
+        <td>${escapar(u.nombre_completo)} <span class="text-muted small">(${u.tipo_persona === 'Medico' ? 'Médico' : 'Funcionario'})</span></td>
+        <td>${escapar(u.ci_ruc)}</td><td>${escapar(u.correo)}</td><td>${escapar(u.nombre_rol)}</td><td>${badge(u)}</td>
+        <td class="text-nowrap"><div class="btn-list flex-nowrap">${acciones}</div></td></tr>`;
+    }).join('');
+  }
 
-      if (!$('#txtCiRuc').val() || !$('#txtCorreo').val()) {
-        Swal.fire('Error', 'La persona seleccionada necesita cédula y correo cargados en Funcionario/Médico.', 'error');
-        return;
+  async function cargar() {
+    try {
+      const { ok, data } = await pedir(API);
+      if (!ok || !data || !data.success) throw new Error();
+      usuarios = data.data;
+      dibujar();
+    } catch (e) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger py-4">No se pudo cargar el listado.</td></tr>';
+    }
+  }
+
+  async function cargarPersonas(seleccionada, excluirUsuario) {
+    const t = tipo();
+    const url = `${API}/${t === 'medico' ? 'medicos' : 'funcionarios'}-disponibles` + (excluirUsuario ? `?excluir_usuario=${excluirUsuario}` : '');
+    const { data } = await pedir(url);
+    const lista = (data && data.success) ? data.data : [];
+    selPersona.innerHTML = '<option value="">Seleccione…</option>' + lista.map((p) => {
+      const id = p.id_funcionario || p.id_medico;
+      return `<option value="${escapar(id)}">${escapar(p.nombre_completo)} — ${escapar(p.ci_ruc || '')}</option>`;
+    }).join('');
+    selPersona.value = seleccionada || '';
+  }
+
+  async function cargarRoles(seleccionado) {
+    const { data } = await pedir('/api/v1/roles');
+    const lista = (data && data.success) ? data.data : [];
+    selRol.innerHTML = '<option value="">Seleccione…</option>' + lista.map((r) => `<option value="${escapar(r.id_rol)}">${escapar(r.nombre_rol)}</option>`).join('');
+    selRol.value = seleccionado || '';
+  }
+
+  async function abrirModal(titulo, u) {
+    document.getElementById('modalTitle').textContent = titulo;
+    inpId.value = u ? u.id_usuario : '';
+    document.querySelector(`input[name="tipo"][value="${u && u.id_medico ? 'medico' : 'funcionario'}"]`).checked = true;
+    document.querySelectorAll('input[name="tipo"]').forEach((r) => { r.disabled = false; });
+    await Promise.all([cargarPersonas(u ? (u.id_funcionario || u.id_medico) : '', u ? u.id_usuario : null), cargarRoles(u ? u.id_rol : '')]);
+    txtPassword.value = '';
+    document.getElementById('lblPassword').classList.toggle('required', !u);
+    document.getElementById('hintPassword').textContent = u ? 'Déjela vacía para conservar la actual. Si la cambia: mínimo 8 caracteres, una mayúscula, un número y un símbolo.'
+                                                           : 'Mínimo 8 caracteres, una mayúscula, un número y un símbolo.';
+    [selPersona, selRol, txtPassword].forEach(V.limpiarCampo);
+    modal.show();
+  }
+
+  document.querySelectorAll('input[name="tipo"]').forEach((r) => r.addEventListener('change', () => cargarPersonas('', inpId.value || null)));
+  [selPersona, selRol, txtPassword].forEach((e) => e.addEventListener('input', () => V.limpiarCampo(e)));
+  const btnAgregar = document.getElementById('btnAgregar');
+  if (btnAgregar) btnAgregar.addEventListener('click', () => abrirModal('Agregar Usuario'));
+
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    [selPersona, selRol, txtPassword].forEach(V.limpiarCampo);
+    const id = inpId.value;
+    let error = false;
+    if (!selPersona.value) { V.marcarCampo(selPersona, 'Seleccione la persona.'); error = true; }
+    if (!selRol.value) { V.marcarCampo(selRol, 'Seleccione el rol.'); error = true; }
+    if (!id && !txtPassword.value) { V.marcarCampo(txtPassword, 'La contraseña es obligatoria.'); error = true; }
+    else if (txtPassword.value && errorPassword(txtPassword.value)) { V.marcarCampo(txtPassword, errorPassword(txtPassword.value)); error = true; }
+    if (error) return;
+
+    if (id) {
+      const c = await Swal.fire({ title: '¿Guardar los cambios?', text: 'Se modificará este usuario.', icon: 'question', showCancelButton: true, confirmButtonText: 'Sí, guardar', cancelButtonText: 'Cancelar' });
+      if (!c.isConfirmed) return;
+    }
+    const cuerpo = { id_rol: parseInt(selRol.value, 10), password: txtPassword.value };
+    cuerpo[tipo() === 'medico' ? 'id_medico' : 'id_funcionario'] = parseInt(selPersona.value, 10);
+
+    btnGuardar.disabled = true;
+    try {
+      const { data } = await pedir(id ? `${API}/${id}` : API, { method: id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo) });
+      if (data && data.success) {
+        modal.hide();
+        await cargar();
+        Swal.fire(id ? 'Actualizado' : 'Agregado', data.mensaje || 'Usuario guardado.', 'success');
+      } else {
+        V.marcarCampo(selPersona, (data && data.error) || 'No se pudo guardar el usuario.');
       }
-
-      if (!idUsuario && !password) {
-        Swal.fire('Error', 'La contraseña es obligatoria para un usuario nuevo.', 'error');
-        return;
-      }
-
-      if (password && !actualizarRequisitosPassword()) {
-        Swal.fire('Error', 'La contraseña no cumple los requisitos indicados debajo del campo.', 'error');
-        return;
-      }
-
-      const data = {
-        id_rol: parseInt(id_rol),
-        id_funcionario: tipo === 'funcionario' ? parseInt(idPersona) : null,
-        id_medico: tipo === 'medico' ? parseInt(idPersona) : null
-      };
-      if (password) {
-        data.password = password;
-      }
-
-      const peticion = idUsuario
-        ? fetch(`/api/v1/usuarios/${idUsuario}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
-        : fetch('/api/v1/usuarios', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
-
-      peticion
-        .then(resp => resp.json())
-        .then(result => {
-          if (result && result.success) {
-            tabla.ajax.reload(null, false);
-            Swal.fire(idUsuario ? 'Actualizado' : 'Registrado', `El usuario ha sido ${idUsuario ? 'actualizado' : 'registrado'} correctamente.`, 'success')
-              .then(() => { $('#modalFormulario').modal('hide'); });
-          } else {
-            Swal.fire('Error', result.error || 'Ocurrió un error al guardar.', 'error');
-          }
-        })
-        .catch(err => {
-          console.error(err);
-          Swal.fire('Error', 'Ocurrió un error al guardar el usuario.', 'error');
-        });
-    });
-  };
-
-  const editar = () => {
-    $('#tbl').on('click', 'button[name="btn_editar"]', function() {
-      const idUsuario = $(this).data('id');
-
-      fetch(`/api/v1/usuarios/${idUsuario}`)
-        .then(resp => resp.json())
-        .then(result => {
-          if (!result || !result.success) {
-            Swal.fire('Error', (result && result.error) || 'No se pudo cargar el usuario.', 'error');
-            return;
-          }
-          const u = result.data;
-          $('#modalTitle').text('Editar Usuario');
-          $('#txtIdUsuario').val(u.id_usuario);
-          $('#txtPassword').val('');
-          $('#txtPassword').attr('placeholder', 'Dejar en blanco para no cambiar');
-          $('#hintPassword').show();
-          actualizarRequisitosPassword();
-          $('#selRol').val(u.id_rol);
-
-          const tipo = u.id_medico ? 'medico' : 'funcionario';
-          $(`#tipo${tipo === 'medico' ? 'Medico' : 'Funcionario'}`).prop('checked', true);
-
-          cargarPersonas(tipo, tipo === 'medico' ? u.id_medico : u.id_funcionario).then(() => {
-            $('#modalFormulario').modal('show');
-          });
-        })
-        .catch(err => {
-          console.error(err);
-          Swal.fire('Error', 'Ocurrió un error al obtener los datos.', 'error');
-        });
-    });
-  };
-
-  const cambiarTipoPersona = () => {
-    $('input[name="tipoPersona"]').on('change', function() {
-      cargarPersonas($(this).val());
-    });
-    $('#selPersona').on('change', mostrarDatosPersona);
-  };
-
-  const darDeBaja = () => {
-    $('#tbl').on('click', 'button[name="btn_baja"]', function() {
-      const idUsuario = $(this).data('id');
-      const tabla = $('#tbl').DataTable();
-
-      Swal.fire({
-        title: '¿Dar de baja este usuario?',
-        text: 'El usuario no podrá iniciar sesión hasta que sea reactivado.',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonText: 'Sí, dar de baja',
-        cancelButtonText: 'Cancelar'
-      }).then((result) => {
-        if (result.isConfirmed) {
-          fetch(`/api/v1/usuarios/${idUsuario}`, { method: 'DELETE' })
-            .then(resp => resp.json())
-            .then(data => {
-              if (data && data.success) {
-                tabla.ajax.reload(null, false);
-                Swal.fire('Listo', 'Usuario dado de baja correctamente.', 'success');
-              } else {
-                Swal.fire('Error', data.error || 'No se pudo dar de baja al usuario.', 'error');
-              }
-            })
-            .catch(err => {
-              console.error(err);
-              Swal.fire('Error', 'Ocurrió un error al dar de baja al usuario.', 'error');
-            });
-        }
-      });
-    });
-  };
-
-  const reactivar = () => {
-    $('#tbl').on('click', 'button[name="btn_reactivar"]', function() {
-      const idUsuario = $(this).data('id');
-      const tabla = $('#tbl').DataTable();
-
-      fetch(`/api/v1/usuarios/${idUsuario}/reactivar`, { method: 'PATCH' })
-        .then(resp => resp.json())
-        .then(data => {
-          if (data && data.success) {
-            tabla.ajax.reload(null, false);
-            Swal.fire('Listo', 'Usuario reactivado correctamente.', 'success');
-          } else {
-            Swal.fire('Error', data.error || 'No se pudo reactivar al usuario.', 'error');
-          }
-        })
-        .catch(err => {
-          console.error(err);
-          Swal.fire('Error', 'Ocurrió un error al reactivar al usuario.', 'error');
-        });
-    });
-  };
-
-  const desbloquear = () => {
-    $('#tbl').on('click', 'button[name="btn_desbloquear"]', function() {
-      const idUsuario = $(this).data('id');
-      const tabla = $('#tbl').DataTable();
-      const fila = tabla.row($(this).closest('tr')).data();
-
-      Swal.fire({
-        title: '¿Desbloquear este usuario?',
-        text: `${fila.ci_ruc} - ${fila.nombre_completo || ''} podrá volver a iniciar sesión.`,
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonText: 'Sí, desbloquear',
-        cancelButtonText: 'Cancelar'
-      }).then((result) => {
-        if (!result.isConfirmed) return;
-        fetch(`/api/v1/usuarios/${idUsuario}/desbloquear`, { method: 'PATCH' })
-          .then(resp => resp.json())
-          .then(data => {
-            tabla.ajax.reload(null, false);
-            if (data && data.success) {
-              Swal.fire('Listo', `Se desbloqueó a ${fila.ci_ruc}.`, 'success');
-            } else {
-              Swal.fire('Error', (data && data.error) || 'No se pudo desbloquear al usuario.', 'error');
-            }
-          })
-          .catch(err => {
-            console.error(err);
-            Swal.fire('Error', 'Ocurrió un error al desbloquear al usuario.', 'error');
-          });
-      });
-    });
-  };
-
-  const addEvents = () => {
-    $('#txtPassword').on('input', actualizarRequisitosPassword);
-    desbloquear();
-    agregar();
-    guardar();
-    editar();
-    cambiarTipoPersona();
-    darDeBaja();
-    reactivar();
-  };
-
-  $(function() {
-    initDatatable();
-    cargarRoles();
-    addEvents();
+    } catch (e) {
+      V.marcarCampo(selPersona, 'Ocurrió un error de conexión. Intente nuevamente.');
+    } finally {
+      btnGuardar.disabled = false;
+    }
   });
+
+  tbody.addEventListener('click', async (ev) => {
+    const btn = ev.target.closest('button[data-accion]');
+    if (!btn) return;
+    const id = btn.dataset.id;
+    if (btn.dataset.accion === 'editar') {
+      const { data } = await pedir(`${API}/${id}`);
+      if (data && data.success) await abrirModal('Editar Usuario', data.data);
+      else Swal.fire('Error', (data && data.error) || 'No se pudo cargar el usuario.', 'error');
+    }
+    if (btn.dataset.accion === 'anular') {
+      await L.anular({ api: API, id, descripcion: btn.dataset.desc, titulo: '¿Dar de baja este usuario?', exito: 'Baja realizada', errorDefault: 'No se pudo dar de baja el usuario.', recargar: cargar });
+    }
+    if (btn.dataset.accion === 'reactivar') {
+      await L.reactivar({ api: API, id, descripcion: btn.dataset.desc, titulo: '¿Reactivar este usuario?', exito: 'Reactivado', errorDefault: 'No se pudo reactivar el usuario.', recargar: cargar });
+    }
+    if (btn.dataset.accion === 'desbloquear') {
+      const c = await Swal.fire({ title: '¿Desbloquear esta cuenta?', text: btn.dataset.desc, icon: 'question', showCancelButton: true, confirmButtonText: 'Sí, desbloquear', cancelButtonText: 'Cancelar' });
+      if (!c.isConfirmed) return;
+      const { data } = await pedir(`${API}/${id}/desbloquear`, { method: 'PATCH' });
+      await cargar();
+      Swal.fire(data && data.success ? 'Desbloqueado' : 'No se pudo desbloquear', (data && (data.mensaje || data.error)) || '', data && data.success ? 'success' : 'error');
+    }
+  });
+
+  chk.addEventListener('change', dibujar);
+  cargar();
+})();
 </script>
 {% endblock %}

@@ -14,7 +14,7 @@ ENTIDAD = 'cliente'
 ETIQUETAS = {'nombre': 'Nombre', 'apellido': 'Apellido', 'ci_ruc': 'CI/RUC', 'telefono': 'Teléfono', 'correo': 'Correo'}
 MSG_DUP_CI_RUC = 'Ya existe un cliente con esa CI/RUC.'
 MSG_DUP_PACIENTE = 'Ese paciente ya está registrado como cliente.'
-MSG_PACIENTE = 'El paciente seleccionado no existe.'
+MSG_PACIENTE = 'El paciente seleccionado no existe o está anulado.'
 
 
 def auditar(id_registro, accion, detalle):
@@ -242,7 +242,7 @@ def reactivarCliente(id_cliente):
         if resultado == YA_ACTIVO:
             return respuesta_error('El cliente ya está activo.', 409)
         if resultado == PACIENTE_INVALIDO:
-            return respuesta_error('No se puede reactivar: el paciente vinculado ya no existe.', 409)
+            return respuesta_error('No se puede reactivar: el paciente vinculado ya no existe o está anulado.', 409)
         if resultado == DUPLICADO_CI_RUC:
             return respuesta_error('No se puede reactivar: ya existe un cliente activo con esa CI/RUC.', 409)
         if resultado == DUPLICADO_PACIENTE:

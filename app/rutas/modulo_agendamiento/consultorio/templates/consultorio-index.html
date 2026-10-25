@@ -1,422 +1,251 @@
-{% extends 'base.html' %}
+{% extends 'base_tabler.html' %}
 
-{% block titulo %}
-Consultorios
-{% endblock %}
+{% block titulo %}Consultorios{% endblock %}
 
 {% block contenido %}
-<div class="container mt-4">
-  
-  <h3>Listar Consultorios</h3>
-
-  <!-- tarjeta -->
-  <div class="card">
-    <div class="card-header">
-      {% if puede('consultorio','nuevo') %}<button type="button" class="btn btn-outline-primary" id="btnAgregar">Agregar</button>{% endif %}
+<div class="page-header d-print-none mb-3">
+  <div class="row align-items-center">
+    <div class="col">
+      <div class="page-pretitle">Agendamiento · Referenciales</div>
+      <h2 class="page-title">Consultorios</h2>
     </div>
-    <div class="card-body">
-      <table class="table table-striped" id="tblConsultorios">
-        <thead>
-          <tr>
-            <th>Nombre Consultorio</th>
-            <th>Dirección</th>
-            <th>Teléfono</th>
-            <th>Correo</th>
-            <th>Acciones</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
+    {% if puede('consultorio', 'nuevo') %}
+    <div class="col-auto ms-auto">
+      <button type="button" class="btn btn-primary" id="btnAgregar">
+        <i class="fas fa-plus me-2"></i>Agregar
+      </button>
     </div>
+    {% endif %}
   </div>
-  <!-- /tarjeta -->
+</div>
 
-  <!-- Modal Formulario Consultorio -->
-  <div class="modal" id="modalFormulario">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content">
+<div class="card">
+  <div class="card-header">
+    <label class="form-check form-switch mb-0">
+      <input class="form-check-input" type="checkbox" id="chkInactivos">
+      <span class="form-check-label">Mostrar inactivos</span>
+    </label>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table" id="tbl">
+      <thead>
+        <tr>
+          <th>Nombre</th>
+          <th>Dirección</th>
+          <th>Teléfono</th>
+          <th>Correo</th>
+          <th style="width: 120px;">Estado</th>
+          <th class="w-1">Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="tbody">
+        <tr><td colspan="6" class="text-center text-muted py-4">Cargando…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
 
-        <!-- Modal Header -->
-        <div class="modal-header">
-          <h4 class="modal-title" id="modalTitle"></h4>
-          <button type="button" class="close" data-dismiss="modal">&times;</button>
-        </div>
-
-        <!-- Modal body -->
+{# Modal Alta / Modificar #}
+<div class="modal modal-blur fade" id="modalFormulario" tabindex="-1" aria-labelledby="modalTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalTitle"></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <form id="formulario" novalidate>
         <div class="modal-body">
-          <form id="formConsultorio">
-            <input type="hidden" id="txtCodigo">
-
-            <div class="form-group">
-              <label for="txtNombre">Nombre Consultorio:</label>
-              <input type="text" class="form-control" placeholder="Ingrese nombre del consultorio" 
-                     id="txtNombre" required>
+          <input type="hidden" id="txtId">
+          <div class="mb-3">
+            <label class="form-label required" for="txtNombre">Nombre</label>
+            <input type="text" class="form-control" id="txtNombre" maxlength="100" placeholder="Ej.: CONSULTORIO CENTRAL"
+                   autocomplete="off" style="text-transform: uppercase;">
+            <div class="invalid-feedback"></div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label required" for="txtDireccion">Dirección</label>
+            <input type="text" class="form-control" id="txtDireccion" maxlength="150" autocomplete="off">
+            <div class="invalid-feedback"></div>
+          </div>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label required" for="txtTelefono">Teléfono</label>
+              <input type="text" class="form-control" id="txtTelefono" maxlength="20" placeholder="Ej.: 0981 234 567" autocomplete="off">
+              <div class="invalid-feedback"></div>
             </div>
-
-            <div class="form-group">
-              <label for="txtDireccion">Dirección:</label>
-              <input type="text" class="form-control" placeholder="Ingrese dirección" 
-                     id="txtDireccion" required>
+            <div class="col-md-6 mb-3">
+              <label class="form-label required" for="txtCorreo">Correo</label>
+              <input type="email" class="form-control" id="txtCorreo" maxlength="100" autocomplete="off">
+              <div class="invalid-feedback"></div>
             </div>
-
-            <div class="form-group">
-              <label for="txtTelefono">Teléfono:</label>
-              <input type="text" class="form-control" placeholder="Ingrese teléfono" 
-                     id="txtTelefono" maxlength="12" required>
-            </div>
-
-            <div class="form-group">
-              <label for="txtCorreo">Correo:</label>
-              <input type="email" class="form-control" placeholder="Ingrese correo" 
-                     id="txtCorreo" required>
-            </div>
-          </form>
+          </div>
         </div>
-
-        <!-- Modal footer -->
         <div class="modal-footer">
-          <button type="button" class="btn btn-primary" id="btnGuardar">Guardar</button>
-          <button type="button" class="btn btn-danger" data-dismiss="modal">Cerrar</button>
+          <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btnGuardar">Guardar</button>
         </div>
-
-      </div>
+      </form>
     </div>
   </div>
-
-  <div class="row mt-4 d-none" id="rowAlerta">
-    <div class="col col-md-12">
-      <div class="alert alert-success">
-        <strong>Registro Exitoso!</strong>
-        <div class="row" id="mostrarAlerta"></div>
-      </div>
-    </div>
-  </div>
-
 </div>
 {% endblock %}
 
-
 {% block js %}
+<script src="{{ url_for('static', filename='js/facturacion-validadores.js') }}"></script>
+<script src="{{ url_for('static', filename='js/facturacion-listado.js') }}"></script>
 <script>
+(function () {
+  const API = '/api/v1/consultorios';
+  const PUEDE_EDITAR = {{ 'true' if puede('consultorio', 'editar') else 'false' }};
+  const PUEDE_ANULAR = {{ 'true' if puede('consultorio', 'anular') else 'false' }};
 
-// ==========================================
-// FORMATEO DE TELÉFONO
-// ==========================================
+  const tbody = document.getElementById('tbody');
+  const chkInactivos = document.getElementById('chkInactivos');
+  const modalEl = document.getElementById('modalFormulario');
+  const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+  const form = document.getElementById('formulario');
+  const btnGuardar = document.getElementById('btnGuardar');
+  const inp = {
+    id: document.getElementById('txtId'),
+    nombre_consultorio: document.getElementById('txtNombre'),
+    direccion: document.getElementById('txtDireccion'),
+    telefono: document.getElementById('txtTelefono'),
+    correo: document.getElementById('txtCorreo')
+  };
+  const CAMPOS = ['nombre_consultorio', 'direccion', 'telefono', 'correo'];
 
-const formatearTelefonoParaMostrar = (telefono) => {
-  /**
-   * Convierte: "595981234567" → "098 123 4567"
-   */
-  if (!telefono) return '';
-  
-  let limpio = telefono.replace(/\D/g, '');
-  
-  // Quitar el 595 si lo tiene
-  if (limpio.startsWith('595')) {
-    limpio = limpio.substring(3);
-  }
-  
-  // Agregar 0 al inicio si no lo tiene
-  if (!limpio.startsWith('0')) {
-    limpio = '0' + limpio;
-  }
-  
-  // Formatear: "098 123 4567"
-  if (limpio.length >= 4) {
-    return limpio.substring(0, 3) + ' ' + limpio.substring(3);
-  }
-  return limpio;
-};
+  const L = window.FacturacionListado;
+  const V = window.FacturacionValidadores;
+  const { escapar, pedir } = L;
 
-const formatearTelefonoParaGuardar = (telefono) => {
-  /**
-   * Convierte: "098 123 4567" → "595981234567"
-   */
-  if (!telefono) return '';
-  
-  let limpio = telefono.replace(/\D/g, '');
-  
-  // Si ya tiene 595, devolverlo
-  if (limpio.startsWith('595')) {
-    return limpio;
-  }
-  
-  // Si empieza con 0, quitarlo y agregar 595
-  if (limpio.startsWith('0')) {
-    return '595' + limpio.substring(1);
-  }
-  
-  // Si no tiene nada, agregar 595
-  return '595' + limpio;
-};
+  const limpiarErrores = () => CAMPOS.forEach((c) => V.limpiarCampo(inp[c]));
+  const reglas = {
+    nombre_consultorio: (v) => V.descripcion(v, { max: 100, ampliada: true, etiqueta: 'nombre', articulo: 'El' }),
+    direccion: (v) => V.direccion(v),
+    telefono: (v) => V.telefonoPy(v),
+    correo: (v) => V.correo(v)
+  };
 
-// ==========================================
-// DATATABLE
-// ==========================================
-
-const initDatatable = () => {
-  $('#tblConsultorios').DataTable({
-    language: {
-      url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}"
-    },
-    ajax: {
-      url: '/api/v1/consultorios',
-      dataSrc: 'data'
-    },
-    destroy: true,
-    columns: [
-      { data: 'nombre_consultorio' },
-      {
-        data: function (row) {
-          const direccion = encodeURIComponent(row.direccion || "");
-          return `<a href="https://www.google.com/maps/search/?api=1&query=${direccion}" 
-                    target="_blank" title="Ver en Google Maps" class="text-decoration-none">
-                    <i class="fas fa-map-marker-alt text-danger mr-1"></i>${row.direccion || ''}
-                  </a>`;
-        }
-      },
-      { 
-        data: function(row) {
-          return formatearTelefonoParaMostrar(row.telefono || '');
-        }
-      },
-      { data: 'correo' },
-      {
-        data: function (row) {
-          return `
-            <div class="btn-group" role="group">
-              {% if puede('consultorio','editar') %}<button type="button" name="btn_editar" class="btn btn-sm btn-info" 
-                      data-codigo="${row.codigo}" title="Editar">
-                <i class="fas fa-edit"></i>
-              </button>{% endif %}
-              {% if puede('consultorio','anular') %}<button type="button" name="btn_eliminar" class="btn btn-sm btn-danger" 
-                      data-codigo="${row.codigo}" title="Eliminar">
-                <i class="fas fa-trash-alt"></i>
-              </button>{% endif %}
-            </div>`;
-        }
-      }
-    ]
-  });
-};
-
-// ==========================================
-// CRUD
-// ==========================================
-
-const agregar = () => {
-  $('#btnAgregar').on('click', function () {
-    $('#modalTitle').text("Agregar Consultorio");
-    $('#formConsultorio')[0].reset();
-    $('#txtCodigo').val('');
-    $('#modalFormulario').modal('show');
-  });
-};
-
-const guardar = () => {
-  $('#formConsultorio').on('submit', async function (e) {
-    e.preventDefault();
-    
-    const codigo = $('#txtCodigo').val();
-    const datos = {
-      nombre_consultorio: $('#txtNombre').val().trim(),
-      direccion: $('#txtDireccion').val().trim(),
-      telefono: formatearTelefonoParaGuardar($('#txtTelefono').val().trim()),
-      correo: $('#txtCorreo').val().trim()
-    };
-
-    // Validaciones básicas del frontend
-    if (datos.nombre_consultorio.length < 3) {
-      Swal.fire("Error", "El nombre debe tener al menos 3 caracteres", "error");
-      return;
-    }
-
-    if (datos.direccion.length < 5) {
-      Swal.fire("Error", "La dirección debe tener al menos 5 caracteres", "error");
-      return;
-    }
-
-    if (!datos.correo.includes('@')) {
-      Swal.fire("Error", "Ingrese un correo válido", "error");
-      return;
-    }
-
-    const url = codigo ? `/api/v1/consultorios/${codigo}` : '/api/v1/consultorios';
-    const method = codigo ? 'PUT' : 'POST';
-
+  async function cargar() {
     try {
-      const response = await fetch(url, {
-        method: method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(datos)
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        $('#tblConsultorios').DataTable().ajax.reload();
-        Swal.fire({
-          icon: 'success',
-          title: codigo ? 'Consultorio actualizado' : 'Consultorio agregado',
-          text: result.mensaje,
-          confirmButtonColor: '#17a2b8'
-        });
-        $('#modalFormulario').modal('hide');
-      } else {
-        Swal.fire("Error", result.error || "No se pudo guardar", "error");
+      const { ok, data } = await pedir(L.urlListado(API, chkInactivos));
+      if (!ok || !data || !data.success) throw new Error();
+      if (!data.data.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">No hay consultorios registrados.</td></tr>';
+        return;
       }
-    } catch (error) {
-      console.error(error);
-      Swal.fire("Error", "Ocurrió un error de conexión", "error");
+      tbody.innerHTML = data.data.map((f) => {
+        const acciones = L.acciones({ activo: f.activo, id: f.codigo, descripcion: f.nombre_consultorio, puedeEditar: PUEDE_EDITAR, puedeAnular: PUEDE_ANULAR });
+        return `<tr class="${L.claseFila(f.activo)}">
+          <td>${escapar(f.nombre_consultorio)}</td>
+          <td>${escapar(f.direccion)}</td>
+          <td>${escapar(f.telefono)}</td>
+          <td>${escapar(f.correo)}</td>
+          <td>${L.badgeEstado(f.activo)}</td>
+          <td class="text-nowrap"><div class="btn-list flex-nowrap">${acciones}</div></td>
+        </tr>`;
+      }).join('');
+    } catch (e) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger py-4">No se pudo cargar el listado.</td></tr>';
     }
-  });
-};
+  }
 
-const editar = () => {
-  $('#tblConsultorios').on('click', 'button[name="btn_editar"]', async function () {
-    const codigo = $(this).data('codigo');
-    
-    try {
-      const response = await fetch(`/api/v1/consultorios/${codigo}`);
-      const result = await response.json();
-      
-      if (result.success) {
-        const c = result.data;
-        $('#modalTitle').text("Editar Consultorio");
-        $('#txtCodigo').val(c.codigo);
-        $('#txtNombre').val(c.nombre_consultorio);
-        $('#txtDireccion').val(c.direccion);
-        $('#txtTelefono').val(formatearTelefonoParaMostrar(c.telefono || ''));
-        $('#txtCorreo').val(c.correo);
-        $('#modalFormulario').modal('show');
-      } else {
-        Swal.fire("Error", result.error, "error");
-      }
-    } catch (error) {
-      Swal.fire("Error", "No se pudo cargar el consultorio", "error");
-    }
-  });
-};
+  function abrirModal(titulo, c) {
+    document.getElementById('modalTitle').textContent = titulo;
+    inp.id.value = c ? c.codigo : '';
+    CAMPOS.forEach((k) => { inp[k].value = c ? (c[k] || '') : ''; });
+    limpiarErrores();
+    modal.show();
+  }
 
-const eliminar = () => {
-  $('#tblConsultorios').on('click', 'button[name="btn_eliminar"]', function() {
-    const codigo = $(this).data('codigo');
+  const btnAgregar = document.getElementById('btnAgregar');
+  if (btnAgregar) btnAgregar.addEventListener('click', () => abrirModal('Agregar Consultorio'));
 
-    Swal.fire({
-      title: "¿Eliminar este consultorio?",
-      text: "Esta acción no se puede deshacer",
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonText: "Sí, eliminar",
-      cancelButtonText: "Cancelar",
-      confirmButtonColor: '#dc3545',
-      cancelButtonColor: '#6c757d'
-    }).then(async (result) => {
-      if (result.isConfirmed) {
-        try {
-          const response = await fetch(`/api/v1/consultorios/${codigo}`, {
-            method: 'DELETE',
-            headers: { 
-              'Content-Type': 'application/json', 
-            }
-          });
+  modalEl.addEventListener('shown.bs.modal', () => inp.nombre_consultorio.focus());
+  CAMPOS.forEach((c) => inp[c].addEventListener('input', () => V.limpiarCampo(inp[c])));
 
-          const data = await response.json();
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    limpiarErrores();
 
-          if (data.success) {
-            $('#tblConsultorios').DataTable().ajax.reload();
-            Swal.fire({
-              icon: 'success',
-              title: 'Eliminado',
-              text: 'Consultorio eliminado correctamente',
-              confirmButtonColor: '#28a745'
-            });
-          } else {
-            Swal.fire({
-              icon: 'error',
-              title: 'Error',
-              text: data.error || 'No se pudo eliminar',
-              confirmButtonColor: '#dc3545'
-            });
-          }
-        } catch (error) {
-          Swal.fire({
-            icon: 'error',
-            title: 'Error de conexión',
-            text: 'Ocurrió un error al eliminar',
-            confirmButtonColor: '#dc3545'
-          });
-        }
-      }
+    let hayError = false;
+    CAMPOS.forEach((c) => {
+      const msg = reglas[c](inp[c].value);
+      if (msg) { V.marcarCampo(inp[c], msg); hayError = true; }
     });
-  });
-};
+    if (hayError) return;
 
-// ==========================================
-// VALIDACIONES DE INPUTS
-// ==========================================
+    const id = inp.id.value;
+    if (id) {
+      const c = await Swal.fire({
+        title: '¿Guardar los cambios?', text: 'Se modificarán los datos de este consultorio.', icon: 'question',
+        showCancelButton: true, confirmButtonText: 'Sí, guardar', cancelButtonText: 'Cancelar'
+      });
+      if (!c.isConfirmed) return;
+    }
 
-const validarTelefono = () => {
-  const input = $('#txtTelefono');
-  
-  // Solo números
-  input.on('keypress', function(e) {
-    if ([8, 9, 27, 13, 46].indexOf(e.keyCode) !== -1 ||
-        (e.keyCode === 65 && e.ctrlKey === true) ||
-        (e.keyCode === 67 && e.ctrlKey === true) ||
-        (e.keyCode === 86 && e.ctrlKey === true) ||
-        (e.keyCode === 88 && e.ctrlKey === true)) {
-      return;
-    }
-    if ((e.which < 48 || e.which > 57)) {
-      e.preventDefault();
-    }
-  });
+    const cuerpo = {};
+    CAMPOS.forEach((c) => { cuerpo[c] = inp[c].value.trim(); });
 
-  // Formateo automático al escribir
-  input.on('input', function(e) {
-    let valor = e.target.value.replace(/\D/g, '');
-    
-    // Limitar a 10 dígitos (0 + 9 dígitos)
-    if (valor.length > 10) {
-      valor = valor.substring(0, 10);
-    }
-    
-    // Aplicar formato: "098 123 4567"
-    if (valor.length > 3) {
-      e.target.value = valor.substring(0, 3) + ' ' + valor.substring(3);
-    } else {
-      e.target.value = valor;
-    }
-  });
-
-  // Al pegar
-  input.on('paste', function(e) {
-    setTimeout(() => {
-      let valor = this.value.replace(/\D/g, '');
-      if (valor.length > 10) valor = valor.substring(0, 10);
-      if (valor.length > 3) {
-        this.value = valor.substring(0, 3) + ' ' + valor.substring(3);
+    btnGuardar.disabled = true;
+    try {
+      const { data } = await pedir(id ? `${API}/${id}` : API, {
+        method: id ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(cuerpo)
+      });
+      if (data && data.success) {
+        modal.hide();
+        await cargar();
+        Swal.fire(id ? 'Actualizado' : 'Agregado', data.mensaje, 'success');
       } else {
-        this.value = valor;
+        // El servidor indica el campo con problema (duplicado, formato); si no, va en el primero
+        V.marcarCampo(inp[data && data.campo && inp[data.campo] ? data.campo : 'nombre_consultorio'],
+                      (data && data.error) || 'No se pudo guardar el consultorio.');
       }
-    }, 0);
+    } catch (e) {
+      V.marcarCampo(inp.nombre_consultorio, 'Ocurrió un error de conexión. Intente nuevamente.');
+    } finally {
+      btnGuardar.disabled = false;
+    }
   });
-};
 
-// ==========================================
-// INICIALIZACIÓN
-// ==========================================
+  tbody.addEventListener('click', async (ev) => {
+    const btn = ev.target.closest('button[data-accion]');
+    if (!btn) return;
+    const id = btn.dataset.id;
 
-$(document).ready(function() {
-  initDatatable();
-  agregar();
-  guardar();
-  editar();
-  eliminar();
-  validarTelefono();
-});
+    if (btn.dataset.accion === 'editar') {
+      try {
+        const { data } = await pedir(`${API}/${id}`);
+        if (data && data.success) {
+          abrirModal('Editar Consultorio', data.data);
+        } else {
+          Swal.fire('Error', (data && data.error) || 'No se pudo cargar el consultorio.', 'error');
+          cargar();
+        }
+      } catch (e) {
+        Swal.fire('Error', 'Ocurrió un error de conexión.', 'error');
+      }
+    }
+
+    if (btn.dataset.accion === 'anular') {
+      await L.anular({
+        api: API, id, descripcion: btn.dataset.desc, titulo: '¿Anular este consultorio?', exito: 'Anulado',
+        errorDefault: 'No se pudo anular el consultorio.', recargar: cargar
+      });
+    }
+
+    if (btn.dataset.accion === 'reactivar') {
+      await L.reactivar({
+        api: API, id, descripcion: btn.dataset.desc, titulo: '¿Reactivar este consultorio?', exito: 'Reactivado',
+        errorDefault: 'No se pudo reactivar el consultorio.', recargar: cargar
+      });
+    }
+  });
+
+  chkInactivos.addEventListener('change', cargar);
+  cargar();
+})();
 </script>
 {% endblock %}

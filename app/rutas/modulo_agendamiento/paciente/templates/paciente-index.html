@@ -1,348 +1,303 @@
-{% extends 'base.html' %}
+{% extends 'base_tabler.html' %}
 
-{% block titulo %}
-Paciente
-{% endblock %}
+{% block titulo %}Pacientes{% endblock %}
 
 {% block contenido %}
-<div class="container mt-10">
-  <h3>Listado de Pacientes</h3>
-
-  <!-- Tarjeta -->
-  <div class="card">
-    <div class="card-header">
-      {% if puede('paciente','nuevo') %}<button type="button" class="btn btn-outline-primary" id="btnAgregar">Agregar</button>{% endif %}
+<div class="page-header d-print-none mb-3">
+  <div class="row align-items-center">
+    <div class="col">
+      <div class="page-pretitle">Agendamiento</div>
+      <h2 class="page-title">Pacientes</h2>
     </div>
-    <div class="card-body">
-      <div class="table-responsive">
-        <table class="table table-striped" id="tbl">
-          <thead>
-            <tr>
-              <th>Nombre</th>
-              <th>Apellido</th>
-              <th>Cédula</th>
-              <th>Fecha Nacimiento</th>
-              <th>Teléfono</th>
-              <th>Telefono Emergencia</th>
-              <th>Correo</th>
-              <th>Ciudad</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
+    {% if puede('paciente', 'nuevo') %}
+    <div class="col-auto ms-auto">
+      <button type="button" class="btn btn-primary" id="btnAgregar">
+        <i class="fas fa-plus me-2"></i>Agregar
+      </button>
     </div>
+    {% endif %}
   </div>
-  <!-- /Tarjeta -->
+</div>
 
-  <!-- Modal formulario -->
-  <div class="modal" id="modalFormulario">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
-      <div class="modal-content">
-        <!-- Modal Header -->
-        <div class="modal-header">
-          <h4 class="modal-title" id="modalTitle"></h4>
-          <button type="button" class="close" data-dismiss="modal">&times;</button>
-        </div>
+<div class="card">
+  <div class="card-header">
+    <label class="form-check form-switch mb-0">
+      <input class="form-check-input" type="checkbox" id="chkInactivos">
+      <span class="form-check-label">Mostrar inactivos</span>
+    </label>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table" id="tbl">
+      <thead>
+        <tr>
+          <th>Nombre y apellido</th>
+          <th>Cédula</th>
+          <th>Ciudad</th>
+          <th>Teléfono</th>
+          <th style="width: 120px;">Estado</th>
+          <th class="w-1">Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="tbody">
+        <tr><td colspan="6" class="text-center text-muted py-4">Cargando…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
 
-        <!-- Modal Body -->
-        <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
-          <input type="hidden" id="txtIdPaciente">
-          <input type="hidden" id="id_ciudad">
-
-          <div class="container-fluid">
-            <div class="row">
-              <div class="col-md-6 col-lg-4">
-                <div class="form-group">
-                  <label for="nombre">Nombre:</label>
-                  <input type="text" class="form-control" placeholder="Ingrese el nombre" id="nombre">
-                </div>
-              </div>
-              <div class="col-md-6 col-lg-4">
-                <div class="form-group">
-                  <label for="apellido">Apellido:</label>
-                  <input type="text" class="form-control" placeholder="Ingrese el apellido" id="apellido">
-                </div>
-              </div>
-              <div class="col-md-6 col-lg-4">
-                <div class="form-group">
-                  <label for="cedula_entidad">Cédula:</label>
-                  <input type="text" class="form-control" placeholder="Ingrese la cédula" id="cedula_entidad">
-                </div>
-              </div>
-              <div class="col-md-6 col-lg-4">
-                <div class="form-group">
-                  <label for="fecha_nacimiento">Fecha Nacimiento:</label>
-                  <input type="date" class="form-control" id="fecha_nacimiento">
-                </div>
-              </div>
-              <div class="col-md-6 col-lg-4">
-                <div class="form-group">
-                  <label for="telefono">Teléfono:</label>
-                  <input type="text" class="form-control" placeholder="Ingrese el teléfono" id="telefono">
-                </div>
-              </div>
-              <div class="col-md-6 col-lg-4">
-                <div class="form-group">
-                  <label for="telefono_emergencia">Teléfono Emergencia:</label>
-                  <input type="text" class="form-control" placeholder="Ingrese teléfono emergencia" id="telefono_emergencia">
-                </div>
-              </div>
-              <div class="col-md-6 col-lg-4">
-                <div class="form-group">
-                  <label for="direccion">Dirección:</label>
-                  <input type="text" class="form-control" placeholder="Ingrese la dirección" id="direccion">
-                </div>
-              </div>
-              <div class="col-md-6 col-lg-4">
-                <div class="form-group">
-                  <label for="correo">Correo:</label>
-                  <input type="email" class="form-control" placeholder="correo@ejemplo.com" id="correo">
-                </div>
-              </div>
-              <div class="col-md-6 col-lg-4">
-                <div class="form-group">
-                  <label for="txtCiudad">Ciudad:</label>
-                  <input type="text" class="form-control" placeholder="Seleccione la ciudad" id="txtCiudad" readonly>
-                </div>
-              </div>
-              <div class="col-md-6 col-lg-4">
-                <div class="form-group">
-                  <label for="fecha_registro">Fecha Registro:</label>
-                  <input type="text" class="form-control" id="fecha_registro" readonly>
-                </div>
-              </div>
+{# Modal Alta / Modificar #}
+<div class="modal modal-blur fade" id="modalFormulario" tabindex="-1" aria-labelledby="modalTitle" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalTitle"></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <form id="formulario" novalidate>
+        <div class="modal-body">
+          <input type="hidden" id="txtId">
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label required" for="txtNombre">Nombre</label>
+              <input type="text" class="form-control" id="txtNombre" maxlength="80" style="text-transform: uppercase;" autocomplete="off">
+              <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label required" for="txtApellido">Apellido</label>
+              <input type="text" class="form-control" id="txtApellido" maxlength="80" style="text-transform: uppercase;" autocomplete="off">
+              <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label required" for="txtCedula">Cédula</label>
+              <input type="text" class="form-control" id="txtCedula" maxlength="12" placeholder="Ej.: 1234567 o 80012345-0" autocomplete="off">
+              <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label required" for="txtNacimiento">Fecha de nacimiento</label>
+              <input type="date" class="form-control" id="txtNacimiento" autocomplete="off">
+              <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label required" for="txtTelefono">Teléfono</label>
+              <input type="text" class="form-control" id="txtTelefono" maxlength="20" autocomplete="off">
+              <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label required" for="txtEmergencia">Teléfono de emergencia</label>
+              <input type="text" class="form-control" id="txtEmergencia" maxlength="20" autocomplete="off">
+              <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label required" for="txtDireccion">Dirección</label>
+              <input type="text" class="form-control" id="txtDireccion" maxlength="150" autocomplete="off">
+              <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label required" for="txtCorreo">Correo</label>
+              <input type="email" class="form-control" id="txtCorreo" maxlength="100" autocomplete="off">
+              <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label required" for="selCiudad">Ciudad</label>
+              <select class="form-select" id="selCiudad"><option value="">Seleccione…</option></select>
+              <div class="invalid-feedback"></div>
             </div>
           </div>
         </div>
-
-        <!-- Modal Footer -->
         <div class="modal-footer">
-          <button type="button" class="btn btn-primary" id="btnGuardar">Guardar</button>
-          <button type="button" class="btn btn-danger" data-dismiss="modal">Cerrar</button>
+          <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btnGuardar">Guardar</button>
         </div>
-      </div>
+      </form>
     </div>
   </div>
-
-  <!-- Modal Buscar Ciudad -->
-  <div class="modal fade" id="modalBuscarCiudad" tabindex="-1" role="dialog">
-    <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h4 class="modal-title">Seleccionar Ciudad</h4>
-          <button type="button" class="close" data-dismiss="modal">&times;</button>
-        </div>
-        <div class="modal-body">
-          <div class="table-responsive">
-            <table class="table table-striped table-bordered w-100" id="tblCiudad">
-              <thead>
-                <tr>
-                  <th>Ciudad</th>
-                  <th>Acciones</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
 </div>
-
 {% endblock %}
 
 {% block js %}
+<script src="{{ url_for('static', filename='js/facturacion-validadores.js') }}"></script>
+<script src="{{ url_for('static', filename='js/facturacion-listado.js') }}"></script>
 <script>
-const initDatatable = () => {
-  $('#tbl').DataTable({
-    language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
-    ajax: {
-      url: '/api/v1/pacientes',
-      dataSrc: 'data'
-    },
-    columns: [
-      { data: 'nombre' },
-      { data: 'apellido' },
-      { data: 'cedula_entidad' },
-      { data: 'fecha_nacimiento' },
-      { data: 'telefono' },
-      { data: 'telefono_emergencia' },
-      { data: 'correo' },
-      { data: 'ciudades' },
-      {
-        data: null,
-        render: (data, type, row) => `
-          {% if puede('paciente','editar') %}<button type="button" class="btn btn-info btn-sm btn-editar" data-id="${row.id_paciente}">
-            <i class="fas fa-edit"></i>
-          </button>{% endif %}
-          {% if puede('paciente','anular') %}<button type="button" class="btn btn-danger btn-sm btn-eliminar" data-id="${row.id_paciente}">
-            <i class="fas fa-trash-alt"></i>
-          </button>{% endif %}`
+(function () {
+  const API = '/api/v1/pacientes';
+  const PK = 'id_paciente';
+  const PUEDE_EDITAR = {{ 'true' if puede('paciente', 'editar') else 'false' }};
+  const PUEDE_ANULAR = {{ 'true' if puede('paciente', 'anular') else 'false' }};
+
+  const tbody = document.getElementById('tbody');
+  const chkInactivos = document.getElementById('chkInactivos');
+  const modalEl = document.getElementById('modalFormulario');
+  const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+  const form = document.getElementById('formulario');
+  const btnGuardar = document.getElementById('btnGuardar');
+  const inpId = document.getElementById('txtId');
+
+  const L = window.FacturacionListado;
+  const V = window.FacturacionValidadores;
+  const { escapar, pedir } = L;
+
+  // Campos del formulario: clave JSON, id del input, regla de validación (espejo de utils.py) y, si es un combo, de dónde sale
+  const obligatorio = (nombre) => (v) => (v ? '' : `El campo ${nombre} es obligatorio.`);
+  const CAMPOS = [
+    { k: 'nombre', id: 'txtNombre', regla: (v) => V.nombre(v, 'nombre', true) },
+    { k: 'apellido', id: 'txtApellido', regla: (v) => V.nombre(v, 'apellido', true) },
+    { k: 'cedula_entidad', id: 'txtCedula', regla: (v) => V.ciRuc(v) },
+    { k: 'fecha_nacimiento', id: 'txtNacimiento', regla: (v) => V.fechaNacimiento(v) },
+    { k: 'telefono', id: 'txtTelefono', regla: (v) => V.telefono(v) },
+    { k: 'telefono_emergencia', id: 'txtEmergencia', regla: (v) => V.telefono(v) },
+    { k: 'direccion', id: 'txtDireccion', regla: (v) => V.direccion(v) },
+    { k: 'correo', id: 'txtCorreo', regla: (v) => V.correo(v) },
+    { k: 'id_ciudad', id: 'selCiudad', regla: obligatorio('ciudad'), fuente: '/api/v1/ciudades', id_fuente: 'id_ciudad', texto_fuente: 'descripcion' },
+  ];
+  const inp = {};
+  CAMPOS.forEach((c) => { inp[c.k] = document.getElementById(c.id); });
+  const limpiarErrores = () => CAMPOS.forEach((c) => V.limpiarCampo(inp[c.k]));
+  const CON_USUARIO = false;
+  const hoy = new Date(); hoy.setMinutes(hoy.getMinutes() - hoy.getTimezoneOffset());
+  inp.fecha_nacimiento.max = hoy.toISOString().slice(0, 10);
+
+  async function llenarCombo(c, seleccionado) {
+    const { data } = await pedir(c.fuente);
+    const lista = (data && data.success) ? data.data : [];
+    inp[c.k].innerHTML = '<option value="">Seleccione…</option>' +
+      lista.map((x) => `<option value="${escapar(x[c.id_fuente])}">${escapar(x[c.texto_fuente])}</option>`).join('');
+    inp[c.k].value = seleccionado || '';
+  }
+
+  async function cargar() {
+    try {
+      const { ok, data } = await pedir(L.urlListado(API, chkInactivos));
+      if (!ok || !data || !data.success) throw new Error();
+      if (!data.data.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">No hay pacientes registrados.</td></tr>';
+        return;
       }
-    ]
+      tbody.innerHTML = data.data.map((f) => {
+        const acciones = L.acciones({ activo: f.activo, id: f[PK], descripcion: `${f.nombre} ${f.apellido}`,
+                                      puedeEditar: f.activo ? PUEDE_EDITAR : PUEDE_ANULAR, puedeAnular: PUEDE_ANULAR });
+        return `<tr class="${L.claseFila(f.activo)}">
+          <td>${escapar(f.nombre)} ${escapar(f.apellido)}</td>
+          <td>${escapar(f.cedula_entidad)}</td>
+          <td>${escapar(f.ciudades)}</td>
+          <td>${escapar(f.telefono)}</td>
+          <td>${L.badgeEstado(f.activo)}</td>
+          <td class="text-nowrap"><div class="btn-list flex-nowrap">${acciones}</div></td>
+        </tr>`;
+      }).join('');
+    } catch (e) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger py-4">No se pudo cargar el listado.</td></tr>';
+    }
+  }
+
+  async function abrirModal(titulo, p) {
+    document.getElementById('modalTitle').textContent = titulo;
+    inpId.value = p ? p[PK] : '';
+    for (const c of CAMPOS) {
+      if (c.fuente) await llenarCombo(c, p ? p[c.k] : '');
+      else inp[c.k].value = p ? (p[c.k] || '') : '';
+    }
+    limpiarErrores();
+    modal.show();
+  }
+
+  const btnAgregar = document.getElementById('btnAgregar');
+  if (btnAgregar) btnAgregar.addEventListener('click', () => abrirModal('Agregar Paciente'));
+
+  CAMPOS.forEach((c) => {
+    inp[c.k].addEventListener('input', () => V.limpiarCampo(inp[c.k]));
+    inp[c.k].addEventListener('change', () => V.limpiarCampo(inp[c.k]));
   });
-};
 
-const initDatatableCiudad = () => {
-  $('#tblCiudad').DataTable({
-    language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
-    ajax: {
-      url: '/api/v1/ciudades',
-      dataSrc: 'data'
-    },
-    columns: [
-      { data: 'descripcion' },
-      {
-        data: row => `<button type="button" name="btn_seleccionar_ciudad" class="btn btn-primary"
-                      data-id="${row.id_ciudad}" data-ciudad="${row.descripcion}">Seleccionar</button>`
-      }
-    ]
-  });
+  async function enviar(id, cuerpo) {
+    return pedir(id ? `${API}/${id}` : API, { method: id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo) });
+  }
 
-  $('#tblCiudad').on('click', 'button[name="btn_seleccionar_ciudad"]', function() {
-    const idCiudad = $(this).data('id');
-    const ciudad = $(this).data('ciudad');
-    $('#txtCiudad').val(ciudad);
-    $('#id_ciudad').val(idCiudad);
-    $('#modalBuscarCiudad').modal('hide');
-  });
-};
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    limpiarErrores();
 
-const buscarCiudad = () => {
-  $('#txtCiudad').on('click', function() {
-    $('#modalBuscarCiudad').modal('show');
-  });
-};
-
-const agregar = () => {
-  $('#btnAgregar').on('click', function() {
-    $('#modalTitle').text("Agregar Paciente");
-    $('#txtIdPaciente').val("");
-    $('#nombre, #apellido, #cedula_entidad, #telefono,  #telefono_emergencia, #direccion, #correo, #txtCiudad').val("");
-    const now = new Date();
-    const fechaRegistro = now.getFullYear() + '-' +
-      String(now.getMonth() + 1).padStart(2, '0') + '-' +
-      String(now.getDate()).padStart(2, '0') + ' ' +
-      String(now.getHours()).padStart(2, '0') + ':' +
-      String(now.getMinutes()).padStart(2, '0') + ':' +
-      String(now.getSeconds()).padStart(2, '0');
-    $('#fecha_registro').val(fechaRegistro);
-    $('#modalFormulario').modal('show');
-  });
-};
-
-const guardar = () => {
-  $('#btnGuardar').on('click', function() {
-    const id_paciente = Number($('#txtIdPaciente').val()) || 0;
-    const data = {
-      nombre: $('#nombre').val().trim(),
-      apellido: $('#apellido').val().trim(),
-      cedula_entidad: $('#cedula_entidad').val().trim(),
-      fecha_nacimiento: $('#fecha_nacimiento').val(),
-      telefono: $('#telefono').val().trim(),
-      telefono_emergencia: $('#telefono_emergencia').val().trim(),
-      direccion: $('#direccion').val().trim(),
-      correo: $('#correo').val().trim(),
-      id_ciudad: $('#id_ciudad').val(),
-      fecha_registro: $('#fecha_registro').val()
-    };
-    const tabla = $('#tbl').DataTable();
-    const url = id_paciente > 0 ? `/api/v1/pacientes/${id_paciente}` : '/api/v1/pacientes';
-    const method = id_paciente > 0 ? 'PUT' : 'POST';
-
-    fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    })
-      .then(resp => resp.json())
-      .then(result => {
-        if (result.success) {
-          tabla.ajax.reload(null, false);
-          Swal.fire("Éxito", id_paciente ? "Paciente actualizado" : "Paciente registrado", "success");
-          $('#modalFormulario').modal('hide');
-        } else {
-          Swal.fire("Error", result.error, "error");
-        }
-      })
-      .catch(() => Swal.fire("Error", "Ocurrió un error al guardar.", "error"));
-  });
-};
-
-const editar = () => {
-  $('#tbl').on('click', '.btn-editar', function() {
-    const id_paciente = $(this).data('id');
-    fetch(`/api/v1/pacientes/${id_paciente}`)
-      .then(resp => resp.json())
-      .then(result => {
-        if (result.success) {
-          const p = result.data;
-          $('#txtIdPaciente').val(p.id_paciente);
-          $('#nombre').val(p.nombre);
-          $('#apellido').val(p.apellido);
-          $('#cedula_entidad').val(p.cedula_entidad);
-          $('#fecha_nacimiento').val(p.fecha_nacimiento);
-          $('#telefono').val(p.telefono);
-          $('#telefono_emergencia').val(p.telefono_emergencia);
-          $('#direccion').val(p.direccion);
-          $('#correo').val(p.correo);
-          $('#id_ciudad').val(p.id_ciudad);
-          $('#txtCiudad').val(p.ciudades);
-          $('#fecha_registro').val(p.fecha_registro);
-          $('#modalTitle').text("Editar Paciente");
-          $('#modalFormulario').modal('show');
-        } else {
-          Swal.fire("Error", result.error, "error");
-        }
-      });
-  });
-};
-
-const eliminar = () => {
-  $('#tbl').on('click', '.btn-eliminar', function() {
-    const id_paciente = $(this).data('id');
-    const tabla = $('#tbl').DataTable();
-    Swal.fire({
-      title: "¿Eliminar paciente?",
-      text: "Esta acción no se puede deshacer.",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonText: "Sí, eliminar",
-      cancelButtonText: "Cancelar"
-    }).then(result => {
-      if (result.isConfirmed) {
-        fetch(`/api/v1/pacientes/${id_paciente}`, { method: 'DELETE' })
-          .then(resp => resp.json())
-          .then(result => {
-            if (result.success) {
-              tabla.ajax.reload(null, false);
-              Swal.fire("Eliminado", "El paciente fue eliminado correctamente.", "success");
-            } else {
-              Swal.fire("Error", result.error, "error");
-            }
-          });
-      }
+    let hayError = false;
+    CAMPOS.forEach((c) => {
+      const msg = c.regla(inp[c.k].value);
+      if (msg) { V.marcarCampo(inp[c.k], msg); hayError = true; }
     });
+    if (hayError) return;
+
+    const id = inpId.value;
+    if (id) {
+      const c = await Swal.fire({
+        title: '¿Guardar los cambios?', text: 'Se modificarán los datos de este paciente.', icon: 'question',
+        showCancelButton: true, confirmButtonText: 'Sí, guardar', cancelButtonText: 'Cancelar'
+      });
+      if (!c.isConfirmed) return;
+    }
+
+    const cuerpo = {};
+    CAMPOS.forEach((c) => { cuerpo[c.k] = inp[c.k].value.trim(); });
+
+    btnGuardar.disabled = true;
+    try {
+      let { data } = await enviar(id, cuerpo);
+      if (CON_USUARIO && id && data && data.requiere_confirmacion) {
+        // La cédula es el CI/RUC con el que la persona inicia sesión: se pide confirmar el cambio
+        const c = await Swal.fire({
+          title: 'Cambiar la cédula', icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí, cambiar', cancelButtonText: 'Cancelar',
+          html: `La cédula <b>${escapar(data.cedula_anterior)}</b> pasará a <b>${escapar(data.cedula_nueva)}</b>.<br>Es el CI/RUC con el que esta persona inicia sesión.`
+        });
+        if (!c.isConfirmed) { btnGuardar.disabled = false; return; }
+        ({ data } = await enviar(id, { ...cuerpo, confirmar_cambio_cedula: true }));
+      }
+      if (data && data.success) {
+        modal.hide();
+        await cargar();
+        Swal.fire(id ? 'Actualizado' : 'Agregado', data.mensaje, 'success');
+      } else {
+        // El servidor indica el campo con problema (duplicado, formato, referencial anulado); si no, va en el primero
+        V.marcarCampo(inp[data && data.campo && inp[data.campo] ? data.campo : CAMPOS[0].k], (data && data.error) || 'No se pudo guardar este paciente.');
+      }
+    } catch (e) {
+      V.marcarCampo(inp[CAMPOS[0].k], 'Ocurrió un error de conexión. Intente nuevamente.');
+    } finally {
+      btnGuardar.disabled = false;
+    }
   });
-};
 
-// Validación: solo números
-$('#telefono, #cedula_entidad').on('input', function() {
-  this.value = this.value.replace(/[^0-9]/g, '');
-});
+  tbody.addEventListener('click', async (ev) => {
+    const btn = ev.target.closest('button[data-accion]');
+    if (!btn) return;
+    const id = btn.dataset.id;
 
-$(function() {
-  initDatatable();
-  initDatatableCiudad();
-  buscarCiudad();
-  agregar();
-  guardar();
-  editar();
-  eliminar();
-});
+    if (btn.dataset.accion === 'editar') {
+      try {
+        const { data } = await pedir(`${API}/${id}`);
+        if (data && data.success) {
+          await abrirModal('Editar Paciente', data.data);
+        } else {
+          Swal.fire('Error', (data && data.error) || 'No se pudo cargar este paciente.', 'error');
+          cargar();
+        }
+      } catch (e) {
+        Swal.fire('Error', 'Ocurrió un error de conexión.', 'error');
+      }
+    }
+
+    if (btn.dataset.accion === 'anular') {
+      await L.anular({
+        api: API, id, descripcion: btn.dataset.desc, titulo: '¿Anular este paciente?', exito: 'Anulado',
+        errorDefault: 'No se pudo anular este paciente.', recargar: cargar
+      });
+    }
+
+    if (btn.dataset.accion === 'reactivar') {
+      await L.reactivar({
+        api: API, id, descripcion: btn.dataset.desc, titulo: '¿Reactivar este paciente?', exito: 'Reactivado',
+        errorDefault: 'No se pudo reactivar este paciente.', recargar: cargar
+      });
+    }
+  });
+
+  chkInactivos.addEventListener('change', cargar);
+  cargar();
+})();
 </script>
 {% endblock %}

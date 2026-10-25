@@ -1,241 +1,213 @@
-{% extends 'base.html' %}
+{% extends 'base_tabler.html' %}
 
-{% block titulo %}
-Especialidad
-{% endblock %}
+{% block titulo %}Especialidades{% endblock %}
 
 {% block contenido %}
-<div class="container mt-4">
-    <h3>Listar Especialidades</h3>
-
-    <!-- tarjeta -->
-    <div class="card">
-        <div class="card-header">
-            {% if puede('especialidad','nuevo') %}<button type="button" class="btn btn-outline-primary" id="btnAgregar">Agregar</button>{% endif %}
-        </div>
-        <div class="card-body">
-            <table class="table table-striped" id="tbl">
-                <thead>
-                    <tr>
-                        <th>Nombre Especialidad</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
-        </div>
+<div class="page-header d-print-none mb-3">
+  <div class="row align-items-center">
+    <div class="col">
+      <div class="page-pretitle">Agendamiento · Referenciales</div>
+      <h2 class="page-title">Especialidades</h2>
     </div>
-    <!-- /tarjeta -->
-
-    <!-- El formulario -->
-    <div class="modal" id="modalFormulario">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <!-- Modal Header -->
-                <div class="modal-header">
-                    <h4 class="modal-title" id="modalTitle"></h4>
-                    <button type="button" class="close" data-dismiss="modal">&times;</button>
-                </div>
-
-                <!-- Modal body -->
-                <div class="modal-body">
-                    <div class="form-group">
-                        <input type="hidden" id="txtIdEspecialidad">
-                        <label for="txtNombreEspecialidad">Nombre Especialidad:</label>
-                        <input type="text" class="form-control" placeholder="Ingrese la especialidad" id="txtNombreEspecialidad">
-                    </div>
-                </div>
-
-                <!-- Modal footer -->
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" id="btnGuardar">Guardar</button>
-                    <button type="button" class="btn btn-danger" data-dismiss="modal">Cerrar</button>
-                </div>
-            </div>
-        </div>
+    {% if puede('especialidad', 'nuevo') %}
+    <div class="col-auto ms-auto">
+      <button type="button" class="btn btn-primary" id="btnAgregar">
+        <i class="fas fa-plus me-2"></i>Agregar
+      </button>
     </div>
+    {% endif %}
+  </div>
+</div>
 
-    <div class="row mt-4 d-none" id="rowAlerta">
-        <div class="col col-md-12">
-            <div class="alert alert-success">
-                <strong>Registro Exitoso!</strong>
-                <div class="row" id="mostrarAlerta"></div>
-            </div>
+<div class="card">
+  <div class="card-header">
+    <label class="form-check form-switch mb-0">
+      <input class="form-check-input" type="checkbox" id="chkInactivos">
+      <span class="form-check-label">Mostrar inactivas</span>
+    </label>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table" id="tbl">
+      <thead>
+        <tr>
+          <th>Nombre</th>
+          <th style="width: 120px;">Estado</th>
+          <th class="w-1">Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="tbody">
+        <tr><td colspan="3" class="text-center text-muted py-4">Cargando…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# Modal Alta / Modificar #}
+<div class="modal modal-blur fade" id="modalFormulario" tabindex="-1" aria-labelledby="modalTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalTitle"></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <form id="formulario" novalidate>
+        <div class="modal-body">
+          <input type="hidden" id="txtId">
+          <div class="mb-3">
+            <label class="form-label required" for="txtClave">Nombre</label>
+            <input type="text" class="form-control" id="txtClave" maxlength="100" placeholder="Ej.: ORTODONCIA" autocomplete="off" style="text-transform: uppercase;">
+            <div class="invalid-feedback" id="errValor"></div>
+          </div>
         </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btnGuardar">Guardar</button>
+        </div>
+      </form>
     </div>
+  </div>
 </div>
 {% endblock %}
 
 {% block js %}
+<script src="{{ url_for('static', filename='js/facturacion-validadores.js') }}"></script>
+<script src="{{ url_for('static', filename='js/facturacion-listado.js') }}"></script>
 <script>
-  const initDatatable = () => {
-    $('#tbl').DataTable({
-      language: {
-        url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}",
-      },
-      ajax: '/api/v1/especialidades',
-      columns: [
-        { data: 'nombre_especialidad' },
-        { data: function(row) {
-            return `{% if puede('especialidad','editar') %}<button type="button" name="btn_editar" class="btn btn-outline-primary" data-id="${row.id_especialidad}">Editar</button>{% endif %}
-                    {% if puede('especialidad','anular') %}<button type="button" name="btn_eliminar" class="btn btn-outline-warning" data-id="${row.id_especialidad}">Eliminar</button>{% endif %}`;
-          }
-        }
-      ]
-    });
-  };
+(function () {
+  const API = '/api/v1/especialidades';
+  const PK = 'id_especialidad';
+  const CAMPO = 'nombre_especialidad';
+  const PUEDE_EDITAR = {{ 'true' if puede('especialidad', 'editar') else 'false' }};
+  const PUEDE_ANULAR = {{ 'true' if puede('especialidad', 'anular') else 'false' }};
 
-  const agregar = () => {
-    $('#btnAgregar').on('click', function() {
-      $('#modalTitle').text("Agregar Especialidad");
-      $('#txtIdEspecialidad').val("");
-      $('#txtNombreEspecialidad').val("");
-      $('#modalFormulario').modal();
-    });
-  };
+  const tbody = document.getElementById('tbody');
+  const chkInactivos = document.getElementById('chkInactivos');
+  const modalEl = document.getElementById('modalFormulario');
+  const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+  const form = document.getElementById('formulario');
+  const inpId = document.getElementById('txtId');
+  const inpValor = document.getElementById('txtClave');
+  const errValor = document.getElementById('errValor');
+  const btnGuardar = document.getElementById('btnGuardar');
 
-  const guardar = () => {
-    $('#btnGuardar').on('click', function() {
-      const idEspecialidad = $('#txtIdEspecialidad').val();
-      const nombreEspecialidad = $('#txtNombreEspecialidad').val();
-      const tabla = $('#tbl').DataTable();
+  const L = window.FacturacionListado;
+  const V = window.FacturacionValidadores;
+  const { escapar, pedir } = L;
 
-      if (nombreEspecialidad.trim() === "") {
-        Swal.fire("Error", "El nombre de la especialidad es obligatorio.", "error");
+  const mostrarError = (msg) => { errValor.textContent = msg; inpValor.classList.add('is-invalid'); };
+  const limpiarError = () => { errValor.textContent = ''; inpValor.classList.remove('is-invalid'); };
+  const validar = (v) => V.descripcion(v, { max: 100, etiqueta: 'nombre' });
+
+  async function cargar() {
+    try {
+      const { ok, data } = await pedir(L.urlListado(API, chkInactivos));
+      if (!ok || !data || !data.success) throw new Error();
+      if (!data.data.length) {
+        tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-4">No hay especialidades registradas.</td></tr>';
         return;
       }
+      tbody.innerHTML = data.data.map((f) => {
+        const acciones = L.acciones({ activo: f.activo, id: f[PK], descripcion: f[CAMPO], puedeEditar: PUEDE_EDITAR, puedeAnular: PUEDE_ANULAR });
+        return `<tr class="${L.claseFila(f.activo)}">
+          <td>${escapar(f[CAMPO])}</td>
+          <td>${L.badgeEstado(f.activo)}</td>
+          <td class="text-nowrap"><div class="btn-list flex-nowrap">${acciones}</div></td>
+        </tr>`;
+      }).join('');
+    } catch (e) {
+      tbody.innerHTML = '<tr><td colspan="3" class="text-center text-danger py-4">No se pudo cargar el listado.</td></tr>';
+    }
+  }
 
-      if (idEspecialidad) {
-        // update
-        fetch(`/api/v1/especialidades/${idEspecialidad}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ nombre_especialidad: nombreEspecialidad })
-        })
-        .then(resp => resp.json())
-        .then(data => {
-          if (data && !data.error && data.success) {
-            tabla.ajax.reload();
-            Swal.fire("Actualizado", "La especialidad ha sido actualizada correctamente.", "success");
-          } else {
-            Swal.fire("Error", data.error || "Error desconocido.", "error");
-          }
-        })
-        .catch(err => {
-          console.error(err);
-          Swal.fire("Error", "Ocurrió un error al actualizar la especialidad.", "error");
-        });
+  function abrirModal(titulo, id, valor) {
+    document.getElementById('modalTitle').textContent = titulo;
+    inpId.value = id || '';
+    inpValor.value = valor || '';
+    limpiarError();
+    modal.show();
+  }
+
+  const btnAgregar = document.getElementById('btnAgregar');
+  if (btnAgregar) btnAgregar.addEventListener('click', () => abrirModal('Agregar Especialidad'));
+
+  modalEl.addEventListener('shown.bs.modal', () => inpValor.focus());
+  inpValor.addEventListener('input', limpiarError);
+  inpValor.addEventListener('change', limpiarError);
+
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    limpiarError();
+
+    const id = inpId.value;
+    const valor = inpValor.value.trim();
+    const error = validar(valor);
+    if (error) { mostrarError(error); return; }
+
+    if (id) {
+      const c = await Swal.fire({
+        title: '¿Guardar los cambios?', text: 'Se modificará la especialidad.', icon: 'question',
+        showCancelButton: true, confirmButtonText: 'Sí, guardar', cancelButtonText: 'Cancelar'
+      });
+      if (!c.isConfirmed) return;
+    }
+
+    btnGuardar.disabled = true;
+    try {
+      const { data } = await pedir(id ? `${API}/${id}` : API, {
+        method: id ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [CAMPO]: valor })
+      });
+      if (data && data.success) {
+        modal.hide();
+        await cargar();
+        Swal.fire(id ? 'Actualizada' : 'Agregada', data.mensaje, 'success');
       } else {
-        // insert
-        fetch(`/api/v1/especialidades`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ nombre_especialidad: nombreEspecialidad })
-        })
-        .then(resp => resp.json())
-        .then(data => {
-          if (data && !data.error && data.success) {
-            tabla.ajax.reload();
-            Swal.fire("Agregado", "La especialidad ha sido agregada correctamente.", "success");
-          } else {
-            Swal.fire("Error", data.error || "Error desconocido.", "error");
-          }
-        })
-        .catch(err => {
-          console.error(err);
-          Swal.fire("Error", "Ocurrió un error al guardar la especialidad.", "error");
-        });
+        mostrarError((data && data.error) || 'No se pudo guardar la especialidad.');
       }
-
-      $('#txtNombreEspecialidad').val("");
-      $('#modalFormulario').modal("hide");
-    });
-  };
-
-  const editar = () => {
-    $('#tbl').on('click', 'button[name="btn_editar"]', function() {
-      Swal.fire({
-        title: "¿Deseas editar este registro?",
-        showCancelButton: true,
-        confirmButtonText: "Sí",
-        cancelButtonText: "No"
-      }).then((result) => {
-        if (result.isConfirmed) {
-          $('#modalTitle').text("Editar Especialidad");
-
-          const idEspecialidad = $(this).data('id');
-          $('#txtIdEspecialidad').val(idEspecialidad);
-
-          fetch(`/api/v1/especialidades/${idEspecialidad}`, {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json'
-            }
-          })
-          .then(resp => resp.json())
-          .then(data => {
-            if (data && data.success) {
-              $('#txtNombreEspecialidad').val(data.data.nombre_especialidad);
-              $('#modalFormulario').modal();
-            } else {
-              Swal.fire("Error", data.error || "Error desconocido.", "error");
-            }
-          });
-        }
-      });
-    });
-  };
-
-  const eliminar = () => {
-    $('#tbl').on('click', 'button[name="btn_eliminar"]', function() {
-      const idEspecialidad = $(this).data('id');
-
-      Swal.fire({
-        title: "¿Deseas eliminar este registro?",
-        showCancelButton: true,
-        confirmButtonText: "Sí",
-        cancelButtonText: "No"
-      }).then((result) => {
-        if (result.isConfirmed) {
-          fetch(`/api/v1/especialidades/${idEspecialidad}`, {
-            method: 'DELETE',
-            headers: {
-              'Content-Type': 'application/json'
-            }
-          })
-          .then(resp => resp.json())
-          .then(data => {
-            if (data && !data.error && data.success) {
-              const tabla = $('#tbl').DataTable();
-              tabla.ajax.reload();
-              Swal.fire("Eliminado", "La especialidad ha sido eliminada correctamente.", "success");
-            } else {
-              Swal.fire("Error", data.error || "Error desconocido.", "error");
-            }
-          })
-          .catch(err => {
-            console.error(err);
-            Swal.fire("Error", "Ocurrió un error al eliminar la especialidad.", "error");
-          });
-        }
-      });
-    });
-  };
-
-  const addEvents = () => {
-    agregar();
-    guardar();
-    editar();
-    eliminar();
-  };
-
-  $(function() {
-    initDatatable();
-    addEvents();
+    } catch (e) {
+      mostrarError('Ocurrió un error de conexión. Intente nuevamente.');
+    } finally {
+      btnGuardar.disabled = false;
+    }
   });
+
+  tbody.addEventListener('click', async (ev) => {
+    const btn = ev.target.closest('button[data-accion]');
+    if (!btn) return;
+    const id = btn.dataset.id;
+
+    if (btn.dataset.accion === 'editar') {
+      try {
+        const { data } = await pedir(`${API}/${id}`);
+        if (data && data.success) {
+          abrirModal('Editar Especialidad', data.data[PK], data.data[CAMPO]);
+        } else {
+          Swal.fire('Error', (data && data.error) || 'No se pudo cargar la especialidad.', 'error');
+          cargar();
+        }
+      } catch (e) {
+        Swal.fire('Error', 'Ocurrió un error de conexión.', 'error');
+      }
+    }
+
+    if (btn.dataset.accion === 'anular') {
+      await L.anular({
+        api: API, id, descripcion: btn.dataset.desc, titulo: '¿Anular esta especialidad?', exito: 'Anulada',
+        errorDefault: 'No se pudo anular la especialidad.', recargar: cargar
+      });
+    }
+
+    if (btn.dataset.accion === 'reactivar') {
+      await L.reactivar({
+        api: API, id, descripcion: btn.dataset.desc, titulo: '¿Reactivar esta especialidad?', exito: 'Reactivada',
+        errorDefault: 'No se pudo reactivar la especialidad.', recargar: cargar
+      });
+    }
+  });
+
+  chkInactivos.addEventListener('change', cargar);
+  cargar();
+})();
 </script>
 {% endblock %}

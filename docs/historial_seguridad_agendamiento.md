@@ -200,3 +200,40 @@ Ver la sección **"Modelo de permisos"** (más abajo): reemplaza al antiguo cont
 por rol con `@require_admin` y a la nota de "pendiente de decidir" sobre los
 módulos grandes, que ya quedó resuelta.
 
+## Migración de Agendamiento a Tabler (rama `agendamiento-tabler`)
+Plan completo en `plan_agendamiento.md` (raíz; sin commitear). Decisiones de negocio aprobadas: Día y Turno con ABM completo (Día conserva el CHECK de los 7 nombres; Turno suelta el suyo);
+anular un Médico o Funcionario con usuario activo se bloquea ("anule primero el usuario"); permisos: Ciudad, Cargo, Especialidad, Consultorio, Día, Turno, Médico y Funcionario → Administrador gestiona y el resto solo ve;
+Disponibilidad Horaria → Recepción ver/nuevo/editar/anular y Médico ver; Paciente → Recepción ver/nuevo/editar, Médico ver, anular solo Administrador; Agenda, Cita y Avisos → Recepción todo y Médico ver (+ `estado` en Cita);
+Historial Médico → Recepción sin acceso, Médico lee/crea/anula lo de sus pacientes atendidos, Administrador solo lee; Agenda y Aviso se reactivan (sin conflicto de médico y fecha), una Cita cancelada no; auditoría de datos personales solo con quién, cuándo, nombre y cédula.
+
+### Etapa 1 — base de datos y los 7 referenciales (hecha)
+- **Reconstruir la base desde el repo** (orden; todos idempotentes, con postgres y `PGCLIENTENCODING=UTF8`): `schema_agendamiento_base.sql` → `schema_agendamiento_datos.sql` → `schema_seguridad_base.sql` → `historial/schema_historial_base.sql` → `schema_agendamiento_etapa1.sql`
+  (los de Consultorio y Facturación siguen su propio orden, ver sus historiales; `auditoria_acceso`, `auditoria_cambios` y sus triggers, en sus scripts). Los scripts viejos que crearon o alteraron `roles`, `usuarios`, `token_2fa` y `permisos` quedan como histórico.
+  `tests/agendamiento/smoke_esquema_agendamiento.py` reconstruye esas 22 tablas en una base temporal y las compara con la real (columnas, restricciones, índices, secuencias).
+- Permisos: `schema_permisos_agendamiento_etapa1.sql` (idempotente; define el conjunto completo de las 7 ventanas para Medico y Recepcion).
+- Código: Ciudad, Cargo, Especialidad, Día y Turno reutilizan `CatalogoDao` y `crear_api_catalogo()` (de Consultorio); Consultorio los usa con 3 campos más (`duplicado()` revisa nombre y correo); Disponibilidad Horaria tiene DAO propio (FOR SHARE sobre médico, día y turno y bloqueo asesor por médico contra superposiciones).
+  Validadores de Agendamiento en `app/rutas/modulo_agendamiento/utils.py` con su espejo en `facturacion-validadores.js` (`dia`, `telefonoPy`, `hora`, `horario`, `cupos`). Auditoría: entidades de Agendamiento ya declaradas en `auditoria_detalle.py` (módulos "Referenciales Agendamiento" y "Módulo Agendamiento").
+- `CajaDao` solo acepta un consultorio **activo** (FOR SHARE); el listado de cajas sigue mostrando el nombre de uno anulado. Los tests `smoke_consultorio` y `smoke_caja` se actualizaron al comportamiento nuevo (baja lógica en lugar de borrado físico).
+- Pendiente de las etapas siguientes: los hijos que apuntan a estos referenciales (Paciente, Médico, Funcionario, Agenda) todavía no toman `FOR SHARE` sobre ellos ni rechazan los anulados al guardar (Etapas 2 y 3); hasta entonces solo los combos (que listan activos) lo evitan.
+- Limpieza: se borraron `rutas/referenciales/consultorio/` y `rutas/referenciales/avisosRecordatorios/` (copias muertas) y `ciudad-agregar.html`; se corrigieron los `___init__.py` (tres guiones bajos).
+
+### Etapa 2 — Paciente, Médico y Funcionario (hecha)
+- Orden de scripts: se suma `schema_agendamiento_etapa2.sql` al final de la lista de la etapa 1 y `schema_permisos_agendamiento_etapa2.sql` (idempotente).
+- Código: `PersonaDao` (`dao/referenciales_agendamiento/persona_dao.py`) y `crear_api_persona()` (`rutas/modulo_agendamiento/persona_api.py`) son la base de las tres; cada persona declara sus campos, padres, duplicados y motivos de uso. Los padres (ciudad, especialidad, cargo) se toman `FOR SHARE` y se rechazan si están anulados, al guardar, modificar y reactivar.
+  Las rutas siguen siendo `/pacientes`, `/medico` y `/funcionarios`; la lista y el detalle siguen con `@require_login` (alimentan los buscadores) pero devuelven solo lo mínimo a quien no tiene `ver`.
+  Reactivar usa el permiso `anular` (no `editar`): quien puede anular puede reactivar, y a Recepción (que edita pacientes) no se le abre la reactivación.
+- Seguridad / Facturación: `UsuarioDao` (alta, edición, reactivar y listas de disponibles) y `ClienteDao` (alta, reactivar y buscador) solo aceptan personas ACTIVAS, con `FOR SHARE` sobre la fila.
+- Validadores nuevos con espejo JS: `fecha de nacimiento` (real, no futura, desde 1900) y `validar_persona()`.
+- Falta (etapa 3): Cita, Agenda y Avisos todavía no rechazan un paciente, médico o funcionario anulado al guardar.
+
+### Etapa 3 — Agenda, Cita, Avisos, Historial, Usuarios y Roles/Permisos (hecha)
+- Scripts: `schema_agendamiento_etapa3.sql` (después de la etapa 2) y `schema_permisos_agendamiento_etapa3.sql` (idempotente: Recepción opera Agenda, Cita y Avisos; el Médico ve y, en Cita, cambia el estado; Historial solo Médico; Agenda no tiene acción `estado`).
+- **Cupo**: `CitaDao` hace cada alta / cambio de estado / cancelación en UNA transacción con el horario bloqueado (`FOR UPDATE`) y descuenta o devuelve el cupo ahí mismo; 12 reservas simultáneas sobre 3 cupos dejan exactamente 3 citas. Antes cada paso usaba su propia conexión y la cita usaba un funcionario fijo (`obtener_id_funcionario_actual() == 3`).
+  La cancelación de Consultorio (`ConsultaDao`) sigue devolviendo el cupo por su cuenta con la misma regla (`LEAST(cupos_maximos, +1)`).
+- **Avisos**: `app/Services/whatsapp_service.py` (`WhatsAppSesion`, `construir_mensaje`, `enviar_recordatorio`) y `email_service.enviar_recordatorio_correo`. El perfil de Chrome vive en `whatsapp_session/` (gitignore `whatsapp_session*`; el viejo `whatsapp_session_persistente/` se puede borrar: con Chrome 155 quedaba corrupto y el navegador se caía).
+  Primera vez: en Avisos, "Vincular WhatsApp" abre WhatsApp Web, se escanea el QR y la sesión queda guardada; después "Verificar" (o el primer envío) la reutiliza. Si el navegador no abre porque quedó otra ventana de Chrome con el mismo perfil, el aviso lo dice. Se necesita Chrome (o `WHATSAPP_BROWSER=edge`) y la dependencia `selenium` (ya en `paquetes.txt`).
+  Los tests usan navegador y correo falsos: **el envío real a un celular solo se prueba a mano**. Se verificó con Chrome real que WhatsApp Web carga y que se detecta la pantalla del QR.
+- **Historial**: `uploads/` salía en git (había PDF subidos versionados): se sacó del índice y se agregó a `.gitignore`; los archivos viejos siguen en el historial de git.
+- Seguridad: Usuarios y Roles/Permisos auditan en `auditoria_cambios` (módulo Seguridad); la matriz valida rol, ventana y acción contra el catálogo.
+- Limpieza: `app/templates/agenda/` se movió a la carpeta de su blueprint; las plantillas de Agenda, Cita, Avisos, Historial, Usuarios y Roles/Permisos pasan a Tabler. **Ya no queda ninguna pantalla de funcionalidad en SB Admin 2** (solo las páginas de error y la plantilla `base.html`).
+

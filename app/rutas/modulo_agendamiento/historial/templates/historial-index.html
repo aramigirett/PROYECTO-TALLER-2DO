@@ -1,1409 +1,231 @@
-{% extends 'base.html' %}
+{% extends 'base_tabler.html' %}
 
-{% block titulo %}
-Historial Médico del Paciente
-{% endblock %}
+{% block titulo %}Historial Médico{% endblock %}
 
 {% block contenido %}
-<div class="container-fluid mt-4">
-
-  <!-- ============================================ -->
-  <!-- CARD PRINCIPAL -->
-  <!-- ============================================ -->
-  <div class="card shadow-sm border-0 rounded-lg">
-    
-    <!-- HEADER CON TÍTULO Y BOTÓN -->
-    <div class="card-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-      <div class="d-flex justify-content-between align-items-center">
-        <h4 class="mb-0 text-white font-weight-bold">
-          <i class="fas fa-tooth mr-2"></i> 📋 Historial Médico del Paciente
-        </h4>
-        {% if puede('historial','nuevo') %}<button type="button" class="btn btn-light btn-sm" id="btnAgregarDocumento" disabled>
-          <i class="fas fa-plus-circle mr-1"></i> Agregar Documento
-        </button>{% endif %}
+{% set es_medico = session.get('nombre_rol') != 'Administrador' %}
+<div class="page-header d-print-none mb-3">
+  <div class="row align-items-center">
+    <div class="col">
+      <div class="page-pretitle">Consultorio</div>
+      <h2 class="page-title">Historial Médico del Paciente</h2>
+      <div class="text-muted mt-1">
+        {% if es_medico %}Solo ve y registra los pacientes que usted atendió.{% else %}Consulta de solo lectura: el historial lo registra el médico que atendió al paciente.{% endif %}
+        Los datos de salud no se guardan en la auditoría y cada descarga de un archivo queda registrada.
       </div>
-    </div>
-
-    <div class="card-body">
-      
-      <!-- ============================================ -->
-      <!-- BÚSQUEDA DE PACIENTE -->
-      <!-- ============================================ -->
-      <div class="row mb-4">
-        <div class="col-md-12">
-          <label class="font-weight-bold">Buscar Paciente:</label>
-          <div class="input-group">
-            <input type="text" 
-                   id="txtBuscarPaciente" 
-                   class="form-control" 
-                   placeholder="Escriba el nombre del paciente..."
-                   readonly>
-            <div class="input-group-append">
-              <button class="btn btn-primary" type="button" id="btnBuscarPaciente">
-                <i class="fas fa-search"></i> Buscar
-              </button>
-            </div>
-          </div>
-          <input type="hidden" id="idPacienteSeleccionado">
-        </div>
-      </div>
-
-      <!-- ============================================ -->
-      <!-- INFORMACIÓN DEL PACIENTE (OCULTO POR DEFECTO) -->
-      <!-- ============================================ -->
-      <div class="card mb-3" id="infoPaciente" style="display:none;">
-        <div class="card-body bg-light">
-          <div class="row">
-            <div class="col-md-3">
-              <strong>👤 Paciente:</strong><br>
-              <span id="nombrePaciente" class="text-primary font-weight-bold"></span>
-            </div>
-            <div class="col-md-2">
-              <strong>🆔 Cédula:</strong><br>
-              <span id="cedulaPaciente"></span>
-            </div>
-            <div class="col-md-3">
-              <strong>🎂 Fecha Nacimiento:</strong><br>
-              <span id="fechaNacPaciente"></span>
-            </div>
-            <div class="col-md-2">
-              <strong>📊 Total Documentos:</strong><br>
-              <span id="totalDocumentos" class="badge badge-primary badge-pill" style="font-size: 1rem;">0</span>
-            </div>
-            <div class="col-md-2">
-              <button class="btn btn-sm btn-outline-secondary" id="btnLimpiarPaciente">
-                <i class="fas fa-eraser"></i> Cambiar Paciente
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ============================================ -->
-      <!-- TABS POR CATEGORÍA (OCULTO POR DEFECTO) -->
-      <!-- ============================================ -->
-      <div id="contenedorTabs" style="display:none;">
-        
-        <!-- TABS CON CONTADORES -->
-        <ul class="nav nav-tabs" id="historialTabs" role="tablist">
-          <!-- TAB: ANTECEDENTES -->
-          <li class="nav-item">
-            <a class="nav-link active" id="tab-antecedentes" data-toggle="tab" href="#tabAntecedentes" role="tab">
-              📋 Antecedentes
-              <span class="badge badge-pill badge-info ml-1" id="countAntecedentes">0</span>
-            </a>
-          </li>
-          
-          <!-- TAB: ALERGIAS -->
-          <li class="nav-item">
-            <a class="nav-link" id="tab-alergias" data-toggle="tab" href="#tabAlergias" role="tab">
-              ⚠️ Alergias
-              <span class="badge badge-pill badge-danger ml-1" id="countAlergias">0</span>
-            </a>
-          </li>
-          
-          <!-- TAB: MEDICAMENTOS HABITUALES -->
-          <li class="nav-item">
-            <a class="nav-link" id="tab-medicamentos" data-toggle="tab" href="#tabMedicamentos" role="tab">
-              💊 Medicamentos Habituales
-              <span class="badge badge-pill badge-warning ml-1" id="countMedicamentos">0</span>
-            </a>
-          </li>
-          
-          <!-- TAB: ESTUDIOS/RADIOGRAFÍAS -->
-          <li class="nav-item">
-            <a class="nav-link" id="tab-estudios" data-toggle="tab" href="#tabEstudios" role="tab">
-              🔬 Estudios/Radiografías
-              <span class="badge badge-pill badge-success ml-1" id="countEstudios">0</span>
-            </a>
-          </li>
-          
-          <!-- TAB: OTROS ARCHIVOS -->
-          <li class="nav-item">
-            <a class="nav-link" id="tab-otros" data-toggle="tab" href="#tabOtros" role="tab">
-              📎 Otros Archivos
-              <span class="badge badge-pill badge-secondary ml-1" id="countOtros">0</span>
-            </a>
-          </li>
-        </ul>
-
-        <!-- CONTENIDO DE TABS -->
-        <div class="tab-content p-3 border border-top-0" id="historialTabsContent">
-          
-          <!-- ============================================ -->
-          <!-- TAB CONTENIDO: ANTECEDENTES -->
-          <!-- ============================================ -->
-          <div class="tab-pane fade show active" id="tabAntecedentes" role="tabpanel">
-            <div class="table-responsive">
-              <table class="table table-hover table-sm" id="tblAntecedentes">
-                <thead class="thead-light">
-                  <tr>
-                    <th width="12%">Fecha Registro</th>
-                    <th width="60%">Descripción</th>
-                    <th width="15%">Registrado por</th>
-                    <th width="13%">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <!-- Se llena dinámicamente con JavaScript -->
-                </tbody>
-              </table>
-            </div>
-          </div>
-          
-          <!-- ============================================ -->
-          <!-- TAB CONTENIDO: ALERGIAS -->
-          <!-- ============================================ -->
-          <div class="tab-pane fade" id="tabAlergias" role="tabpanel">
-            <div class="alert alert-warning">
-              <i class="fas fa-exclamation-triangle"></i> 
-              <strong>Información crítica:</strong> Las alergias registradas aquí se mostrarán automáticamente en todas las consultas.
-            </div>
-            <div class="table-responsive">
-              <table class="table table-hover table-sm" id="tblAlergias">
-                <thead class="thead-light">
-                  <tr>
-                    <th width="15%">Fecha</th>
-                    <th width="15%">Tipo de Alergia</th>
-                    <th width="40%">Descripción</th>
-                    <th width="15%">Gravedad</th>
-                    <th width="15%">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody></tbody>
-              </table>
-            </div>
-          </div>
-          
-          <!-- ============================================ -->
-          <!-- TAB CONTENIDO: MEDICAMENTOS HABITUALES -->
-          <!-- ============================================ -->
-          <div class="tab-pane fade" id="tabMedicamentos" role="tabpanel">
-            <div class="table-responsive">
-              <table class="table table-hover table-sm" id="tblMedicamentos">
-                <thead class="thead-light">
-                  <tr>
-                    <th width="20%">Medicamento</th>
-                    <th width="12%">Dosis</th>
-                    <th width="15%">Frecuencia</th>
-                    <th width="25%">Motivo</th>
-                    <th width="13%">Desde</th>
-                    <th width="15%">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody></tbody>
-              </table>
-            </div>
-          </div>
-          
-          <!-- ============================================ -->
-          <!-- TAB CONTENIDO: ESTUDIOS/RADIOGRAFÍAS -->
-          <!-- ============================================ -->
-          <div class="tab-pane fade" id="tabEstudios" role="tabpanel">
-            <div class="row" id="galeriaEstudios">
-              <!-- Grid de tarjetas con imágenes/PDFs (se llena dinámicamente) -->
-            </div>
-          </div>
-          
-          <!-- ============================================ -->
-          <!-- TAB CONTENIDO: OTROS ARCHIVOS -->
-          <!-- ============================================ -->
-          <div class="tab-pane fade" id="tabOtros" role="tabpanel">
-            <div class="list-group" id="listaOtrosArchivos">
-              <!-- Lista de archivos descargables (se llena dinámicamente) -->
-            </div>
-          </div>
-
-        </div>
-      </div>
-
-      <!-- MENSAJE CUANDO NO HAY PACIENTE SELECCIONADO -->
-      <div class="text-center text-muted py-5" id="mensajeSinPaciente">
-        <i class="fas fa-user-md fa-3x mb-3"></i>
-        <h5>Seleccione un paciente para ver su historial médico</h5>
-        <p>Haga clic en el botón "Buscar" para seleccionar un paciente</p>
-      </div>
-
     </div>
   </div>
-
 </div>
 
-<!-- ============================================ -->
-<!-- MODAL: BUSCAR PACIENTE -->
-<!-- ============================================ -->
-<div class="modal fade" id="modalBuscarPaciente" tabindex="-1" role="dialog">
-  <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+<div class="row">
+  <div class="col-lg-4 mb-3">
+    <div class="card">
+      <div class="card-header"><h3 class="card-title">Pacientes</h3></div>
+      <div class="card-body pb-2"><input type="search" class="form-control" id="buscaPaciente" placeholder="Buscar por nombre o cédula…" autocomplete="off"></div>
+      <div class="list-group list-group-flush" id="listaPacientes" style="max-height: 460px; overflow-y: auto;"></div>
+    </div>
+  </div>
+  <div class="col-lg-8">
+    <div class="card" id="cardHistorial" style="display: none;">
+      <div class="card-header">
+        <h3 class="card-title" id="tituloPaciente"></h3>
+        {% if puede('historial', 'nuevo') and es_medico %}
+        <div class="card-actions"><button type="button" class="btn btn-primary btn-sm" id="btnAgregar"><i class="fas fa-plus me-2"></i>Agregar documento</button></div>
+        {% endif %}
+      </div>
+      <div class="card-body pb-0">
+        <ul class="nav nav-tabs" id="tabs"></ul>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-vcenter card-table">
+          <thead><tr><th>Fecha</th><th>Tipo</th><th>Detalle</th><th>Archivo</th><th class="w-1"></th></tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="text-muted" id="sinPaciente">Elija un paciente de la lista.</div>
+  </div>
+</div>
+
+<div class="modal modal-blur fade" id="modalFormulario" tabindex="-1" aria-labelledby="modalTitle" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
     <div class="modal-content">
-      <div class="modal-header bg-primary text-white">
-        <h5 class="modal-title">
-          <i class="fas fa-search"></i> Seleccionar Paciente
-        </h5>
-        <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalTitle">Agregar documento al historial</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
       </div>
-      <div class="modal-body">
-        <div class="table-responsive">
-          <table class="table table-striped table-bordered table-hover w-100" id="tblPacientes">
-            <thead class="thead-dark">
-              <tr>
-                <th>Nombre</th>
-                <th>Apellido</th>
-                <th>Cédula</th>
-                <th>Fecha Nac.</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
+      <form id="formulario" novalidate>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label required" for="selTipo">Tipo de documento</label>
+            <select class="form-select" id="selTipo">
+              <option value="antecedente">Antecedente</option><option value="alergia">Alergia</option><option value="medicamento_habitual">Medicamento habitual</option>
+              <option value="estudio">Estudio</option><option value="otro">Otro</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label required" for="txtDescripcion">Descripción</label>
+            <textarea class="form-control" id="txtDescripcion" rows="3" maxlength="1000"></textarea>
+            <div class="invalid-feedback"></div>
+          </div>
+          <div id="bloqueAlergia" style="display: none;" class="row">
+            <div class="col-md-6 mb-3"><label class="form-label" for="txtTipoAlergia">Tipo de alergia</label><input type="text" class="form-control" id="txtTipoAlergia" maxlength="100"><div class="invalid-feedback"></div></div>
+            <div class="col-md-6 mb-3"><label class="form-label required" for="selGravedad">Gravedad</label>
+              <select class="form-select" id="selGravedad"><option value="">Seleccione…</option><option>Leve</option><option>Moderada</option><option>Grave</option></select><div class="invalid-feedback"></div></div>
+          </div>
+          <div id="bloqueMedicamento" style="display: none;" class="row">
+            <div class="col-md-6 mb-3"><label class="form-label required" for="txtMedicamento">Medicamento</label><input type="text" class="form-control" id="txtMedicamento" maxlength="100"><div class="invalid-feedback"></div></div>
+            <div class="col-md-6 mb-3"><label class="form-label required" for="txtDosis">Dosis</label><input type="text" class="form-control" id="txtDosis" maxlength="100"><div class="invalid-feedback"></div></div>
+            <div class="col-md-6 mb-3"><label class="form-label required" for="txtFrecuencia">Frecuencia</label><input type="text" class="form-control" id="txtFrecuencia" maxlength="100"><div class="invalid-feedback"></div></div>
+            <div class="col-md-6 mb-3"><label class="form-label" for="txtInicio">Desde</label><input type="date" class="form-control" id="txtInicio"><div class="invalid-feedback"></div></div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="fileArchivo">Archivo adjunto (PDF, imagen o documento, hasta 5 MB)</label>
+            <input type="file" class="form-control" id="fileArchivo" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx">
+            <div class="invalid-feedback"></div>
+          </div>
         </div>
-      </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btnGuardar">Guardar</button>
+        </div>
+      </form>
     </div>
   </div>
 </div>
-
-<!-- ============================================ -->
-<!-- MODAL: AGREGAR/EDITAR DOCUMENTO -->
-<!-- ============================================ -->
-<div class="modal fade" id="modalFormularioDocumento" tabindex="-1" role="dialog">
-  <div class="modal-dialog modal-lg modal-dialog-scrollable" role="document">
-    <div class="modal-content">
-      
-      <!-- HEADER -->
-      <div class="modal-header bg-success text-white">
-        <h5 class="modal-title">
-          <i class="fas fa-file-medical"></i> <span id="tituloModalDocumento">Agregar Nuevo Documento</span>
-        </h5>
-        <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
-      </div>
-      
-      <!-- BODY -->
-      <div class="modal-body">
-        <!-- IDs ocultos para edición -->
-        <input type="hidden" id="idDocumentoEditar">
-        <input type="hidden" id="idPacienteDocumento">
-        
-        <!-- ========== TIPO DE DOCUMENTO ========== -->
-        <div class="form-group">
-          <label class="font-weight-bold">
-            Tipo de Documento <span class="text-danger">*</span>
-          </label>
-          <select id="tipoDocumento" class="form-control" required>
-            <option value="">Seleccione...</option>
-            <option value="antecedente">📋 Antecedente Médico</option>
-            <option value="alergia">⚠️ Alergia</option>
-            <option value="medicamento_habitual">💊 Medicamento Habitual</option>
-            <option value="estudio">🔬 Estudio Médico/Radiografía</option>
-            <option value="otro">📎 Otro Archivo</option>
-          </select>
-          <div class="text-danger small" id="error_tipoDocumento" style="display:none;">
-            Este campo es obligatorio
-          </div>
-        </div>
-        
-        <!-- ========== DESCRIPCIÓN ========== -->
-        <div class="form-group">
-          <label class="font-weight-bold">
-            Descripción <span class="text-danger">*</span>
-          </label>
-          <textarea id="descripcionDocumento" 
-                    class="form-control" 
-                    rows="3" 
-                    placeholder="Descripción detallada..."
-                    required></textarea>
-          <div class="text-danger small" id="error_descripcionDocumento" style="display:none;">
-            Este campo es obligatorio
-          </div>
-        </div>
-        
-        <!-- ========== CAMPOS ESPECÍFICOS PARA ALERGIAS (OCULTO POR DEFECTO) ========== -->
-        <div id="camposAlergia" style="display:none;">
-          <div class="card border-warning mb-3">
-            <div class="card-header bg-warning text-dark">
-              <strong>⚠️ Información específica de Alergia</strong>
-            </div>
-            <div class="card-body">
-              <div class="row">
-                <div class="col-md-6">
-                  <div class="form-group">
-                    <label class="font-weight-bold">Tipo de Alergia</label>
-                    <select id="tipoAlergia" class="form-control">
-                      <option value="">Seleccione...</option>
-                      <option value="medicamento">Medicamento</option>
-                      <option value="alimento">Alimento</option>
-                      <option value="ambiental">Ambiental</option>
-                      <option value="contacto">Contacto</option>
-                      <option value="otro">Otro</option>
-                    </select>
-                  </div>
-                </div>
-                <div class="col-md-6">
-                  <div class="form-group">
-                    <label class="font-weight-bold">
-                      Gravedad <span class="text-danger">*</span>
-                    </label>
-                    <select id="gravedadAlergia" class="form-control">
-                      <option value="">Seleccione...</option>
-                      <option value="leve">Leve</option>
-                      <option value="moderada">Moderada</option>
-                      <option value="grave">Grave</option>
-                      <option value="muy_grave">Muy Grave (Anafilaxia)</option>
-                    </select>
-                    <div class="text-danger small" id="error_gravedadAlergia" style="display:none;">
-                      Para alergias, la gravedad es obligatoria
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <!-- ========== CAMPOS ESPECÍFICOS PARA MEDICAMENTOS (OCULTO POR DEFECTO) ========== -->
-        <div id="camposMedicamento" style="display:none;">
-          <div class="card border-info mb-3">
-            <div class="card-header bg-info text-white">
-              <strong>💊 Información específica de Medicamento</strong>
-            </div>
-            <div class="card-body">
-              <div class="row">
-                <div class="col-md-4">
-                  <div class="form-group">
-                    <label class="font-weight-bold">
-                      Nombre Medicamento <span class="text-danger">*</span>
-                    </label>
-                    <input type="text" 
-                           id="nombreMedicamento" 
-                           class="form-control" 
-                           placeholder="Ej: Ibuprofeno">
-                    <div class="text-danger small" id="error_nombreMedicamento" style="display:none;">
-                      Este campo es obligatorio
-                    </div>
-                  </div>
-                </div>
-                <div class="col-md-4">
-                  <div class="form-group">
-                    <label class="font-weight-bold">
-                      Dosis <span class="text-danger">*</span>
-                    </label>
-                    <input type="text" 
-                           id="dosisMedicamento" 
-                           class="form-control" 
-                           placeholder="Ej: 500mg">
-                    <div class="text-danger small" id="error_dosisMedicamento" style="display:none;">
-                      Este campo es obligatorio
-                    </div>
-                  </div>
-                </div>
-                <div class="col-md-4">
-                  <div class="form-group">
-                    <label class="font-weight-bold">
-                      Frecuencia <span class="text-danger">*</span>
-                    </label>
-                    <input type="text" 
-                           id="frecuenciaMedicamento" 
-                           class="form-control" 
-                           placeholder="Ej: cada 8 horas">
-                    <div class="text-danger small" id="error_frecuenciaMedicamento" style="display:none;">
-                      Este campo es obligatorio
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div class="form-group">
-                <label class="font-weight-bold">Fecha Inicio</label>
-                <input type="date" id="fechaInicioMedicamento" class="form-control">
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <!-- ========== ARCHIVO ADJUNTO ========== -->
-        <div class="form-group">
-          <label class="font-weight-bold">Archivo Adjunto (opcional)</label>
-          <div class="custom-file">
-            <input type="file" 
-                   class="custom-file-input" 
-                   id="archivoAdjunto" 
-                   accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
-            <label class="custom-file-label" for="archivoAdjunto">
-              Seleccionar archivo...
-            </label>
-          </div>
-          <small class="form-text text-muted">
-            <i class="fas fa-info-circle"></i> 
-            Formatos permitidos: PDF, JPG, PNG, DOC, DOCX | Tamaño máximo: 5MB
-          </small>
-        </div>
-        
-      </div>
-      
-      <!-- FOOTER -->
-      <div class="modal-footer bg-light">
-        <button type="button" class="btn btn-success" id="btnGuardarDocumento">
-          <i class="fas fa-save"></i> Guardar Documento
-        </button>
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">
-          <i class="fas fa-times"></i> Cancelar
-        </button>
-      </div>
-      
-    </div>
-  </div>
-</div>
-
-<!-- ============================================ -->
-<!-- MODAL: VER DETALLES DEL DOCUMENTO -->
-<!-- ============================================ -->
-<div class="modal fade" id="modalVerDocumento" tabindex="-1" role="dialog">
-  <div class="modal-dialog modal-lg" role="document">
-    <div class="modal-content">
-      <div class="modal-header bg-info text-white">
-        <h5 class="modal-title">
-          <i class="fas fa-eye"></i> Detalles del Documento
-        </h5>
-        <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
-      </div>
-      <div class="modal-body" id="contenidoVerDocumento">
-        <!-- Se llena dinámicamente -->
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Librerías necesarias -->
-<link rel="stylesheet" href="https://cdn.datatables.net/1.10.21/css/dataTables.bootstrap4.min.css">
-<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.bundle.min.js"></script>
-
-<style>
-  /* Estilos para mejorar la apariencia */
-  .nav-tabs .nav-link {
-    color: #495057;
-    font-weight: 500;
-  }
-  
-  .nav-tabs .nav-link.active {
-    background-color: #007bff;
-    color: white !important;
-    border-color: #007bff;
-  }
-  
-  .badge-pill {
-    padding: 0.3em 0.6em;
-  }
-  
-  /* Estilo para las tarjetas de estudios */
-  .card-estudio {
-    transition: transform 0.2s;
-    cursor: pointer;
-  }
-  
-  .card-estudio:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-  }
-</style>
-
 {% endblock %}
 
 {% block js %}
+<script src="{{ url_for('static', filename='js/facturacion-validadores.js') }}"></script>
+<script src="{{ url_for('static', filename='js/facturacion-listado.js') }}"></script>
 <script>
-// ============================================
-// VARIABLES GLOBALES
-// ============================================
+(function () {
+  const API = '/api/v1/historial-medico';
+  const PUEDE_ANULAR = {{ 'true' if (puede('historial', 'anular') and es_medico) else 'false' }};
+  const TIPOS = [['todos', 'Todos'], ['antecedente', 'Antecedentes'], ['alergia', 'Alergias'], ['medicamento_habitual', 'Medicamentos'], ['estudio', 'Estudios'], ['otro', 'Otros']];
+  const ETIQUETA = { antecedente: 'Antecedente', alergia: 'Alergia', medicamento_habitual: 'Medicamento habitual', estudio: 'Estudio', otro: 'Otro' };
+  const L = window.FacturacionListado;
+  const V = window.FacturacionValidadores;
+  const { escapar, pedir } = L;
+  const tbody = document.getElementById('tbody');
+  const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalFormulario'));
+  const form = document.getElementById('formulario');
+  const btnGuardar = document.getElementById('btnGuardar');
+  const ids = ['selTipo', 'txtDescripcion', 'txtTipoAlergia', 'selGravedad', 'txtMedicamento', 'txtDosis', 'txtFrecuencia', 'txtInicio', 'fileArchivo'];
+  const el = Object.fromEntries(ids.map((i) => [i, document.getElementById(i)]));
+  let pacientes = [], paciente = null, tipoActivo = 'todos', documentos = [];
 
-// ID del paciente actualmente seleccionado
-let pacienteActualId = null;
+  async function cargarPacientes() {
+    const { data } = await pedir(`${API}/pacientes`);
+    pacientes = (data && data.success) ? data.data : [];
+    if (data && !data.success) document.getElementById('listaPacientes').innerHTML = `<div class="p-3 text-danger">${escapar(data.error)}</div>`;
+    dibujarPacientes();
+  }
+  function dibujarPacientes() {
+    const q = document.getElementById('buscaPaciente').value.trim().toLowerCase();
+    const lista = pacientes.filter((p) => !q || `${p.nombre} ${p.apellido} ${p.cedula_entidad}`.toLowerCase().includes(q));
+    document.getElementById('listaPacientes').innerHTML = lista.length ? lista.map((p) =>
+      `<a href="#" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center ${paciente && paciente.id_paciente === p.id_paciente ? 'active' : ''}" data-id="${escapar(p.id_paciente)}">
+         <span>${escapar(p.nombre)} ${escapar(p.apellido)}<br><small class="${paciente && paciente.id_paciente === p.id_paciente ? '' : 'text-muted'}">${escapar(p.cedula_entidad)}</small></span>
+         <span class="badge bg-azure-lt">${escapar(p.documentos)}</span></a>`).join('')
+      : '<div class="p-3 text-muted">No hay pacientes para mostrar.</div>';
+  }
+  document.getElementById('buscaPaciente').addEventListener('input', dibujarPacientes);
+  document.getElementById('listaPacientes').addEventListener('click', async (ev) => {
+    const a = ev.target.closest('a[data-id]');
+    if (!a) return;
+    ev.preventDefault();
+    paciente = pacientes.find((p) => String(p.id_paciente) === a.dataset.id);
+    tipoActivo = 'todos';
+    dibujarPacientes();
+    await cargarHistorial();
+  });
 
-// Objeto con información del paciente
-let pacienteActual = null;
+  async function cargarHistorial() {
+    const { data } = await pedir(`${API}/paciente/${paciente.id_paciente}`);
+    if (!(data && data.success)) { Swal.fire('Error', (data && data.error) || 'No se pudo cargar el historial.', 'error'); return; }
+    documentos = data.data;
+    document.getElementById('tituloPaciente').textContent = `${paciente.nombre} ${paciente.apellido}`;
+    document.getElementById('cardHistorial').style.display = '';
+    document.getElementById('sinPaciente').style.display = 'none';
+    dibujarDocumentos();
+  }
+  function dibujarDocumentos() {
+    const cuenta = (t) => t === 'todos' ? documentos.length : documentos.filter((d) => d.tipo_documento === t).length;
+    document.getElementById('tabs').innerHTML = TIPOS.map(([t, n]) => `<li class="nav-item"><a href="#" class="nav-link ${t === tipoActivo ? 'active' : ''}" data-tipo="${t}">${n} <span class="badge bg-azure-lt ms-1">${cuenta(t)}</span></a></li>`).join('');
+    const lista = documentos.filter((d) => tipoActivo === 'todos' || d.tipo_documento === tipoActivo);
+    tbody.innerHTML = lista.length ? lista.map((d) => {
+      let detalle = escapar(d.descripcion);
+      if (d.tipo_documento === 'alergia') detalle += `<div class="text-muted small">${escapar(d.tipo_alergia || '')} · Gravedad: ${escapar(d.gravedad_alergia || '-')}</div>`;
+      if (d.tipo_documento === 'medicamento_habitual') detalle += `<div class="text-muted small">${escapar(d.nombre_medicamento)} · ${escapar(d.dosis_medicamento)} · ${escapar(d.frecuencia_medicamento)}</div>`;
+      const archivo = d.tiene_archivo ? `<a href="${API}/${escapar(d.id_historial)}/archivo" class="btn btn-sm btn-outline-secondary"><i class="fas fa-download me-1"></i>${escapar(d.archivo_nombre)}</a>` : '-';
+      const anular = PUEDE_ANULAR ? `<button type="button" class="btn btn-sm btn-outline-danger" data-accion="anular" data-id="${escapar(d.id_historial)}" data-desc="${escapar(ETIQUETA[d.tipo_documento])}" title="Anular"><i class="fas fa-ban"></i></button>` : '';
+      return `<tr><td class="text-nowrap">${escapar((d.fecha_registro || '').slice(0, 10))}</td><td>${escapar(ETIQUETA[d.tipo_documento])}</td><td class="text-wrap">${detalle}</td><td>${archivo}</td><td>${anular}</td></tr>`;
+    }).join('') : '<tr><td colspan="5" class="text-center text-muted py-4">No hay documentos para mostrar.</td></tr>';
+  }
+  document.getElementById('tabs').addEventListener('click', (ev) => {
+    const a = ev.target.closest('a[data-tipo]');
+    if (!a) return;
+    ev.preventDefault(); tipoActivo = a.dataset.tipo; dibujarDocumentos();
+  });
 
-// ID del documento en edición (null si es nuevo)
-let documentoEditandoId = null;
+  tbody.addEventListener('click', async (ev) => {
+    const btn = ev.target.closest('button[data-accion="anular"]');
+    if (!btn) return;
+    await L.anular({ api: API, id: btn.dataset.id, descripcion: `${btn.dataset.desc} de ${paciente.nombre} ${paciente.apellido}`, titulo: '¿Anular este documento?',
+                     exito: 'Anulado', errorDefault: 'No se pudo anular el documento.', recargar: async () => { await cargarHistorial(); await cargarPacientes(); } });
+  });
 
-// Datos del historial cargados
-let historialData = [];
-
-
-// ============================================
-// FUNCIONES AUXILIARES
-// ============================================
-
-/**
- * Formatea una fecha YYYY-MM-DD a DD/MM/YYYY
- */
-function formatearFecha(fecha) {
-  if (!fecha) return 'N/A';
-  const [year, month, day] = fecha.split('-');
-  return `${day}/${month}/${year}`;
-}
-
-/**
- * Obtiene el badge de color según gravedad de alergia
- */
-function getBadgeGravedad(gravedad) {
-  const badges = {
-    'leve': '<span class="badge badge-success">Leve</span>',
-    'moderada': '<span class="badge badge-warning">Moderada</span>',
-    'grave': '<span class="badge badge-danger">Grave</span>',
-    'muy_grave': '<span class="badge badge-danger"><i class="fas fa-exclamation-triangle"></i> Muy Grave</span>'
+  // ---- alta (solo el médico) ----
+  const alternar = () => {
+    document.getElementById('bloqueAlergia').style.display = el.selTipo.value === 'alergia' ? '' : 'none';
+    document.getElementById('bloqueMedicamento').style.display = el.selTipo.value === 'medicamento_habitual' ? '' : 'none';
   };
-  return badges[gravedad] || gravedad;
-}
+  el.selTipo.addEventListener('change', alternar);
+  ids.forEach((i) => { el[i].addEventListener('input', () => V.limpiarCampo(el[i])); el[i].addEventListener('change', () => V.limpiarCampo(el[i])); });
+  const btnAgregar = document.getElementById('btnAgregar');
+  if (btnAgregar) btnAgregar.addEventListener('click', () => {
+    ids.forEach((i) => { if (i !== 'selTipo') el[i].value = ''; V.limpiarCampo(el[i]); });
+    el.selTipo.value = tipoActivo !== 'todos' ? tipoActivo : 'antecedente';
+    alternar(); modal.show();
+  });
 
-/**
- * Obtiene el icono según tipo de archivo
- */
-function getIconoArchivo(tipoArchivo) {
-  const iconos = {
-    'pdf': '<i class="fas fa-file-pdf text-danger fa-2x"></i>',
-    'imagen': '<i class="fas fa-file-image text-info fa-2x"></i>',
-    'documento': '<i class="fas fa-file-word text-primary fa-2x"></i>'
-  };
-  return iconos[tipoArchivo] || '<i class="fas fa-file fa-2x"></i>';
-}
-
-
-// ============================================
-// DATATABLE: PACIENTES
-// ============================================
-function initDatatablePacientes() {
-  if ($.fn.DataTable.isDataTable('#tblPacientes')) {
-    $('#tblPacientes').DataTable().destroy();
-  }
-
-  $('#tblPacientes').DataTable({
-    language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
-    ajax: { 
-      url: '/api/v1/pacientes',
-      dataSrc: 'data'
-    },
-    columns: [
-      { data: 'nombre' },
-      { data: 'apellido' },
-      { data: 'cedula_entidad' },
-      { 
-        data: 'fecha_nacimiento',
-        render: fecha => formatearFecha(fecha)
-      },
-      { 
-        data: null,
-        render: row => `
-          <button class="btn btn-sm btn-primary" 
-                  name="btn_seleccionar_paciente"
-                  data-id="${row.id_paciente}"
-                  data-nombre="${row.nombre}"
-                  data-apellido="${row.apellido}"
-                  data-cedula="${row.cedula_entidad}"
-                  data-fecha_nac="${row.fecha_nacimiento}">
-            <i class="fas fa-check"></i> Seleccionar
-          </button>
-        `
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    ids.forEach((i) => V.limpiarCampo(el[i]));
+    const t = el.selTipo.value;
+    const obligatorios = [['txtDescripcion', 'descripción']];
+    if (t === 'alergia') obligatorios.push(['selGravedad', 'gravedad']);
+    if (t === 'medicamento_habitual') obligatorios.push(['txtMedicamento', 'medicamento'], ['txtDosis', 'dosis'], ['txtFrecuencia', 'frecuencia']);
+    let error = false;
+    obligatorios.forEach(([i, n]) => { if (!el[i].value.trim()) { V.marcarCampo(el[i], `El campo ${n} es obligatorio.`); error = true; } });
+    const f = el.fileArchivo.files[0];
+    if (f && f.size > 5 * 1024 * 1024) { V.marcarCampo(el.fileArchivo, 'El archivo excede el tamaño máximo permitido (5 MB).'); error = true; }
+    if (error) return;
+    const fd = new FormData();
+    fd.append('id_paciente', paciente.id_paciente); fd.append('tipo_documento', t); fd.append('descripcion', el.txtDescripcion.value.trim());
+    if (t === 'alergia') { fd.append('tipo_alergia', el.txtTipoAlergia.value.trim()); fd.append('gravedad_alergia', el.selGravedad.value); }
+    if (t === 'medicamento_habitual') {
+      fd.append('nombre_medicamento', el.txtMedicamento.value.trim()); fd.append('dosis_medicamento', el.txtDosis.value.trim());
+      fd.append('frecuencia_medicamento', el.txtFrecuencia.value.trim()); if (el.txtInicio.value) fd.append('fecha_inicio_medicamento', el.txtInicio.value);
+    }
+    if (f) fd.append('archivo', f);
+    btnGuardar.disabled = true;
+    try {
+      const { data } = await pedir(API, { method: 'POST', body: fd });
+      if (data && data.success) { modal.hide(); await cargarHistorial(); await cargarPacientes(); Swal.fire('Agregado', data.mensaje, 'success'); }
+      else {
+        const m = { descripcion: 'txtDescripcion', archivo: 'fileArchivo', gravedad_alergia: 'selGravedad', nombre_medicamento: 'txtMedicamento', dosis_medicamento: 'txtDosis', frecuencia_medicamento: 'txtFrecuencia' };
+        V.marcarCampo(el[m[data && data.campo] || 'txtDescripcion'], (data && data.error) || 'No se pudo guardar el documento.');
       }
-    ]
-  });
-
-  // Evento para seleccionar paciente
-  $('#tblPacientes').on('click', 'button[name="btn_seleccionar_paciente"]', function() {
-    const btn = $(this);
-    
-    // Guardar información del paciente
-    pacienteActualId = btn.data('id');
-    pacienteActual = {
-      id: btn.data('id'),
-      nombre: btn.data('nombre'),
-      apellido: btn.data('apellido'),
-      cedula: btn.data('cedula'),
-      fecha_nacimiento: btn.data('fecha_nac')
-    };
-    
-    // Actualizar UI
-    $('#txtBuscarPaciente').val(`${pacienteActual.nombre} ${pacienteActual.apellido}`);
-    $('#idPacienteSeleccionado').val(pacienteActualId);
-    $('#nombrePaciente').text(`${pacienteActual.nombre} ${pacienteActual.apellido}`);
-    $('#cedulaPaciente').text(pacienteActual.cedula);
-    $('#fechaNacPaciente').text(formatearFecha(pacienteActual.fecha_nacimiento));
-    
-    // Mostrar sección de información
-    $('#infoPaciente').show();
-    $('#mensajeSinPaciente').hide();
-    $('#btnAgregarDocumento').prop('disabled', false);
-    
-    // Cerrar modal
-    $('#modalBuscarPaciente').modal('hide');
-    
-    // Cargar historial del paciente
-    cargarHistorialPaciente(pacienteActualId);
-  });
-}
-
-
-// ============================================
-// CARGAR HISTORIAL DEL PACIENTE
-// ============================================
-function cargarHistorialPaciente(idPaciente) {
-  // Mostrar loading
-  Swal.fire({
-    title: 'Cargando historial...',
-    allowOutsideClick: false,
-    didOpen: () => {
-      Swal.showLoading();
+    } catch (e) {
+      V.marcarCampo(el.txtDescripcion, 'Ocurrió un error de conexión. Intente nuevamente.');
+    } finally {
+      btnGuardar.disabled = false;
     }
   });
 
-  // Obtener historial completo
-  fetch(`/api/v1/historial-medico/paciente/${idPaciente}`)
-    .then(r => r.json())
-    .then(d => {
-      if (d.success) {
-        historialData = d.data;
-        
-        // Obtener contadores
-        return fetch(`/api/v1/historial-medico/paciente/${idPaciente}/contadores`);
-      } else {
-        throw new Error(d.error);
-      }
-    })
-    .then(r => r.json())
-    .then(d => {
-      if (d.success) {
-        // Actualizar contadores en los badges
-        $('#countAntecedentes').text(d.data.antecedente);
-        $('#countAlergias').text(d.data.alergia);
-        $('#countMedicamentos').text(d.data.medicamento_habitual);
-        $('#countEstudios').text(d.data.estudio);
-        $('#countOtros').text(d.data.otro);
-        $('#totalDocumentos').text(d.data.total);
-        
-        // Mostrar contenedor de tabs
-        $('#contenedorTabs').show();
-        
-        // Cargar datos en cada tab
-        cargarTabAntecedentes();
-        cargarTabAlergias();
-        cargarTabMedicamentos();
-        cargarTabEstudios();
-        cargarTabOtros();
-        
-        Swal.close();
-      }
-    })
-    .catch(err => {
-      console.error('Error:', err);
-      Swal.fire('Error', 'No se pudo cargar el historial', 'error');
-    });
-}
-
-
-// ============================================
-// CARGAR TAB: ANTECEDENTES
-// ============================================
-function cargarTabAntecedentes() {
-  const tbody = $('#tblAntecedentes tbody');
-  tbody.empty();
-  
-  const antecedentes = historialData.filter(h => h.tipo_documento === 'antecedente');
-  
-  if (antecedentes.length === 0) {
-    tbody.append(`
-      <tr>
-        <td colspan="4" class="text-center text-muted">No hay antecedentes registrados</td>
-      </tr>
-    `);
-    return;
-  }
-  
-  antecedentes.forEach(doc => {
-    tbody.append(`
-      <tr>
-        <td>${formatearFecha(doc.fecha_registro.split('T')[0])}</td>
-        <td>${doc.descripcion}</td>
-        <td>
-          ${doc.id_usuario_registro ? `Usuario #${doc.id_usuario_registro}` : 'N/A'}
-        </td>
-        <td>
-          <button class="btn btn-sm btn-info" 
-                  name="btn_ver_documento"
-                  data-id="${doc.id_historial}"
-                  title="Ver detalles">
-            <i class="fas fa-eye"></i>
-          </button>
-          {% if puede('historial','editar') %}<button class="btn btn-sm btn-warning" 
-                  name="btn_editar_documento"
-                  data-id="${doc.id_historial}"
-                  title="Editar">
-            <i class="fas fa-edit"></i>
-          </button>{% endif %}
-          {% if puede('historial','anular') %}<button class="btn btn-sm btn-danger" 
-                  name="btn_eliminar_documento"
-                  data-id="${doc.id_historial}"
-                  title="Eliminar">
-            <i class="fas fa-trash-alt"></i>
-          </button>{% endif %}
-        </td>
-      </tr>
-    `);
-  });
-}
-
-
-// ============================================
-// CARGAR TAB: ALERGIAS
-// ============================================
-function cargarTabAlergias() {
-  const tbody = $('#tblAlergias tbody');
-  tbody.empty();
-  
-  const alergias = historialData.filter(h => h.tipo_documento === 'alergia');
-  
-  if (alergias.length === 0) {
-    tbody.append(`
-      <tr>
-        <td colspan="5" class="text-center text-muted">No hay alergias registradas</td>
-      </tr>
-    `);
-    return;
-  }
-  
-  alergias.forEach(doc => {
-    tbody.append(`
-      <tr>
-        <td>${formatearFecha(doc.fecha_registro.split('T')[0])}</td>
-        <td>${doc.tipo_alergia || 'No especificado'}</td>
-        <td>${doc.descripcion}</td>
-        <td>${getBadgeGravedad(doc.gravedad_alergia)}</td>
-        <td>
-          <button class="btn btn-sm btn-info" 
-                  name="btn_ver_documento"
-                  data-id="${doc.id_historial}">
-            <i class="fas fa-eye"></i>
-          </button>
-          {% if puede('historial','editar') %}<button class="btn btn-sm btn-warning" 
-                  name="btn_editar_documento"
-                  data-id="${doc.id_historial}">
-            <i class="fas fa-edit"></i>
-          </button>{% endif %}
-          {% if puede('historial','anular') %}<button class="btn btn-sm btn-danger" 
-                  name="btn_eliminar_documento"
-                  data-id="${doc.id_historial}">
-            <i class="fas fa-trash-alt"></i>
-          </button>{% endif %}
-        </td>
-      </tr>
-    `);
-  });
-}
-
-
-// ============================================
-// CARGAR TAB: MEDICAMENTOS HABITUALES
-// ============================================
-function cargarTabMedicamentos() {
-  const tbody = $('#tblMedicamentos tbody');
-  tbody.empty();
-  
-  const medicamentos = historialData.filter(h => h.tipo_documento === 'medicamento_habitual');
-  
-  if (medicamentos.length === 0) {
-    tbody.append(`
-      <tr>
-        <td colspan="6" class="text-center text-muted">No hay medicamentos habituales registrados</td>
-      </tr>
-    `);
-    return;
-  }
-  
-  medicamentos.forEach(doc => {
-    tbody.append(`
-      <tr>
-        <td><strong>${doc.nombre_medicamento || 'N/A'}</strong></td>
-        <td>${doc.dosis_medicamento || 'N/A'}</td>
-        <td>${doc.frecuencia_medicamento || 'N/A'}</td>
-        <td>${doc.descripcion}</td>
-        <td>${formatearFecha(doc.fecha_inicio_medicamento)}</td>
-        <td>
-          <button class="btn btn-sm btn-info" 
-                  name="btn_ver_documento"
-                  data-id="${doc.id_historial}">
-            <i class="fas fa-eye"></i>
-          </button>
-          {% if puede('historial','editar') %}<button class="btn btn-sm btn-warning" 
-                  name="btn_editar_documento"
-                  data-id="${doc.id_historial}">
-            <i class="fas fa-edit"></i>
-          </button>{% endif %}
-          {% if puede('historial','anular') %}<button class="btn btn-sm btn-danger" 
-                  name="btn_eliminar_documento"
-                  data-id="${doc.id_historial}">
-            <i class="fas fa-trash-alt"></i>
-          </button>{% endif %}
-        </td>
-      </tr>
-    `);
-  });
-}
-
-
-// ============================================
-// CARGAR TAB: ESTUDIOS/RADIOGRAFÍAS
-// ============================================
-function cargarTabEstudios() {
-  const galeria = $('#galeriaEstudios');
-  galeria.empty();
-  
-  const estudios = historialData.filter(h => h.tipo_documento === 'estudio');
-  
-  if (estudios.length === 0) {
-    galeria.append(`
-      <div class="col-12 text-center text-muted py-4">
-        <i class="fas fa-folder-open fa-3x mb-3"></i>
-        <p>No hay estudios o radiografías registradas</p>
-      </div>
-    `);
-    return;
-  }
-  
-  estudios.forEach(doc => {
-    // Crear tarjeta para cada estudio
-    galeria.append(`
-      <div class="col-md-4 col-lg-3 mb-3">
-        <div class="card card-estudio h-100">
-          <div class="card-body text-center">
-            ${getIconoArchivo(doc.archivo_tipo)}
-            <h6 class="mt-3 mb-2">${doc.archivo_nombre || 'Sin archivo'}</h6>
-            <p class="small text-muted mb-2">${doc.descripcion}</p>
-            <p class="small text-muted">
-              <i class="far fa-calendar"></i> ${formatearFecha(doc.fecha_registro.split('T')[0])}
-            </p>
-            ${doc.archivo_url ? `
-              <a href="/${doc.archivo_url}" 
-                 target="_blank" 
-                 class="btn btn-sm btn-outline-primary mb-1">
-                <i class="fas fa-download"></i> Descargar
-              </a>
-            ` : ''}
-          </div>
-          <div class="card-footer bg-light">
-            <div class="btn-group btn-group-sm w-100" role="group">
-              <button class="btn btn-info" 
-                      name="btn_ver_documento"
-                      data-id="${doc.id_historial}">
-                <i class="fas fa-eye"></i>
-              </button>
-              {% if puede('historial','editar') %}<button class="btn btn-warning" 
-                      name="btn_editar_documento"
-                      data-id="${doc.id_historial}">
-                <i class="fas fa-edit"></i>
-              </button>{% endif %}
-              {% if puede('historial','anular') %}<button class="btn btn-danger" 
-                      name="btn_eliminar_documento"
-                      data-id="${doc.id_historial}">
-                <i class="fas fa-trash-alt"></i>
-              </button>{% endif %}
-            </div>
-          </div>
-        </div>
-      </div>
-    `);
-  });
-}
-
-
-// ============================================
-// CARGAR TAB: OTROS ARCHIVOS
-// ============================================
-function cargarTabOtros() {
-  const lista = $('#listaOtrosArchivos');
-  lista.empty();
-  
-  const otros = historialData.filter(h => h.tipo_documento === 'otro');
-  
-  if (otros.length === 0) {
-    lista.append(`
-      <div class="list-group-item text-center text-muted">
-        <i class="fas fa-inbox fa-2x mb-2"></i>
-        <p>No hay otros archivos registrados</p>
-      </div>
-    `);
-    return;
-  }
-  
-  otros.forEach(doc => {
-    lista.append(`
-      <div class="list-group-item list-group-item-action">
-        <div class="d-flex w-100 justify-content-between align-items-center">
-          <div class="flex-grow-1">
-            ${getIconoArchivo(doc.archivo_tipo)}
-            <span class="ml-2">
-              <strong>${doc.archivo_nombre || 'Sin nombre'}</strong>
-              <br>
-              <small class="text-muted">${doc.descripcion}</small>
-              <br>
-              <small class="text-muted">
-                <i class="far fa-calendar"></i> ${formatearFecha(doc.fecha_registro.split('T')[0])}
-              </small>
-            </span>
-          </div>
-          <div>
-            ${doc.archivo_url ? `
-              <a href="/${doc.archivo_url}" 
-                 target="_blank" 
-                 class="btn btn-sm btn-outline-primary mr-1">
-                <i class="fas fa-download"></i>
-              </a>
-            ` : ''}
-            <button class="btn btn-sm btn-info mr-1" 
-                    name="btn_ver_documento"
-                    data-id="${doc.id_historial}">
-              <i class="fas fa-eye"></i>
-            </button>
-            {% if puede('historial','editar') %}<button class="btn btn-sm btn-warning mr-1" 
-                    name="btn_editar_documento"
-                    data-id="${doc.id_historial}">
-              <i class="fas fa-edit"></i>
-            </button>{% endif %}
-            {% if puede('historial','anular') %}<button class="btn btn-sm btn-danger" 
-                    name="btn_eliminar_documento"
-                    data-id="${doc.id_historial}">
-              <i class="fas fa-trash-alt"></i>
-            </button>{% endif %}
-          </div>
-        </div>
-      </div>
-    `);
-  });
-}
-
-
-// ============================================
-// EVENTOS: BOTONES DE ACCIÓN EN DOCUMENTOS
-// ============================================
-
-/**
- * VER DOCUMENTO (delegado para todos los tabs)
- */
-$(document).on('click', 'button[name="btn_ver_documento"]', function() {
-  const idDocumento = $(this).data('id');
-  
-  // Buscar documento en los datos cargados
-  const documento = historialData.find(d => d.id_historial === idDocumento);
-  
-  if (!documento) {
-    Swal.fire('Error', 'No se encontró el documento', 'error');
-    return;
-  }
-  
-  // Construir HTML con los detalles
-  let contenidoHTML = `
-    <div class="row">
-      <div class="col-md-6">
-        <p><strong>Tipo:</strong> ${documento.tipo_documento}</p>
-      </div>
-      <div class="col-md-6">
-        <p><strong>Fecha Registro:</strong> ${formatearFecha(documento.fecha_registro.split('T')[0])}</p>
-      </div>
-    </div>
-    <hr>
-    <p><strong>Descripción:</strong></p>
-    <p>${documento.descripcion}</p>
-  `;
-  
-  // Agregar campos específicos según tipo
-  if (documento.tipo_documento === 'alergia') {
-    contenidoHTML += `
-      <hr>
-      <p><strong>Tipo de Alergia:</strong> ${documento.tipo_alergia || 'No especificado'}</p>
-      <p><strong>Gravedad:</strong> ${getBadgeGravedad(documento.gravedad_alergia)}</p>
-    `;
-  }
-  
-  if (documento.tipo_documento === 'medicamento_habitual') {
-    contenidoHTML += `
-      <hr>
-      <p><strong>Medicamento:</strong> ${documento.nombre_medicamento}</p>
-      <p><strong>Dosis:</strong> ${documento.dosis_medicamento}</p>
-      <p><strong>Frecuencia:</strong> ${documento.frecuencia_medicamento}</p>
-      <p><strong>Fecha Inicio:</strong> ${formatearFecha(documento.fecha_inicio_medicamento)}</p>
-    `;
-  }
-  
-  // Archivo adjunto
-  if (documento.archivo_url) {
-    contenidoHTML += `
-      <hr>
-      <p><strong>Archivo Adjunto:</strong></p>
-      <p>
-        ${getIconoArchivo(documento.archivo_tipo)}
-        <span class="ml-2">${documento.archivo_nombre}</span>
-        <a href="/${documento.archivo_url}" 
-           target="_blank" 
-           class="btn btn-sm btn-primary ml-2">
-          <i class="fas fa-download"></i> Descargar
-        </a>
-      </p>
-    `;
-  }
-  
-  $('#contenidoVerDocumento').html(contenidoHTML);
-  $('#modalVerDocumento').modal('show');
-});
-
-
-/**
- * EDITAR DOCUMENTO
- */
-$(document).on('click', 'button[name="btn_editar_documento"]', function() {
-  const idDocumento = $(this).data('id');
-  
-  // Buscar documento
-  const documento = historialData.find(d => d.id_historial === idDocumento);
-  
-  if (!documento) {
-    Swal.fire('Error', 'No se encontró el documento', 'error');
-    return;
-  }
-  
-  // Marcar como edición
-  documentoEditandoId = idDocumento;
-  
-  // Cambiar título del modal
-  $('#tituloModalDocumento').text('Editar Documento');
-  
-  // Rellenar campos
-  $('#idDocumentoEditar').val(idDocumento);
-  $('#idPacienteDocumento').val(pacienteActualId);
-  $('#tipoDocumento').val(documento.tipo_documento).trigger('change');
-  $('#descripcionDocumento').val(documento.descripcion);
-  
-  // Rellenar campos específicos según tipo
-  if (documento.tipo_documento === 'alergia') {
-    $('#tipoAlergia').val(documento.tipo_alergia);
-    $('#gravedadAlergia').val(documento.gravedad_alergia);
-  }
-  
-  if (documento.tipo_documento === 'medicamento_habitual') {
-    $('#nombreMedicamento').val(documento.nombre_medicamento);
-    $('#dosisMedicamento').val(documento.dosis_medicamento);
-    $('#frecuenciaMedicamento').val(documento.frecuencia_medicamento);
-    $('#fechaInicioMedicamento').val(documento.fecha_inicio_medicamento);
-  }
-  
-  // Mostrar modal
-  $('#modalFormularioDocumento').modal('show');
-});
-
-
-/**
- * ELIMINAR DOCUMENTO
- */
-$(document).on('click', 'button[name="btn_eliminar_documento"]', function() {
-  const idDocumento = $(this).data('id');
-  
-  Swal.fire({
-    title: '¿Eliminar documento?',
-    text: 'Esta acción no se puede deshacer',
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonColor: '#d33',
-    cancelButtonColor: '#3085d6',
-    confirmButtonText: 'Sí, eliminar',
-    cancelButtonText: 'Cancelar'
-  }).then((result) => {
-    if (result.isConfirmed) {
-      // Realizar petición DELETE
-      fetch(`/api/v1/historial-medico/${idDocumento}`, {
-        method: 'DELETE',
-        headers: {
-        }
-      })
-      .then(r => r.json())
-      .then(d => {
-        if (d.success) {
-          Swal.fire('Eliminado', 'El documento ha sido eliminado', 'success');
-          // Recargar historial
-          cargarHistorialPaciente(pacienteActualId);
-        } else {
-          Swal.fire('Error', d.error, 'error');
-        }
-      })
-      .catch(err => {
-        console.error('Error:', err);
-        Swal.fire('Error', 'No se pudo eliminar el documento', 'error');
-      });
-    }
-  });
-});
-
-
-// ============================================
-// MODAL: FORMULARIO DOCUMENTO
-// ============================================
-
-/**
- * Mostrar/ocultar campos según tipo de documento
- */
-$('#tipoDocumento').on('change', function() {
-  const tipo = $(this).val();
-  
-  // Ocultar todos los campos específicos
-  $('#camposAlergia, #camposMedicamento').hide();
-  
-  // Mostrar campos según tipo
-  if (tipo === 'alergia') {
-    $('#camposAlergia').show();
-  } else if (tipo === 'medicamento_habitual') {
-    $('#camposMedicamento').show();
-  }
-  
-  // Cambiar placeholder de descripción
-  const placeholders = {
-    'antecedente': 'Ej: Cirugía de apendicitis en 2018, hospitalización por neumonía...',
-    'alergia': 'Ej: Reacción cutánea severa con hinchazón al contacto con...',
-    'medicamento_habitual': 'Ej: Para control de presión arterial, tratamiento crónico...',
-    'estudio': 'Ej: Radiografía panorámica dental, tomografía de...',
-    'otro': 'Descripción del documento...'
-  };
-  
-  $('#descripcionDocumento').attr('placeholder', placeholders[tipo] || '');
-});
-
-
-/**
- * Actualizar label del archivo cuando se selecciona
- */
-$('#archivoAdjunto').on('change', function() {
-  const fileName = $(this).val().split('\\').pop();
-  $(this).next('.custom-file-label').html(fileName || 'Seleccionar archivo...');
-});
-
-
-/**
- * Limpiar formulario
- */
-function limpiarFormularioDocumento() {
-  documentoEditandoId = null;
-  
-  $('#idDocumentoEditar').val('');
-  $('#tipoDocumento').val('');
-  $('#descripcionDocumento').val('');
-  
-  // Limpiar campos de alergia
-  $('#tipoAlergia').val('');
-  $('#gravedadAlergia').val('');
-  
-  // Limpiar campos de medicamento
-  $('#nombreMedicamento').val('');
-  $('#dosisMedicamento').val('');
-  $('#frecuenciaMedicamento').val('');
-  $('#fechaInicioMedicamento').val('');
-  
-  // Limpiar archivo
-  $('#archivoAdjunto').val('');
-  $('.custom-file-label').html('Seleccionar archivo...');
-  
-  // Ocultar campos específicos
-  $('#camposAlergia, #camposMedicamento').hide();
-  
-  // Ocultar errores
-  $('.text-danger.small').hide();
-  
-  // Restaurar título
-  $('#tituloModalDocumento').text('Agregar Nuevo Documento');
-}
-
-
-/**
- * GUARDAR DOCUMENTO (Crear o Actualizar)
- */
-$('#btnGuardarDocumento').on('click', function() {
-  // Ocultar errores previos
-  $('.text-danger.small').hide();
-  
-  // ========== VALIDACIONES ==========
-  let valido = true;
-  
-  if (!$('#tipoDocumento').val()) {
-    $('#error_tipoDocumento').show();
-    valido = false;
-  }
-  
-  if (!$('#descripcionDocumento').val().trim()) {
-    $('#error_descripcionDocumento').show();
-    valido = false;
-  }
-  
-  // Validaciones específicas para ALERGIAS
-  if ($('#tipoDocumento').val() === 'alergia') {
-    if (!$('#gravedadAlergia').val()) {
-      $('#error_gravedadAlergia').show();
-      valido = false;
-    }
-  }
-  
-  // Validaciones específicas para MEDICAMENTOS
-  if ($('#tipoDocumento').val() === 'medicamento_habitual') {
-    if (!$('#nombreMedicamento').val().trim()) {
-      $('#error_nombreMedicamento').show();
-      valido = false;
-    }
-    if (!$('#dosisMedicamento').val().trim()) {
-      $('#error_dosisMedicamento').show();
-      valido = false;
-    }
-    if (!$('#frecuenciaMedicamento').val().trim()) {
-      $('#error_frecuenciaMedicamento').show();
-      valido = false;
-    }
-  }
-  
-  if (!valido) {
-    Swal.fire('Campos incompletos', 'Por favor complete todos los campos obligatorios', 'warning');
-    return;
-  }
-  
-  // ========== PREPARAR DATOS ==========
-  const formData = new FormData();
-  
-  formData.append('id_paciente', pacienteActualId);
-  formData.append('tipo_documento', $('#tipoDocumento').val());
-  formData.append('descripcion', $('#descripcionDocumento').val().trim());
-  
-  // Campos de alergia
-  if ($('#tipoDocumento').val() === 'alergia') {
-    formData.append('tipo_alergia', $('#tipoAlergia').val() || '');
-    formData.append('gravedad_alergia', $('#gravedadAlergia').val());
-  }
-  
-  // Campos de medicamento
-  if ($('#tipoDocumento').val() === 'medicamento_habitual') {
-    formData.append('nombre_medicamento', $('#nombreMedicamento').val());
-    formData.append('dosis_medicamento', $('#dosisMedicamento').val());
-    formData.append('frecuencia_medicamento', $('#frecuenciaMedicamento').val());
-    formData.append('fecha_inicio_medicamento', $('#fechaInicioMedicamento').val() || '');
-  }
-  
-  // Archivo adjunto
-  const archivoInput = document.getElementById('archivoAdjunto');
-  if (archivoInput.files.length > 0) {
-    formData.append('archivo', archivoInput.files[0]);
-  }
-  
-  // Usuario que registra (puedes obtenerlo de la sesión)
-  formData.append('id_usuario_registro', 1); // TODO: Reemplazar con ID real del usuario
-  
-  // ========== DETERMINAR URL Y MÉTODO ==========
-  let url, method;
-  
-  if (documentoEditandoId) {
-    // EDITAR
-    url = `/api/v1/historial-medico/${documentoEditandoId}`;
-    method = 'PUT';
-    formData.append('id_usuario_modificacion', 1); // TODO: ID real del usuario
-  } else {
-    // CREAR
-    url = '/api/v1/historial-medico';
-    method = 'POST';
-  }
-  
-  // ========== ENVIAR PETICIÓN ==========
-  fetch(url, {
-    method: method,
-    headers: {
-    },
-    body: formData
-  })
-  .then(r => r.json())
-  .then(d => {
-    if (d.success) {
-      $('#modalFormularioDocumento').modal('hide');
-      limpiarFormularioDocumento();
-      
-      Swal.fire(
-        '¡Éxito!',
-        documentoEditandoId ? 'Documento actualizado correctamente' : 'Documento agregado correctamente',
-        'success'
-      );
-      
-      // Recargar historial
-      cargarHistorialPaciente(pacienteActualId);
-    } else {
-      Swal.fire('Error', d.error, 'error');
-    }
-  })
-  .catch(err => {
-    console.error('Error:', err);
-    Swal.fire('Error', 'No se pudo guardar el documento', 'error');
-  });
-});
-
-
-// ============================================
-// EVENTOS: BOTONES PRINCIPALES
-// ============================================
-
-/**
- * Abrir modal para buscar paciente
- */
-$('#btnBuscarPaciente, #txtBuscarPaciente').on('click', function() {
-  $('#modalBuscarPaciente').modal('show');
-});
-
-
-/**
- * Agregar nuevo documento
- */
-$('#btnAgregarDocumento').on('click', function() {
-  limpiarFormularioDocumento();
-  $('#idPacienteDocumento').val(pacienteActualId);
-  $('#modalFormularioDocumento').modal('show');
-});
-
-
-/**
- * Cambiar paciente (limpiar selección actual)
- */
-$('#btnLimpiarPaciente').on('click', function() {
-  pacienteActualId = null;
-  pacienteActual = null;
-  historialData = [];
-  
-  $('#txtBuscarPaciente').val('');
-  $('#idPacienteSeleccionado').val('');
-  $('#infoPaciente').hide();
-  $('#contenedorTabs').hide();
-  $('#mensajeSinPaciente').show();
-  $('#btnAgregarDocumento').prop('disabled', true);
-  
-  // Limpiar tablas
-  $('#tblAntecedentes tbody, #tblAlergias tbody, #tblMedicamentos tbody').empty();
-  $('#galeriaEstudios, #listaOtrosArchivos').empty();
-  
-  // Reset contadores
-  $('.badge-pill').text('0');
-});
-
-
-// ============================================
-// INICIALIZACIÓN AL CARGAR LA PÁGINA
-// ============================================
-$(document).ready(function() {
-  // Inicializar datatable de pacientes
-  initDatatablePacientes();
-  
-  // Ocultar secciones inicialmente
-  $('#infoPaciente').hide();
-  $('#contenedorTabs').hide();
-  $('#mensajeSinPaciente').show();
-});
+  cargarPacientes();
+})();
 </script>
-
 {% endblock %}
-            
-            

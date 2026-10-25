@@ -392,6 +392,24 @@ class UsuarioDao:
             cur.close()
             con.close()
 
+    def _persona_inactiva(self, cur, id_funcionario, id_medico):
+        """
+        Bloquea (FOR SHARE) la fila de la persona a vincular y devuelve un mensaje si no existe o está ANULADA (un usuario solo se vincula a una
+        persona activa; así no se puede anular la persona entre la verificación y el alta). None si está bien.
+        """
+        if id_funcionario:
+            cur.execute("SELECT activo FROM funcionario WHERE id_funcionario = %s FOR SHARE", (id_funcionario,))
+            quien = 'funcionario'
+        elif id_medico:
+            cur.execute("SELECT activo FROM medico WHERE id_medico = %s FOR SHARE", (id_medico,))
+            quien = 'médico'
+        else:
+            return None
+        f = cur.fetchone()
+        if f is None or not f[0]:
+            return f'El {quien} seleccionado no existe o está anulado.'
+        return None
+
     def guardarUsuario(self, password, id_rol, id_funcionario, id_medico):
         """
         Da de alta un usuario nuevo. La contraseña se recibe en texto plano
@@ -407,6 +425,10 @@ class UsuarioDao:
         con = conexion.getConexion()
         cur = con.cursor()
         try:
+            motivo = self._persona_inactiva(cur, id_funcionario, id_medico)
+            if motivo:
+                con.rollback()
+                return ("PERSONA_INACTIVA", motivo)
             cur.execute(sql, (password_hash, id_rol, id_funcionario, id_medico))
             id_usuario = cur.fetchone()[0]
             con.commit()
@@ -443,6 +465,10 @@ class UsuarioDao:
         con = conexion.getConexion()
         cur = con.cursor()
         try:
+            motivo = self._persona_inactiva(cur, id_funcionario, id_medico)
+            if motivo:
+                con.rollback()
+                return ("PERSONA_INACTIVA", motivo)
             cur.execute(sql, params)
             filas_afectadas = cur.rowcount
             con.commit()
@@ -465,7 +491,7 @@ class UsuarioDao:
                    c.descripcion
             FROM funcionario f
             LEFT JOIN cargo c ON f.id_cargo = c.id_cargo
-            WHERE NOT EXISTS (
+            WHERE f.activo = true AND NOT EXISTS (
                 SELECT 1 FROM usuarios u
                 WHERE u.id_funcionario = f.id_funcionario
         """
@@ -502,7 +528,7 @@ class UsuarioDao:
                    e.nombre_especialidad
             FROM medico m
             LEFT JOIN especialidades e ON m.id_especialidad = e.id_especialidad
-            WHERE NOT EXISTS (
+            WHERE m.activo = true AND NOT EXISTS (
                 SELECT 1 FROM usuarios u
                 WHERE u.id_medico = m.id_medico
         """
@@ -540,6 +566,14 @@ class UsuarioDao:
         con = conexion.getConexion()
         cur = con.cursor()
         try:
+            if activo:  # reactivar: la persona vinculada tiene que seguir activa
+                cur.execute("SELECT id_funcionario, id_medico FROM usuarios WHERE id_usuario = %s FOR UPDATE", (id_usuario,))
+                f = cur.fetchone()
+                if f is not None:
+                    motivo = self._persona_inactiva(cur, f[0], f[1])
+                    if motivo:
+                        con.rollback()
+                        return ("PERSONA_INACTIVA", motivo)
             cur.execute(sql, (activo, id_usuario))
             filas_afectadas = cur.rowcount
             con.commit()
@@ -551,3 +585,18 @@ class UsuarioDao:
         finally:
             cur.close()
             con.close()
+
+    def contarAdministradoresActivos(self):
+        """Cantidad de usuarios activos con rol Administrador (para no dejar el sistema sin quien lo administre)."""
+        con = Conexion().getConexion()
+        cur = con.cursor()
+        try:
+            cur.execute("SELECT COUNT(*) FROM usuarios u JOIN roles r ON r.id_rol = u.id_rol WHERE r.nombre_rol = 'Administrador' AND u.activo = true")
+            return cur.fetchone()[0]
+        except Exception as e:
+            app.logger.error(f"Error al contar administradores: {str(e)}")
+            return 0
+        finally:
+            cur.close()
+            con.close()
+

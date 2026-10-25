@@ -1,205 +1,32 @@
-from flask import current_app as app
-from app.conexion.Conexion import Conexion
+from app.dao.referenciales_agendamiento.persona_dao import PersonaDao, DUPLICADO, INVALIDO, NO_EXISTE, YA_ACTIVO  # noqa: F401
 
-class PacienteDao:
 
-    # ==============================
-    #   Obtener todos los pacientes
-    # ==============================
-    def getPacientes(self):
-        sql = """
-            SELECT p.id_paciente, p.nombre, p.apellido,
-                   p.cedula_entidad, p.fecha_nacimiento, p.fecha_registro,
-                   p.telefono, p.telefono_emergencia, p.direccion, p.correo,
-                   p.id_ciudad, c.descripcion AS ciudades
-            FROM paciente p
-            LEFT JOIN ciudades c ON p.id_ciudad = c.id_ciudad
-            ORDER BY p.id_paciente
-        """
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-        try:
-            cur.execute(sql)
-            pacientes = cur.fetchall()
-            return [
-                {
-                    "id_paciente": p[0],
-                    "nombre": p[1],
-                    "apellido": p[2],
-                    "cedula_entidad": p[3],
-                    "fecha_nacimiento": str(p[4]) if p[4] else None,
-                    "fecha_registro": str(p[5]) if p[5] else None,
-                    "telefono": p[6],
-                    "telefono_emergencia": p[7],
-                    "direccion": p[8],
-                    "correo": p[9],
-                    "id_ciudad": p[10],
-                    "ciudades": p[11]
-                }
-                for p in pacientes
-            ]
-        except Exception as e:
-            app.logger.error(f"Error al obtener pacientes: {str(e)}")
-            return []
-        finally:
-            cur.close()
-            con.close()
+class PacienteDao(PersonaDao):
+    """
+    Paciente (dato maestro con borrado lógico). Se anula solo si no tiene trabajo en curso; su historia clínica y sus citas realizadas
+    se conservan. Cliente (Facturación) toma FOR SHARE sobre la fila al guardarse.
+    """
+    TABLA = 'paciente'
+    PK = 'id_paciente'
+    DOC = 'cedula_entidad'
+    NOMBRE = 'paciente'
+    CAMPOS = ('nombre', 'apellido', 'cedula_entidad', 'fecha_nacimiento', 'telefono', 'telefono_emergencia', 'direccion', 'correo', 'id_ciudad')
+    PADRES = (('id_ciudad', 'ciudades', 'id_ciudad', 'descripcion', 'ciudades', 'ciudad'),)
+    DUPLICADOS = (('cedula_entidad', 'esa cédula'), ('correo', 'ese correo'))
+    MINIMO = ('nombre', 'apellido', 'cedula_entidad', 'fecha_nacimiento')
 
-    # ==============================
-    #   Obtener paciente por ID
-    # ==============================
-    def getPacienteById(self, paciente_id):
-        sql = """
-            SELECT p.id_paciente, p.nombre, p.apellido,
-                   p.cedula_entidad, p.fecha_nacimiento, p.fecha_registro,
-                   p.telefono, p.telefono_emergencia, p.direccion, p.correo,
-                   p.id_ciudad, c.descripcion AS ciudades
-            FROM paciente p
-            LEFT JOIN ciudades c ON p.id_ciudad = c.id_ciudad
-            WHERE p.id_paciente = %s
-        """
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-        try:
-            cur.execute(sql, (paciente_id,))
-            p = cur.fetchone()
-            if p:
-                return {
-                    "id_paciente": p[0],
-                    "nombre": p[1],
-                    "apellido": p[2],
-                    "cedula_entidad": p[3],
-                    "fecha_nacimiento": str(p[4]) if p[4] else None,
-                    "fecha_registro": str(p[5]) if p[5] else None,
-                    "telefono": p[6],
-                    "telefono_emergencia": p[7],
-                    "direccion": p[8],
-                    "correo": p[9],
-                    "id_ciudad": p[10],
-                    "ciudades": p[11]
-                }
-            return None
-        except Exception as e:
-            app.logger.error(f"Error al obtener paciente por ID: {str(e)}")
-            return None
-        finally:
-            cur.close()
-            con.close()
-
-    # ==============================
-    #   Insertar nuevo paciente
-    # ==============================
-    def guardarPaciente(self, nombre, apellido, cedula_entidad, fecha_nacimiento,
-                         telefono, telefono_emergencia, direccion, correo, id_ciudad, fecha_registro=None):
-        sql = """
-            INSERT INTO paciente (nombre, apellido, cedula_entidad, fecha_nacimiento,
-                                  telefono, telefono_emergencia, direccion, correo, id_ciudad, fecha_registro)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-            RETURNING id_paciente
-        """
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-        try:
-            cur.execute(sql, (nombre, apellido, cedula_entidad, fecha_nacimiento,
-                              telefono, telefono_emergencia, direccion, correo, id_ciudad, fecha_registro))
-            paciente_id = cur.fetchone()[0]
-            con.commit()
-            return paciente_id
-        except Exception as e:
-            app.logger.error(f"Error al insertar paciente: {str(e)}")
-            con.rollback()
-            return False
-        finally:
-            cur.close()
-            con.close()
-
-    # ==============================
-    #   Actualizar paciente
-    # ==============================
-    def updatePaciente(self, paciente_id, nombre, apellido, cedula_entidad, fecha_nacimiento,
-                       telefono, telefono_emergencia, direccion, correo, id_ciudad, fecha_registro=None):
-        sql = """
-            UPDATE paciente
-            SET nombre=%s, apellido=%s, cedula_entidad=%s, fecha_nacimiento=%s,
-                telefono=%s, telefono_emergencia=%s, direccion=%s, correo=%s, id_ciudad=%s, fecha_registro=%s
-            WHERE id_paciente=%s
-        """
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-        try:
-            cur.execute(sql, (nombre, apellido, cedula_entidad, fecha_nacimiento,
-                              telefono, telefono_emergencia, direccion, correo, id_ciudad, fecha_registro, paciente_id))
-            actualizado = cur.rowcount > 0
-            con.commit()
-            return actualizado
-        except Exception as e:
-            app.logger.error(f"Error al actualizar paciente: {str(e)}")
-            con.rollback()
-            return False
-        finally:
-            cur.close()
-            con.close()
-
-    # ==============================
-    #   Eliminar paciente
-    # ==============================
-    def deletePaciente(self, paciente_id):
-        """
-        Elimina un paciente. Si está registrado como cliente (activo o inactivo: la FK es física) no se
-        elimina. La verificación y el DELETE van en la misma transacción, con la fila del paciente bloqueada
-        (el alta de un cliente toma FOR SHARE sobre ella).
-
-        Returns:
-            bool | str: True si se eliminó, False si no existía o falló, "EN_USO" si es cliente.
-        """
-        sql = "DELETE FROM paciente WHERE id_paciente=%s"
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-        try:
-            cur.execute("SELECT 1 FROM paciente WHERE id_paciente=%s FOR UPDATE", (paciente_id,))
-            if cur.fetchone() is None:
-                con.rollback()
-                return False
-            cur.execute("SELECT to_regclass('public.cliente') IS NOT NULL")
-            if cur.fetchone()[0]:
-                cur.execute("SELECT EXISTS(SELECT 1 FROM cliente WHERE id_paciente=%s)", (paciente_id,))
-                if cur.fetchone()[0]:
-                    con.rollback()
-                    app.logger.warning(f"No se puede eliminar paciente {paciente_id}: está registrado como cliente")
-                    return "EN_USO"
-            cur.execute(sql, (paciente_id,))
-            eliminado = cur.rowcount > 0
-            con.commit()
-            return eliminado
-        except Exception as e:
-            app.logger.error(f"Error al eliminar paciente: {str(e)}")
-            con.rollback()
-            return False
-        finally:
-            cur.close()
-            con.close()
-
-    # ==============================
-    #   Verificar duplicado
-    # ==============================
-    def existeDuplicado(self, cedula_entidad, correo):
-        """Verifica si ya existe un paciente con la misma cédula o correo"""
-        sql = "SELECT COUNT(*) FROM paciente WHERE cedula_entidad = %s OR correo = %s"
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-        try:
-            cur.execute(sql, (cedula_entidad, correo))
-            result = cur.fetchone()[0]
-            return result > 0
-        except Exception as e:
-            app.logger.error(f"Error al verificar duplicado: {str(e)}")
-            return False
-        finally:
-            cur.close()
-            con.close()
+    def _motivo_en_uso(self, cur, id_registro, quien):
+        usos = (
+            ("SELECT COUNT(*) FROM cliente WHERE id_paciente = %s AND activo = true", "está registrado como cliente"),
+            ("""SELECT COUNT(*) FROM cita_detalle cd JOIN cita_cabecera cc ON cc.id_cita_cabecera = cd.id_cita_cabecera
+                JOIN estado_cita ec ON ec.id_estado_cita = cd.id_estado_cita
+                WHERE cc.id_paciente = %s AND cc.estado <> 'Inactivo' AND ec.descripcion IN ('Reservado', 'Confirmado')""", "tiene {n} cita(s) pendiente(s)"),
+            ("SELECT COUNT(*) FROM consultas_cab WHERE id_paciente = %s AND activo = true AND estado IN ('programada', 'en_proceso')", "tiene {n} consulta(s) en curso"),
+            ("SELECT COUNT(*) FROM tratamientos WHERE id_paciente = %s AND estado IN ('pendiente', 'en_seguimiento')", "tiene {n} tratamiento(s) en curso"),
+            ("SELECT COUNT(*) FROM avisos_recordatorios WHERE id_paciente = %s AND estado <> 'Inactivo' AND estado_envio = 'Pendiente'", "tiene {n} aviso(s) pendiente(s)"),
+        )
+        for sql, texto in usos:
+            n = self._cuenta(cur, sql, id_registro)
+            if n:
+                return f"No se puede anular al paciente {quien}: " + texto.format(n=n) + "."
+        return False

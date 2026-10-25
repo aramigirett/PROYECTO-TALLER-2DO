@@ -1,0 +1,288 @@
+{% extends 'base_tabler.html' %}
+
+{% block titulo %}Agenda Médica{% endblock %}
+
+{% block contenido %}
+<div class="page-header d-print-none mb-3">
+  <div class="row align-items-center">
+    <div class="col">
+      <div class="page-pretitle">Agendamiento</div>
+      <h2 class="page-title">Agenda Médica</h2>
+    </div>
+    {% if puede('agenda', 'nuevo') %}
+    <div class="col-auto ms-auto">
+      <button type="button" class="btn btn-primary" id="btnAgregar"><i class="fas fa-plus me-2"></i>Agregar</button>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <label class="form-check form-switch mb-0">
+      <input class="form-check-input" type="checkbox" id="chkInactivos">
+      <span class="form-check-label">Mostrar inactivas</span>
+    </label>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table" id="tbl">
+      <thead>
+        <tr><th>Fecha</th><th>Médico</th><th>Especialidad</th><th>Consultorio</th><th class="text-center">Horarios</th><th style="width: 120px;">Estado</th><th class="w-1">Acciones</th></tr>
+      </thead>
+      <tbody id="tbody"><tr><td colspan="7" class="text-center text-muted py-4">Cargando…</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+{# Modal Alta / Modificar #}
+<div class="modal modal-blur fade" id="modalFormulario" tabindex="-1" aria-labelledby="modalTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalTitle"></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <form id="formulario" novalidate>
+        <div class="modal-body">
+          <input type="hidden" id="txtId">
+          <div class="mb-3">
+            <label class="form-label required" for="selMedico">Médico</label>
+            <select class="form-select" id="selMedico"><option value="">Seleccione…</option></select>
+            <div class="invalid-feedback"></div>
+          </div>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label required" for="selEspecialidad">Especialidad</label>
+              <select class="form-select" id="selEspecialidad"><option value="">Seleccione…</option></select>
+              <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label required" for="selConsultorio">Consultorio</label>
+              <select class="form-select" id="selConsultorio"><option value="">Seleccione…</option></select>
+              <div class="invalid-feedback"></div>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label required" for="txtFecha">Fecha</label>
+            <input type="date" class="form-control" id="txtFecha">
+            <div class="invalid-feedback"></div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="txtObservaciones">Observaciones</label>
+            <textarea class="form-control" id="txtObservaciones" rows="2" maxlength="500"></textarea>
+            <div class="invalid-feedback"></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btnGuardar">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{# Modal Horarios #}
+<div class="modal modal-blur fade" id="modalHorarios" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="tituloHorarios">Horarios</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <h4 class="mb-2">Horarios publicados</h4>
+        <div class="table-responsive mb-4">
+          <table class="table table-vcenter table-sm">
+            <thead><tr><th>Horario</th><th>Día</th><th>Turno</th><th>Cupos</th><th>Estado</th><th class="w-1"></th></tr></thead>
+            <tbody id="tbodyHorarios"></tbody>
+          </table>
+        </div>
+        {% if puede('agenda', 'nuevo') %}
+        <h4 class="mb-2">Disponibilidades del médico para esa fecha</h4>
+        <div id="listaDisponibles" class="mb-2"></div>
+        <button type="button" class="btn btn-primary btn-sm" id="btnPublicar" disabled><i class="fas fa-calendar-plus me-2"></i>Publicar seleccionados</button>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script src="{{ url_for('static', filename='js/facturacion-validadores.js') }}"></script>
+<script src="{{ url_for('static', filename='js/facturacion-listado.js') }}"></script>
+<script>
+(function () {
+  const API = '/api/v1/agenda/cabeceras';
+  const PUEDE_NUEVO = {{ 'true' if puede('agenda', 'nuevo') else 'false' }};
+  const PUEDE_EDITAR = {{ 'true' if puede('agenda', 'editar') else 'false' }};
+  const PUEDE_ANULAR = {{ 'true' if puede('agenda', 'anular') else 'false' }};
+
+  const tbody = document.getElementById('tbody');
+  const chk = document.getElementById('chkInactivos');
+  const modalEl = document.getElementById('modalFormulario');
+  const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+  const modalH = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalHorarios'));
+  const form = document.getElementById('formulario');
+  const btnGuardar = document.getElementById('btnGuardar');
+  const inp = { id: document.getElementById('txtId'), id_medico: document.getElementById('selMedico'), id_especialidad: document.getElementById('selEspecialidad'),
+                id_consultorio: document.getElementById('selConsultorio'), fecha_agenda: document.getElementById('txtFecha'), observaciones: document.getElementById('txtObservaciones') };
+  const CAMPOS = ['id_medico', 'id_especialidad', 'id_consultorio', 'fecha_agenda', 'observaciones'];
+  const L = window.FacturacionListado;
+  const V = window.FacturacionValidadores;
+  const { escapar, pedir } = L;
+  let medicos = [];
+  let cabeceraActual = null;
+
+  const hoy = new Date(); hoy.setMinutes(hoy.getMinutes() - hoy.getTimezoneOffset());
+  inp.fecha_agenda.min = hoy.toISOString().slice(0, 10);
+
+  const llenar = (sel, lista, id, texto) => {
+    sel.innerHTML = '<option value="">Seleccione…</option>' + lista.map((x) => `<option value="${escapar(x[id])}">${escapar(texto(x))}</option>`).join('');
+  };
+
+  async function cargarCombos(c) {
+    const [m, e, co] = await Promise.all([pedir('/api/v1/medico'), pedir('/api/v1/especialidades'), pedir('/api/v1/consultorios')]);
+    medicos = (m.data && m.data.success) ? m.data.data : [];
+    llenar(inp.id_medico, medicos, 'id_medico', (x) => `${x.nombre} ${x.apellido}`);
+    llenar(inp.id_especialidad, (e.data && e.data.success) ? e.data.data : [], 'id_especialidad', (x) => x.nombre_especialidad);
+    llenar(inp.id_consultorio, (co.data && co.data.success) ? co.data.data : [], 'codigo', (x) => x.nombre_consultorio);
+    inp.id_medico.value = c ? c.id_medico : '';
+    inp.id_especialidad.value = c ? c.id_especialidad : '';
+    inp.id_consultorio.value = c ? c.id_consultorio : '';
+  }
+
+  async function cargar() {
+    try {
+      const { ok, data } = await pedir(L.urlListado(API, chk));
+      if (!ok || !data || !data.success) throw new Error();
+      if (!data.data.length) { tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">No hay agendas registradas.</td></tr>'; return; }
+      tbody.innerHTML = data.data.map((c) => {
+        let acciones = `<button type="button" class="btn btn-sm btn-outline-secondary" data-accion="horarios" data-id="${escapar(c.id_agenda_cabecera)}" title="Horarios"><i class="fas fa-clock"></i></button>`;
+        acciones += L.acciones({ activo: c.activo, id: c.id_agenda_cabecera, descripcion: `${c.medico_nombre}, ${c.fecha_agenda}`,
+                                 puedeEditar: c.activo ? PUEDE_EDITAR : PUEDE_ANULAR, puedeAnular: PUEDE_ANULAR });
+        return `<tr class="${L.claseFila(c.activo)}"><td>${escapar(c.fecha_agenda)}</td><td>${escapar(c.medico_nombre)}</td><td>${escapar(c.especialidad)}</td>
+          <td>${escapar(c.nombre_consultorio)}</td><td class="text-center">${escapar(c.horarios)}</td>
+          <td>${c.activo ? '<span class="badge bg-success-lt">Activa</span>' : '<span class="badge bg-secondary-lt">Inactiva</span>'}</td>
+          <td class="text-nowrap"><div class="btn-list flex-nowrap">${acciones}</div></td></tr>`;
+      }).join('');
+    } catch (e) {
+      tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger py-4">No se pudo cargar el listado.</td></tr>';
+    }
+  }
+
+  async function abrirModal(titulo, c) {
+    document.getElementById('modalTitle').textContent = titulo;
+    inp.id.value = c ? c.id_agenda_cabecera : '';
+    await cargarCombos(c);
+    inp.fecha_agenda.value = c ? c.fecha_agenda : '';
+    inp.observaciones.value = c ? (c.observaciones || '') : '';
+    CAMPOS.forEach((k) => V.limpiarCampo(inp[k]));
+    modal.show();
+  }
+
+  inp.id_medico.addEventListener('change', () => {   // la especialidad por defecto es la del médico
+    const m = medicos.find((x) => String(x.id_medico) === inp.id_medico.value);
+    if (m && m.id_especialidad && !inp.id_especialidad.value) inp.id_especialidad.value = m.id_especialidad;
+  });
+  CAMPOS.forEach((k) => { inp[k].addEventListener('input', () => V.limpiarCampo(inp[k])); inp[k].addEventListener('change', () => V.limpiarCampo(inp[k])); });
+  const btnAgregar = document.getElementById('btnAgregar');
+  if (btnAgregar) btnAgregar.addEventListener('click', () => abrirModal('Agregar Agenda'));
+
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    CAMPOS.forEach((k) => V.limpiarCampo(inp[k]));
+    let error = false;
+    [['id_medico', 'médico'], ['id_especialidad', 'especialidad'], ['id_consultorio', 'consultorio'], ['fecha_agenda', 'fecha']].forEach(([k, n]) => {
+      if (!inp[k].value) { V.marcarCampo(inp[k], `El campo ${n} es obligatorio.`); error = true; }
+    });
+    if (error) return;
+    const id = inp.id.value;
+    if (id) {
+      const c = await Swal.fire({ title: '¿Guardar los cambios?', text: 'Se modificará esta agenda.', icon: 'question', showCancelButton: true, confirmButtonText: 'Sí, guardar', cancelButtonText: 'Cancelar' });
+      if (!c.isConfirmed) return;
+    }
+    const cuerpo = {};
+    CAMPOS.forEach((k) => { cuerpo[k] = inp[k].value.trim(); });
+    btnGuardar.disabled = true;
+    try {
+      const { data } = await pedir(id ? `${API}/${id}` : API, { method: id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo) });
+      if (data && data.success) {
+        modal.hide(); await cargar(); Swal.fire(id ? 'Actualizada' : 'Registrada', data.mensaje, 'success');
+      } else {
+        V.marcarCampo(inp[data && data.campo && inp[data.campo] ? data.campo : 'id_medico'], (data && data.error) || 'No se pudo guardar la agenda.');
+      }
+    } catch (e) {
+      V.marcarCampo(inp.id_medico, 'Ocurrió un error de conexión. Intente nuevamente.');
+    } finally {
+      btnGuardar.disabled = false;
+    }
+  });
+
+  // ---- horarios de una agenda ----
+  const tbodyH = document.getElementById('tbodyHorarios');
+  const lista = document.getElementById('listaDisponibles');
+  const btnPublicar = document.getElementById('btnPublicar');
+
+  async function cargarHorarios() {
+    const { data } = await pedir(`${API}/${cabeceraActual.id_agenda_cabecera}/detalles`);
+    const filas = (data && data.success) ? data.data : [];
+    tbodyH.innerHTML = filas.length ? filas.map((d) => `<tr><td>${escapar(d.hora_inicio)} - ${escapar(d.hora_fin)}</td><td>${escapar(d.dia)}</td><td>${escapar(d.turno)}</td>
+      <td>${escapar(d.cupos_disponibles)} / ${escapar(d.cupos_maximos)}</td><td>${d.estado_detalle === 'Agotado' ? '<span class="badge bg-warning-lt">Agotado</span>' : '<span class="badge bg-success-lt">Disponible</span>'}</td>
+      <td>${PUEDE_ANULAR && cabeceraActual.activo ? `<button type="button" class="btn btn-sm btn-outline-danger" data-accion="anular-horario" data-id="${escapar(d.id_agenda_detalle)}" data-desc="${escapar(d.hora_inicio)} - ${escapar(d.hora_fin)}" title="Anular horario"><i class="fas fa-ban"></i></button>` : ''}</td></tr>`).join('')
+      : '<tr><td colspan="6" class="text-center text-muted py-3">Todavía no se publicó ningún horario.</td></tr>';
+    if (!lista) return;
+    if (!cabeceraActual.activo) { lista.innerHTML = '<div class="text-muted">La agenda está inactiva: reactívela para publicar horarios.</div>'; btnPublicar.disabled = true; return; }
+    const r = await pedir(`/api/v1/disponibilidades/medico-fecha?id_medico=${cabeceraActual.id_medico}&fecha=${cabeceraActual.fecha_agenda}`);
+    const publicados = new Set(filas.map((d) => d.id_disponibilidad_horaria));
+    const libres = ((r.data && r.data.success) ? r.data.data : []).filter((d) => !publicados.has(d.id_disponibilidad));
+    lista.innerHTML = libres.length ? libres.map((d) => `<label class="form-check"><input class="form-check-input chk-disp" type="checkbox" value="${escapar(d.id_disponibilidad)}">
+      <span class="form-check-label">${escapar(String(d.dispo_hora_inicio).slice(0, 5))} - ${escapar(String(d.dispo_hora_fin).slice(0, 5))} · ${escapar(d.des_turno)} · ${escapar(d.dispo_cupos)} cupos</span></label>`).join('')
+      : '<div class="text-muted">No hay disponibilidades sin publicar para ese médico y esa fecha.</div>';
+    btnPublicar.disabled = true;
+  }
+
+  if (lista) {
+    lista.addEventListener('change', () => { btnPublicar.disabled = !lista.querySelector('.chk-disp:checked'); });
+    btnPublicar.addEventListener('click', async () => {
+      const ids = Array.from(lista.querySelectorAll('.chk-disp:checked')).map((c) => parseInt(c.value, 10));
+      const { data } = await pedir(`${API}/${cabeceraActual.id_agenda_cabecera}/detalles`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids_disponibilidades: ids }) });
+      await cargarHorarios(); await cargar();
+      Swal.fire(data && data.success ? 'Publicado' : 'No se publicó', (data && (data.mensaje || data.error)) || '', data && data.success ? 'success' : 'error');
+    });
+  }
+
+  tbodyH.addEventListener('click', async (ev) => {
+    const btn = ev.target.closest('button[data-accion="anular-horario"]');
+    if (!btn) return;
+    await L.anular({ api: '/api/v1/agenda/detalles', id: btn.dataset.id, descripcion: btn.dataset.desc, titulo: '¿Anular este horario?', exito: 'Anulado',
+                     errorDefault: 'No se pudo anular el horario.', recargar: async () => { await cargarHorarios(); await cargar(); } });
+  });
+
+  tbody.addEventListener('click', async (ev) => {
+    const btn = ev.target.closest('button[data-accion]');
+    if (!btn) return;
+    const id = btn.dataset.id;
+    if (btn.dataset.accion === 'horarios' || btn.dataset.accion === 'editar') {
+      const { data } = await pedir(`${API}/${id}`);
+      if (!(data && data.success)) { Swal.fire('Error', (data && data.error) || 'No se pudo cargar la agenda.', 'error'); cargar(); return; }
+      if (btn.dataset.accion === 'editar') { await abrirModal('Editar Agenda', data.data); return; }
+      cabeceraActual = data.data;
+      document.getElementById('tituloHorarios').textContent = `Horarios · ${cabeceraActual.medico_nombre} · ${cabeceraActual.fecha_agenda}`;
+      await cargarHorarios();
+      modalH.show();
+    }
+    if (btn.dataset.accion === 'anular') {
+      await L.anular({ api: API, id, descripcion: btn.dataset.desc, titulo: '¿Anular esta agenda?', exito: 'Anulada', errorDefault: 'No se pudo anular la agenda.', recargar: cargar });
+    }
+    if (btn.dataset.accion === 'reactivar') {
+      await L.reactivar({ api: API, id, descripcion: btn.dataset.desc, titulo: '¿Reactivar esta agenda?', exito: 'Reactivada', errorDefault: 'No se pudo reactivar la agenda.', recargar: cargar });
+    }
+  });
+
+  chk.addEventListener('change', cargar);
+  cargar();
+})();
+</script>
+{% endblock %}

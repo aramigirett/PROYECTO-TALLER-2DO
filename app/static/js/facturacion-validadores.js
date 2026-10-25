@@ -208,6 +208,78 @@
     return '';
   }
 
+  /* ---- Agendamiento. Espejo de app/rutas/modulo_agendamiento/utils.py ---- */
+  var DIAS_VALIDOS = ['LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES', 'SABADO', 'DOMINGO'];
+  var MAX_CUPOS = 1000;
+  var RE_TELEFONO_PY = /^595\d{8,9}$/;
+
+  function sinTildes(t) {
+    return t.replace(/[ÁÀ]/g, 'A').replace(/[ÉÈ]/g, 'E').replace(/[ÍÌ]/g, 'I').replace(/[ÓÒ]/g, 'O').replace(/[ÚÙÜ]/g, 'U');
+  }
+
+  /* Día de la semana: uno de los 7 nombres (se acepta con tilde). Espejo de validar_dia. */
+  function dia(v) {
+    var t = sinTildes(limpiar(v).toUpperCase());
+    if (!t) return 'El campo día es obligatorio y no puede estar vacío.';
+    for (var i = 0; i < DIAS_VALIDOS.length; i++) { if (DIAS_VALIDOS[i] === t) return ''; }
+    return 'El día debe ser uno de los días de la semana: Lunes, Martes, Miércoles, Jueves, Viernes, Sábado o Domingo.';
+  }
+
+  /* Teléfono paraguayo del consultorio: 0981234567 -> 595981234567. Espejo de normalizar_telefono_py / validar_telefono_py. */
+  function normalizarTelefonoPy(v) {
+    if (typeof v !== 'string') return null;
+    var t = v.replace(/^\s+|\s+$/g, '').replace(/ /g, '').replace(/-/g, '');
+    if (!t) return null;
+    if (t.charAt(0) === '+') t = t.substring(1);
+    if (t.charAt(0) === '0') return '595' + t.substring(1);
+    return t.indexOf('595') === 0 ? t : '595' + t;
+  }
+
+  function telefonoPy(v) {
+    if (!limpiar(v)) return 'El campo teléfono es obligatorio y no puede estar vacío.';
+    var t = normalizarTelefonoPy(v);
+    if (!t || !RE_TELEFONO_PY.test(t)) return 'El número de teléfono no es válido. Debe ser paraguayo (ej.: 0981234567).';
+    return '';
+  }
+
+  /* Hora HH:MM o HH:MM:SS. Espejo de validar_hora. */
+  function hora(v, nombre) {
+    var t = typeof v === 'string' ? v.replace(/^\s+|\s+$/g, '') : '';
+    if (!t) return 'El campo ' + nombre + ' es obligatorio y no puede estar vacío.';
+    var m = /^(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?$/.exec(t);
+    if (!m || Number(m[1]) > 23 || Number(m[2]) > 59 || (m[3] !== undefined && Number(m[3]) > 59))
+      return 'El campo ' + nombre + ' no es una hora válida (use HH:MM).';
+    return '';
+  }
+
+  /* La hora de fin debe ser posterior a la de inicio (HH:MM con 2 dígitos). Espejo de validar_horario. */
+  function horario(inicio, fin) {
+    return fin <= inicio ? 'La hora de fin debe ser posterior a la hora de inicio.' : '';
+  }
+
+  /* Cupos: entero de 1 a 1000. Espejo de validar_cupos. */
+  function cupos(v) {
+    var t = typeof v === 'number' ? String(v) : (typeof v === 'string' ? v.replace(/^\s+|\s+$/g, '') : '');
+    if (!/^\d+$/.test(t)) return 'Los cupos deben ser un número entero.';
+    var n = Number(t);
+    if (n < 1 || n > MAX_CUPOS) return 'Los cupos deben estar entre 1 y ' + MAX_CUPOS + '.';
+    return '';
+  }
+
+  /* Fecha de nacimiento AAAA-MM-DD: obligatoria, real, no futura y desde 1900. Espejo de validar_fecha_nacimiento. */
+  function fechaNacimiento(v) {
+    var t = typeof v === 'string' ? v.replace(/^\s+|\s+$/g, '') : '';
+    if (!t) return 'El campo fecha de nacimiento es obligatorio y no puede estar vacío.';
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t);
+    var y = m ? Number(m[1]) : 0, mo = m ? Number(m[2]) : 0, d = m ? Number(m[3]) : 0;
+    var f = new Date(y, mo - 1, d);
+    if (!m || f.getFullYear() !== y || f.getMonth() !== mo - 1 || f.getDate() !== d) return 'El campo fecha de nacimiento no es una fecha válida.';
+    var hoy = new Date(); hoy = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+    if (f > hoy) return 'La fecha de nacimiento no puede ser futura.';
+    if (y < 1900) return 'La fecha de nacimiento no es válida.';
+    return '';
+  }
+
   /* ---- Ayudas de interfaz (Tabler/Bootstrap 5): .invalid-feedback hermano del input ---- */
   function marcarCampo(input, mensaje) {
     if (!input) return;
@@ -229,6 +301,7 @@
     telefonoOpcional: telefonoOpcional, correoOpcional: correoOpcional,
     precio: precio, monto: monto, iva: iva, cantidad: cantidad, cantidadPositiva: cantidadPositiva,
     observacion: observacion, montoPositivo: montoPositivo, codigo: codigo, ultimosDigitos: ultimosDigitos, numeroCuenta: numeroCuenta, formatoGs: formatoGs,
+    fechaNacimiento: fechaNacimiento, dia: dia, telefonoPy: telefonoPy, hora: hora, horario: horario, cupos: cupos,
     marcarCampo: marcarCampo, limpiarCampo: limpiarCampo
   };
 })(window);

@@ -45,6 +45,19 @@ for (var a5 = 0; a5 < prs.length; a5++) out.push('presentacion\t' + prs[a5] + '\
 var meds = ['', 'ibuprofeno 400 mg', 'AMOXICILINA/CLAVULANICO 875/125 MG', 'amoxicilina/clavulánico 875/125 mg', 'a<b', '(x)', 'x'];
 for (var a6 = 0; a6 < meds.length; a6++) out.push('descMed\t' + meds[a6] + '\t' + V.descripcion(meds[a6], { max: 200, ampliada: true, etiqueta: 'nombre comercial', articulo: 'El' }));
 out.push('ubicacion\tPLANTA\t' + V.ubicacion('PLANTA') + '|' + V.ubicacion('') );
+// Agendamiento (espejo de app/rutas/modulo_agendamiento/utils.py)
+var dias = ['lunes', 'MARTES', 'Miércoles', 'sábado', 'domingo', 'LUNES ', 'viernes ', 'enero', '', '   ', 'lun', 'jueves1'];
+for (var d1 = 0; d1 < dias.length; d1++) out.push('dia\t' + dias[d1] + '\t' + V.dia(dias[d1]));
+var tpy = ['0981234567', '0981 234 567', '+595981234567', '981234567', '595981234567', '0212345678', '12345', '', '   ', 'abc', '0981-234-567', '0981234567890123'];
+for (var d2 = 0; d2 < tpy.length; d2++) out.push('telPy\t' + tpy[d2] + '\t' + V.telefonoPy(tpy[d2]));
+var hrs = ['08:00', '8:30', '23:59', '24:00', '12:60', '08:00:30', '08:00:61', '', '  ', 'abc', '8', '08:5'];
+for (var d3 = 0; d3 < hrs.length; d3++) out.push('hora\t' + hrs[d3] + '\t' + V.hora(hrs[d3], 'hora de inicio'));
+var cps = ['1', '50', '1000', '1001', '0', '-1', '1.5', 'abc', '', ' 7 ', '01'];
+for (var d4 = 0; d4 < cps.length; d4++) out.push('cupos\t' + cps[d4] + '\t' + V.cupos(cps[d4]));
+var hh = ['08:00|09:00', '09:00|08:00', '08:00|08:00', '08:00|08:01'];
+for (var d5 = 0; d5 < hh.length; d5++) { var pa = hh[d5].split('|'); out.push('horario\t' + hh[d5] + '\t' + V.horario(pa[0], pa[1])); }
+var fns = ['1990-05-05', '1900-01-01', '1899-12-31', '2999-01-01', '2026-02-30', '1990-13-01', 'abc', '', '  ', '90-05-05', '2000-02-29', '1999-02-29'];
+for (var d6 = 0; d6 < fns.length; d6++) out.push('fechaNac	' + fns[d6] + '	' + V.fechaNacimiento(fns[d6]));
 // salida en UTF-8 sin BOM vía ADODB
 var so = new ActiveXObject('ADODB.Stream'); so.Type = 2; so.Charset = 'utf-8'; so.Open();
 so.WriteText(out.join('\n')); so.SaveToFile(WScript.Arguments(2), 2); so.Close();

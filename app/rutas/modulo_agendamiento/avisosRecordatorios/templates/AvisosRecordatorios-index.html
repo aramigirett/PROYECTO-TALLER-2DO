@@ -1,1338 +1,294 @@
-{% extends 'base.html' %}
+{% extends 'base_tabler.html' %}
 
-{% block titulo %}
-Avisos Recordatorios
-{% endblock titulo %}
+{% block titulo %}Avisos y Recordatorios{% endblock %}
 
 {% block contenido %}
-<div class="container-fluid mt-4">
-  <!-- ENCABEZADO DE LA PÁGINA -->
-  <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2 class="text-primary">
-      <i class="fas fa-bell"></i> Gestión de Avisos Recordatorios
-    </h2>
-    <div class="btn-group" role="group">
-      {% if puede('avisos','nuevo') %}<button type="button" class="btn btn-primary btn-lg shadow-sm" id="btnAgregar">
-        <i class="fas fa-plus-circle"></i> Nuevo Aviso
-      </button>{% endif %}
-      {% if puede('avisos','estado') %}<button type="button" class="btn btn-success btn-lg shadow-sm" id="btnEnviarWhatsApp">
-        <i class="fab fa-whatsapp"></i> Enviar WhatsApp
-      </button>{% endif %}
-      <button type="button" class="btn btn-info btn-lg shadow-sm" id="btnEstadisticas">
-        <i class="fas fa-chart-bar"></i> Estadísticas
-      </button>
+<div class="page-header d-print-none mb-3">
+  <div class="row align-items-center">
+    <div class="col">
+      <div class="page-pretitle">Agendamiento</div>
+      <h2 class="page-title">Avisos y Recordatorios</h2>
     </div>
+    {% if puede('avisos', 'nuevo') %}
+    <div class="col-auto ms-auto">
+      <button type="button" class="btn btn-primary" id="btnAgregar"><i class="fas fa-plus me-2"></i>Agregar</button>
+    </div>
+    {% endif %}
   </div>
-
-  <!-- GUÍA RÁPIDA -->
-<!--   <div class="alert alert-info shadow-sm">
-    <h5><i class="fas fa-question-circle"></i> Cómo Funciona</h5>
-    <ol class="mb-0">
-      <li><strong>Crear Aviso:</strong> Haz clic en "Nuevo Aviso" y completa los datos de la cita</li>
-      <li><strong>Enviar:</strong> Usa "Enviar WhatsApp" para enviar todos los pendientes o usa el botón individual</li>
-      <li><strong>Monitorear:</strong> Revisa el estado del envío y confirmación del paciente en la tabla</li>
-    </ol>
-  </div> -->
-
-  <!-- TABLA PRINCIPAL -->
-  <div class="card shadow-sm">
-    <div class="card-header bg-primary text-white">
-      <h5 class="mb-0"><i class="fas fa-list"></i> Avisos Registrados</h5>
-    </div>
-    <div class="card-body">
-      <div class="table-responsive">
-        <table class="table table-hover table-striped" id="tblAvisos">
-          <thead class="table-light">
-            <tr>
-              <th><i class="fas fa-user-tie"></i> Funcionario</th>
-              <th><i class="fas fa-door-open"></i> Consultorio</th>
-              <th><i class="fas fa-user"></i> Paciente</th>
-              <th><i class="fas fa-phone"></i> Teléfono</th>
-              <th><i class="fas fa-user-md"></i> Médico</th>
-              <th><i class="fas fa-calendar-day"></i> Fecha Cita</th>
-              <th><i class="fas fa-clock"></i> Hora Cita</th>
-              <th><i class="fas fa-paper-plane"></i> Forma Envío</th>
-              <th><i class="fas fa-envelope"></i> Mensaje</th>
-              <th><i class="fas fa-send"></i> Estado Envío</th>
-              <th><i class="fas fa-check-circle"></i> Confirmación</th>
-              <th><i class="fas fa-cogs"></i> Acciones</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <!-- MODAL: CREAR/EDITAR AVISO -->
-  <div class="modal fade" id="modalAviso" tabindex="-1" role="dialog">
-    <div class="modal-dialog modal-lg" role="document">
-      <div class="modal-content">
-        <div class="modal-header bg-primary text-white">
-          <h5 class="modal-title" id="modalTitle">
-            <i class="fas fa-bell"></i> Nuevo Aviso Recordatorio
-          </h5>
-          <button type="button" class="close text-white" data-dismiss="modal">
-            <span>&times;</span>
-          </button>
-        </div>
-
-        <div class="modal-body">
-          <form id="formAvisoModal">
-            <input type="hidden" id="id_aviso_modal">
-
-            <div class="row">
-              <!-- Funcionario -->
-              <div class="col-md-6 mb-3">
-                <label class="font-weight-bold">
-                  <i class="fas fa-user-tie text-primary"></i> Funcionario *
-                </label>
-                <div class="input-group">
-                  <input type="text" class="form-control" id="txtFuncionario" 
-                         placeholder="Click para seleccionar" readonly required>
-                  <div class="input-group-append">
-                    <button class="btn btn-outline-primary" type="button" id="btnBuscarFuncionario">
-                      <i class="fas fa-search"></i>
-                    </button>
-                  </div>
-                </div>
-                <input type="hidden" id="id_funcionario_modal">
-              </div>
-
-              <!-- Consultorio -->
-              <div class="col-md-6 mb-3">
-                <label class="font-weight-bold">
-                  <i class="fas fa-door-open text-info"></i> Consultorio *
-                </label>
-                <div class="input-group">
-                  <input type="text" class="form-control" id="txtConsultorio" 
-                         placeholder="Click para seleccionar" readonly required>
-                  <div class="input-group-append">
-                    <button class="btn btn-outline-info" type="button" id="btnBuscarConsultorio">
-                      <i class="fas fa-search"></i>
-                    </button>
-                  </div>
-                </div>
-                <input type="hidden" id="codigo">
-              </div>
-
-              <!-- Paciente -->
-              <div class="col-md-6 mb-3">
-                <label class="font-weight-bold">
-                  <i class="fas fa-user text-success"></i> Paciente *
-                </label>
-                <div class="input-group">
-                  <input type="text" class="form-control" id="txtpaciente" 
-                         placeholder="Click para seleccionar" readonly required>
-                  <div class="input-group-append">
-                    <button class="btn btn-outline-success" type="button" id="btnBuscarPaciente">
-                      <i class="fas fa-search"></i>
-                    </button>
-                  </div>
-                </div>
-                <input type="hidden" id="id_paciente">
-              </div>
-              
-              <!-- NUEVA SECCIÓN: Cita del Paciente (Auto-cargada) -->
-              <div class="col-md-6 mb-3">
-                <label class="font-weight-bold">
-                   <i class="fas fa-calendar-check text-success"></i> Cita Confirmada (Opcional)
-                </label>
-                <select class="form-control" id="cita_seleccionada">
-                  <option value="">-- Seleccionar cita del paciente --</option>
-                </select>
-                <small class="text-muted d-block mt-1">
-                  <i class="fas fa-info-circle"></i> Se carga automáticamente al seleccionar paciente
-                </small>
-              </div>
-
-              <!-- Médico (opcional) -->
-              <div class="col-md-6 mb-3">
-                <label class="font-weight-bold">
-                  <i class="fas fa-user-md text-warning"></i> Médico (Opcional)
-                </label>
-                <div class="input-group">
-                  <input type="text" class="form-control" id="txtMedico" 
-                         placeholder="Click para seleccionar" readonly>
-                  <div class="input-group-append">
-                    <button class="btn btn-outline-warning" type="button" id="btnBuscarMedico">
-                      <i class="fas fa-search"></i>
-                    </button>
-                  </div>
-                </div>
-                <input type="hidden" id="id_medico">
-              </div>
-
-              <!-- Fecha -->
-              <div class="col-md-6 mb-3">
-                <label class="font-weight-bold">
-                  <i class="fas fa-calendar-alt text-danger"></i> Fecha Cita *
-                </label>
-                <input type="date" class="form-control" id="fecha_cita_modal" required>
-                <small class="text-muted">Se carga automáticamente si seleccionas una cita</small>
-              </div>
-
-              <!-- Hora -->
-              <div class="col-md-6 mb-3">
-                <label class="font-weight-bold">
-                  <i class="fas fa-hourglass-end text-danger"></i> Hora Cita *
-                </label>
-                <input type="time" class="form-control" id="hora_cita_modal" required>
-                <small class="text-muted">Se carga automáticamente si seleccionas una cita</small>
-              </div>
-
-              <!-- Forma de Envío -->
-              <div class="col-md-6 mb-3">
-                <label class="font-weight-bold">
-                  <i class="fas fa-paper-plane text-secondary"></i> Forma Envío *
-                </label>
-                <select class="form-control" id="forma_envio_modal" required>
-                  <option value="">Seleccione</option>
-                  <option value="WhatsApp">WhatsApp</option>
-                  <option value="Gmail">Gmail</option>
-                  <option value="SMS">SMS</option>
-                </select>
-              </div>
-
-              <!-- Estado Confirmación -->
-              <div class="col-md-6 mb-3">
-                <label class="font-weight-bold">
-                  <i class="fas fa-check-circle text-success"></i> Estado Confirmación
-                </label>
-                <select class="form-control" id="estado_confirmacion_modal">
-                  <option value="Pendiente">Pendiente</option>
-                  <option value="Confirmado">Confirmado</option>
-                  <option value="Cancelado">Cancelado</option>
-                </select>
-              </div>
-
-              <!-- CAMPO CRÍTICO: Mensaje Personalizado (OBLIGATORIO) -->
-              <div class="col-12 mb-3">
-                <label class="font-weight-bold">
-                  <i class="fas fa-comment-alt text-danger"></i> Mensaje para el Paciente *
-                </label>
-                <textarea class="form-control" id="mensaje_modal" rows="4" 
-                          placeholder="Escriba aquí el mensaje personalizado que desea enviar al paciente..."
-                          required></textarea>
-                <small class="text-muted d-block mt-1">
-                  <i class="fas fa-lightbulb"></i> 
-                  <strong>Ejemplo:</strong> "Hola Juan, le recordamos su cita para el tratamiento de conducto el próximo jueves 25 de octubre a las 2:30 PM con el Dr. Carlos García en el Consultorio 2. Por favor confirme su asistencia. Gracias!"
-                </small>
-              </div>
-
-            </div>
-
-            <div class="alert alert-info">
-              <i class="fas fa-info-circle"></i>
-              <strong>Sistema de Mensajes Personalizados:</strong> Este sistema NO genera mensajes automáticos. 
-              Usted debe escribir un mensaje personalizado para cada paciente. 
-              El mensaje se enviará exactamente como lo escriba.
-            </div>
-          </form>
-        </div>
-              
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-dismiss="modal">
-            <i class="fas fa-times"></i> Cancelar
-          </button>
-          <button type="submit" class="btn btn-primary" form="formAvisoModal">
-            <i class="fas fa-save"></i> Guardar
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- MODALES DE BÚSQUEDA -->
-  
-  <!-- Modal Paciente -->
-  <div class="modal fade" id="modalBuscarPaciente" tabindex="-1" role="dialog">
-    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
-      <div class="modal-content">
-        <div class="modal-header bg-success text-white">
-          <h5 class="modal-title"><i class="fas fa-user"></i> Seleccionar Paciente</h5>
-          <button type="button" class="close text-white" data-dismiss="modal">
-            <span>&times;</span>
-          </button>
-        </div>
-        <div class="modal-body">
-          <div class="table-responsive">
-            <table class="table table-hover" id="tblPaciente">
-              <thead class="table-light">
-                <tr>
-                  <th>Nombre</th>
-                  <th>Apellido</th>
-                  <th>Acciones</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Modal Funcionario -->
-  <div class="modal fade" id="modalBuscarFuncionario" tabindex="-1" role="dialog">
-    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
-      <div class="modal-content">
-        <div class="modal-header bg-primary text-white">
-          <h5 class="modal-title"><i class="fas fa-user-tie"></i> Seleccionar Funcionario</h5>
-          <button type="button" class="close text-white" data-dismiss="modal">
-            <span>&times;</span>
-          </button>
-        </div>
-        <div class="modal-body">
-          <div class="table-responsive">
-            <table class="table table-hover" id="tblFuncionario">
-              <thead class="table-light">
-                <tr>
-                  <th>Nombre</th>
-                  <th>Apellido</th>
-                  <th>Acciones</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Modal Médico -->
-  <div class="modal fade" id="modalBuscarMedico" tabindex="-1" role="dialog">
-    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
-      <div class="modal-content">
-        <div class="modal-header bg-warning text-dark">
-          <h5 class="modal-title"><i class="fas fa-user-md"></i> Seleccionar Médico</h5>
-          <button type="button" class="close" data-dismiss="modal">
-            <span>&times;</span>
-          </button>
-        </div>
-        <div class="modal-body">
-          <div class="table-responsive">
-            <table class="table table-hover" id="tblMedico">
-              <thead class="table-light">
-                <tr>
-                  <th>Nombre</th>
-                  <th>Apellido</th>
-                  <th>Acciones</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Modal Consultorio -->
-  <div class="modal fade" id="modalBuscarConsultorio" tabindex="-1" role="dialog">
-    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
-      <div class="modal-content">
-        <div class="modal-header bg-info text-white">
-          <h5 class="modal-title"><i class="fas fa-door-open"></i> Seleccionar Consultorio</h5>
-          <button type="button" class="close text-white" data-dismiss="modal">
-            <span>&times;</span>
-          </button>
-        </div>
-        <div class="modal-body">
-          <div class="table-responsive">
-            <table class="table table-hover" id="tblConsultorio">
-              <thead class="table-light">
-                <tr>
-                  <th>Consultorio</th>
-                  <th>Acciones</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Modal Estadísticas -->
-  <div class="modal fade" id="modalEstadisticas" tabindex="-1" role="dialog">
-    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
-      <div class="modal-content">
-        <div class="modal-header bg-info text-white">
-          <h5 class="modal-title"><i class="fas fa-chart-bar"></i> Estadísticas de Avisos</h5>
-          <button type="button" class="close text-white" data-dismiss="modal">
-            <span>&times;</span>
-          </button>
-        </div>
-        <div class="modal-body">
-          <div class="row">
-            <div class="col-md-4">
-              <div class="card text-center shadow-sm">
-                <div class="card-body">
-                  <h6 class="card-title">Total Avisos</h6>
-                  <h3 class="text-primary"><i class="fas fa-bell"></i> <span id="statTotal">0</span></h3>
-                </div>
-              </div>
-            </div>
-            <div class="col-md-4">
-              <div class="card text-center shadow-sm">
-                <div class="card-body">
-                  <h6 class="card-title">Pendientes</h6>
-                  <h3 class="text-warning"><i class="fas fa-hourglass"></i> <span id="statPendientes">0</span></h3>
-                </div>
-              </div>
-            </div>
-            <div class="col-md-4">
-              <div class="card text-center shadow-sm">
-                <div class="card-body">
-                  <h6 class="card-title">Enviados</h6>
-                  <h3 class="text-success"><i class="fas fa-check"></i> <span id="statEnviados">0</span></h3>
-                </div>
-              </div>
-            </div>
-          </div>
-          <hr>
-          <div class="row mt-3">
-            <div class="col-md-4">
-              <p><strong>WhatsApp:</strong> <span id="statWhatsApp" class="badge badge-success">0</span></p>
-              <p><strong>Gmail:</strong> <span id="statGmail" class="badge badge-info">0</span></p>
-              <p><strong>SMS:</strong> <span id="statSMS" class="badge badge-secondary">0</span></p>
-            </div>
-            <div class="col-md-4">
-              <p><strong>Confirmados:</strong> <span id="statConfirmados" class="badge badge-success">0</span></p>
-              <p><strong>Pendientes Conf.:</strong> <span id="statPendientesConf" class="badge badge-warning">0</span></p>
-            </div>
-            <div class="col-md-4">
-              <p><strong>Cancelados:</strong> <span id="statCancelados" class="badge badge-danger">0</span></p>
-              <p><strong>Errores:</strong> <span id="statErrores" class="badge badge-danger">0</span></p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
 </div>
-{% endblock contenido %}
 
-<!-- Estilos personalizados -->
-<style>
-  .card {
-    border-radius: 10px;
-    border: none;
-  }
+<div class="card mb-3">
+  <div class="card-body d-flex flex-wrap align-items-center gap-3">
+    <div><i class="fab fa-whatsapp fa-lg text-success me-2"></i><strong>WhatsApp</strong></div>
+    <div id="estadoWhatsapp"><span class="badge bg-secondary-lt">Consultando…</span></div>
+    <div class="text-muted small flex-fill" id="detalleWhatsapp"></div>
+    {% if puede('avisos', 'estado') %}
+    <div class="btn-list">
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="btnVerificar"><i class="fas fa-sync me-1"></i>Verificar</button>
+      <button type="button" class="btn btn-sm btn-success" id="btnVincular" style="display: none;"><i class="fas fa-qrcode me-1"></i>Vincular WhatsApp</button>
+    </div>
+    {% endif %}
+  </div>
+</div>
 
-  .modal-content {
-    border-radius: 15px;
-  }
+<div class="card">
+  <div class="card-header">
+    <label class="form-check form-switch mb-0">
+      <input class="form-check-input" type="checkbox" id="chkInactivos">
+      <span class="form-check-label">Mostrar anulados</span>
+    </label>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table" id="tbl">
+      <thead>
+        <tr><th>Fecha</th><th>Hora</th><th>Paciente</th><th>Médico</th><th>Consultorio</th><th>Envío</th><th style="width: 140px;">Confirmación</th><th class="w-1">Acciones</th></tr>
+      </thead>
+      <tbody id="tbody"><tr><td colspan="8" class="text-center text-muted py-4">Cargando…</td></tr></tbody>
+    </table>
+  </div>
+</div>
 
-  .table-hover tbody tr:hover {
-    background-color: #f8f9fa;
-    cursor: pointer;
-  }
-
-  .btn-group {
-    display: flex;
-    gap: 10px;
-  }
-
-  .alert-info {
-    border-left: 4px solid #17a2b8;
-    background-color: #f0f7ff;
-  }
-
-  /* ========================================
-     ✅ FIX PARA SCROLL Y MODALES ANIDADOS
-     ======================================== */
-  .modal {
-    overflow-y: auto !important;
-    z-index: 1050;
-  }
-
-  .modal-body {
-    overflow-y: auto !important;
-    max-height: calc(100vh - 200px);
-  }
-
-  body.modal-open {
-    overflow: hidden !important;
-    padding-right: 0 !important;
-  }
-
-  /* Cuando hay múltiples modales */
-  .modal.show {
-    overflow-y: auto !important;
-  }
-
-  .modal-backdrop.show {
-    opacity: 0.5;
-  }
-
-  /* Asegurar que el backdrop no bloquee */
-  .modal-backdrop {
-    position: fixed;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    left: 0;
-    z-index: 1040;
-    background-color: #000;
-  }
-
-  /* Fix para cuando se cierran modales anidados */
-  .modal-open .modal {
-    overflow-x: hidden;
-    overflow-y: auto;
-  }
-
-  /* ✅ FIX ADICIONAL: Asegurar scroll suave */
-  .modal-dialog {
-    margin: 1.75rem auto;
-  }
-
-  /* ✅ Prevenir conflictos de scroll */
-  .modal-open .modal {
-    overflow: auto !important;
-  }
-
-  /* ✅ DataTables dentro de modales */
-  .modal .dataTables_wrapper {
-    overflow-x: auto;
-  }
-
-  /* ✅ Fix para el modal principal de avisos */
-  #modalAviso .modal-body {
-    overflow-y: auto !important;
-    max-height: calc(100vh - 200px);
-  }
-
-  /* ✅ Fix para modales de búsqueda */
-  #modalBuscarPaciente .modal-body,
-  #modalBuscarFuncionario .modal-body,
-  #modalBuscarMedico .modal-body,
-  #modalBuscarConsultorio .modal-body {
-    overflow-y: auto !important;
-    max-height: calc(100vh - 250px);
-  }
-</style>
+<div class="modal modal-blur fade" id="modalFormulario" tabindex="-1" aria-labelledby="modalTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalTitle">Agregar Aviso</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <form id="formulario" novalidate>
+        <div class="modal-body">
+          <div class="mb-3">
+            <div class="form-selectgroup w-100">
+              <label class="form-selectgroup-item flex-fill"><input type="radio" name="modo" value="cita" class="form-selectgroup-input" checked><span class="form-selectgroup-label">De una cita</span></label>
+              <label class="form-selectgroup-item flex-fill"><input type="radio" name="modo" value="paciente" class="form-selectgroup-input"><span class="form-selectgroup-label">De un paciente</span></label>
+            </div>
+          </div>
+          <div id="bloqueCita">
+            <div class="mb-3">
+              <label class="form-label required" for="selCita">Cita</label>
+              <select class="form-select" id="selCita"><option value="">Seleccione…</option></select>
+              <div class="invalid-feedback"></div>
+              <div class="form-hint">Paciente, médico, fecha, hora y consultorio salen de la cita.</div>
+            </div>
+          </div>
+          <div id="bloquePaciente" style="display: none;">
+            <div class="mb-3">
+              <label class="form-label required" for="selPaciente">Paciente</label>
+              <input type="search" class="form-control mb-1" id="buscaPaciente" placeholder="Buscar por nombre o cédula…" autocomplete="off">
+              <select class="form-select" id="selPaciente"><option value="">Seleccione…</option></select>
+              <div class="invalid-feedback"></div>
+            </div>
+            <div class="row">
+              <div class="col-md-6 mb-3"><label class="form-label required" for="txtFecha">Fecha de la cita</label><input type="date" class="form-control" id="txtFecha"><div class="invalid-feedback"></div></div>
+              <div class="col-md-6 mb-3"><label class="form-label required" for="txtHora">Hora</label><input type="time" class="form-control" id="txtHora"><div class="invalid-feedback"></div></div>
+            </div>
+            <div class="row">
+              <div class="col-md-6 mb-3"><label class="form-label" for="selMedico">Médico</label><select class="form-select" id="selMedico"><option value="">(opcional)</option></select><div class="invalid-feedback"></div></div>
+              <div class="col-md-6 mb-3"><label class="form-label" for="selConsultorio">Consultorio</label><select class="form-select" id="selConsultorio"><option value="">(opcional)</option></select><div class="invalid-feedback"></div></div>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label required" for="selForma">Enviar por</label>
+            <select class="form-select" id="selForma"><option value="WhatsApp">WhatsApp (con respaldo por correo)</option><option value="Gmail">Correo</option></select>
+            <div class="invalid-feedback"></div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="txtMensaje">Mensaje</label>
+            <textarea class="form-control" id="txtMensaje" rows="3" maxlength="1000" placeholder="Opcional: si lo deja vacío, el mensaje se arma solo con los datos de la cita."></textarea>
+            <div class="invalid-feedback"></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btnGuardar">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
 
 {% block js %}
+<script src="{{ url_for('static', filename='js/facturacion-validadores.js') }}"></script>
+<script src="{{ url_for('static', filename='js/facturacion-listado.js') }}"></script>
 <script>
+(function () {
+  const API = '/api/v1/avisos';
+  const PUEDE_ESTADO = {{ 'true' if puede('avisos', 'estado') else 'false' }};
+  const PUEDE_ANULAR = {{ 'true' if puede('avisos', 'anular') else 'false' }};
+  const tbody = document.getElementById('tbody');
+  const chk = document.getElementById('chkInactivos');
+  const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalFormulario'));
+  const form = document.getElementById('formulario');
+  const btnGuardar = document.getElementById('btnGuardar');
+  const inp = { id_cita_detalle: document.getElementById('selCita'), id_paciente: document.getElementById('selPaciente'), fecha_cita: document.getElementById('txtFecha'),
+                hora_cita: document.getElementById('txtHora'), id_medico: document.getElementById('selMedico'), codigo: document.getElementById('selConsultorio'),
+                forma_envio: document.getElementById('selForma'), mensaje: document.getElementById('txtMensaje') };
+  const CAMPOS = Object.keys(inp);
+  const L = window.FacturacionListado;
+  const V = window.FacturacionValidadores;
+  const { escapar, pedir } = L;
+  let pacientes = [];
+  const modo = () => document.querySelector('input[name="modo"]:checked').value;
 
-// ========================================
-// FIX: Restaurar scroll en modales anidados
-// ========================================
-
-function preservarScrollModal(modalSecundario, modalPrincipal) {
-  let scrollTop = 0;
-  
-  $(modalSecundario).on('show.bs.modal', function() {
-    scrollTop = $(modalPrincipal + ' .modal-body').scrollTop();
+  // ---------- sesión de WhatsApp ----------
+  const colores = { VINCULADO: ['bg-success-lt', 'Vinculado'], NO_VINCULADO: ['bg-warning-lt', 'No vinculado'], SIN_VERIFICAR: ['bg-secondary-lt', 'Sin verificar'], CARGANDO: ['bg-azure-lt', 'Cargando'] };
+  function mostrarEstado(e) {
+    const [clase, texto] = colores[e.estado] || colores.SIN_VERIFICAR;
+    document.getElementById('estadoWhatsapp').innerHTML = `<span class="badge ${clase}">${texto}</span>`;
+    document.getElementById('detalleWhatsapp').textContent = e.detalle || '';
+    const v = document.getElementById('btnVincular');
+    if (v) v.style.display = e.estado === 'VINCULADO' ? 'none' : '';
+  }
+  async function estadoWhatsapp(verificar) {
+    const { data } = await pedir('/api/v1/avisos/whatsapp/estado' + (verificar ? '?verificar=1' : ''));
+    if (data && data.success) mostrarEstado(data.data);
+    else document.getElementById('detalleWhatsapp').textContent = (data && data.error) || 'No se pudo consultar el estado.';
+    return data && data.success ? data.data : null;
+  }
+  const btnVerificar = document.getElementById('btnVerificar');
+  if (btnVerificar) btnVerificar.addEventListener('click', async () => {
+    btnVerificar.disabled = true; document.getElementById('detalleWhatsapp').textContent = 'Verificando… puede tardar unos segundos.';
+    try { await estadoWhatsapp(true); } finally { btnVerificar.disabled = false; }
   });
-  
-  $(modalSecundario).on('hidden.bs.modal', function() {
-    setTimeout(() => {
-      $(modalPrincipal + ' .modal-body').scrollTop(scrollTop);
-      $(modalPrincipal).css('overflow-y', 'auto');
-      $('body').addClass('modal-open');
-    }, 100);
-  });
-}  
-
-// ============================================================
-// FUNCIONES AUXILIARES: Formateo de fechas
-// ============================================================
-
-function formatDateForInput(fecha) {
-  if (!fecha) return '';
-  const d = new Date(fecha);
-  if (isNaN(d)) return '';
-  const day = String(d.getUTCDate()).padStart(2, '0');
-  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
-  const year = d.getUTCFullYear();
-  return year + '-' + month + '-' + day;
-}
-
-function formatDateForDisplay(fecha) {
-  if (!fecha) return '';
-  const d = new Date(fecha);
-  if (isNaN(d)) return '';
-  const day = String(d.getUTCDate()).padStart(2, '0');
-  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
-  const year = d.getUTCFullYear();
-  return day + '/' + month + '/' + year;
-}
-
-function formatearFecha(fecha) {
-  if (!fecha) return '';
-  const parts = fecha.split('-');
-  const anio = parts[0];
-  const mes = parts[1];
-  const dia = parts[2];
-  return dia + '/' + mes + '/' + anio;
-}
-
-// ============================================================
-// DATATABLE: AVISOS - Tabla principal
-// ============================================================
-
-const initDatatableAvisos = () => {
-  const datatablesUrl = "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}";
-  const avisosUrl = '/api/v1/avisos';
-  
-  $('#tblAvisos').DataTable({
-    language: { url: datatablesUrl },
-    ajax: { url: avisosUrl, dataSrc: 'data' },
-    destroy: true,
-    columns: [
-      { data: 'funcionario' },
-      { data: 'nombre_consultorio' },
-      { data: 'paciente' },
-      { data: 'telefono_paciente', render: function(data) { return data || 'Sin teléfono'; } },
-      { data: 'medico', render: function(data) { return data || 'Sin médico'; } },
-      { data: 'fecha_cita', render: function(data) { return formatDateForDisplay(data); } },
-      { data: 'hora_cita' },
-      { 
-        data: 'forma_envio',
-        render: function(data) {
-          const icons = {
-            'WhatsApp': '<i class="fab fa-whatsapp text-success"></i>',
-            'Gmail': '<i class="fas fa-envelope text-primary"></i>',
-            'SMS': '<i class="fas fa-sms text-info"></i>'
-          };
-          return (icons[data] || '') + ' ' + data;
-        }
-      },
-      { 
-        data: 'mensaje',
-        render: function(data, type, row) {
-          if (!data || data.trim() === '') {
-            return '<span class="badge badge-secondary">Sin mensaje</span>';
-          } else {
-            const mensajeCorto = data.length > 30 ? data.substring(0, 30) + '...' : data;
-            return '<span title="' + data.replace(/"/g, '&quot;') + '">' + mensajeCorto + '</span>' +
-                   '<button type="button" class="btn btn-sm btn-link p-0 ml-1" onclick="verMensajeCompleto(\'' + data.replace(/'/g, "\\'") + '\', \'Personalizado\')" title="Ver completo">' +
-                   '<i class="fas fa-eye"></i></button>';
-          }
-        }
-      },
-      { 
-        data: 'estado_envio', 
-        render: function(data) {
-          const badges = {
-            'Pendiente': 'badge-warning',
-            'Enviado': 'badge-success',
-            'Error': 'badge-danger'
-          };
-          return '<span class="badge ' + (badges[data] || 'badge-secondary') + '">' + data + '</span>';
-        }
-      },
-      { 
-        data: 'estado_confirmacion', 
-        render: function(data) {
-          const badges = {
-            'Pendiente': 'badge-warning',
-            'Confirmado': 'badge-success',
-            'Cancelado': 'badge-danger'
-          };
-          return '<span class="badge ' + (badges[data] || 'badge-secondary') + '">' + (data || 'Pendiente') + '</span>';
-        }
-      },
-      {
-        data: function(row) {
-          let buttons = '{% if puede("avisos","editar") %}<button type="button" name="btn_editar" class="btn btn-info btn-sm" data-id_aviso="' + row.id_aviso + '" title="Editar">' +
-                        '<i class="fas fa-edit"></i></button>{% endif %}' +
-                        '{% if puede("avisos","estado") %}<button type="button" name="btn_estado" class="btn btn-secondary btn-sm" data-id_aviso="' + row.id_aviso + '" data-estado="' + (row.estado_confirmacion || 'Pendiente') + '" title="Cambiar estado de confirmación">' +
-                        '<i class="fas fa-flag"></i></button>{% endif %}' +
-                        '{% if puede("avisos","anular") %}<button type="button" name="btn_eliminar" class="btn btn-danger btn-sm" data-id_aviso="' + row.id_aviso + '" title="Eliminar">' +
-                        '<i class="fas fa-trash-alt"></i></button>{% endif %}';
-          
-          if (row.forma_envio === 'WhatsApp' && row.estado_envio === 'Pendiente') {
-            buttons += '{% if puede("avisos","estado") %}<button type="button" name="btn_enviar_individual" class="btn btn-success btn-sm" data-id_aviso="' + row.id_aviso + '" title="Enviar ahora">' +
-                       '<i class="fab fa-whatsapp"></i></button>{% endif %}';
-          }
-          
-          return buttons;
-        }
-      }
-    ]
-  });
-};
-
-// ============================================================
-// DATATABLE: PACIENTES - Para seleccionar
-// ============================================================
-
-const initDatatablePaciente = () => {
-  console.log('Inicializando tabla de pacientes...');
-  
-  const datatablesUrl = "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}";
-  const pacientesUrl = '/api/v1/pacientes';
-  
-  $('#tblPaciente').DataTable({
-    language: { url: datatablesUrl },
-    ajax: { 
-      url: pacientesUrl, 
-      dataSrc: 'data',
-      error: function(xhr, error, thrown) {
-        console.error('Error al cargar pacientes:', error, thrown);
-        Swal.fire('Error', 'No se pudieron cargar los pacientes', 'error');
-      }
-    },
-    destroy: true,
-    columns: [
-      { data: 'nombre' },
-      { data: 'apellido' },
-      { 
-        data: null,
-        render: function(data, type, row) {
-          return '<button type="button" class="btn btn-primary btn-sm btn-sel-paciente" ' +
-                 'data-id="' + row.id_paciente + '" ' +
-                 'data-nombre="' + row.nombre + '" ' +
-                 'data-apellido="' + row.apellido + '">' +
-                 '<i class="fas fa-check"></i> Seleccionar</button>';
-        }
-      }
-    ]
-  });
-  
-  console.log('Tabla de pacientes inicializada');
-};
-
-// ============================================================
-// DATATABLE: FUNCIONARIOS - Para seleccionar
-// ============================================================
-
-const initDatatableFuncionario = () => {
-  const datatablesUrl = "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}";
-  const funcionariosUrl = '/api/v1/funcionarios';
-  
-  $('#tblFuncionario').DataTable({
-    language: { url: datatablesUrl },
-    ajax: { url: funcionariosUrl, dataSrc: 'data' },
-    destroy: true,
-    columns: [
-      { data: 'nombre' },
-      { data: 'apellido' },
-      { 
-        data: function(row) {
-          return '<button type="button" name="btn_sel_funcionario" class="btn btn-primary btn-sm" ' +
-                 'data-id="' + row.id_funcionario + '" ' +
-                 'data-nombre="' + row.nombre + '" ' +
-                 'data-apellido="' + row.apellido + '">Seleccionar</button>';
-        }
-      }
-    ]
-  });
-  
-  $('#tblFuncionario').on('click', 'button[name="btn_sel_funcionario"]', function () {
-    $('#txtFuncionario').val($(this).data('nombre') + ' ' + $(this).data('apellido'));
-    $('#id_funcionario_modal').val($(this).data('id'));
-    $('#modalBuscarFuncionario').modal('hide');
-  });
-};
-
-// ============================================================
-// DATATABLE: MÉDICOS - Para seleccionar
-// ============================================================
-
-const initDatatableMedico = () => {
-  const datatablesUrl = "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}";
-  const medicoUrl = '/api/v1/medico';
-  
-  $('#tblMedico').DataTable({
-    language: { url: datatablesUrl },
-    ajax: { url: medicoUrl, dataSrc: 'data' },
-    destroy: true,
-    columns: [
-      { data: 'nombre' },
-      { data: 'apellido' },
-      { 
-        data: function(row) {
-          return '<button type="button" name="btn_sel_medico" class="btn btn-primary btn-sm" ' +
-                 'data-id="' + row.id_medico + '" ' +
-                 'data-nombre="' + row.nombre + '" ' +
-                 'data-apellido="' + row.apellido + '">Seleccionar</button>';
-        }
-      }
-    ]
-  });
-  
-  $('#tblMedico').on('click', 'button[name="btn_sel_medico"]', function () {
-    $('#txtMedico').val($(this).data('nombre') + ' ' + $(this).data('apellido'));
-    $('#id_medico').val($(this).data('id'));
-    $('#modalBuscarMedico').modal('hide');
-  });
-};
-
-// ============================================================
-// DATATABLE: CONSULTORIOS - Para seleccionar
-// ============================================================
-
-const initDatatableConsultorio = () => {
-  const datatablesUrl = "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}";
-  const consultoriosUrl = '/api/v1/consultorios';
-  
-  $('#tblConsultorio').DataTable({
-    language: { url: datatablesUrl },
-    ajax: consultoriosUrl,
-    destroy: true,
-    columns: [
-      { data: 'nombre_consultorio' },
-      { 
-        data: function(row) {
-          return '<button type="button" name="btn_seleccionar_consultorio" class="btn btn-primary btn-sm" ' +
-                 'data-codigo="' + row.codigo + '" ' +
-                 'data-consultorio="' + row.nombre_consultorio + '">Seleccionar</button>';
-        }
-      }
-    ]
-  });
-  
-  $('#tblConsultorio').on('click', 'button[name="btn_seleccionar_consultorio"]', function () {
-    $('#txtConsultorio').val($(this).data('consultorio'));
-    $('#codigo').val($(this).data('codigo'));
-    $('#modalBuscarConsultorio').modal('hide');
-  });
-};
-
-// ============================================================
-// NUEVA FUNCIÓN: Cargar citas del paciente
-// ============================================================
-
-function cargarCitasDelPaciente(id_paciente) {
-    console.log('Buscando citas confirmadas para paciente ' + id_paciente);
-    
-    const selectCitas = $('#cita_seleccionada');
-    selectCitas.html('<option value="">-- Cargando citas --</option>');
-    
-    const citasUrl = '/api/v1/citas/paciente/' + id_paciente;
-    
-    fetch(citasUrl)
-        .then(response => response.json())
-        .then(data => {
-            console.log('Respuesta del servidor:', data);
-            
-            selectCitas.html('<option value="">-- Seleccionar cita del paciente --</option>');
-            
-            if (data.success && data.data && data.data.length > 0) {
-                console.log('Encontradas ' + data.data.length + ' citas confirmadas');
-                
-                data.data.forEach((cita) => {
-                    const fecha = formatearFecha(cita.fecha_cita);
-                    const opcionTexto = fecha + ' ' + cita.hora_cita + ' - ' + cita.medico + ' (' + cita.consultorio + ')';
-                    
-                    const opcionValue = JSON.stringify({
-                        fecha_cita: cita.fecha_cita,
-                        hora_cita: cita.hora_cita,
-                        medico: cita.medico,
-                        id_medico: cita.id_medico,  // ← AGREGAR ESTA LÍNEA
-                        consultorio: cita.consultorio,
-                        codigo: cita.codigo || null,
-                        motivo_consulta: cita.motivo_consulta,
-                        especialidad: cita.especialidad
-                    });
-                    
-                    selectCitas.append(
-                        '<option value=\'' + opcionValue.replace(/'/g, "\\'") + '\'>' + opcionTexto + '</option>'
-                    );
-                });
-                
-                console.log('Citas cargadas en el select');
-            } else {
-                console.log('No hay citas confirmadas para este paciente');
-                selectCitas.html(
-                    '<option value="">-- No hay citas confirmadas --</option>'
-                );
-            }
-        })
-        .catch(err => {
-            console.error('Error al cargar citas:', err);
-            selectCitas.html('<option value="">-- Error al cargar citas --</option>');
-            Swal.fire('Error', 'No se pudieron cargar las citas del paciente', 'error');
-        });
-}
-
-// ============================================================
-// EVENTO: Al cambiar la cita seleccionada, auto-llenar campos
-// ============================================================
-
-$(document).on('change', '#cita_seleccionada', function() {
-    const seleccion = $(this).val();
-    
-    if (!seleccion) {
-        console.log('Deseleccionaron la cita');
-        return;
+  const btnVincular = document.getElementById('btnVincular');
+  if (btnVincular) btnVincular.addEventListener('click', async () => {
+    btnVincular.disabled = true;
+    const { data } = await pedir('/api/v1/avisos/whatsapp/vincular', { method: 'POST' });
+    if (data && data.success) mostrarEstado(data.data);
+    document.getElementById('detalleWhatsapp').textContent = 'Escanee el código QR en la ventana del navegador que se abrió (WhatsApp > Dispositivos vinculados). Se hace una sola vez.';
+    for (let i = 0; i < 60; i++) {      // espera hasta 3 minutos a que quede vinculado
+      await new Promise((r) => setTimeout(r, 3000));
+      const e = await estadoWhatsapp(true);
+      if (e && e.estado === 'VINCULADO') break;
     }
-    
+    btnVincular.disabled = false;
+  });
+
+  // ---------- listado ----------
+  const claseEnvio = { Pendiente: 'bg-secondary-lt', Enviado: 'bg-success-lt', Error: 'bg-danger-lt' };
+  const claseConf = { Pendiente: 'bg-secondary-lt', Confirmado: 'bg-success-lt', Cancelado: 'bg-danger-lt' };
+  async function cargar() {
     try {
-        const cita = JSON.parse(seleccion);
-        console.log('Cita seleccionada:', cita);
-        
-        $('#fecha_cita_modal').val(cita.fecha_cita);
-        $('#hora_cita_modal').val(cita.hora_cita);
-        $('#txtMedico').val(cita.medico);
-        $('#id_medico').val(cita.id_medico);  // ← AGREGAR ESTA LÍNEA
-        $('#codigo').val(cita.codigo);
-        $('#txtConsultorio').val(cita.consultorio);
-        
-        console.log('Campos auto-llenados');
-        console.log('ID Médico guardado:', cita.id_medico);  // ← VERIFICACIÓN
-        
-    } catch (error) {
-        console.error('Error al parsear cita:', error);
+      const { ok, data } = await pedir(L.urlListado(API, chk));
+      if (!ok || !data || !data.success) throw new Error();
+      if (!data.data.length) { tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No hay avisos registrados.</td></tr>'; return; }
+      tbody.innerHTML = data.data.map((a) => {
+        let acciones = '';
+        if (a.activo && PUEDE_ESTADO && a.estado_envio !== 'Enviado') acciones += `<button type="button" class="btn btn-sm btn-success" data-accion="enviar" data-id="${escapar(a.id_aviso)}" data-desc="${escapar(a.paciente)}" title="Enviar"><i class="fas fa-paper-plane me-1"></i>Enviar</button>`;
+        if (a.activo && PUEDE_ANULAR) acciones += `<button type="button" class="btn btn-sm btn-outline-danger" data-accion="anular" data-id="${escapar(a.id_aviso)}" data-desc="${escapar(a.paciente)}, ${escapar(a.fecha_cita)}" title="Anular"><i class="fas fa-ban"></i></button>`;
+        if (!a.activo && PUEDE_ANULAR) acciones += `<button type="button" class="btn btn-sm btn-outline-success" data-accion="reactivar" data-id="${escapar(a.id_aviso)}" data-desc="${escapar(a.paciente)}, ${escapar(a.fecha_cita)}" title="Reactivar"><i class="fas fa-undo me-1"></i>Reactivar</button>`;
+        const canal = a.estado_envio === 'Enviado' ? ` <span class="text-muted small">por ${escapar(a.canal_enviado)} ${escapar(a.fecha_envio || '')}</span>` : '';
+        const motivo = a.motivo_error ? `<div class="text-muted small text-wrap" style="max-width: 260px;">${escapar(a.motivo_error)}</div>` : '';
+        const conf = (a.activo && PUEDE_ESTADO)
+          ? `<select class="form-select form-select-sm sel-conf" data-id="${escapar(a.id_aviso)}">${['Pendiente', 'Confirmado', 'Cancelado'].map((c) => `<option ${c === a.estado_confirmacion ? 'selected' : ''}>${c}</option>`).join('')}</select>`
+          : `<span class="badge ${claseConf[a.estado_confirmacion] || ''}">${escapar(a.estado_confirmacion)}</span>`;
+        return `<tr class="${L.claseFila(a.activo)}"><td>${escapar(a.fecha_cita)}</td><td>${escapar(a.hora_cita)}</td><td>${escapar(a.paciente)}</td><td>${escapar(a.medico || '-')}</td><td>${escapar(a.nombre_consultorio || '-')}</td>
+          <td><span class="badge ${claseEnvio[a.estado_envio] || ''}">${escapar(a.estado_envio)}</span>${canal}${motivo}</td><td>${conf}</td>
+          <td class="text-nowrap"><div class="btn-list flex-nowrap">${acciones}</div></td></tr>`;
+      }).join('');
+    } catch (e) {
+      tbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger py-4">No se pudo cargar el listado.</td></tr>';
     }
-});
+  }
 
-// ============================================================
-// EVENTO: Seleccionar paciente (CARGA CITAS AUTOMÁTICAMENTE)
-// ============================================================
+  // ---------- nuevo aviso ----------
+  const llenar = (sel, lista, id, texto, vacio) => { sel.innerHTML = `<option value="">${vacio}</option>` + lista.map((x) => `<option value="${escapar(x[id])}">${escapar(texto(x))}</option>`).join(''); };
+  function dibujarPacientes(f) {
+    const q = (f || '').trim().toLowerCase();
+    llenar(inp.id_paciente, pacientes.filter((p) => !q || `${p.nombre} ${p.apellido} ${p.cedula_entidad}`.toLowerCase().includes(q)), 'id_paciente', (p) => `${p.nombre} ${p.apellido} — ${p.cedula_entidad}`, 'Seleccione…');
+  }
+  function alternarModo() {
+    document.getElementById('bloqueCita').style.display = modo() === 'cita' ? '' : 'none';
+    document.getElementById('bloquePaciente').style.display = modo() === 'paciente' ? '' : 'none';
+  }
+  document.querySelectorAll('input[name="modo"]').forEach((r) => r.addEventListener('change', alternarModo));
+  document.getElementById('buscaPaciente').addEventListener('input', (e) => dibujarPacientes(e.target.value));
+  CAMPOS.forEach((k) => { inp[k].addEventListener('input', () => V.limpiarCampo(inp[k])); inp[k].addEventListener('change', () => V.limpiarCampo(inp[k])); });
 
-$(document).on('click', '.btn-sel-paciente', function() {
-    const id = $(this).data('id');
-    const nombre = $(this).data('nombre');
-    const apellido = $(this).data('apellido');
-    
-    console.log('Paciente seleccionado:', id, nombre, apellido);
-    
-    $('#txtpaciente').val(nombre + ' ' + apellido);
-    $('#id_paciente').val(id);
-    
-    $('#modalBuscarPaciente').modal('hide');
-    
-    cargarCitasDelPaciente(id);
-});
+  async function abrirModal() {
+    const [c, p, m, co] = await Promise.all([pedir('/api/v1/citas-detalle/pendientes'), pedir('/api/v1/pacientes'), pedir('/api/v1/medico'), pedir('/api/v1/consultorios')]);
+    const citas = (c.data && c.data.success) ? c.data.data : [];
+    inp.id_cita_detalle.innerHTML = '<option value="">Seleccione…</option>' + citas.map((x) => `<option value="${escapar(x.id_cita_detalle)}" ${x.tiene_aviso ? 'disabled' : ''}>${escapar(x.fecha_cita)} ${escapar(x.hora_cita)} · ${escapar(x.paciente_nombre)} · ${escapar(x.medico_nombre)}${x.tiene_aviso ? ' (ya tiene aviso)' : ''}</option>`).join('');
+    pacientes = (p.data && p.data.success) ? p.data.data : [];
+    document.getElementById('buscaPaciente').value = ''; dibujarPacientes('');
+    llenar(inp.id_medico, (m.data && m.data.success) ? m.data.data : [], 'id_medico', (x) => `${x.nombre} ${x.apellido}`, '(opcional)');
+    llenar(inp.codigo, (co.data && co.data.success) ? co.data.data : [], 'codigo', (x) => x.nombre_consultorio, '(opcional)');
+    inp.fecha_cita.value = ''; inp.hora_cita.value = ''; inp.mensaje.value = ''; inp.forma_envio.value = 'WhatsApp';
+    CAMPOS.forEach((k) => V.limpiarCampo(inp[k]));
+    alternarModo();
+    modal.show();
+  }
+  const btnAgregar = document.getElementById('btnAgregar');
+  if (btnAgregar) btnAgregar.addEventListener('click', abrirModal);
 
-// ============================================================
-// FUNCIÓN: Ver mensaje completo
-// ============================================================
-
-function verMensajeCompleto(mensaje, tipo) {
-  Swal.fire({
-    title: 'Mensaje ' + tipo,
-    html: '<pre style="text-align: left; white-space: pre-wrap;">' + mensaje + '</pre>',
-    icon: 'info',
-    width: '600px',
-    confirmButtonColor: '#17a2b8'
-  });
-}
-
-// ============================================================
-// EVENTO: Botón "Enviar WhatsApp" - Enviar todos pendientes
-// ============================================================
-
-$('#btnEnviarWhatsApp').on('click', function() {
-  Swal.fire({
-    title: 'Enviar avisos por WhatsApp',
-    text: 'Se enviarán todos los avisos pendientes de WhatsApp',
-    icon: 'question',
-    showCancelButton: true,
-    confirmButtonText: 'Sí, enviar',
-    cancelButtonText: 'Cancelar',
-    confirmButtonColor: '#25D366',
-    showLoaderOnConfirm: true,
-    preConfirm: () => {
-      return fetch('/api/v1/avisos/enviar-whatsapp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      })
-      .then(response => response.json())
-      .then(data => {
-        if (!data.success) throw new Error(data.error || 'Error al enviar');
-        return data;
-      });
-    }
-  }).then((result) => {
-    if (result.isConfirmed) {
-      $('#tblAvisos').DataTable().ajax.reload();
-      Swal.fire({
-        icon: 'success',
-        title: 'Proceso completado',
-        text: 'Los avisos han sido procesados',
-        confirmButtonColor: '#25D366'
-      });
-    }
-  });
-});
-
-// ============================================================
-// EVENTO: Editar aviso
-// ============================================================
-
-$('#tblAvisos').on('click', 'button[name="btn_editar"]', async function() {
-  const idAviso = $(this).data('id_aviso');
-  try {
-    const response = await fetch('/api/v1/avisos/' + idAviso);
-    const result = await response.json();
-    if (result.success) {
-      const aviso = result.data;
-      $('#id_aviso_modal').val(aviso.id_aviso);
-      
-      if (aviso.paciente) {
-        $('#txtpaciente').val(aviso.paciente);
-        $('#id_paciente').val(aviso.id_paciente);
-      }
-      
-      if (aviso.funcionario) {
-        $('#txtFuncionario').val(aviso.funcionario);
-        $('#id_funcionario_modal').val(aviso.id_funcionario);
-      }
-      
-      if (aviso.medico) {
-        $('#txtMedico').val(aviso.medico);
-        $('#id_medico').val(aviso.id_medico);
-      }
-      
-      if (aviso.nombre_consultorio) {
-        $('#txtConsultorio').val(aviso.nombre_consultorio);
-        $('#codigo').val(aviso.codigo);
-      }
-      
-      $('#fecha_cita_modal').val(formatDateForInput(aviso.fecha_cita));
-      $('#hora_cita_modal').val(aviso.hora_cita);
-      $('#forma_envio_modal').val(aviso.forma_envio);
-      $('#mensaje_modal').val(aviso.mensaje || '');
-      $('#estado_confirmacion_modal').val(aviso.estado_confirmacion || 'Pendiente').prop('disabled', true);  // se cambia con el botón de estado
-      $('#modalTitle').text('Editar Aviso');
-      $('#modalAviso').modal('show');
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    CAMPOS.forEach((k) => V.limpiarCampo(inp[k]));
+    const cuerpo = { forma_envio: inp.forma_envio.value, mensaje: inp.mensaje.value.trim() };
+    let error = false;
+    if (modo() === 'cita') {
+      if (!inp.id_cita_detalle.value) { V.marcarCampo(inp.id_cita_detalle, 'Seleccione la cita.'); error = true; }
+      cuerpo.id_cita_detalle = parseInt(inp.id_cita_detalle.value, 10);
     } else {
-      Swal.fire('Error', result.error, 'error');
+      if (!inp.id_paciente.value) { V.marcarCampo(inp.id_paciente, 'Seleccione el paciente.'); error = true; }
+      if (!inp.fecha_cita.value) { V.marcarCampo(inp.fecha_cita, 'La fecha es obligatoria.'); error = true; }
+      const mh = V.hora(inp.hora_cita.value, 'hora de la cita');
+      if (mh) { V.marcarCampo(inp.hora_cita, mh); error = true; }
+      Object.assign(cuerpo, { id_paciente: parseInt(inp.id_paciente.value, 10), fecha_cita: inp.fecha_cita.value, hora_cita: inp.hora_cita.value,
+                              id_medico: inp.id_medico.value || null, codigo: inp.codigo.value || null });
     }
-  } catch (error) {
-    Swal.fire('Error', 'Error de conexión: ' + error, 'error');
-  }
-});
-
-// ============================================================
-// EVENTO: Cambiar estado de confirmación (acción 'estado')
-// ============================================================
-$('#tblAvisos').on('click', 'button[name="btn_estado"]', async function() {
-  const idAviso = $(this).data('id_aviso');
-  const actual = $(this).data('estado');
-  const { value: nuevo } = await Swal.fire({
-    title: 'Estado de confirmación',
-    input: 'select',
-    inputOptions: { Pendiente: 'Pendiente', Confirmado: 'Confirmado', Cancelado: 'Cancelado' },
-    inputValue: actual,
-    showCancelButton: true,
-    confirmButtonText: 'Guardar',
-    cancelButtonText: 'Cancelar'
-  });
-  if (!nuevo || nuevo === actual) return;
-  try {
-    const response = await fetch('/api/v1/avisos/' + idAviso + '/estado', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ estado_confirmacion: nuevo })
-    });
-    const result = await response.json();
-    if (result.success) {
-      $('#tblAvisos').DataTable().ajax.reload();
-      Swal.fire('Éxito', 'Estado actualizado a ' + nuevo, 'success');
-    } else {
-      Swal.fire('Error', result.error || 'No se pudo cambiar el estado', 'error');
-    }
-  } catch (error) {
-    Swal.fire('Error', 'Error de conexión: ' + error, 'error');
-  }
-});
-
-// ============================================================
-// EVENTO: Eliminar aviso
-// ============================================================
-
-$('#tblAvisos').on('click', 'button[name="btn_eliminar"]', function() {
-  const id = $(this).data('id_aviso');
-  Swal.fire({
-    title: 'Eliminar aviso',
-    text: 'Esta acción no se puede deshacer',
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonText: 'Sí, eliminar',
-    cancelButtonText: 'Cancelar',
-    confirmButtonColor: '#d33'
-  }).then((result) => {
-    if (result.isConfirmed) {
-      fetch('/api/v1/avisos/' + id, { method: 'DELETE' })
-      .then(response => response.json())
-      .then(data => {
-        if (data.success) {
-          Swal.fire('Eliminado', 'Aviso eliminado correctamente', 'success');
-          $('#tblAvisos').DataTable().ajax.reload();
-        } else {
-          Swal.fire('Error', data.error, 'error');
-        }
-      });
+    if (error) return;
+    btnGuardar.disabled = true;
+    try {
+      const { data } = await pedir(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo) });
+      if (data && data.success) { modal.hide(); await cargar(); Swal.fire('Registrado', data.mensaje, 'success'); }
+      else V.marcarCampo(inp[data && data.campo && inp[data.campo] ? data.campo : (modo() === 'cita' ? 'id_cita_detalle' : 'id_paciente')], (data && data.error) || 'No se pudo guardar el aviso.');
+    } catch (e) {
+      V.marcarCampo(inp.forma_envio, 'Ocurrió un error de conexión. Intente nuevamente.');
+    } finally {
+      btnGuardar.disabled = false;
     }
   });
-});
 
-// ============================================================
-// EVENTO: Estadísticas
-// ============================================================
-
-$('#btnEstadisticas').on('click', function() {
-  fetch('/api/v1/avisos/estadisticas')
-    .then(resp => resp.json())
-    .then(result => {
-      if (result.success) {
-        const data = result.data;
-        $('#statTotal').text(data.total);
-        $('#statPendientes').text(data.por_estado.pendientes);
-        $('#statEnviados').text(data.por_estado.enviados);
-        $('#statErrores').text(data.por_estado.errores);
-        $('#statWhatsApp').text(data.por_forma_envio.whatsapp);
-        $('#statGmail').text(data.por_forma_envio.gmail);
-        $('#statSMS').text(data.por_forma_envio.sms);
-        $('#statConfirmados').text(data.por_confirmacion.confirmados);
-        $('#statPendientesConf').text(data.por_confirmacion.pendientes);
-        $('#statCancelados').text(data.por_confirmacion.cancelados);
-        $('#modalEstadisticas').modal('show');
-      }
+  // ---------- enviar ----------
+  async function enviar(id, paciente) {
+    const prev = await pedir(`${API}/${id}/mensaje-preview`);
+    if (!(prev.data && prev.data.success)) { Swal.fire('Error', (prev.data && prev.data.error) || 'No se pudo preparar el mensaje.', 'error'); return; }
+    const original = prev.data.mensaje;
+    const r = await Swal.fire({
+      title: 'Enviar aviso', width: 620, showCancelButton: true, confirmButtonText: 'Enviar', cancelButtonText: 'Cancelar',
+      html: `<p class="text-start mb-1">Para <b>${escapar(paciente)}</b>. El mensaje se armó solo; puede editarlo antes de enviar.</p>
+             <textarea id="swalMensaje" class="swal2-textarea" style="width: 90%; height: 240px;"></textarea>`,
+      didOpen: () => { document.getElementById('swalMensaje').value = original; },
+      preConfirm: () => document.getElementById('swalMensaje').value
     });
-});
+    if (!r.isConfirmed) return;
+    Swal.fire({ title: 'Enviando…', text: 'Puede tardar unos segundos.', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    const res = await pedir(`${API}/${id}/enviar`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mensaje: r.value === original ? null : r.value }) });
+    await cargar(); estadoWhatsapp(false);
+    if (res.data && res.data.success) Swal.fire('Enviado', res.data.mensaje, 'success');
+    else Swal.fire('No se pudo enviar', (res.data && res.data.error) || 'Ocurrió un error de conexión.', 'error');
+  }
 
-// ============================================================
-// EVENTO: Agregar nuevo aviso
-// ============================================================
-
-const agregarAviso = () => {
-  $('#btnAgregar').on('click', () => {
-    console.log('Abriendo nuevo aviso...');
-    
-    $('#formAvisoModal')[0].reset();
-    $('#id_aviso_modal').val('');
-    $('#id_paciente').val('');
-    $('#txtpaciente').val('');
-    $('#id_funcionario_modal').val('');
-    $('#txtFuncionario').val('');
-    $('#id_medico').val('');
-    $('#txtMedico').val('');
-    $('#codigo').val('');
-    $('#txtConsultorio').val('');
-    $('#fecha_cita_modal').val('');
-    $('#hora_cita_modal').val('');
-    $('#forma_envio_modal').val('');
-    $('#mensaje_modal').val('');
-    $('#estado_confirmacion_modal').val('Pendiente').prop('disabled', false);
-    
-    $('#cita_seleccionada').html('<option value="">-- Seleccionar cita del paciente --</option>');
-    
-    $('#modalTitle').text('Agregar Aviso');
-    $('#modalAviso').modal('show');
+  tbody.addEventListener('click', async (ev) => {
+    const btn = ev.target.closest('button[data-accion]');
+    if (!btn) return;
+    if (btn.dataset.accion === 'enviar') await enviar(btn.dataset.id, btn.dataset.desc);
+    if (btn.dataset.accion === 'anular') await L.anular({ api: API, id: btn.dataset.id, descripcion: btn.dataset.desc, titulo: '¿Anular este aviso?', exito: 'Anulado', errorDefault: 'No se pudo anular el aviso.', recargar: cargar });
+    if (btn.dataset.accion === 'reactivar') await L.reactivar({ api: API, id: btn.dataset.id, descripcion: btn.dataset.desc, titulo: '¿Reactivar este aviso?', exito: 'Reactivado', errorDefault: 'No se pudo reactivar el aviso.', recargar: cargar });
   });
-};
-
-// ============================================================
-// EVENTO: Guardar aviso (VALIDACIÓN: MENSAJE OBLIGATORIO)
-// ============================================================
-
-$('#formAvisoModal').on('submit', async function(e) {
-  e.preventDefault();
-  
-  const mensaje = $('#mensaje_modal').val().trim();
-  
-  if (!mensaje) {
-    Swal.fire({
-      icon: 'warning',
-      title: 'Mensaje requerido',
-      text: 'IMPORTANTE: Debes escribir un mensaje personalizado para el paciente.',
-      confirmButtonColor: '#ffc107',
-      confirmButtonText: 'Entendido'
-    });
-    $('#mensaje_modal').focus();
-    return;
-  }
-  
-  if (mensaje.length < 10) {
-    Swal.fire({
-      icon: 'warning',
-      title: 'Mensaje muy corto',
-      text: 'Por favor, escribe un mensaje más completo (mínimo 10 caracteres)',
-      confirmButtonColor: '#ffc107'
-    });
-    return;
-  }
-  
-  const idAviso = $('#id_aviso_modal').val();
-  
-  const data = {
-    id_paciente: $('#id_paciente').val(),
-    id_funcionario: $('#id_funcionario_modal').val(),
-    id_medico: $('#id_medico').val() || null,
-    codigo: $('#codigo').val() ? parseInt($('#codigo').val()) : null,
-    fecha_cita: $('#fecha_cita_modal').val(),
-    hora_cita: $('#hora_cita_modal').val(),
-    forma_envio: $('#forma_envio_modal').val(),
-    mensaje: mensaje
-  };
-  if (!idAviso) {
-    data.estado_confirmacion = $('#estado_confirmacion_modal').val();
-  }
-
-  if (!idAviso) {
-    data.estado_envio = 'Pendiente';
-  }
-
-  if (!data.id_paciente) {
-    Swal.fire('Error', 'Debe seleccionar un paciente', 'error');
-    return;
-  }
-  if (!data.id_funcionario) {
-    Swal.fire('Error', 'Debe seleccionar un funcionario', 'error');
-    return;
-  }
-  if (!data.fecha_cita) {
-    Swal.fire('Error', 'Debe ingresar una fecha de cita', 'error');
-    return;
-  }
-  if (!data.hora_cita) {
-    Swal.fire('Error', 'Debe ingresar una hora de cita', 'error');
-    return;
-  }
-  if (!data.forma_envio) {
-    Swal.fire('Error', 'Debe seleccionar una forma de envío', 'error');
-    return;
-  }
-  
-  try {
-    const url = idAviso ? '/api/v1/avisos/' + idAviso : '/api/v1/avisos';
-    const method = idAviso ? 'PUT' : 'POST';
-    
-    console.log('Guardando aviso...');
-    console.log('Mensaje:', mensaje.substring(0, 50) + '...');
-    
-    const response = await fetch(url, {
-      method: method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
-    
-    const result = await response.json();
-    
-    if (result.success) {
-      Swal.fire({
-        icon: 'success',
-        title: idAviso ? 'Aviso actualizado' : 'Aviso creado',
-        text: 'El aviso está listo para ser enviado por WhatsApp',
-        confirmButtonColor: '#17a2b8'
-      });
-      $('#modalAviso').modal('hide');
-      $('#tblAvisos').DataTable().ajax.reload();
-    } else {
-      Swal.fire('Error', result.error || 'Error al guardar', 'error');
-    }
-  } catch (error) {
-    console.error('Error:', error);
-    Swal.fire('Error', 'Error de conexión: ' + error, 'error');
-  }
-});
-
-// ============================================================
-// EVENTO: Enviar aviso individual por WhatsApp
-// ============================================================
-
-$('#tblAvisos').on('click', 'button[name="btn_enviar_individual"]', function() {
-  const id = $(this).data('id_aviso');
-  
-  Swal.fire({
-    title: 'Enviar este aviso',
-    text: 'Se abrirá WhatsApp Web en una nueva ventana',
-    icon: 'question',
-    showCancelButton: true,
-    confirmButtonText: 'Sí, enviar',
-    cancelButtonText: 'Cancelar',
-    confirmButtonColor: '#25D366'
-  }).then((result) => {
-    if (result.isConfirmed) {
-      fetch('/api/v1/avisos/' + id + '/enviar-whatsapp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      })
-      .then(response => response.json())
-      .then(data => {
-        if (data.success) {
-          Swal.fire({
-            icon: 'info',
-            title: 'Proceso iniciado',
-            html: 'Se abrió WhatsApp Web.<br><br>' +
-                  '<strong>Pasos:</strong><br>' +
-                  '1. Escanea el código QR si es necesario<br>' +
-                  '2. Espera a que envíe el mensaje<br>' +
-                  '3. Recarga la página para ver el estado actualizado',
-            confirmButtonColor: '#25D366',
-            confirmButtonText: 'Entendido'
-          }).then(() => {
-            setTimeout(() => {
-              $('#tblAvisos').DataTable().ajax.reload();
-            }, 20000);
-          });
-        } else {
-          Swal.fire('Error', data.error, 'error');
-        }
-      })
-      .catch(error => {
-        Swal.fire('Error', 'Error de conexión: ' + error, 'error');
-      });
-    }
+  tbody.addEventListener('change', async (ev) => {
+    const sel = ev.target.closest('.sel-conf');
+    if (!sel) return;
+    const { data } = await pedir(`${API}/${sel.dataset.id}/estado`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ estado_confirmacion: sel.value }) });
+    if (!(data && data.success)) Swal.fire('Error', (data && data.error) || 'No se pudo cambiar la confirmación.', 'error');
+    cargar();
   });
-});
 
-// ============================================================
-// EVENTOS: Botones para abrir modales de búsqueda
-// ============================================================
-
-$('#btnBuscarFuncionario').on('click', function() {
-  $('#modalBuscarFuncionario').modal('show');
-});
-
-$('#btnBuscarConsultorio').on('click', function() {
-  $('#modalBuscarConsultorio').modal('show');
-});
-
-$('#btnBuscarPaciente').on('click', function() {
-  $('#modalBuscarPaciente').modal('show');
-});
-
-$('#btnBuscarMedico').on('click', function() {
-  $('#modalBuscarMedico').modal('show');
-});
-
-// ============================================================
-// INICIALIZACIÓN AL CARGAR LA PÁGINA
-// ============================================================
-
-$(document).ready(function() {
-  console.log('Inicializando sistema de avisos...');
-
-  // ✅ AGREGAR ESTAS LÍNEAS AQUÍ:
-  preservarScrollModal('#modalBuscarPaciente', '#modalAviso');
-  preservarScrollModal('#modalBuscarFuncionario', '#modalAviso');
-  preservarScrollModal('#modalBuscarMedico', '#modalAviso');
-  preservarScrollModal('#modalBuscarConsultorio', '#modalAviso');
-  
-  $('#modalAviso').on('shown.bs.modal', function() {
-    $(this).css('overflow-y', 'auto');
-    $('body').addClass('modal-open').css('padding-right', '0px');
-  });
-  
-  $('#modalAviso').on('hidden.bs.modal', function() {
-    $('body').removeClass('modal-open').css('padding-right', '');
-    $('.modal-backdrop').remove();
-  });
-  // FIN DE LAS LÍNEAS NUEVAS ✅
-  
-  initDatatableAvisos();
-  initDatatablePaciente();
-  initDatatableFuncionario();
-  initDatatableMedico();
-  initDatatableConsultorio();
-  agregarAviso();
-  
-  console.log('Sistema de avisos inicializado correctamente');
-});
-
+  chk.addEventListener('change', cargar);
+  cargar();
+  estadoWhatsapp(false);
+})();
 </script>
-{% endblock js %}
+{% endblock %}
