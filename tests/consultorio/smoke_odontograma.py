@@ -260,9 +260,7 @@ try:
     chk('...no ve los de ZZ PACIENTE', o1 not in {x['id_odontograma'] for x in d['data']})
     for malo in ('?desde=2026-13-40', '?desde=2026-10-10&hasta=2026-10-01', '?pagina=x'):
         llamar(C_MED, 'get', O + malo, 400, nombre=f'filtro inválido {malo}')
-    d = llamar(C_MED, 'get', f'{O}/paciente/{pac}', 200, nombre='odontogramas por paciente (solo los del médico)')
-    chk('...vigentes', d['total'] >= 3)
-    chk('...otro médico no ve ninguno', llamar(C_MED2, 'get', f'{O}/paciente/{pac}', 200, nombre='por paciente, otro médico')['data'] == [])
+    chk('el endpoint por paciente (sin consumidores) se eliminó en el cierre', C_MED.get(f'{O}/paciente/{pac}').status_code == 404)
     chk('los endpoints viejos ya no existen (PATCH estado, PUT, validar-consulta, precarga)',
         C_MED.patch(f'{O}/{o1}/estado', json={'estado': 'Activo'}).status_code in (404, 405) and C_MED.put(f'{O}/{o1}', json={}).status_code in (404, 405)
         and C_MED.get(f'{O}/validar-consulta/{c1}').status_code == 404 and C_MED.get(f'{O}/precarga/{c1}').status_code == 404)

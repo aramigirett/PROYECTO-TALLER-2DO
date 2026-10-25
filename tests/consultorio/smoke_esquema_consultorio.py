@@ -2,10 +2,11 @@
 
 Cubre: `consultas_detalle` eliminada (y sin referencias en app/), `odontograma.activo` con su único parcial, los únicos de los
 referenciales con UPPER, el mapa de auditoría de las 18 entidades y, en una base TEMPORAL que crea y borra, que
-schema_consultorio_base.sql reconstruye las 23 tablas idénticas a la real (columnas, constraints, índices, trigger) y es idempotente.
+schema_consultorio_base.sql reconstruye las 24 tablas idénticas a la real (columnas, constraints, índices, trigger) y es idempotente.
 No modifica ninguna fila de la base real.
 """
 import os
+import re
 import pathlib
 import subprocess
 import sys
@@ -28,7 +29,7 @@ def chk(nombre, cond):
 DAO = RAIZ / 'app' / 'dao' / 'referenciales_consultorio'
 TABLAS = ['tipo_diagnostico', 'sintoma', 'tipos_tratamiento', 'insumos', 'tipo_procedimiento_medico', 'medicamentos', 'tipo_analisis',
           'tipo_estudio', 'estado_dental', 'consultas_cab', 'ficha_medica_consulta', 'diagnosticos', 'diagnostico_sintoma', 'odontograma',
-          'odontograma_detalle', 'tratamientos', 'sesiones_tratamiento', 'sesion_insumos', 'recetas', 'receta_medicamento',
+          'odontograma_detalle', 'tratamientos', 'sesiones_tratamiento', 'sesion_procedimientos', 'sesion_insumos', 'recetas', 'receta_medicamento',
           'orden_estudios', 'orden_analisis', 'justificativo_medico']
 cx = Conexion().getConexion(); cu = cx.cursor()
 
@@ -85,6 +86,19 @@ adm = Conexion('postgres').getConexion(); adm.autocommit = True; ac = adm.cursor
 ac.execute(f'DROP DATABASE IF EXISTS {tmp}'); ac.execute(f'CREATE DATABASE {tmp}')
 
 
+def normalizar(definicion):
+    """Definición de una restricción sin las diferencias que no cambian el significado: ' NOT VALID' (en una tabla vacía la restricción nace validada) y la forma en que cada
+    versión de PostgreSQL escribe `estado = ANY (ARRAY[...])` (se compara la lista de valores permitidos)."""
+    d = definicion.replace(' NOT VALID', '')
+    if 'ARRAY[' in d:
+        valores = sorted(re.findall(r"'([^']*)'::character varying", d))
+        d = re.sub(r"ANY \(.*\)\)", 'ANY ' + repr(valores), d)
+    return d
+
+
+FUNCIONES = ['fn_validar_diagnostico_sintoma', 'fn_validar_sesion_consulta', 'fn_validar_sesion_procedimiento', 'fn_validar_receta_medicamento']
+
+
 def firma(cur):
     f = []
     for t in TABLAS:
@@ -92,11 +106,16 @@ def firma(cur):
                        FROM pg_attribute a LEFT JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum
                        WHERE a.attrelid=%s::regclass AND a.attnum>0 AND NOT a.attisdropped ORDER BY a.attnum""", (t,))
         f.append(cur.fetchall())
-        cur.execute("SELECT conname, CASE WHEN contype='c' THEN 'CHECK' ELSE pg_get_constraintdef(oid) END FROM pg_constraint "
-                    "WHERE conrelid=%s::regclass ORDER BY 1", (t,))
+        cur.execute("SELECT conname, pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid=%s::regclass ORDER BY 1", (t,))
+        f.append([(n, normalizar(d)) for n, d in cur.fetchall()])
+        cur.execute("SELECT tgname, pg_get_triggerdef(oid) FROM pg_trigger WHERE NOT tgisinternal AND tgrelid=%s::regclass ORDER BY 1", (t,))
+        f.append(cur.fetchall())
+        cur.execute("SELECT COALESCE(obj_description(%s::regclass, 'pg_class'), '')", (t,)); f.append(cur.fetchall())
+        cur.execute("SELECT a.attname, col_description(a.attrelid, a.attnum) FROM pg_attribute a WHERE a.attrelid=%s::regclass AND a.attnum>0 AND NOT a.attisdropped "
+                    "AND col_description(a.attrelid, a.attnum) IS NOT NULL ORDER BY 1", (t,))
         f.append(cur.fetchall())
         cur.execute("SELECT indexname, indexdef FROM pg_indexes WHERE tablename=%s ORDER BY 1", (t,)); f.append(cur.fetchall())
-    cur.execute("SELECT tgname FROM pg_trigger WHERE NOT tgisinternal AND tgrelid='odontograma'::regclass"); f.append(cur.fetchall())
+    cur.execute("SELECT proname, pg_get_functiondef(oid) FROM pg_proc WHERE proname = ANY(%s) ORDER BY 1", (FUNCIONES,)); f.append(cur.fetchall())
     cur.execute("SELECT id_estado_dental, descripcion, simbolo FROM estado_dental ORDER BY 1"); f.append(cur.fetchall())
     return f
 
@@ -109,9 +128,15 @@ try:
     subprocess.run([str(B / 'psql.exe'), '-h', h, '-p', p, '-U', usr, '-d', tmp, '-q', '-f', str(arch)], env=env, capture_output=True, text=True)
     t = Conexion(tmp).getConexion(); tc = t.cursor()
     tc.execute('DROP TABLE ' + ', '.join(TABLAS) + ' CASCADE'); t.commit()
+    tc.execute(''.join(f'DROP FUNCTION IF EXISTS {fn}() CASCADE;' for fn in FUNCIONES)); t.commit()   # las funciones también se reconstruyen desde el archivo
     sql = (DAO / 'schema_consultorio_base.sql').read_text(encoding='utf-8')
     tc.execute(sql); t.commit(); chk('schema_consultorio_base.sql corre sobre una base sin las tablas de Consultorio', True)
-    chk('las 23 tablas, constraints, índices, trigger y estados dentales son IGUALES a la base real', firma(cu) == firma(tc))
+    fr, ft = firma(cu), firma(tc)
+    if fr != ft:   # muestra QUÉ difiere (por tabla / sección) para poder corregir el archivo base
+        for i, (x, y) in enumerate(zip(fr, ft)):
+            if x != y:
+                print('   DIFERENCIA en la sección', i, ':', [e for e in x if e not in y][:3], '<-> base temporal:', [e for e in y if e not in x][:3])
+    chk('las 24 tablas (columnas, constraints con su definición completa, índices, TODOS los triggers, comentarios), las 4 funciones de validación y los estados dentales son IGUALES a la base real', firma(cu) == firma(tc))
     tc.execute(sql); t.commit(); chk('schema_consultorio_base.sql es IDEMPOTENTE (2.ª corrida sin errores)', True)
     chk('la 2.ª corrida no duplica los estados dentales', firma(cu)[-1] == firma(tc)[-1])
     tc.execute((DAO / 'schema_consultorio_etapa0.sql').read_text(encoding='utf-8')); t.commit()

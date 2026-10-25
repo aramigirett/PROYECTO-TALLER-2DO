@@ -111,7 +111,7 @@ class OdontogramaDao:
         filas = self._leer(_SELECT_CABECERA + " WHERE o.id_consulta_cab = %s AND o.activo = true", (id_consulta_cab,), True)
         return filas[0] if filas else None
 
-    def listar(self, texto=None, desde=None, hasta=None, id_medico=None, id_paciente=None, pagina=1, por_pagina=25):
+    def listar(self, texto=None, desde=None, hasta=None, id_medico=None, pagina=1, por_pagina=25):
         """Odontogramas VIGENTES (sin hallazgos) con filtros, paginados en el servidor. Devuelve (filas, total)."""
         where, params = ["o.activo = true", "cc.activo = true"], []
         if texto:
@@ -123,8 +123,6 @@ class OdontogramaDao:
             where.append("cc.fecha_cita <= %s"); params.append(hasta)
         if id_medico:
             where.append("cc.id_medico = %s"); params.append(id_medico)
-        if id_paciente:
-            where.append("o.id_paciente = %s"); params.append(id_paciente)
         cond = ' AND '.join(where)
         por_pagina = max(1, min(int(por_pagina), 100))
         pagina = max(1, int(pagina))

@@ -72,7 +72,7 @@ class DiagnosticoDao:
             cur.close()
             con.close()
 
-    def listar(self, texto=None, desde=None, hasta=None, id_medico=None, id_consulta=None, id_paciente=None, pagina=1, por_pagina=25):
+    def listar(self, texto=None, desde=None, hasta=None, id_medico=None, id_consulta=None, pagina=1, por_pagina=25):
         """Diagnósticos VIGENTES con filtros, paginados en el servidor. Devuelve (filas, total)."""
         where, params = ["d.activo = true", "cc.activo = true"], []
         if texto:
@@ -86,8 +86,6 @@ class DiagnosticoDao:
             where.append("cc.id_medico = %s"); params.append(id_medico)
         if id_consulta:
             where.append("d.id_consulta_cab = %s"); params.append(id_consulta)
-        if id_paciente:
-            where.append("d.id_paciente = %s"); params.append(id_paciente)
         cond = ' AND '.join(where)
         por_pagina = max(1, min(int(por_pagina), 100))
         pagina = max(1, int(pagina))

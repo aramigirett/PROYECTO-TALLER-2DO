@@ -186,9 +186,7 @@ try:
     chk('una fila por página y el total completo', len(d['data']) == 1 and d['total'] >= 3)
     for malo in ('?desde=2026-13-40', '?desde=2026-10-10&hasta=2026-10-01', '?pagina=x'):
         llamar(C_MED, 'get', URL + malo, 400, nombre=f'filtro inválido {malo}')
-    llamar(C_MED, 'get', f'{URL}/paciente/{pac}', 200, nombre='diagnósticos por paciente (solo los del médico)')
-    d = llamar(C_MED2, 'get', f'{URL}/paciente/{pac}', 200, nombre='...otro médico no ve los ajenos')
-    chk('...vacío para el otro médico', d['data'] == [])
+    chk('el endpoint por paciente (sin consumidores) se eliminó en el cierre', C_MED.get(f'{URL}/paciente/{pac}').status_code == 404)
     # el lookup que usan los combos de otras ventanas
     chk('lookup sin sesión -> 401', app.test_client().get(f'{URL}/consulta/{c1}').status_code == 401)
     d = llamar(C_MED, 'get', f'{URL}/consulta/{c1}', 200, nombre='lookup por consulta (Tratamiento, Receta, Órdenes, Justificativo)')

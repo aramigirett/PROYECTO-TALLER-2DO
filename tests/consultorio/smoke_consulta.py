@@ -273,12 +273,8 @@ try:
     llamar(C_REC, 'get', f'{URL}/{ida}/resumen', 404, nombre='resumen de una anulada -> 404')
 
     print('\n=== Lookups que usan otras pantallas')
-    d = llamar(C_REC, 'get', f'{URL}/{id1}', 200, nombre='GET /consultas/<id> conserva sus claves')
-    chk('claves del lookup', {'id_consulta_cab', 'id_cita', 'id_paciente', 'nombre_paciente', 'id_medico', 'nombre_medico', 'id_consultorio',
-                              'nombre_consultorio', 'id_funcionario', 'fecha_cita', 'hora_cita', 'duracion_minutos', 'estado', 'numero', 'activo'} <= set(d['data']))
-    d = llamar(C_REC, 'get', URL + '/activas', 200, nombre='GET /consultas/activas')
-    ids_act = {x['id_consulta_cab'] for x in d['data']}
-    chk('activas = programada o en_proceso, activas', idr in ids_act and id1 not in ids_act and id2 not in ids_act)
+    chk('los lookups sin dueño (/consultas/<id> y /consultas/activas, filtraban pacientes a cualquier usuario con sesión) se eliminaron en el cierre',
+        C_REC.get(URL + '/activas').status_code in (404, 405) and C_REC.get(f'{URL}/{id1}').status_code in (404, 405))
     r = C_REC.put(f'{URL}/{id1}', json={'estado': 'programada'}); chk('el PUT libre de estado ya no existe (405)', r.status_code == 405)
 
     fx.borrar_consultas_de_citas(citas_creadas)

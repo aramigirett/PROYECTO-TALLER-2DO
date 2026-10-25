@@ -114,35 +114,6 @@ def getCitasDisponibles():
 
 
 # -------------------------
-# Consultas activas (programada / en_proceso): lookup de otras pantallas
-# -------------------------
-@consultaapi.route('/consultas/activas', methods=['GET'])
-@require_login
-def getConsultasActivas():
-    try:
-        return jsonify({'success': True, 'data': ConsultaDao().getConsultasActivas(), 'error': None}), 200
-    except Exception as e:
-        app.logger.error(f"Error al obtener consultas activas: {str(e)}")
-        return error_interno()
-
-
-# -------------------------
-# Una consulta por ID (lookup de otras pantallas)
-# -------------------------
-@consultaapi.route('/consultas/<int:consulta_id>', methods=['GET'])
-@require_login
-def getConsulta(consulta_id):
-    try:
-        consulta = ConsultaDao().getConsultaById(consulta_id)
-        if consulta:
-            return jsonify({'success': True, 'data': consulta, 'error': None}), 200
-        return respuesta_error('No se encontró la consulta con el ID proporcionado.', 404)
-    except Exception as e:
-        app.logger.error(f"Error al obtener consulta: {str(e)}")
-        return error_interno()
-
-
-# -------------------------
 # Resumen para la pantalla central: contadores de registros vigentes (solo cantidades) y qué permite el estado actual
 # -------------------------
 @consultaapi.route('/consultas/<int:consulta_id>/resumen', methods=['GET'])

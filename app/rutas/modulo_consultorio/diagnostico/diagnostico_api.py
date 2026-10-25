@@ -114,17 +114,6 @@ def getDiagnosticoMedico(diagnostico_id):
         return error_interno()
 
 
-@diagnostico_medico_api.route('/diagnosticos-medicos/paciente/<int:paciente_id>', methods=['GET'])
-@require_permiso('diagnostico', 'ver')
-def getDiagnosticosByPaciente(paciente_id):
-    try:
-        filas, total = DiagnosticoDao().listar(id_medico=id_medico_sesion(), id_paciente=paciente_id, por_pagina=100)
-        return jsonify({'success': True, 'data': filas, 'total': total, 'error': None}), 200
-    except Exception as e:
-        app.logger.error(f"Error al obtener los diagnósticos del paciente: {str(e)}")
-        return error_interno()
-
-
 # -------------------------
 # Los diagnósticos de una consulta: lo usan los combos de Tratamiento, Receta, Órdenes y Justificativo (ya no basta con tener sesión)
 # -------------------------

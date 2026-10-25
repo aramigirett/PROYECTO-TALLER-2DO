@@ -135,17 +135,6 @@ def getOdontograma(id_odontograma):
         return error_interno()
 
 
-@odontogramaapi.route('/odontogramas/paciente/<int:id_paciente>', methods=['GET'])
-@require_permiso('odontograma', 'ver')
-def getOdontogramasPaciente(id_paciente):
-    try:
-        filas, total = OdontogramaDao().listar(id_medico=id_medico_sesion(), id_paciente=id_paciente, por_pagina=100)
-        return jsonify({'success': True, 'data': filas, 'total': total, 'error': None}), 200
-    except Exception as e:
-        app.logger.error(f"Error al obtener los odontogramas del paciente: {str(e)}")
-        return error_interno()
-
-
 # -------------------------
 # Alta (con la precarga hecha por el servidor)
 # -------------------------

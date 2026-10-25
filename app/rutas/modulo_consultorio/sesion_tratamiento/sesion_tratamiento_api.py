@@ -12,7 +12,6 @@ observaciones, procedimientos ni insumos (dato de salud).
 from flask import Blueprint, request, jsonify, current_app as app
 from app.dao.referenciales_consultorio.consulta.ConsultaDao import numero_consulta
 from app.dao.referenciales_consultorio.sesion_tratamiento.SesionTratamientoDao import SesionTratamientoDao
-from app.dao.referenciales_consultorio.tratamiento.TratamientoDao import TratamientoDao
 from app.rutas.modulo_consultorio.utils import auditar as _auditar, error_interno, respuesta_error
 from app.rutas.modulo_consultorio.validadores_clinicos import validar_sesion
 from app.rutas.modulo_seguridad.decorators import require_permiso
@@ -59,30 +58,6 @@ def _error(r, anulando=False):
 
 def _paciente(ctx):
     return f"{ctx['paciente']} (CI {ctx['cedula']})"
-
-
-def _acceso_tratamiento(id_tratamiento):
-    """(tratamiento, None) o (None, respuesta de error): existe y, si el usuario es médico, es suyo."""
-    t = TratamientoDao().getTratamientoById(id_tratamiento)
-    if not t:
-        return None, respuesta_error('No se encontró el tratamiento seleccionado.', 404)
-    medico = id_medico_sesion()
-    if medico and t['id_medico'] != medico:
-        return None, respuesta_error('Esa información no está disponible para su usuario.', 403)
-    return t, None
-
-
-@sesiontratamientoapi.route('/sesiones-tratamiento/tratamiento/<int:id_tratamiento>', methods=['GET'])
-@require_permiso('sesiontratamiento', 'ver')
-def getSesionesByTratamiento(id_tratamiento):
-    try:
-        _, prohibido = _acceso_tratamiento(id_tratamiento)
-        if prohibido:
-            return prohibido
-        return jsonify({'success': True, 'data': SesionTratamientoDao().getSesionesByTratamiento(id_tratamiento), 'error': None}), 200
-    except Exception as e:
-        app.logger.error(f"Error al obtener sesiones de tratamiento: {str(e)}")
-        return error_interno()
 
 
 @sesiontratamientoapi.route('/sesiones-tratamiento/<int:id_sesion>', methods=['GET'])

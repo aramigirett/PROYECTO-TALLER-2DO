@@ -528,3 +528,16 @@ INSERT INTO estado_dental (id_estado_dental, descripcion, color, simbolo, activo
     (22, 'Ausente Congénito', '#9E9E9E', 'Ac', true, 'PIEZA')
 ON CONFLICT (descripcion) DO NOTHING;
 SELECT setval(pg_get_serial_sequence('estado_dental','id_estado_dental'), (SELECT MAX(id_estado_dental) FROM estado_dental));
+
+-- ---------- Comentarios (documentación del DER) ----------
+COMMENT ON TABLE estado_dental IS 'Catálogo de estados/condiciones dentales';
+COMMENT ON COLUMN estado_dental.aplica_a IS 'PIEZA = hallazgo de la pieza completa (superficie T); SUPERFICIE = hallazgo de una superficie (O V L M D).';
+COMMENT ON TABLE diagnostico_sintoma IS 'Síntomas asociados a cada diagnóstico (relación N a N).';
+COMMENT ON TABLE odontograma IS 'Registro de odontogramas por paciente';
+COMMENT ON COLUMN odontograma.activo IS 'Baja lógica (estándar). false = anulado. Reemplaza a estado = ''Inactivo''.';
+COMMENT ON TABLE odontograma_detalle IS 'Detalles de cada diente y superficie del odontograma';
+COMMENT ON COLUMN odontograma_detalle.numero_diente IS 'Numeración FDI: Permanentes (11-48), Temporales (51-85)';
+COMMENT ON COLUMN odontograma_detalle.superficie IS 'O=Oclusal, V=Vestibular, L=Lingual, M=Mesial, D=Distal, C=Completo';
+COMMENT ON COLUMN sesiones_tratamiento.id_consulta_cab IS 'Consulta en la que se registró la sesión (mismo paciente y mismo médico que el tratamiento; puede ser posterior a la que creó el tratamiento).';
+COMMENT ON TABLE sesion_procedimientos IS 'Procedimientos realizados en una sesión de tratamiento (uno o más por sesión).';
+COMMENT ON COLUMN justificativo_medico.estado IS 'pendiente (registrado, borrador) -> emitido (documento oficial) | anulado (definitivo).';
