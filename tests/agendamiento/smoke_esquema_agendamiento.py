@@ -1,7 +1,7 @@
 """Esquema versionado de Agendamiento y Seguridad (etapa 1 de la migración a Tabler).
 
 En una base TEMPORAL que crea y borra: aplica en orden schema_agendamiento_base.sql, schema_agendamiento_datos.sql,
-schema_seguridad_base.sql, historial/schema_historial_base.sql, schema_agendamiento_etapa1.sql, schema_agendamiento_etapa2.sql y schema_agendamiento_etapa3.sql, y compara con la base real las 22 tablas
+schema_seguridad_base.sql, historial/schema_historial_base.sql, schema_agendamiento_etapa1.sql, schema_agendamiento_etapa2.sql y schema_agendamiento_etapa3.sql, schema_menu_mantener.sql, y compara con la base real las 22 tablas
 (columnas, tipos, NOT NULL, valores por defecto, restricciones y índices). También verifica que cada script se pueda volver a correr
 (idempotente) y, en la base real, los cambios de la etapa 1 (activo, únicos parciales, FK en RESTRICT, Turno sin CHECK, Día con CHECK).
 No modifica la base real.
@@ -35,7 +35,7 @@ TABLAS = ['ciudades', 'cargo', 'especialidades', 'consultorio', 'dias', 'turnos'
 ORDEN = ['app/dao/referenciales_agendamiento/schema_agendamiento_base.sql', 'app/dao/referenciales_agendamiento/schema_agendamiento_datos.sql',
          'app/dao/modulo_seguridad/schema_seguridad_base.sql', 'app/dao/referenciales_agendamiento/historial/schema_historial_base.sql',
          'app/dao/referenciales_agendamiento/schema_agendamiento_etapa1.sql', 'app/dao/referenciales_agendamiento/schema_agendamiento_etapa2.sql',
-         'app/dao/referenciales_agendamiento/schema_agendamiento_etapa3.sql']
+         'app/dao/referenciales_agendamiento/schema_agendamiento_etapa3.sql', 'app/dao/modulo_seguridad/schema_menu_mantener.sql']
 
 host, port, user, pwd, real = env['DB_HOST'], env['DB_PORT'], env['TEST_DB_USER'], env['TEST_DB_PASSWORD'], env['DB_NAME']
 BIN = pathlib.Path(env.get('PG_BIN_DIR', r'C:\Program Files\PostgreSQL\14\bin'))
