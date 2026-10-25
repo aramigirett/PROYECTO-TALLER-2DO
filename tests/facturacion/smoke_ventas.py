@@ -25,6 +25,7 @@ from app.Services.factura_pdf_service import generarFacturaPdf, calcular_datos_f
 from app.dao.modulo_facturacion.pedido_cliente.PedidoClienteDao import calcular_totales
 from app.rutas.modulo_facturacion.utils import calcular_dv_ruc
 from tests.facturacion._limpieza import borrar_auditoria
+from tests.consultorio._fixtures import Fixtures
 
 RAIZ = pathlib.Path(__file__).resolve().parents[2]
 c = app.test_client()
@@ -52,6 +53,7 @@ def api(metodo, url, esperado, json=None, nombre=None, exacto=None, contiene=Non
     return d
 
 cx = Conexion().getConexion(); cx.autocommit = True; cu = cx.cursor()
+fx = Fixtures(cx)   # médico y consulta ZZ: solo el médico de una consulta abierta anula un tratamiento (Consultorio, etapa 5)
 
 # ---------- usuarios reales ----------
 cu.execute("SELECT u.id_usuario, r.id_rol, r.nombre_rol FROM usuarios u JOIN roles r USING(id_rol) WHERE u.activo ORDER BY 1")
@@ -531,12 +533,15 @@ try:
     ids['paciente'] = [PAC, PAC2]
     cu.execute("INSERT INTO cliente(nombre, apellido, ci_ruc, id_paciente) VALUES ('ZZ CLIENTE', 'TRAT', %s, %s) RETURNING id_cliente", ('ZZT' + stamp, PAC)); CLI_T = cu.fetchone()[0]
     ids['cliente'].append(CLI_T)
-    cu.execute("SELECT id_consulta_cab, id_medico FROM consultas_cab ORDER BY 1 LIMIT 1"); CONSULTA, MEDICO = cu.fetchone()
+    f_rec, _u_rec = fx.recepcion()
+    MEDICO, u_medico = fx.medico()
+    CONSULTA = fx.registrar_consulta(fx.cita(MEDICO, PAC, fx.consultorio(), f_rec), f_rec, 'en_proceso')
+    cu.execute("SELECT u.id_usuario, u.id_rol, r.nombre_rol FROM usuarios u JOIN roles r USING(id_rol) WHERE u.id_usuario=%s", (u_medico,)); MEDU = cu.fetchone()
 
     def mktrat(tipo, estado='pendiente', paciente=None):
         cu.execute("INSERT INTO tratamientos(id_consulta_cab, id_paciente, id_medico, id_tipo_tratamiento, descripcion_tratamiento, fecha_tratamiento, estado) "
                    "VALUES (%s,%s,%s,%s,'ZZ prueba de venta', CURRENT_DATE, %s) RETURNING id_tratamiento", (CONSULTA, paciente or PAC, MEDICO, tipo, estado))
-        tid = cu.fetchone()[0]; ids['trat'].append(tid); return tid
+        tid = cu.fetchone()[0]; ids['trat'].append(tid); fx.auditoria_de('tratamientos', tid); return tid
     T1 = mktrat(TA); T2 = mktrat(TB, 'finalizado'); T3 = mktrat(TC, 'cancelado'); T4 = mktrat(TC); T5 = mktrat(TC); T6 = mktrat(TC, paciente=PAC2)
 
     def venta_trat(cli, pac, trats, cond='CONTADO', esperado=201, **kw):
@@ -619,11 +624,11 @@ try:
     chk('doble facturación: no se quemó número y T4 sigue libre', tim('numero_actual') == n_ant and T4 in {x['id_tratamiento'] for x in c.get(f'{VEN}/tratamientos?id_paciente={PAC}').get_json()['data']})
 
     # ---- bloqueo en Consultorio ----
-    como(ADMIN)
+    como(MEDU)
     api('delete', f'/api/v1/tratamientos/{T1}', 409, nombre='Consultorio: anular un tratamiento FACTURADO', exacto='El tratamiento ya fue facturado; anule primero la factura.')
     cu.execute("SELECT estado FROM tratamientos WHERE id_tratamiento=%s", (T1,)); chk('Consultorio: el tratamiento facturado sigue sin cancelar', cu.fetchone()[0] == 'pendiente')
     with app.app_context():
-        chk('Consultorio: TratamientoDao.deleteTratamiento devuelve "FACTURADO"', TratamientoDao().deleteTratamiento(T2) == 'FACTURADO')
+        chk('Consultorio: TratamientoDao.anularTratamiento devuelve "FACTURADO"', TratamientoDao().anularTratamiento(T2, MEDICO).get('error') == 'FACTURADO')
     api('delete', f'/api/v1/tratamientos/{T4}', 200, nombre='Consultorio: un tratamiento SIN factura se anula normalmente')
     cu.execute("SELECT estado FROM tratamientos WHERE id_tratamiento=%s", (T4,)); chk('Consultorio: T4 quedó cancelado', cu.fetchone()[0] == 'cancelado')
     venta_trat(CLI_T, PAC, [T4], esperado=409, nombre='un tratamiento cancelado no se factura', contiene='está cancelado')
@@ -646,12 +651,12 @@ try:
             barrera.wait(); res[0] = VentaDao().guardarVentaTratamientos(CAJERO[0], CLI_T, PAC, [T7], 'CONTADO')
     def hilo_cancelar7():
         with app.app_context():
-            barrera.wait(); res[1] = TratamientoDao().deleteTratamiento(T7)
+            barrera.wait(); res[1] = TratamientoDao().anularTratamiento(T7, MEDICO)
     ts = [threading.Thread(target=hilo_venta7), threading.Thread(target=hilo_cancelar7)]; [t.start() for t in ts]; [t.join(60) for t in ts]
     if isinstance(res[0], int):
         ventas.add(res[0])
-    gana_venta = isinstance(res[0], int) and res[1] == 'FACTURADO'
-    gana_cancelar = res[1] is True and isinstance(res[0], tuple) and res[0][0] == TRATAMIENTO_CANCELADO
+    gana_venta = isinstance(res[0], int) and res[1].get('error') == 'FACTURADO'
+    gana_cancelar = res[1].get('ok') is True and isinstance(res[0], tuple) and res[0][0] == TRATAMIENTO_CANCELADO
     chk('concurrencia: facturar y cancelar el mismo tratamiento a la vez -> gana UNO solo, nunca los dos', gana_venta or gana_cancelar)
 
     # ---- anular la venta de tratamiento: los tratamientos quedan libres ----
@@ -668,7 +673,8 @@ try:
     chk('la nueva factura tiene un número mayor y vence a los 30 días', d['data']['numero_factura'] > n_t1)
     cu.execute("SELECT fecha_vencimiento FROM cuenta_cobrar WHERE id_venta=%s", (v_t1b,)); chk('trigger: crédito vence a los 30 días', cu.fetchone()[0] == HOY + timedelta(days=30))
     como(ADMIN); api('delete', f'{VEN}/{v_t1b}', 200, nombre='anular otra vez')
-    api('delete', f'/api/v1/tratamientos/{T2}', 200, nombre='Consultorio: con la factura anulada el tratamiento se puede cancelar')
+    como(MEDU); api('delete', f'/api/v1/tratamientos/{T2}', 200, nombre='Consultorio: con la factura anulada el tratamiento se puede cancelar')
+    como(ADMIN)
 
     # ---- anular una venta de ítems: SIN la casilla -> el pedido vuelve a PENDIENTE (stock sigue descontado) ----
     sA0 = stock('A')
@@ -738,6 +744,7 @@ finally:
             cu.execute("DELETE FROM deposito WHERE id_deposito=%s", (ids['dep'],))
         if ids['trat']:
             cu.execute("DELETE FROM tratamientos WHERE id_tratamiento = ANY(%s)", (ids['trat'],))
+        fx.limpiar()   # la consulta, el médico y su usuario ZZ (con sus tratamientos y su auditoría)
         if ids['tipo_trat']:
             cu.execute("DELETE FROM tipos_tratamiento WHERE id_tipo_tratamiento = ANY(%s)", (ids['tipo_trat'],))
         if ids['cliente']:

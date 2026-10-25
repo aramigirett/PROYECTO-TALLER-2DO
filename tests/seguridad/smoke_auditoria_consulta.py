@@ -261,8 +261,8 @@ try:
                 f'{API}?id_usuario=abc', f'{API}?id_registro=-1'):
         chk(f'400 con filtros inválidos: {url}', get(url)[0].status_code == 400)
     r, d = get(API + '/filtros')
-    chk('opciones de filtro: usuarios, 3 módulos, entidades con etiqueta y las 6 acciones',
-        r.status_code == 200 and any(u['id_usuario'] == ADMIN[0] for u in d['data']['usuarios']) and len(d['data']['modulos']) == 3
+    chk('opciones de filtro: usuarios, 5 módulos, entidades con etiqueta y las 6 acciones',
+        r.status_code == 200 and any(u['id_usuario'] == ADMIN[0] for u in d['data']['usuarios']) and len(d['data']['modulos']) == 5
         and {'valor': 'venta_cab', 'etiqueta': 'Venta'} in d['data']['entidades'] and len(d['data']['acciones']) == 6)
     chk('la acción BAJA se ofrece como "Baja / Anulación"', {'valor': 'BAJA', 'etiqueta': 'Baja / Anulación'} in d['data']['acciones'])
 

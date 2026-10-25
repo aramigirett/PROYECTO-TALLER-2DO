@@ -1,322 +1,208 @@
 """
 =====================================================
-API: Ficha Médica de Consulta
-Descripción: Endpoints REST para fichas médicas
+API: Ficha Médica de Consulta (/api/v1/ficha-medica)
+Una ficha por consulta. Crear, editar y anular: solo el médico de esa consulta, con la consulta programada o en proceso (se revalida al
+guardar). Las lecturas piden `fichamedica ver` (son datos de salud; un médico solo lee las fichas de SUS consultas).
+
+Auditoría (`auditoria_cambios`, entidad `ficha_medica_consulta`): ALTA, MODIFICACION y BAJA con N.º de consulta, paciente (con CI) y quién;
+NUNCA con los valores clínicos (ni antes ni después).
 =====================================================
 """
+import datetime
 
 from flask import Blueprint, request, jsonify, current_app as app
+from app.dao.referenciales_consultorio.consulta.ConsultaDao import ConsultaDao, numero_consulta
 from app.dao.referenciales_consultorio.consulta.FichaMedicaDao import FichaMedicaDao
-from app.rutas.modulo_seguridad.decorators import require_permiso, require_login
+from app.rutas.modulo_consultorio.utils import acceso_consulta, auditar as _auditar, error_interno, respuesta_error
+from app.rutas.modulo_consultorio.validadores_clinicos import validar_ficha
+from app.rutas.modulo_seguridad.decorators import require_permiso
+from app.rutas.modulo_seguridad.permisos_contexto import id_medico_sesion
+from app.Services.auditoria_detalle import DetalleAuditoria
 
-# Crear Blueprint
 fichamedicaapi = Blueprint('fichamedicaapi', __name__)
 
-# =====================================================
-# ENDPOINT: OBTENER FICHA MÉDICA DE UNA CONSULTA
-# =====================================================
+ENTIDAD = 'ficha_medica_consulta'
+
+ERRORES = {
+    'CONSULTA_NO_ENCONTRADA': (404, 'No se encontró la consulta con el ID proporcionado.'),
+    'FICHA_NO_ENCONTRADA': (404, 'No se encontró la ficha médica con el ID proporcionado.'),
+    'NO_ES_SU_MEDICO': (403, 'Solo el médico de la consulta puede registrar, modificar o anular su ficha médica.'),
+    'FICHA_YA_EXISTE': (409, 'Ya existe una ficha médica para esta consulta. Edítela en lugar de crear otra.'),
+}
+
+
+def _contexto(info, id_consulta):
+    paciente = f"{info['paciente']} (CI {info['cedula']})" if info.get('cedula') else info['paciente']
+    return numero_consulta(id_consulta), paciente
+
+
+def _detalle_ficha(info, id_consulta, texto):
+    numero, paciente = _contexto(info, id_consulta)
+    return f"Ficha médica de la consulta {numero} de {paciente}; {texto}"
+
+
+def _error(r, anulando=False):
+    codigo = r.get('error')
+    if codigo == 'CONSULTA_NO_ABIERTA':
+        estado = r.get('estado')
+        if anulando and estado == 'finalizada':
+            return respuesta_error('No se puede anular: la consulta ya está finalizada.', 409)
+        return respuesta_error(f'La consulta está {estado}: ya no admite cambios en la ficha médica.', 409)
+    if codigo in ERRORES:
+        status, mensaje = ERRORES[codigo]
+        return respuesta_error(mensaje, status)
+    return error_interno()
+
+
+def _puede_leer_consulta(id_consulta):
+    """Un médico solo lee las fichas de SUS consultas; Recepción y Administrador (con fichamedica ver) leen todas.
+    Devuelve None si puede, o la respuesta de error."""
+    return acceso_consulta(id_consulta)[1]
+
+
+def _fecha_param(nombre):
+    valor = request.args.get(nombre, '').strip()
+    if not valor:
+        return None, None
+    try:
+        return datetime.date.fromisoformat(valor), None
+    except ValueError:
+        return None, f'El filtro "{nombre}" debe tener el formato AAAA-MM-DD.'
+
+
+# -------------------------
+# Listado para la pantalla de Fichas Médicas: identifica la ficha, SIN valores clínicos
+# -------------------------
+@fichamedicaapi.route('/ficha-medica', methods=['GET'])
+@require_permiso('fichamedica', 'ver')
+def getFichas():
+    desde, e1 = _fecha_param('desde')
+    hasta, e2 = _fecha_param('hasta')
+    if e1 or e2:
+        return respuesta_error(e1 or e2, 400)
+    if desde and hasta and desde > hasta:
+        return respuesta_error('La fecha "desde" no puede ser posterior a "hasta".', 400)
+    try:
+        pagina, por_pagina = int(request.args.get('pagina', 1)), int(request.args.get('por_pagina', 25))
+    except ValueError:
+        return respuesta_error('La paginación debe ser numérica.', 400)
+    try:
+        filas, total = FichaMedicaDao().listar(request.args.get('q', '').strip()[:80] or None, desde, hasta, id_medico_sesion(), pagina, por_pagina)
+        return jsonify({'success': True, 'data': filas, 'total': total, 'pagina': max(1, pagina), 'por_pagina': por_pagina, 'error': None}), 200
+    except Exception as e:
+        app.logger.error(f"Error al listar las fichas médicas: {str(e)}")
+        return error_interno()
+
+
+# -------------------------
+# La ficha de una consulta
+# -------------------------
 @fichamedicaapi.route('/ficha-medica/consulta/<int:consulta_id>', methods=['GET'])
-@require_login  # lookup: lo consumen otras pantallas
+@require_permiso('fichamedica', 'ver')
 def getFichaByConsulta(consulta_id):
-    """
-    Obtiene la ficha médica de una consulta específica
-    
-    URL: GET /api/v1/ficha-medica/consulta/5
-    """
-    fichaDao = FichaMedicaDao()
-
     try:
-        ficha = fichaDao.getFichaByConsulta(consulta_id)
-
+        prohibido = _puede_leer_consulta(consulta_id)
+        if prohibido:
+            return prohibido
+        ficha = FichaMedicaDao().getFichaByConsulta(consulta_id)
         if ficha:
-            return jsonify({
-                'success': True,
-                'data': ficha,
-                'error': None
-            }), 200
-        else:
-            return jsonify({
-                'success': False,
-                'error': 'No se encontró ficha médica para esta consulta.'
-            }), 404
-
+            return jsonify({'success': True, 'data': ficha, 'error': None}), 200
+        return respuesta_error('No se encontró ficha médica para esta consulta.', 404)
     except Exception as e:
-        app.logger.error(f"Error al obtener ficha médica: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': 'Ocurrió un error interno. Consulte con el administrador.'
-        }), 500
+        app.logger.error(f"Error al obtener la ficha médica: {str(e)}")
+        return error_interno()
 
 
-# =====================================================
-# ENDPOINT: OBTENER FICHA MÉDICA POR ID
-# =====================================================
 @fichamedicaapi.route('/ficha-medica/<int:ficha_id>', methods=['GET'])
-@require_login  # lookup: lo consumen otras pantallas
+@require_permiso('fichamedica', 'ver')
 def getFicha(ficha_id):
-    """
-    Obtiene una ficha médica por su ID
-    
-    URL: GET /api/v1/ficha-medica/10
-    """
-    fichaDao = FichaMedicaDao()
-
     try:
-        ficha = fichaDao.getFichaById(ficha_id)
-
-        if ficha:
-            return jsonify({
-                'success': True,
-                'data': ficha,
-                'error': None
-            }), 200
-        else:
-            return jsonify({
-                'success': False,
-                'error': 'No se encontró la ficha médica con el ID proporcionado.'
-            }), 404
-
+        ficha = FichaMedicaDao().getFichaById(ficha_id)
+        if not ficha:
+            return respuesta_error('No se encontró la ficha médica con el ID proporcionado.', 404)
+        prohibido = _puede_leer_consulta(ficha['id_consulta_cab'])
+        if prohibido:
+            return prohibido
+        return jsonify({'success': True, 'data': ficha, 'error': None}), 200
     except Exception as e:
-        app.logger.error(f"Error al obtener ficha médica: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': 'Ocurrió un error interno. Consulte con el administrador.'
-        }), 500
+        app.logger.error(f"Error al obtener la ficha médica: {str(e)}")
+        return error_interno()
 
 
-# =====================================================
-# ENDPOINT: CREAR NUEVA FICHA MÉDICA
-# =====================================================
+# -------------------------
+# Alta: la consulta sale del cuerpo; el médico, de la sesión. El IMC lo calcula el servidor.
+# -------------------------
 @fichamedicaapi.route('/ficha-medica', methods=['POST'])
-@require_permiso('consulta', 'nuevo')
+@require_permiso('fichamedica', 'nuevo')
 def addFicha():
-    """
-    Crea una nueva ficha médica
-    
-    URL: POST /api/v1/ficha-medica
-    
-    Body JSON:
-    {
-        "id_consulta_cab": 5,
-        "presion_arterial": "120/80",
-        "temperatura": 36.5,
-        "frecuencia_cardiaca": 72,
-        "frecuencia_respiratoria": 16,
-        "peso": 70.5,
-        "talla": 175,
-        "imc": 23.0,
-        "examen_fisico_general": "...",
-        "examen_bucal": "...",
-        "observaciones_medico": "..."
-    }
-    """
-    data = request.get_json()
-    fichaDao = FichaMedicaDao()
-
-    # Validación: id_consulta_cab es obligatorio
-    if 'id_consulta_cab' not in data or data['id_consulta_cab'] is None:
-        return jsonify({
-            'success': False,
-            'error': 'El campo id_consulta_cab es obligatorio.'
-        }), 400
-
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or data.get('id_consulta_cab') in (None, ''):
+        return respuesta_error('El campo id_consulta_cab es obligatorio.', 400, 'id_consulta_cab')
     try:
-        # Verificar si ya existe una ficha para esta consulta
-        ficha_existente = fichaDao.getFichaByConsulta(data['id_consulta_cab'])
-        if ficha_existente:
-            return jsonify({
-                'success': False,
-                'error': 'Ya existe una ficha médica para esta consulta. Use PUT para actualizar.'
-            }), 400
-
-        # Guardar nueva ficha
-        ficha_id = fichaDao.guardarFicha(data)
-        
-        if ficha_id is not None:
-            return jsonify({
-                'success': True,
-                'data': {
-                    'id_ficha_medica': ficha_id,
-                    'mensaje': 'Ficha médica creada correctamente'
-                },
-                'error': None
-            }), 201
-        else:
-            return jsonify({
-                'success': False,
-                'error': 'No se pudo guardar la ficha médica.'
-            }), 500
-
+        id_consulta = int(data['id_consulta_cab'])
+    except (ValueError, TypeError):
+        return respuesta_error('El campo id_consulta_cab no es válido.', 400, 'id_consulta_cab')
+    valores, error, campo = validar_ficha(data)
+    if error:
+        return respuesta_error(error, 400, campo)
+    try:
+        r = FichaMedicaDao().guardarFicha(id_consulta, valores, id_medico_sesion())
+        if 'id_ficha_medica' in r:
+            info = r['contexto']
+            numero, paciente = _contexto(info, id_consulta)
+            _auditar(ENTIDAD, r['id_ficha_medica'], 'ALTA',
+                     DetalleAuditoria(_detalle_ficha(info, id_consulta, 'ficha registrada'), {}, {'Consulta': numero, 'Paciente': paciente}))
+            return jsonify({'success': True, 'data': {'id_ficha_medica': r['id_ficha_medica'],
+                                                      'imc': float(valores['imc']) if valores['imc'] is not None else None},
+                            'mensaje': f"Ficha médica de la consulta {numero} registrada correctamente.", 'error': None}), 201
+        return _error(r)
     except Exception as e:
-        app.logger.error(f"Error al crear ficha médica: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': 'Ocurrió un error interno. Consulte con el administrador.'
-        }), 500
+        app.logger.error(f"Error al crear la ficha médica: {str(e)}")
+        return error_interno()
 
 
-# =====================================================
-# ENDPOINT: ACTUALIZAR FICHA MÉDICA
-# =====================================================
+# -------------------------
+# Modificación (excepción del CUS: se corrige la misma ficha mientras la consulta sigue abierta)
+# -------------------------
 @fichamedicaapi.route('/ficha-medica/<int:ficha_id>', methods=['PUT'])
 @require_permiso('fichamedica', 'editar')
 def updateFicha(ficha_id):
-    """
-    Actualiza una ficha médica existente
-    
-    URL: PUT /api/v1/ficha-medica/10
-    """
-    data = request.get_json()
-    fichaDao = FichaMedicaDao()
-
+    valores, error, campo = validar_ficha(request.get_json(silent=True))
+    if error:
+        return respuesta_error(error, 400, campo)
     try:
-        if fichaDao.updateFicha(ficha_id, data):
-            return jsonify({
-                'success': True,
-                'data': {
-                    'id_ficha_medica': ficha_id,
-                    'mensaje': 'Ficha médica actualizada correctamente'
-                },
-                'error': None
-            }), 200
-        else:
-            return jsonify({
-                'success': False,
-                'error': 'No se pudo actualizar la ficha médica.'
-            }), 404
-
+        r = FichaMedicaDao().updateFicha(ficha_id, valores, id_medico_sesion())
+        if r.get('sin_cambios'):
+            return jsonify({'success': True, 'data': {'id_ficha_medica': ficha_id}, 'mensaje': 'La ficha médica no tiene cambios.',
+                            'error': None}), 200
+        if r.get('ok'):
+            info, id_consulta = r['contexto'], r['id_consulta_cab']
+            numero, _ = _contexto(info, id_consulta)
+            # modificación SIN valores (ni anteriores ni nuevos): son datos de salud
+            _auditar(ENTIDAD, ficha_id, 'MODIFICACION', DetalleAuditoria(_detalle_ficha(info, id_consulta, 'ficha modificada'), {}, {}))
+            return jsonify({'success': True, 'data': {'id_ficha_medica': ficha_id,
+                                                      'imc': float(valores['imc']) if valores['imc'] is not None else None},
+                            'mensaje': f'Ficha médica de la consulta {numero} actualizada correctamente.', 'error': None}), 200
+        return _error(r)
     except Exception as e:
-        app.logger.error(f"Error al actualizar ficha médica: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': 'Ocurrió un error interno. Consulte con el administrador.'
-        }), 500
+        app.logger.error(f"Error al actualizar la ficha médica: {str(e)}")
+        return error_interno()
 
 
-# =====================================================
-# ENDPOINT: ANULAR FICHA MÉDICA (baja lógica)
-# =====================================================
+# -------------------------
+# Anulación (baja lógica, definitiva)
+# -------------------------
 @fichamedicaapi.route('/ficha-medica/<int:ficha_id>', methods=['DELETE'])
 @require_permiso('fichamedica', 'anular')
 def deleteFicha(ficha_id):
-    """
-    Anula (baja lógica) una ficha médica. Se bloquea si la consulta a la
-    que pertenece ya está finalizada.
-
-    URL: DELETE /api/v1/ficha-medica/10
-    """
-    fichaDao = FichaMedicaDao()
-
     try:
-        registro = fichaDao.getFichaById(ficha_id)
-        resultado = fichaDao.deleteFicha(ficha_id)
-
-        if resultado == "CONSULTA_FINALIZADA":
-            return jsonify({
-                'success': False,
-                'error': 'No se puede anular: la consulta asociada ya está finalizada.'
-            }), 409
-
-        if resultado:
-            fecha = registro['fecha_registro'][:10] if registro and registro.get('fecha_registro') else 'seleccionada'
-            return jsonify({
-                'success': True,
-                'mensaje': f'Ficha médica del {fecha} anulada correctamente.',
-                'error': None
-            }), 200
-        else:
-            return jsonify({
-                'success': False,
-                'error': 'No se encontró la ficha médica con el ID proporcionado.'
-            }), 404
-
+        r = FichaMedicaDao().deleteFicha(ficha_id, id_medico_sesion())
+        if r.get('ok'):
+            info, id_consulta = r['contexto'], r['id_consulta_cab']
+            numero, _ = _contexto(info, id_consulta)
+            _auditar(ENTIDAD, ficha_id, 'BAJA', _detalle_ficha(info, id_consulta, 'ficha anulada'))
+            return jsonify({'success': True, 'mensaje': f'Ficha médica de la consulta {numero} anulada correctamente.', 'error': None}), 200
+        return _error(r, anulando=True)
     except Exception as e:
-        app.logger.error(f"Error al anular ficha médica: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': 'Ocurrió un error interno. Consulte con el administrador.'
-        }), 500
-    
-    # =====================================================
-# ENDPOINT: OBTENER TODAS LAS FICHAS CON INFO COMPLETA
-# =====================================================
-@fichamedicaapi.route('/fichas-todas', methods=['GET'])
-@require_permiso('fichamedica', 'ver')
-def getFichasTodas():
-    """
-    Obtiene todas las fichas médicas con información de consulta, paciente y médico
-    
-    URL: GET /api/v1/fichas-todas
-    """
-    from app.dao.referenciales_consultorio.consulta.FichaMedicaDao import FichaMedicaDao
-    
-    fichaSQL = """
-    SELECT 
-        fm.id_ficha_medica,
-        fm.id_consulta_cab,
-        cc.fecha_cita as fecha_consulta,
-        CONCAT(p.nombre, ' ', p.apellido) as nombre_paciente,
-        CONCAT(m.nombre, ' ', m.apellido) as nombre_medico,
-        fm.presion_arterial,
-        fm.temperatura,
-        fm.frecuencia_cardiaca,
-        fm.frecuencia_respiratoria,
-        fm.peso,
-        fm.talla,
-        fm.imc,
-        fm.examen_fisico_general,
-        fm.examen_bucal,
-        fm.observaciones_medico,
-        fm.fecha_registro
-    FROM ficha_medica_consulta fm
-    INNER JOIN consultas_cab cc ON fm.id_consulta_cab = cc.id_consulta_cab
-    INNER JOIN paciente p ON cc.id_paciente = p.id_paciente
-    INNER JOIN medico m ON cc.id_medico = m.id_medico
-    WHERE fm.activo = true AND cc.activo = true
-    ORDER BY cc.fecha_cita DESC, fm.fecha_registro DESC
-    """
-    
-    from app.conexion.Conexion import Conexion
-    conexion = Conexion()
-    con = conexion.getConexion()
-    cur = con.cursor()
-    
-    try:
-        cur.execute(fichaSQL)
-        fichas = cur.fetchall()
-        
-        resultado = [{
-            'id_ficha_medica': f[0],
-            'id_consulta_cab': f[1],
-            'fecha_consulta': f[2].isoformat() if f[2] else None,
-            'nombre_paciente': f[3],
-            'nombre_medico': f[4],
-            'presion_arterial': f[5],
-            'temperatura': float(f[6]) if f[6] else None,
-            'frecuencia_cardiaca': f[7],
-            'frecuencia_respiratoria': f[8],
-            'peso': float(f[9]) if f[9] else None,
-            'talla': float(f[10]) if f[10] else None,
-            'imc': float(f[11]) if f[11] else None,
-            'examen_fisico_general': f[12],
-            'examen_bucal': f[13],
-            'observaciones_medico': f[14],
-            'fecha_registro': f[15].isoformat() if f[15] else None
-        } for f in fichas]
-        
-        return jsonify({
-            'success': True,
-            'data': resultado,
-            'error': None
-        }), 200
-        
-    except Exception as e:
-        app.logger.error(f"Error al obtener fichas: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': 'Ocurrió un error interno. Consulte con el administrador.'
-        }), 500
-        
-    finally:
-        cur.close()
-        con.close()
+        app.logger.error(f"Error al anular la ficha médica: {str(e)}")
+        return error_interno()

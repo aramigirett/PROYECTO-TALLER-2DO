@@ -1,0 +1,445 @@
+{% extends 'base_tabler.html' %}
+
+{% block titulo %}Consulta {{ numero }}{% endblock %}
+
+{% block css %}
+<link href="{{ url_for('static', filename='css/facturacion.css') }}" rel="stylesheet">
+{% endblock %}
+
+{% block contenido %}
+<div class="page-header d-print-none mb-3">
+  <div class="row align-items-center">
+    <div class="col">
+      <div class="page-pretitle text-muted">Consultorio &bull; <a href="{{ url_for('consulta.consultaIndex') }}" class="text-muted">Registrar Consulta</a></div>
+      <h2 class="page-title fw-bold">Consulta {{ numero }}</h2>
+    </div>
+    <div class="col-auto">
+      <a href="{{ url_for('consulta.consultaIndex') }}" class="btn btn-outline-secondary btn-sm"><i class="fas fa-arrow-left me-1"></i> Volver al listado</a>
+    </div>
+  </div>
+</div>
+
+<div id="cargando" class="text-center text-muted py-5"><div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>Cargando la consulta…</div>
+<div class="alert alert-danger" id="errorGeneral" style="display: none;"></div>
+
+<div id="contenido" style="display: none;">
+
+  {# ── Cabecera de la consulta ── #}
+  <div class="card border shadow-sm rounded-3 mb-3">
+    <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between">
+      <div class="d-flex align-items-center gap-2">
+        <i class="fas fa-notes-medical text-primary"></i>
+        <h5 class="card-title mb-0 fw-bold">Datos de la consulta</h5>
+      </div>
+      <span id="badgeEstado"></span>
+    </div>
+    <div class="card-body p-3 p-md-4">
+      <div class="row g-3">
+        <div class="col-md-4"><div class="text-muted small text-uppercase fw-semibold">Paciente</div><div id="dPaciente" class="fw-semibold"></div><div class="text-muted small" id="dCedula"></div></div>
+        <div class="col-md-4"><div class="text-muted small text-uppercase fw-semibold">Médico</div><div id="dMedico" class="fw-semibold"></div></div>
+        <div class="col-md-4"><div class="text-muted small text-uppercase fw-semibold">Consultorio</div><div id="dConsultorio" class="fw-semibold"></div></div>
+        <div class="col-md-4"><div class="text-muted small text-uppercase fw-semibold">Fecha y hora de la cita</div><div id="dFecha"></div></div>
+        <div class="col-md-4"><div class="text-muted small text-uppercase fw-semibold">Duración</div><div id="dDuracion"></div></div>
+        <div class="col-md-4"><div class="text-muted small text-uppercase fw-semibold">Registrada por</div><div id="dFuncionario"></div><div class="text-muted small" id="dRegistro"></div></div>
+      </div>
+      <div class="mt-3 d-flex flex-wrap gap-2" id="accionesEstado">
+        <button type="button" class="btn btn-primary" id="btnIniciar" style="display: none;"><i class="fas fa-play me-1"></i> Iniciar atención</button>
+        <button type="button" class="btn btn-success" id="btnFinalizar" style="display: none;"><i class="fas fa-flag-checkered me-1"></i> Finalizar atención</button>
+        <button type="button" class="btn btn-outline-danger" id="btnCancelar" style="display: none;"><i class="fas fa-times-circle me-1"></i> Cancelar consulta</button>
+      </div>
+      <div class="alert alert-secondary mt-3 mb-0 small" id="avisoLectura" style="display: none;"></div>
+    </div>
+  </div>
+
+  {% if puede('fichamedica', 'ver') %}
+  {# ── Ficha médica (una por consulta) ── #}
+  <div class="card border shadow-sm rounded-3 mb-3" id="tarjetaFicha">
+    <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2">
+      <div class="d-flex align-items-center gap-2">
+        <i class="fas fa-file-medical-alt text-primary"></i>
+        <h5 class="card-title mb-0 fw-bold">Ficha médica</h5>
+        <span id="badgeFicha"></span>
+      </div>
+      <div class="btn-list">
+        <button type="button" class="btn btn-sm btn-primary" id="btnRegistrarFicha" style="display: none;"><i class="fas fa-plus me-1"></i> Registrar ficha</button>
+        <button type="button" class="btn btn-sm btn-outline-primary" id="btnEditarFicha" style="display: none;"><i class="fas fa-edit me-1"></i> Editar</button>
+        <button type="button" class="btn btn-sm btn-outline-danger" id="btnAnularFicha" style="display: none;"><i class="fas fa-ban me-1"></i> Anular</button>
+      </div>
+    </div>
+    <div class="card-body p-3 p-md-4">
+      <div id="fichaVacia" class="text-muted" style="display: none;"></div>
+
+      {# vista de solo lectura #}
+      <div id="fichaVista" style="display: none;">
+        <div class="row g-3" id="fichaValores"></div>
+        <div class="mt-3" id="fichaTextos"></div>
+      </div>
+
+      {# formulario (alta y edición) #}
+      <form id="fichaForm" novalidate style="display: none;">
+        <div class="row g-3">
+          <div class="col-6 col-md-3">
+            <label class="form-label" for="fPresion">Presión arterial (mmHg)</label>
+            <input type="text" class="form-control" id="fPresion" maxlength="9" placeholder="120/80" autocomplete="off">
+            <div class="invalid-feedback"></div>
+          </div>
+          <div class="col-6 col-md-3">
+            <label class="form-label" for="fTemperatura">Temperatura (°C)</label>
+            <input type="text" inputmode="decimal" class="form-control" id="fTemperatura" maxlength="5" placeholder="36.5" autocomplete="off">
+            <div class="invalid-feedback"></div>
+          </div>
+          <div class="col-6 col-md-3">
+            <label class="form-label" for="fFC">Frecuencia cardíaca (lpm)</label>
+            <input type="text" inputmode="numeric" class="form-control" id="fFC" maxlength="3" placeholder="72" autocomplete="off">
+            <div class="invalid-feedback"></div>
+          </div>
+          <div class="col-6 col-md-3">
+            <label class="form-label" for="fFR">Frecuencia respiratoria (rpm)</label>
+            <input type="text" inputmode="numeric" class="form-control" id="fFR" maxlength="2" placeholder="16" autocomplete="off">
+            <div class="invalid-feedback"></div>
+          </div>
+          <div class="col-6 col-md-3">
+            <label class="form-label" for="fPeso">Peso (kg)</label>
+            <input type="text" inputmode="decimal" class="form-control" id="fPeso" maxlength="6" placeholder="70" autocomplete="off">
+            <div class="invalid-feedback"></div>
+          </div>
+          <div class="col-6 col-md-3">
+            <label class="form-label" for="fTalla">Talla (cm)</label>
+            <input type="text" inputmode="decimal" class="form-control" id="fTalla" maxlength="6" placeholder="175" autocomplete="off">
+            <div class="invalid-feedback"></div>
+          </div>
+          <div class="col-6 col-md-3">
+            <label class="form-label" for="fImc">IMC (calculado)</label>
+            <input type="text" class="form-control" id="fImc" readonly tabindex="-1">
+            <div class="form-hint">Lo calcula el sistema con el peso y la talla.</div>
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="fExamenFisico">Examen físico general</label>
+            <textarea class="form-control" id="fExamenFisico" rows="2" maxlength="2000"></textarea>
+            <div class="invalid-feedback"></div>
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label" for="fExamenBucal">Examen bucal</label>
+            <textarea class="form-control" id="fExamenBucal" rows="3" maxlength="2000"></textarea>
+            <div class="invalid-feedback"></div>
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label" for="fObservaciones">Observaciones del médico</label>
+            <textarea class="form-control" id="fObservaciones" rows="3" maxlength="2000"></textarea>
+            <div class="invalid-feedback"></div>
+          </div>
+        </div>
+        <div class="alert alert-danger mt-3 mb-0" id="errFicha" style="display: none;"></div>
+        <div class="mt-3 d-flex gap-2">
+          <button type="submit" class="btn btn-primary" id="btnGuardarFicha">Guardar ficha</button>
+          <button type="button" class="btn btn-link link-secondary" id="btnCancelarFicha">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── Movimientos clínicos de la consulta ── #}
+  <div class="card border shadow-sm rounded-3 mb-3">
+    <div class="card-header bg-white py-3 border-bottom d-flex align-items-center gap-2">
+      <i class="fas fa-clipboard-list text-primary"></i>
+      <h5 class="card-title mb-0 fw-bold">Registros clínicos de la consulta</h5>
+    </div>
+    <div class="card-body p-3 p-md-4">
+      <p class="text-muted small">Cada registro se carga en su propia pantalla, ya vinculado a esta consulta. Los números indican cuántos registros vigentes hay.
+        Solo el médico de la consulta los carga, mientras la consulta esté programada o en proceso.</p>
+      <div class="row g-3" id="gridMovimientos"></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script src="{{ url_for('static', filename='js/facturacion-listado.js') }}"></script>
+<script src="{{ url_for('static', filename='js/consultorio-validadores.js') }}"></script>
+<script>
+(function () {
+  const ID_CONSULTA = {{ id_consulta }};
+  const API = '/api/v1/consultas';
+  const API_FICHA = '/api/v1/ficha-medica';
+  const PK_FICHA = 'id_ficha_medica';   // el JSON viene con las claves ordenadas alfabéticamente: nunca se toma la "primera"
+  const L = window.FacturacionListado;
+  const CV = window.ConsultorioValidadores;
+  const { escapar, pedir } = L;
+  const PUEDE_ESTADO = {{ 'true' if puede('consulta', 'estado') else 'false' }};
+  const PUEDE_FICHA_VER = {{ 'true' if puede('fichamedica', 'ver') else 'false' }};
+  const PUEDE_FICHA_NUEVO = {{ 'true' if puede('fichamedica', 'nuevo') else 'false' }};
+  const PUEDE_FICHA_EDITAR = {{ 'true' if puede('fichamedica', 'editar') else 'false' }};
+  const PUEDE_FICHA_ANULAR = {{ 'true' if puede('fichamedica', 'anular') else 'false' }};
+
+  /* Registros clínicos que ve este usuario (según el `ver` de cada ventana destino). */
+  const MOVIMIENTOS = [
+    {% if puede('diagnostico', 'ver') %}{ clave: 'diagnosticos', titulo: 'Diagnósticos', icono: 'fa-diagnoses', url: '{{ url_for("diagnostico_medico.diagnosticoIndex") }}', extra: true },{% endif %}
+    {% if puede('odontograma', 'ver') %}{ clave: 'odontogramas', titulo: 'Odontograma', icono: 'fa-teeth', url: '{{ url_for("odontograma.odontogramaIndex") }}' },{% endif %}
+    {% if puede('tratamiento', 'ver') %}{ clave: 'tratamientos', titulo: 'Tratamientos y sesiones', icono: 'fa-prescription-bottle-alt', url: '{{ url_for("tratamiento.tratamientoIndex") }}' },{% endif %}
+    {% if puede('receta', 'ver') %}{ clave: 'recetas', titulo: 'Recetas e indicaciones', icono: 'fa-prescription', url: '{{ url_for("receta.recetaIndex") }}' },{% endif %}
+    {% if puede('ordenestudio', 'ver') %}{ clave: 'ordenes_estudio', titulo: 'Órdenes de estudios', icono: 'fa-x-ray', url: '{{ url_for("ordenestudio.ordenEstudioIndex") }}' },{% endif %}
+    {% if puede('ordenanalisis', 'ver') %}{ clave: 'ordenes_analisis', titulo: 'Órdenes de análisis', icono: 'fa-flask', url: '{{ url_for("ordenanalisis.ordenAnalisisIndex") }}' },{% endif %}
+    {% if puede('justificativomedico', 'ver') %}{ clave: 'justificativos', titulo: 'Justificativos médicos', icono: 'fa-file-signature', url: '{{ url_for("justificativomedico.justificativoMedicoIndex") }}' },{% endif %}
+  ];
+
+  const $ = (id) => document.getElementById(id);
+  let estado = null;   // { consulta, contadores, acciones }
+  let ficha = null;    // la ficha activa o null
+
+  const fecha = (s) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s || ''); return m ? `${m[3]}/${m[2]}/${m[1]}` : '—'; };
+  const fechaHora = (s) => { const m = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/.exec(s || ''); return m ? `${m[3]}/${m[2]}/${m[1]} ${m[4]}:${m[5]}` : '—'; };
+
+  const badge = (e) => {
+    const m = {
+      programada: ['fc-badge-pendiente', 'yellow', 'Programada'], en_proceso: ['fc-badge-neutral', 'blue', 'En proceso'],
+      finalizada: ['fc-badge-facturado', 'green', 'Finalizada'], cancelada: ['fc-badge-neutral', 'gray', 'Cancelada']
+    }[e] || ['fc-badge-neutral', 'gray', e];
+    return `<span class="fc-badge ${m[0]}"><span class="fc-status-dot fc-status-dot-${m[1]}"></span>${escapar(m[2])}</span>`;
+  };
+
+  function mostrarError(msg) {
+    $('cargando').style.display = 'none';
+    $('contenido').style.display = 'none';
+    $('errorGeneral').textContent = msg;
+    $('errorGeneral').style.display = 'block';
+  }
+
+  /* ───────── carga ───────── */
+  async function cargar() {
+    try {
+      const r = await pedir(`${API}/${ID_CONSULTA}/resumen`);
+      if (!r.ok || !r.data || !r.data.success) { mostrarError((r.data && r.data.error) || 'No se pudo cargar la consulta.'); return; }
+      estado = r.data.data;
+      ficha = null;
+      if (PUEDE_FICHA_VER && estado.contadores.ficha > 0) {
+        const f = await pedir(`${API_FICHA}/consulta/${ID_CONSULTA}`);
+        ficha = f.data && f.data.success ? f.data.data : null;
+      }
+      pintar();
+    } catch (e) {
+      mostrarError('Ocurrió un error de conexión. Intente nuevamente.');
+    }
+  }
+
+  function pintar() {
+    const c = estado.consulta, a = estado.acciones;
+    $('cargando').style.display = 'none';
+    $('errorGeneral').style.display = 'none';
+    $('contenido').style.display = 'block';
+    $('badgeEstado').innerHTML = badge(c.estado);
+    $('dPaciente').textContent = c.nombre_paciente;
+    $('dCedula').textContent = 'CI ' + c.cedula_paciente;
+    $('dMedico').textContent = c.nombre_medico;
+    $('dConsultorio').textContent = c.nombre_consultorio;
+    $('dFecha').textContent = fecha(c.fecha_cita) + ' ' + (c.hora_cita || '').slice(0, 5);
+    $('dDuracion').textContent = c.duracion_minutos ? c.duracion_minutos + ' minutos' : '—';
+    $('dFuncionario').textContent = c.nombre_funcionario || '—';
+    $('dRegistro').textContent = 'el ' + fechaHora(c.fecha_registro);
+
+    $('btnIniciar').style.display = PUEDE_ESTADO && a.iniciar ? '' : 'none';
+    $('btnFinalizar').style.display = PUEDE_ESTADO && a.finalizar ? '' : 'none';
+    $('btnCancelar').style.display = PUEDE_ESTADO && a.cancelar ? '' : 'none';
+
+    const aviso = $('avisoLectura');
+    if (c.estado === 'finalizada') {
+      aviso.textContent = 'La consulta está finalizada: sus registros quedan en solo lectura y no se puede anular.';
+    } else if (c.estado === 'cancelada') {
+      aviso.textContent = 'La consulta fue cancelada (la atención no se realizó). Queda en el historial en solo lectura; su cita figura como Cancelada.';
+    } else if (!a.cargar_clinico) {
+      aviso.textContent = 'Los registros clínicos los carga el médico de la consulta. Usted puede consultarlos.';
+    } else {
+      aviso.textContent = '';
+    }
+    aviso.style.display = aviso.textContent ? 'block' : 'none';
+
+    if (PUEDE_FICHA_VER) pintarFicha();
+    pintarMovimientos();
+  }
+
+  /* ───────── movimientos clínicos ───────── */
+  function pintarMovimientos() {
+    const c = estado.consulta, a = estado.acciones;
+    const grid = $('gridMovimientos');
+    if (!MOVIMIENTOS.length) { grid.innerHTML = '<div class="col-12 text-muted">No tiene acceso a los registros clínicos.</div>'; return; }
+    grid.innerHTML = MOVIMIENTOS.map((m) => {
+      let url = `${m.url}?consulta=${encodeURIComponent(ID_CONSULTA)}`;
+      if (m.extra) url += `&paciente=${encodeURIComponent(c.id_paciente)}&medico=${encodeURIComponent(c.id_medico)}`;
+      const n = estado.contadores[m.clave] || 0;
+      return `<div class="col-6 col-lg-3"><div class="card border h-100"><div class="card-body d-flex flex-column">
+        <div class="d-flex align-items-center gap-2 mb-2"><i class="fas ${m.icono} text-primary"></i><span class="fw-semibold">${escapar(m.titulo)}</span></div>
+        <div class="mb-3"><span class="h3 mb-0">${n}</span> <span class="text-muted small">${n === 1 ? 'vigente' : 'vigentes'}</span></div>
+        <a class="btn btn-sm ${a.cargar_clinico ? 'btn-outline-primary' : 'btn-outline-secondary'} mt-auto" href="${url}">
+          ${a.cargar_clinico ? 'Abrir' : 'Ver'} <i class="fas fa-arrow-right ms-1"></i></a>
+      </div></div></div>`;
+    }).join('');
+  }
+
+  /* ───────── cambios de estado ───────── */
+  async function cambiarEstado(nuevo, extra) {
+    const { data } = await pedir(`${API}/${ID_CONSULTA}/estado`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ estado: nuevo }, extra || {}))
+    });
+    if (data && data.success) {
+      await Swal.fire({ icon: 'success', title: 'Listo', text: data.mensaje, timer: 2200, showConfirmButton: false });
+    } else {
+      await Swal.fire('No se pudo cambiar el estado', (data && data.error) || 'Ocurrió un error.', 'error');
+    }
+    await cargar();
+  }
+
+  $('btnIniciar').addEventListener('click', async () => {
+    const r = await Swal.fire({ title: '¿Iniciar la atención?', text: 'La consulta pasará a «En proceso».', icon: 'question',
+      showCancelButton: true, confirmButtonText: 'Sí, iniciar', cancelButtonText: 'Cancelar' });
+    if (r.isConfirmed) cambiarEstado('en_proceso');
+  });
+  $('btnFinalizar').addEventListener('click', async () => {
+    const r = await Swal.fire({
+      title: '¿Finalizar la atención?', icon: 'question', input: 'text', inputLabel: 'Duración real en minutos (opcional)',
+      inputAttributes: { inputmode: 'numeric', maxlength: 3 }, showCancelButton: true, confirmButtonText: 'Sí, finalizar', cancelButtonText: 'Cancelar',
+      text: 'Una consulta finalizada ya no admite cambios ni se puede anular.',
+      inputValidator: (v) => (v && (!/^\d+$/.test(v.trim()) || +v < 1 || +v > 480)) ? 'Ingrese un número entero de minutos entre 1 y 480.' : null
+    });
+    if (r.isConfirmed) cambiarEstado('finalizada', r.value && r.value.trim() ? { duracion_minutos: r.value.trim() } : {});
+  });
+  $('btnCancelar').addEventListener('click', async () => {
+    const r = await Swal.fire({
+      title: '¿Cancelar la consulta?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#d63939',
+      text: 'La atención no se realizó: la consulta queda en el historial y su cita pasa a «Cancelado». No se puede deshacer.',
+      confirmButtonText: 'Sí, cancelar', cancelButtonText: 'Volver'
+    });
+    if (r.isConfirmed) cambiarEstado('cancelada');
+  });
+
+  /* ───────── ficha médica ───────── */
+  const CAMPOS = {
+    presion_arterial: $('fPresion'), temperatura: $('fTemperatura'), frecuencia_cardiaca: $('fFC'), frecuencia_respiratoria: $('fFR'),
+    peso: $('fPeso'), talla: $('fTalla'), examen_fisico_general: $('fExamenFisico'), examen_bucal: $('fExamenBucal'),
+    observaciones_medico: $('fObservaciones')
+  };
+  const limpiarErroresFicha = () => {
+    Object.values(CAMPOS).forEach((el) => { if (el) { el.classList.remove('is-invalid'); const fb = el.parentElement.querySelector('.invalid-feedback'); if (fb) fb.textContent = ''; } });
+    $('errFicha').style.display = 'none';
+  };
+  function marcarCampo(campo, mensaje) {
+    const el = CAMPOS[campo];
+    if (!el) { $('errFicha').textContent = mensaje; $('errFicha').style.display = 'block'; return null; }
+    el.classList.add('is-invalid');
+    el.parentElement.querySelector('.invalid-feedback').textContent = mensaje;
+    return el;
+  }
+
+  function pintarFicha() {
+    const a = estado.acciones, c = estado.consulta;
+    const puedeCargar = a.cargar_clinico;
+    $('fichaForm').style.display = 'none';
+    $('fichaVista').style.display = 'none';
+    $('fichaVacia').style.display = 'none';
+    $('btnRegistrarFicha').style.display = 'none';
+    $('btnEditarFicha').style.display = 'none';
+    $('btnAnularFicha').style.display = 'none';
+    if (ficha) {
+      $('badgeFicha').innerHTML = '<span class="fc-badge fc-badge-facturado"><span class="fc-status-dot fc-status-dot-green"></span>Registrada</span>';
+      const valores = [
+        ['Presión arterial', ficha.presion_arterial, 'mmHg'], ['Temperatura', ficha.temperatura, '°C'],
+        ['Frecuencia cardíaca', ficha.frecuencia_cardiaca, 'lpm'], ['Frecuencia respiratoria', ficha.frecuencia_respiratoria, 'rpm'],
+        ['Peso', ficha.peso, 'kg'], ['Talla', ficha.talla, 'cm'], ['IMC', ficha.imc, '']
+      ].filter((v) => v[1] !== null && v[1] !== undefined && v[1] !== '');
+      $('fichaValores').innerHTML = valores.length
+        ? valores.map((v) => `<div class="col-6 col-md-3"><div class="text-muted small text-uppercase fw-semibold">${escapar(v[0])}</div><div class="fw-semibold">${escapar(v[1])} <span class="text-muted fw-normal small">${v[2]}</span></div></div>`).join('')
+        : '<div class="col-12 text-muted">Sin signos vitales cargados.</div>';
+      const textos = [['Examen físico general', ficha.examen_fisico_general], ['Examen bucal', ficha.examen_bucal], ['Observaciones del médico', ficha.observaciones_medico]]
+        .filter((t) => t[1]);
+      $('fichaTextos').innerHTML = textos.map((t) => `<div class="mb-2"><div class="text-muted small text-uppercase fw-semibold">${escapar(t[0])}</div><div style="white-space: pre-wrap;">${escapar(t[1])}</div></div>`).join('');
+      $('fichaVista').style.display = 'block';
+      if (puedeCargar && PUEDE_FICHA_EDITAR) $('btnEditarFicha').style.display = '';
+      if (puedeCargar && PUEDE_FICHA_ANULAR) $('btnAnularFicha').style.display = '';
+    } else {
+      $('badgeFicha').innerHTML = '<span class="fc-badge fc-badge-neutral"><span class="fc-status-dot fc-status-dot-gray"></span>Sin ficha</span>';
+      if (puedeCargar && PUEDE_FICHA_NUEVO) {
+        $('btnRegistrarFicha').style.display = '';
+        $('fichaVacia').textContent = 'Todavía no se registró la ficha médica de esta consulta.';
+      } else {
+        $('fichaVacia').textContent = (c.estado === 'finalizada' || c.estado === 'cancelada')
+          ? 'La consulta se cerró sin ficha médica.' : 'Todavía no se registró la ficha médica. La carga el médico de la consulta.';
+      }
+      $('fichaVacia').style.display = 'block';
+    }
+  }
+
+  const imcVivo = () => { $('fImc').value = CV.imc(CAMPOS.peso.value, CAMPOS.talla.value); };
+  Object.values(CAMPOS).forEach((el) => el.addEventListener('input', () => {
+    el.classList.remove('is-invalid'); $('errFicha').style.display = 'none';
+    if (el === CAMPOS.peso || el === CAMPOS.talla) imcVivo();
+  }));
+
+  function abrirFormFicha(datos) {
+    limpiarErroresFicha();
+    const d = datos || {};
+    Object.keys(CAMPOS).forEach((k) => { CAMPOS[k].value = d[k] === null || d[k] === undefined ? '' : d[k]; });
+    imcVivo();
+    $('fichaVista').style.display = 'none';
+    $('fichaVacia').style.display = 'none';
+    $('btnRegistrarFicha').style.display = 'none';
+    $('btnEditarFicha').style.display = 'none';
+    $('btnAnularFicha').style.display = 'none';
+    $('fichaForm').style.display = 'block';
+    CAMPOS.presion_arterial.focus();
+  }
+  $('btnRegistrarFicha').addEventListener('click', () => abrirFormFicha(null));
+  $('btnEditarFicha').addEventListener('click', () => abrirFormFicha(ficha));
+  $('btnCancelarFicha').addEventListener('click', () => { limpiarErroresFicha(); pintarFicha(); });
+
+  $('fichaForm').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    limpiarErroresFicha();
+    const valores = {};
+    Object.keys(CAMPOS).forEach((k) => { valores[k] = CAMPOS[k].value; });
+    const errores = CV.ficha(valores);
+    const claves = Object.keys(errores);
+    if (claves.length) {
+      let primero = null;
+      claves.forEach((k) => { const el = marcarCampo(k === 'ficha' ? 'ficha' : k, errores[k]); primero = primero || el; });
+      if (primero) primero.focus();
+      return;
+    }
+    const editando = !!ficha;
+    const boton = $('btnGuardarFicha');
+    boton.disabled = true;
+    try {
+      const { data } = await pedir(editando ? `${API_FICHA}/${ficha[PK_FICHA]}` : API_FICHA, {
+        method: editando ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(Object.assign({ id_consulta_cab: ID_CONSULTA }, valores))
+      });
+      if (data && data.success) {
+        await Swal.fire({ icon: 'success', title: editando ? 'Ficha actualizada' : 'Ficha registrada', text: data.mensaje, timer: 2200, showConfirmButton: false });
+        await cargar();
+      } else {
+        const el = marcarCampo((data && data.campo) || 'ficha', (data && data.error) || 'No se pudo guardar la ficha.');
+        if (el) el.focus();
+        // si cambió algo del lado del servidor (la consulta se cerró, ya existe una ficha...) se vuelve a leer el estado
+        if (data && !data.campo) {
+          await cargar();
+          if (estado && estado.acciones.cargar_clinico) { abrirFormFicha(valores); marcarCampo('ficha', data.error); }
+          else { await Swal.fire('No se pudo guardar la ficha', data.error, 'error'); }
+        }
+      }
+    } catch (e) {
+      marcarCampo('ficha', 'Ocurrió un error de conexión. Intente nuevamente.');
+    } finally {
+      boton.disabled = false;
+    }
+  });
+
+  $('btnAnularFicha').addEventListener('click', async () => {
+    await L.anular({
+      api: API_FICHA, id: ficha[PK_FICHA], descripcion: 'Ficha médica de la consulta ' + '{{ numero }}',
+      titulo: '¿Anular la ficha médica? Se podrá registrar otra mientras la consulta siga abierta.', exito: 'Anulada',
+      errorDefault: 'No se pudo anular la ficha médica.', recargar: cargar
+    });
+  });
+
+  cargar();
+})();
+</script>
+{% endblock %}

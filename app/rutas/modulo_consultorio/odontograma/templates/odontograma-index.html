@@ -1,1209 +1,525 @@
-{% extends 'base.html' %}
+{% extends 'base_tabler.html' %}
 
-{% block titulo %}
-Odontogramas
+{% block titulo %}Gestionar Odontograma{% endblock %}
+
+{% block css %}
+<link href="{{ url_for('static', filename='css/facturacion.css') }}" rel="stylesheet">
+<style>
+  /* ═══════════════ Odontograma visual (base para pulir el diseño) ═══════════════
+     Todo el dibujo sale de las funciones dibujarPieza() / pintarOdontograma() del script de esta página; la lógica no depende de estas clases.
+     Clases: .odo-lienzo (contenedor) · .odo-pieza[data-pieza] (una pieza) · .odo-superficie[data-superficie] (O V L M D) · .odo-contorno (hallazgo de
+     pieza completa) · .odo-numero (número FDI) · .odo-simbolo (símbolos de los hallazgos de pieza) · .seleccionada / .con-hallazgos (estados).
+     El color de cada superficie / contorno lo pone el script con el color del estado dental (estado_dental.color). */
+  .odo-lienzo { --odo-vacia: #ffffff; --odo-trazo: #94a3b8; --odo-seleccion: #0e7c86; --odo-texto: #334155; overflow-x: auto; }
+  .odo-lienzo svg { width: 100%; min-width: 640px; max-width: 1100px; margin: 0 auto; height: auto; display: block; }
+  .odo-pieza { cursor: pointer; }
+  .odo-superficie { fill: var(--odo-vacia); stroke: var(--odo-trazo); stroke-width: 1; transition: fill .15s ease, stroke .15s ease; }
+  .odo-pieza:hover .odo-superficie { stroke: var(--odo-seleccion); }
+  .odo-contorno { fill: none; stroke: transparent; stroke-width: 3; pointer-events: none; }
+  .odo-pieza.con-hallazgos .odo-numero { font-weight: 700; }
+  .odo-pieza.seleccionada .odo-marco { stroke: var(--odo-seleccion); stroke-width: 2; fill: rgba(14, 124, 134, .06); }
+  .odo-marco { fill: transparent; stroke: transparent; }
+  .odo-superficie.elegida { stroke: var(--odo-seleccion); stroke-width: 2.5; }
+  .odo-numero { font: 11px system-ui, sans-serif; fill: var(--odo-texto); text-anchor: middle; }
+  .odo-simbolo { font: 600 9px system-ui, sans-serif; fill: var(--odo-texto); text-anchor: middle; }
+  .odo-mitad { stroke: #cbd5e1; stroke-dasharray: 4 4; }
+  .odo-rotulo { font: 10px system-ui, sans-serif; fill: #94a3b8; text-anchor: middle; }
+  .odo-estado { display: flex; align-items: center; gap: .5rem; width: 100%; text-align: left; border: 1px solid #e2e8f0; background: #fff; border-radius: .5rem; padding: .3rem .5rem; font-size: .8rem; }
+  .odo-estado:hover { border-color: var(--tblr-primary); }
+  .odo-estado.activo { border-color: var(--tblr-primary); box-shadow: 0 0 0 2px rgba(14, 124, 134, .2); background: #f0fafa; }
+  .odo-muestra { display: inline-block; width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(0, 0, 0, .25); flex: 0 0 auto; }
+</style>
 {% endblock %}
 
 {% block contenido %}
-<div class="container-fluid mt-4">
-
-  <!-- ========================================
-       ENCABEZADO
-       ======================================== -->
-  <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2 class="text-info">
-      <i class="fas fa-tooth"></i> Gestión de Odontogramas
-    </h2>
-    {% if puede('odontograma','nuevo') %}<button type="button" class="btn btn-info btn-lg shadow-sm" id="btnNuevo">
-      <i class="fas fa-plus-circle"></i> Nuevo Odontograma
-    </button>{% endif %}
-  </div>
-
-  <!-- ========================================
-       TABLA PRINCIPAL
-       ======================================== -->
-  <div class="card shadow-sm">
-    <div class="card-header bg-info text-white">
-      <h5 class="mb-0"><i class="fas fa-list"></i> Odontogramas Registrados</h5>
+<div class="page-header d-print-none mb-3">
+  <div class="row align-items-center">
+    <div class="col">
+      <div class="page-pretitle text-muted">Consultorio &bull; Atención</div>
+      <h2 class="page-title fw-bold">Gestionar Odontograma</h2>
     </div>
-    <div class="card-body">
-      <div class="table-responsive">
-        <table class="table table-hover table-striped" id="tblOdontogramas">
-          <thead class="table-light">
-            <tr>
-              <th><i class="fas fa-user"></i> Paciente</th>
-              <th><i class="fas fa-id-card"></i> Cédula</th>
-              <th><i class="fas fa-birthday-cake"></i> Edad</th>
-              <th><i class="fas fa-user-md"></i> Médico</th>
-              <th><i class="fas fa-calendar-day"></i> Fecha</th>
-              <th><i class="fas fa-flag"></i> Estado</th>
-              <th><i class="fas fa-cogs"></i> Acciones</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
+    <div class="col-auto d-flex gap-2">
+      <a href="#" class="btn btn-outline-secondary btn-sm" id="btnVolverConsulta" style="display: none;"><i class="fas fa-arrow-left me-1"></i> Volver a la consulta</a>
+      {% if es_medico and puede('odontograma', 'anular') %}
+      <button type="button" class="btn btn-outline-danger btn-sm" id="btnAnularOdo" style="display: none;"><i class="fas fa-ban me-1"></i> Anular odontograma</button>
+      {% endif %}
     </div>
   </div>
-
-  <!-- ========================================
-       MODAL: CREAR/EDITAR ODONTOGRAMA
-       ======================================== -->
-  <div class="modal fade" id="modalOdontograma" tabindex="-1" role="dialog">
-    <div class="modal-dialog modal-xl" style="max-width: 95%;" role="document">
-      <div class="modal-content">
-
-        <!-- Header -->
-        <div class="modal-header bg-info text-white">
-          <h5 class="modal-title" id="modalOdontogramaTitle">
-            <i class="fas fa-tooth"></i> Nuevo Odontograma
-          </h5>
-          <button type="button" class="close text-white" data-dismiss="modal">
-            <span>&times;</span>
-          </button>
-        </div>
-
-        <!-- Body -->
-        <div class="modal-body">
-          <!-- Inputs hidden -->
-          <input type="hidden" id="id_odontograma">
-          <input type="hidden" id="id_consulta_cab">
-          <input type="hidden" id="id_paciente">
-          <input type="hidden" id="id_medico">
-
-          <!-- Información del paciente y médico -->
-          <div class="row mb-3">
-            <div class="col-md-6">
-              <div class="card">
-                <div class="card-header bg-light">
-                  <h6 class="mb-0"><i class="fas fa-user"></i> Información del Paciente</h6>
-                </div>
-                <div class="card-body">
-                  <div class="form-group mb-2">
-                    <label class="font-weight-bold">Consulta / Paciente: <span class="text-danger">*</span></label>
-                    <input type="text" class="form-control" id="txtPaciente" 
-                           placeholder="Click para seleccionar la consulta" readonly>
-                  </div>
-                  <div class="row">
-                    <div class="col-md-6">
-                      <label class="font-weight-bold">Cédula:</label>
-                      <input type="text" class="form-control" id="txtCedula" readonly>
-                    </div>
-                    <div class="col-md-6">
-                      <label class="font-weight-bold">Edad:</label>
-                      <input type="text" class="form-control" id="txtEdad" readonly>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="col-md-6">
-              <div class="card">
-                <div class="card-header bg-light">
-                  <h6 class="mb-0"><i class="fas fa-user-md"></i> Información del Médico</h6>
-                </div>
-                <div class="card-body">
-                  <div class="form-group mb-2">
-                    <label class="font-weight-bold">Médico: <span class="text-danger">*</span></label>
-                    <input type="text" class="form-control" id="txtMedico" 
-                           placeholder="Se toma de la consulta" readonly>
-                  </div>
-                  <div class="row">
-                    <div class="col-md-6">
-                      <label class="font-weight-bold">Fecha Registro:</label>
-                      <input type="date" class="form-control" id="fecha_registro">
-                    </div>
-                    <div class="col-md-6">
-                      <label class="font-weight-bold">Estado:</label>
-                      <select class="form-control" id="estado">
-                        <option value="Activo">Activo</option>
-                        <option value="Finalizado">Finalizado</option>
-                        <option value="Inactivo">Inactivo</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Observaciones -->
-          <div class="form-group mb-3">
-            <label class="font-weight-bold">Observaciones:</label>
-            <textarea class="form-control" id="observaciones" rows="2" 
-                      placeholder="Observaciones generales del odontograma..."></textarea>
-          </div>
-
-          <!-- Leyenda y controles -->
-          <div class="row mb-3">
-            <div class="col-md-3">
-              <div class="card">
-                <div class="card-header bg-light">
-                  <h6 class="mb-0"><i class="fas fa-palette"></i> Leyenda de Estados</h6>
-                </div>
-                <div class="card-body p-2" id="leyendaEstados" style="max-height: 400px; overflow-y: auto;">
-                  <!-- Se carga dinámicamente con JavaScript -->
-                </div>
-              </div>
-            </div>
-
-            <div class="col-md-9">
-              <div class="card">
-                <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                  <h6 class="mb-0"><i class="fas fa-teeth"></i> Odontograma Dental</h6>
-                  <button type="button" class="btn btn-warning btn-sm" id="btnLimpiarOdontograma">
-                    <i class="fas fa-eraser"></i> Limpiar Todo
-                  </button>
-                </div>
-                <div class="card-body p-2 text-center" style="background-color: #f8f9fa;">
-                  <!-- SVG del odontograma -->
-                  <div id="contenedorOdontograma" style="overflow-x: auto;">
-                    <svg id="odontogramaSVG" width="1200" height="700">
-                      
-                      <!-- ================= ARCADA SUPERIOR PERMANENTE ================= -->
-                      <text x="10" y="25" font-size="14" font-weight="bold" fill="#333">Arcada Superior Permanente</text>
-                      {% set sup_perm = [18,17,16,15,14,13,12,11,21,22,23,24,25,26,27,28] %}
-                      {% for i in sup_perm %}
-                      <g data-diente="{{ i }}" transform="translate({{ loop.index0*70+60 }},40)" class="diente-grupo">
-                        <!-- Superficie Oclusal (arriba) -->
-                        <rect x="5" y="0" width="30" height="15" fill="white" stroke="#333" stroke-width="1.5" 
-                              data-superficie="O" class="superficie-diente" rx="2"></rect>
-                        <!-- Superficie Mesial (izquierda) -->
-                        <rect x="5" y="15" width="15" height="30" fill="white" stroke="#333" stroke-width="1.5" 
-                              data-superficie="M" class="superficie-diente" rx="2"></rect>
-                        <!-- Superficie Distal (derecha) -->
-                        <rect x="20" y="15" width="15" height="30" fill="white" stroke="#333" stroke-width="1.5" 
-                              data-superficie="D" class="superficie-diente" rx="2"></rect>
-                        <!-- Superficie Lingual (abajo) -->
-                        <rect x="5" y="45" width="30" height="15" fill="white" stroke="#333" stroke-width="1.5" 
-                              data-superficie="L" class="superficie-diente" rx="2"></rect>
-                        <!-- Número del diente -->
-                        <text x="20" y="75" font-size="11" text-anchor="middle" font-weight="bold" fill="#555">{{ i }}</text>
-                      </g>
-                      {% endfor %}
-
-                      <!-- ================= ARCADA SUPERIOR TEMPORAL ================= -->
-                      <text x="10" y="165" font-size="14" font-weight="bold" fill="#333">Arcada Superior Temporal</text>
-                      {% set sup_temp = [55,54,53,52,51,61,62,63,64,65] %}
-                      {% for i in sup_temp %}
-                      <g data-diente="{{ i }}" transform="translate({{ loop.index0*70+270 }},180)" class="diente-grupo">
-                        <rect x="5" y="0" width="30" height="15" fill="white" stroke="#333" stroke-width="1.5" 
-                              data-superficie="O" class="superficie-diente" rx="2"></rect>
-                        <rect x="5" y="15" width="15" height="30" fill="white" stroke="#333" stroke-width="1.5" 
-                              data-superficie="M" class="superficie-diente" rx="2"></rect>
-                        <rect x="20" y="15" width="15" height="30" fill="white" stroke="#333" stroke-width="1.5" 
-                              data-superficie="D" class="superficie-diente" rx="2"></rect>
-                        <rect x="5" y="45" width="30" height="15" fill="white" stroke="#333" stroke-width="1.5" 
-                              data-superficie="L" class="superficie-diente" rx="2"></rect>
-                        <text x="20" y="75" font-size="11" text-anchor="middle" font-weight="bold" fill="#555">{{ i }}</text>
-                      </g>
-                      {% endfor %}
-
-                      <!-- ================= ARCADA INFERIOR TEMPORAL ================= -->
-                      <text x="10" y="325" font-size="14" font-weight="bold" fill="#333">Arcada Inferior Temporal</text>
-                      {% set inf_temp = [85,84,83,82,81,71,72,73,74,75] %}
-                      {% for i in inf_temp %}
-                      <g data-diente="{{ i }}" transform="translate({{ loop.index0*70+270 }},340)" class="diente-grupo">
-                        <rect x="5" y="0" width="30" height="15" fill="white" stroke="#333" stroke-width="1.5" 
-                              data-superficie="O" class="superficie-diente" rx="2"></rect>
-                        <rect x="5" y="15" width="15" height="30" fill="white" stroke="#333" stroke-width="1.5" 
-                              data-superficie="M" class="superficie-diente" rx="2"></rect>
-                        <rect x="20" y="15" width="15" height="30" fill="white" stroke="#333" stroke-width="1.5" 
-                              data-superficie="D" class="superficie-diente" rx="2"></rect>
-                        <rect x="5" y="45" width="30" height="15" fill="white" stroke="#333" stroke-width="1.5" 
-                              data-superficie="L" class="superficie-diente" rx="2"></rect>
-                        <text x="20" y="75" font-size="11" text-anchor="middle" font-weight="bold" fill="#555">{{ i }}</text>
-                      </g>
-                      {% endfor %}
-
-                      <!-- ================= ARCADA INFERIOR PERMANENTE ================= -->
-                      <text x="10" y="485" font-size="14" font-weight="bold" fill="#333">Arcada Inferior Permanente</text>
-                      {% set inf_perm = [48,47,46,45,44,43,42,41,31,32,33,34,35,36,37,38] %}
-                      {% for i in inf_perm %}
-                      <g data-diente="{{ i }}" transform="translate({{ loop.index0*70+60 }},500)" class="diente-grupo">
-                        <rect x="5" y="0" width="30" height="15" fill="white" stroke="#333" stroke-width="1.5" 
-                              data-superficie="O" class="superficie-diente" rx="2"></rect>
-                        <rect x="5" y="15" width="15" height="30" fill="white" stroke="#333" stroke-width="1.5" 
-                              data-superficie="M" class="superficie-diente" rx="2"></rect>
-                        <rect x="20" y="15" width="15" height="30" fill="white" stroke="#333" stroke-width="1.5" 
-                              data-superficie="D" class="superficie-diente" rx="2"></rect>
-                        <rect x="5" y="45" width="30" height="15" fill="white" stroke="#333" stroke-width="1.5" 
-                              data-superficie="L" class="superficie-diente" rx="2"></rect>
-                        <text x="20" y="75" font-size="11" text-anchor="middle" font-weight="bold" fill="#555">{{ i }}</text>
-                      </g>
-                      {% endfor %}
-
-                    </svg>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-        </div>
-
-        <!-- Footer -->
-        <div class="modal-footer bg-light">
-          <button type="button" class="btn btn-info" id="btnGuardar">
-            <i class="fas fa-save"></i> Guardar Odontograma
-          </button>
-          <button type="button" class="btn btn-secondary" data-dismiss="modal">
-            <i class="fas fa-times"></i> Cerrar
-          </button>
-        </div>
-
-      </div>
-    </div>
-  </div>
-
-  <!-- ========================================
-       MODAL: VER ODONTOGRAMA (SOLO LECTURA)
-       ======================================== -->
-  <div class="modal fade" id="modalVerOdontograma" tabindex="-1" role="dialog">
-    <div class="modal-dialog modal-xl" style="max-width: 95%;" role="document">
-      <div class="modal-content">
-        <div class="modal-header bg-success text-white">
-          <h5 class="modal-title">
-            <i class="fas fa-eye"></i> Ver Odontograma
-          </h5>
-          <button type="button" class="close text-white" data-dismiss="modal">
-            <span>&times;</span>
-          </button>
-        </div>
-        <div class="modal-body" id="modalVerOdontogramaBody">
-          <!-- Se carga dinámicamente -->
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-dismiss="modal">
-            <i class="fas fa-times"></i> Cerrar
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ========================================
-       MODAL: SELECCIONAR PACIENTE
-       ======================================== -->
-  <div class="modal fade" id="modalPaciente" tabindex="-1" role="dialog">
-    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
-      <div class="modal-content">
-        <div class="modal-header bg-primary text-white">
-          <h5 class="modal-title">
-            <i class="fas fa-notes-medical"></i> Seleccionar Consulta
-          </h5>
-          <button type="button" class="close text-white" data-dismiss="modal">
-            <span>&times;</span>
-          </button>
-        </div>
-        <div class="modal-body">
-          <div class="table-responsive">
-            <table class="table table-hover" id="tblPacientes">
-              <thead>
-                <tr>
-                  <th>Paciente</th>
-                  <th>Médico</th>
-                  <th>Fecha</th>
-                  <th>Acciones</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
 </div>
 
-<!-- Estilos CSS personalizados -->
-<style>
-  /* ========================================
-     ESTILOS PARA ODONTOGRAMA
-     ======================================== */
-  .superficie-diente {
-    cursor: pointer;
-    transition: all 0.2s;
-  }
+<div class="alert alert-danger" id="errorGeneral" style="display: none;"></div>
 
-  .superficie-diente:hover {
-    stroke: #007bff;
-    stroke-width: 2.5;
-    filter: brightness(0.9);
-  }
+<div class="card border shadow-sm rounded-3 mb-3" id="tarjetaConsulta" style="display: none;">
+  <div class="card-body py-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
+    <div>
+      <div class="text-muted small text-uppercase fw-semibold">Consulta</div>
+      <div class="fw-bold" id="cNumero"></div>
+      <div class="text-muted small" id="cDetalle"></div>
+    </div>
+    <div class="d-flex align-items-center gap-3">
+      <span id="cBadge"></span>
+      <div class="small text-muted text-end" id="cAviso"></div>
+    </div>
+  </div>
+</div>
 
-  .diente-grupo:hover {
-    opacity: 0.95;
-  }
+{# ── Listado general ── #}
+<div id="seccionGlobal" style="display: none;">
+  <div class="card border shadow-sm rounded-3">
+    <div class="card-header bg-white py-3 border-bottom">
+      <div class="row g-2 align-items-end w-100">
+        <div class="col-12 col-md-6">
+          <label class="form-label small fw-semibold text-muted mb-1" for="filtroQ">Paciente o CI</label>
+          <input type="text" class="form-control form-control-sm" id="filtroQ" maxlength="80" placeholder="Buscar por nombre o CI…" autocomplete="off">
+        </div>
+        <div class="col-6 col-md-2"><label class="form-label small fw-semibold text-muted mb-1" for="filtroDesde">Consulta desde</label><input type="date" class="form-control form-control-sm" id="filtroDesde"></div>
+        <div class="col-6 col-md-2"><label class="form-label small fw-semibold text-muted mb-1" for="filtroHasta">Hasta</label><input type="date" class="form-control form-control-sm" id="filtroHasta"></div>
+        <div class="col-12 col-md-2"><button type="button" class="btn btn-sm btn-outline-secondary w-100" id="btnLimpiar"><i class="fas fa-eraser me-1"></i> Limpiar</button></div>
+      </div>
+      <div class="text-danger small mt-2 w-100" id="errFiltros" style="display: none;"></div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-vcenter table-hover card-table mb-0">
+        <thead class="bg-light text-muted small text-uppercase">
+          <tr><th class="ps-3 py-3">Consulta</th><th class="py-3">Fecha</th><th class="py-3">Paciente</th><th class="py-3">Médico</th><th class="py-3 text-center">Hallazgos</th>
+              <th class="py-3 text-center" style="width: 130px;">Estado de la consulta</th><th class="pe-3 py-3 text-end w-1">Acciones</th></tr>
+        </thead>
+        <tbody id="tbodyGlobal"><tr><td colspan="7" class="text-center text-muted py-4"><div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>Cargando odontogramas…</td></tr></tbody>
+      </table>
+    </div>
+    <div class="card-footer bg-white d-flex align-items-center justify-content-between py-2">
+      <div class="text-muted small" id="infoPagina"></div>
+      <div class="btn-group btn-group-sm">
+        <button type="button" class="btn btn-outline-secondary" id="btnAnterior"><i class="fas fa-chevron-left"></i></button>
+        <button type="button" class="btn btn-outline-secondary" id="btnSiguiente"><i class="fas fa-chevron-right"></i></button>
+      </div>
+    </div>
+  </div>
+</div>
 
-  #leyendaEstados .estado-item {
-    display: flex;
-    align-items: center;
-    margin-bottom: 8px;
-    padding: 5px;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background-color 0.2s;
-  }
+{# ── Odontograma de una consulta ── #}
+<div id="seccionEditor" style="display: none;">
+  <div class="card border shadow-sm rounded-3 mb-3" id="tarjetaSinOdo" style="display: none;">
+    <div class="card-body text-center py-5">
+      <i class="fas fa-teeth fa-3x text-muted mb-3"></i>
+      <h5 class="fw-bold">Esta consulta todavía no tiene odontograma</h5>
+      <p class="text-muted mb-3" id="textoSinOdo"></p>
+      {% if es_medico and puede('odontograma', 'nuevo') %}
+      <button type="button" class="btn btn-primary" id="btnCrearOdo" style="display: none;"><i class="fas fa-plus me-1"></i> Crear odontograma</button>
+      {% endif %}
+    </div>
+  </div>
 
-  #leyendaEstados .estado-item:hover {
-    background-color: #f0f0f0;
-  }
-
-  #leyendaEstados .color-box {
-    width: 25px;
-    height: 25px;
-    border: 2px solid #333;
-    border-radius: 4px;
-    margin-right: 10px;
-    flex-shrink: 0;
-  }
-
-  /* ========================================
-     BADGES PERSONALIZADOS
-     ======================================== */
-  .badge-custom-activo {
-    background-color: #28a745;
-    color: white;
-    padding: 5px 10px;
-    border-radius: 5px;
-  }
-
-  .badge-custom-finalizado {
-    background-color: #17a2b8;
-    color: white;
-    padding: 5px 10px;
-    border-radius: 5px;
-  }
-
-  .badge-custom-inactivo {
-    background-color: #6c757d;
-    color: white;
-    padding: 5px 10px;
-    border-radius: 5px;
-  }
-
-  /* ========================================
-     FIX PARA MODALES ANIDADOS
-     ======================================== */
-  .modal {
-    overflow-y: auto !important;
-    z-index: 1050;
-  }
-
-  .modal-body {
-    overflow-y: auto !important;
-    max-height: calc(100vh - 200px);
-  }
-
-  body.modal-open {
-    overflow: hidden !important;
-    padding-right: 0 !important;
-  }
-
-  /* Cuando hay múltiples modales */
-  .modal.show {
-    overflow-y: auto !important;
-  }
-
-  .modal-backdrop.show {
-    opacity: 0.5;
-  }
-
-  /* Asegurar que el backdrop no bloquee */
-  .modal-backdrop {
-    position: fixed;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    left: 0;
-    z-index: 1040;
-    background-color: #000;
-  }
-
-  /* Fix para cuando se cierran modales anidados */
-  .modal-open .modal {
-    overflow-x: hidden;
-    overflow-y: auto;
-  }
-</style>
-
-<!-- Scripts -->
-<link rel="stylesheet" href="https://cdn.datatables.net/1.10.21/css/dataTables.bootstrap4.min.css">
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-
+  <div class="row g-3" id="filaOdo" style="display: none;">
+    <div class="col-12">
+      <div class="card border shadow-sm rounded-3">
+        <div class="card-header bg-white py-3 border-bottom d-flex flex-wrap align-items-center justify-content-between gap-2">
+          <div class="d-flex align-items-center gap-2"><i class="fas fa-teeth text-primary"></i><h5 class="card-title mb-0 fw-bold">Odontograma</h5>
+            <span class="text-muted small" id="resumenOdo"></span></div>
+          <label class="form-check form-switch mb-0"><input class="form-check-input" type="checkbox" id="chkTemporal"><span class="form-check-label small">Mostrar dentición temporal</span></label>
+        </div>
+        <div class="card-body p-2 p-md-3">
+          <div class="odo-lienzo" id="odoLienzo" aria-label="Odontograma por piezas FDI"></div>
+          <div class="text-muted small mt-2">Tocá una superficie para elegirla (o el número para la pieza completa). Cada color es un estado dental; la leyenda está más abajo.</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-5">
+      <div class="card border shadow-sm rounded-3 h-100">
+        <div class="card-header bg-white py-3 border-bottom"><h5 class="card-title mb-0 fw-bold">Pieza seleccionada: <span id="selPieza">—</span></h5></div>
+        <div class="card-body">
+          <div id="panelEditar">
+            <label class="form-label small fw-semibold text-muted mb-1">Superficie</label>
+            <div class="btn-group w-100 mb-3" role="group" id="grupoSuperficie">
+              <button type="button" class="btn btn-sm btn-outline-primary" data-superficie="O" title="Oclusal / incisal">O</button>
+              <button type="button" class="btn btn-sm btn-outline-primary" data-superficie="V" title="Vestibular">V</button>
+              <button type="button" class="btn btn-sm btn-outline-primary" data-superficie="L" title="Lingual / palatina">L</button>
+              <button type="button" class="btn btn-sm btn-outline-primary" data-superficie="M" title="Mesial">M</button>
+              <button type="button" class="btn btn-sm btn-outline-primary" data-superficie="D" title="Distal">D</button>
+              <button type="button" class="btn btn-sm btn-outline-primary" data-superficie="T" title="Pieza completa">T</button>
+            </div>
+            <label class="form-label small fw-semibold text-muted mb-1">Estado <span id="textoAplica" class="fw-normal"></span></label>
+            <div class="d-grid gap-1 mb-3" id="listaEstados" style="max-height: 230px; overflow-y: auto;"></div>
+            <label class="form-label small fw-semibold text-muted mb-1" for="txtObservacion">Observación (opcional)</label>
+            <input type="text" class="form-control form-control-sm mb-2" id="txtObservacion" maxlength="500" autocomplete="off">
+            <button type="button" class="btn btn-primary w-100" id="btnAgregar" disabled><i class="fas fa-plus me-1"></i> Agregar hallazgo</button>
+            <div class="alert alert-danger small mt-2 mb-0" id="errHallazgo" style="display: none;"></div>
+            <hr>
+          </div>
+          <div class="small fw-semibold text-muted mb-1">Hallazgos de la pieza</div>
+          <div id="hallazgosPieza" class="d-grid gap-1"><div class="text-muted small">Elija una pieza del odontograma.</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-7">
+      <div class="card border shadow-sm rounded-3 h-100">
+        <div class="card-header bg-white py-3 border-bottom"><h5 class="card-title mb-0 fw-bold">Leyenda de estados</h5></div>
+        <div class="card-body"><div class="row g-2" id="leyenda"></div></div>
+      </div>
+    </div>
+    <div class="col-12">
+      <div class="card border shadow-sm rounded-3">
+        <div class="card-header bg-white py-3 border-bottom"><h5 class="card-title mb-0 fw-bold">Todos los hallazgos <span class="text-muted small fw-normal" id="cantidadTotal"></span></h5></div>
+        <div class="table-responsive">
+          <table class="table table-sm table-vcenter card-table mb-0">
+            <thead class="bg-light text-muted small text-uppercase"><tr><th class="ps-3">Pieza</th><th>Superficie</th><th>Estado</th><th>Observación</th></tr></thead>
+            <tbody id="tbodyTodos"><tr><td colspan="4" class="text-center text-muted py-3">Sin hallazgos.</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block js %}
+<script src="{{ url_for('static', filename='js/facturacion-listado.js') }}"></script>
 <script>
-// ========================================
-// VARIABLES GLOBALES
-// ========================================
-let estadosDentales = {}; // {id: {descripcion, color, simbolo}}
-let estadoSeleccionado = null; // Estado actual seleccionado para pintar
+(function () {
+  const API = '/api/v1/odontogramas';
+  const PK = 'id_odontograma';                     // el JSON viene con las claves ordenadas alfabéticamente: nunca se toma la "primera"
+  const PK_HALLAZGO = 'id_odontograma_detalle';
+  const URL_CONSULTA = '/referenciales/consulta/consulta-detalle/';
+  const URL_ESTA_PAGINA = '/referenciales/odontograma/odontograma-index';
+  const L = window.FacturacionListado;
+  const { escapar, pedir } = L;
+  const ES_MEDICO = {{ 'true' if es_medico else 'false' }};
+  const PUEDE_NUEVO = {{ 'true' if (es_medico and puede('odontograma', 'nuevo')) else 'false' }};
+  const PUEDE_EDITAR = {{ 'true' if (es_medico and puede('odontograma', 'editar')) else 'false' }};
+  const PUEDE_ANULAR = {{ 'true' if (es_medico and puede('odontograma', 'anular')) else 'false' }};
+  const parametro = new URLSearchParams(window.location.search).get('consulta');
+  const ID_CONSULTA = /^\d+$/.test(parametro || '') ? parametro : null;
+  const ABIERTAS = ['programada', 'en_proceso'];
+  const POR_PAGINA = 15;
+  const $ = (id) => document.getElementById(id);
+  const fecha = (s) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s || ''); return m ? `${m[3]}/${m[2]}/${m[1]}` : '—'; };
+  const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+  const badge = (e) => {
+    const m = {
+      programada: ['fc-badge-pendiente', 'yellow', 'Programada'], en_proceso: ['fc-badge-neutral', 'blue', 'En proceso'],
+      finalizada: ['fc-badge-facturado', 'green', 'Finalizada'], cancelada: ['fc-badge-neutral', 'gray', 'Cancelada']
+    }[e] || ['fc-badge-neutral', 'gray', e];
+    return `<span class="fc-badge ${m[0]}"><span class="fc-status-dot fc-status-dot-${m[1]}"></span>${escapar(m[2])}</span>`;
+  };
+  const error = (msg) => { const e = $('errorGeneral'); e.textContent = msg; e.style.display = 'block'; };
 
-// ========================================
-// INICIALIZACIÓN
-// ========================================
-$(function() {
-  cargarEstadosDentales();
-  initDatatableOdontogramas();
-  initDatatableConsultas();
-  
-  // Eventos
-  agregarNuevo();
-  guardar();
-  editar();
-  eliminar();
-  ver();
-  abrirModalPaciente();
-  limpiarOdontograma();
+  /* ═════════════════════════ LISTADO GENERAL ═════════════════════════ */
+  const filtros = { q: $('filtroQ'), desde: $('filtroDesde'), hasta: $('filtroHasta') };
+  let pagina = 1, total = 0;
 
-  // Viene desde Registrar Consulta: ?consulta=<id> abre "Nuevo Odontograma" con la consulta cargada
-  const idConsultaParam = new URLSearchParams(window.location.search).get('consulta');
-  if (idConsultaParam) {
-    fetch(`/api/v1/consultas/${idConsultaParam}`)
-      .then(resp => resp.json())
-      .then(d => {
-        if (!d.success) return;
-        limpiarFormulario();
-        $('#modalOdontogramaTitle').html('<i class="fas fa-tooth"></i> Nuevo Odontograma');
-        $('#modalOdontograma').modal('show');
-        seleccionarConsulta(d.data);
-      });
+  async function cargarGlobal() {
+    $('errFiltros').style.display = 'none';
+    const p = new URLSearchParams();
+    Object.keys(filtros).forEach((k) => { if (filtros[k].value) p.set(k, filtros[k].value.trim()); });
+    p.set('pagina', pagina); p.set('por_pagina', POR_PAGINA);
+    try {
+      const { ok, data } = await pedir(API + '?' + p.toString());
+      if (!ok || !data || !data.success) {
+        if (data && data.error) { $('errFiltros').textContent = data.error; $('errFiltros').style.display = 'block'; }
+        throw new Error();
+      }
+      total = data.total;
+      $('tbodyGlobal').innerHTML = data.data.length ? data.data.map((f) => {
+        const anular = PUEDE_ANULAR && ABIERTAS.indexOf(f.estado_consulta) >= 0
+          ? `<button type="button" class="btn btn-sm btn-outline-danger" data-accion="anular" data-id="${escapar(f[PK])}" data-desc="${escapar(f.numero_consulta + ' · ' + f.nombre_paciente)}" title="Anular"><i class="fas fa-ban"></i></button>` : '';
+        return `<tr><td class="ps-3 fw-semibold text-nowrap">${escapar(f.numero_consulta)}</td><td class="text-nowrap">${fecha(f.fecha_consulta)}</td>
+          <td>${escapar(f.nombre_paciente)}<div class="text-muted small">CI ${escapar(f.cedula_paciente)}</div></td><td>${escapar(f.nombre_medico)}</td>
+          <td class="text-center">${escapar(f.cantidad_hallazgos)}</td><td class="text-center">${badge(f.estado_consulta)}</td>
+          <td class="pe-3 text-end"><div class="btn-list flex-nowrap justify-content-end">
+            <a class="btn btn-sm btn-outline-primary" href="${URL_ESTA_PAGINA}?consulta=${encodeURIComponent(f.id_consulta_cab)}" title="Abrir el odontograma"><i class="fas fa-teeth me-1"></i>Abrir</a>${anular}</div></td></tr>`;
+      }).join('') : '<tr><td colspan="7" class="text-center text-muted py-4">No hay odontogramas para los filtros elegidos.</td></tr>';
+      const d = total ? (pagina - 1) * POR_PAGINA + 1 : 0, h = Math.min(total, pagina * POR_PAGINA);
+      $('infoPagina').textContent = total ? `Mostrando ${d}–${h} de ${total}` : '';
+      $('btnAnterior').disabled = pagina <= 1;
+      $('btnSiguiente').disabled = pagina * POR_PAGINA >= total;
+    } catch (e) {
+      $('tbodyGlobal').innerHTML = $('errFiltros').style.display === 'none'
+        ? '<tr><td colspan="7" class="text-center text-danger py-4">No se pudo cargar el listado.</td></tr>'
+        : '<tr><td colspan="7" class="text-center text-muted py-4">Corrija los filtros.</td></tr>';
+    }
+  }
+  const refiltrar = () => { pagina = 1; cargarGlobal(); };
+  Object.keys(filtros).forEach((k) => filtros[k].addEventListener(k === 'q' ? 'input' : 'change', k === 'q' ? debounce(refiltrar, 350) : refiltrar));
+  $('btnLimpiar').addEventListener('click', () => { Object.values(filtros).forEach((f) => { f.value = ''; }); refiltrar(); });
+  $('btnAnterior').addEventListener('click', () => { if (pagina > 1) { pagina--; cargarGlobal(); } });
+  $('btnSiguiente').addEventListener('click', () => { if (pagina * POR_PAGINA < total) { pagina++; cargarGlobal(); } });
+  $('tbodyGlobal').addEventListener('click', async (ev) => {
+    const btn = ev.target.closest('button[data-accion="anular"]');
+    if (!btn) return;
+    await L.anular({ api: API, id: btn.dataset.id, descripcion: btn.dataset.desc, titulo: '¿Anular este odontograma? Es definitivo.', exito: 'Anulado',
+                     errorDefault: 'No se pudo anular el odontograma.', recargar: cargarGlobal });
+  });
+
+  /* ═════════════════════════ ODONTOGRAMA VISUAL ═════════════════════════ */
+  /* Nomenclatura FDI. Cada cuadrante se lista de la pieza del medio hacia afuera (1 = la más cercana a la línea media). */
+  const ARCADAS = {
+    permanente: { superior: [[18, 17, 16, 15, 14, 13, 12, 11], [21, 22, 23, 24, 25, 26, 27, 28]], inferior: [[48, 47, 46, 45, 44, 43, 42, 41], [31, 32, 33, 34, 35, 36, 37, 38]] },
+    temporal: { superior: [[55, 54, 53, 52, 51], [61, 62, 63, 64, 65]], inferior: [[85, 84, 83, 82, 81], [71, 72, 73, 74, 75]] }
+  };
+  const TAM = 34, PASO = 42, SEP = 26;          // tamaño de la pieza, separación entre piezas y espacio de la línea media
+  const NOMBRES_SUPERFICIE = { O: 'oclusal / incisal', V: 'vestibular', L: 'lingual / palatina', M: 'mesial', D: 'distal', T: 'pieza completa' };
+
+  let estados = [];          // catálogo de estados dentales
+  let odontograma = null;    // { id_odontograma, hallazgos: [...] } o null
+  let contexto = null;       // { consulta, acciones }
+  let seleccion = { pieza: null, superficie: null, estado: null };
+  let mostrarTemporal = false;
+
+  const estadoPorId = (id) => estados.find((e) => e.id_estado_dental === id);
+  const hallazgosDe = (pieza) => (odontograma ? odontograma.hallazgos : []).filter((h) => h.numero_diente === pieza);
+  const puedeEditar = () => !!(PUEDE_EDITAR && contexto && contexto.acciones.cargar_clinico);
+
+  /* Superficies de una pieza según su cuadrante y su arcada: la vestibular mira hacia afuera y la mesial hacia la línea media. */
+  function ladosDe(pieza) {
+    const cuad = Math.floor(pieza / 10);
+    const superior = (cuad === 1 || cuad === 2 || cuad === 5 || cuad === 6);
+    const mesialALaDerecha = (cuad === 1 || cuad === 4 || cuad === 5 || cuad === 8);   // los cuadrantes de la izquierda de la pantalla
+    return { arriba: superior ? 'V' : 'L', abajo: superior ? 'L' : 'V', izquierda: mesialALaDerecha ? 'D' : 'M', derecha: mesialALaDerecha ? 'M' : 'D', superior };
   }
 
-  // Configurar fecha actual por defecto
-  $('#fecha_registro').val(new Date().toISOString().split('T')[0]);
-  
-  console.log('✅ Sistema de Odontogramas inicializado');
-});
+  const POLIGONOS = { arriba: '0,0 34,0 26,8 8,8', abajo: '8,26 26,26 34,34 0,34', izquierda: '0,0 8,8 8,26 0,34', derecha: '34,0 34,34 26,26 26,8' };
 
-// ========================================
-// CARGAR ESTADOS DENTALES
-// ========================================
-function cargarEstadosDentales() {
-  console.log('🔄 Cargando estados dentales...');
-  
-  fetch('/api/v1/estados-dentales')
-    .then(resp => {
-      console.log('📡 Respuesta estados:', resp.status);
-      if (!resp.ok) {
-        throw new Error(`HTTP error! status: ${resp.status}`);
-      }
-      return resp.json();
-    })
-    .then(data => {
-      console.log('📦 Datos recibidos:', data);
-      
-      if (data.success && data.data) {
-        estadosDentales = {};  // ✅ Limpiar primero
-        
-        data.data.forEach(estado => {
-          estadosDentales[estado.id_estado_dental] = {
-            descripcion: estado.descripcion,
-            color: estado.color,
-            simbolo: estado.simbolo
-          };
-        });
-        
-        console.log('✅ Estados dentales cargados:', Object.keys(estadosDentales).length);
-        console.log('📋 Estados:', estadosDentales);
-        
-        generarLeyenda();
+  /* Dibuja UNA pieza (grupo SVG) en la posición (x, y). El color de cada superficie es el del último hallazgo activo de esa superficie. */
+  function dibujarPieza(pieza, x, y) {
+    const lados = ladosDe(pieza);
+    const hs = hallazgosDe(pieza);
+    const colorDe = (sup) => { const h = hs.filter((i) => i.superficie === sup && i.aplica_a === 'SUPERFICIE'); return h.length ? h[h.length - 1].estado_color : ''; };
+    const detalle = (sup) => hs.filter((i) => i.superficie === sup).map((i) => i.estado_descripcion).join(', ');
+    const piezas = hs.filter((i) => i.superficie === 'T');
+    const contorno = piezas.length ? piezas[piezas.length - 1].estado_color : '';
+    const sel = seleccion.pieza === pieza;
+    const poli = (lado, sup) => `<polygon class="odo-superficie${sel && seleccion.superficie === sup ? ' elegida' : ''}" data-pieza="${pieza}" data-superficie="${sup}" points="${POLIGONOS[lado]}"
+      ${colorDe(sup) ? `style="fill:${escapar(colorDe(sup))}"` : ''}><title>${pieza} · ${NOMBRES_SUPERFICIE[sup]}${detalle(sup) ? ': ' + escapar(detalle(sup)) : ''}</title></polygon>`;
+    const centro = `<rect class="odo-superficie${sel && seleccion.superficie === 'O' ? ' elegida' : ''}" data-pieza="${pieza}" data-superficie="O" x="8" y="8" width="18" height="18"
+      ${colorDe('O') ? `style="fill:${escapar(colorDe('O'))}"` : ''}><title>${pieza} · ${NOMBRES_SUPERFICIE.O}${detalle('O') ? ': ' + escapar(detalle('O')) : ''}</title></rect>`;
+    const yNumero = lados.superior ? -5 : TAM + 12;
+    const ySimbolo = lados.superior ? TAM + 11 : -4;
+    const simbolos = piezas.map((i) => i.estado_simbolo || '').filter(Boolean).join(' ');
+    return `<g class="odo-pieza${sel ? ' seleccionada' : ''}${hs.length ? ' con-hallazgos' : ''}" data-pieza="${pieza}" transform="translate(${x},${y})">
+      <rect class="odo-marco" x="-3" y="-3" width="${TAM + 6}" height="${TAM + 6}" rx="3"></rect>
+      ${poli('arriba', lados.arriba)}${poli('abajo', lados.abajo)}${poli('izquierda', lados.izquierda)}${poli('derecha', lados.derecha)}${centro}
+      <rect class="odo-contorno" x="-2" y="-2" width="${TAM + 4}" height="${TAM + 4}" rx="3" ${contorno ? `style="stroke:${escapar(contorno)}"` : ''}></rect>
+      <text class="odo-numero" data-pieza="${pieza}" data-superficie="T" x="${TAM / 2}" y="${yNumero}"><title>${pieza} · ${NOMBRES_SUPERFICIE.T}${piezas.length ? ': ' + escapar(piezas.map((i) => i.estado_descripcion).join(', ')) : ''}</title>${pieza}</text>
+      ${simbolos ? `<text class="odo-simbolo" x="${TAM / 2}" y="${ySimbolo}">${escapar(simbolos)}</text>` : ''}
+    </g>`;
+  }
+
+  /* Dibuja una arcada completa (dos mitades separadas por la línea media) y devuelve { svg, ancho }. */
+  function dibujarFila(mitades, y, xInicial) {
+    let x = xInicial, svg = '';
+    mitades.forEach((mitad, i) => {
+      mitad.forEach((pieza) => { svg += dibujarPieza(pieza, x, y); x += PASO; });
+      if (i === 0) x += SEP;
+    });
+    return svg;
+  }
+
+  function pintarOdontograma() {
+    const permanente = ARCADAS.permanente;
+    const anchoPerm = 16 * PASO + SEP;
+    let svg = '', y = 46;
+    const bloque = (arcada, titulo, anchoBloque) => {
+      const xIni = (anchoPerm - anchoBloque) / 2 + 10;
+      svg += `<text class="odo-rotulo" x="${anchoPerm / 2 + 10}" y="${y - 32}">${titulo}</text>`;
+      svg += dibujarFila(arcada.superior, y, xIni);
+      const medio = xIni + arcada.superior[0].length * PASO + SEP / 2 - 4;   // la línea media, entre las dos mitades
+      svg += `<line class="odo-mitad" x1="${medio}" y1="${y - 8}" x2="${medio}" y2="${y + 2 * TAM + 60}"></line>`;
+      svg += dibujarFila(arcada.inferior, y + TAM + 46, xIni);
+      y += 2 * TAM + 110;
+    };
+    bloque(permanente, 'Dentición permanente', 16 * PASO + SEP);
+    if (mostrarTemporal) bloque(ARCADAS.temporal, 'Dentición temporal', 10 * PASO + SEP);
+    $('odoLienzo').innerHTML = `<svg viewBox="0 0 ${anchoPerm + 20} ${y - 30}" role="img" id="odontogramaSVG" xmlns="http://www.w3.org/2000/svg">${svg}</svg>`;
+  }
+
+  /* ───────── panel lateral, leyenda y tabla ───────── */
+  function pintarPanel() {
+    $('selPieza').textContent = seleccion.pieza ? seleccion.pieza : '—';
+    const editar = puedeEditar();
+    $('panelEditar').style.display = editar ? '' : 'none';
+    Array.prototype.forEach.call($('grupoSuperficie').querySelectorAll('button'), (b) => {
+      b.classList.toggle('active', b.dataset.superficie === seleccion.superficie);
+    });
+    const deSuperficie = seleccion.superficie && seleccion.superficie !== 'T';
+    $('textoAplica').textContent = !seleccion.superficie ? '' : (deSuperficie ? '(de superficie)' : '(de pieza completa)');
+    const lista = !seleccion.superficie ? [] : estados.filter((e) => (e.aplica_a === 'SUPERFICIE') === deSuperficie);
+    $('listaEstados').innerHTML = lista.length ? lista.map((e) => `<button type="button" class="odo-estado${seleccion.estado === e.id_estado_dental ? ' activo' : ''}" data-estado="${escapar(e.id_estado_dental)}">
+      <span class="odo-muestra" style="background:${escapar(e.color)}"></span><span class="fw-semibold">${escapar(e.simbolo || '')}</span><span>${escapar(e.descripcion)}</span></button>`).join('')
+      : '<div class="text-muted small">Elija primero una pieza y una superficie.</div>';
+    $('btnAgregar').disabled = !(seleccion.pieza && seleccion.superficie && seleccion.estado);
+
+    const hs = seleccion.pieza ? hallazgosDe(seleccion.pieza) : [];
+    $('hallazgosPieza').innerHTML = !seleccion.pieza ? '<div class="text-muted small">Elija una pieza del odontograma.</div>'
+      : (hs.length ? hs.map((h) => `<div class="d-flex align-items-center gap-2 border rounded-2 px-2 py-1">
+          <span class="odo-muestra" style="background:${escapar(h.estado_color)}"></span>
+          <div class="flex-fill small"><span class="fw-semibold">${escapar(h.estado_descripcion)}</span> · ${escapar(NOMBRES_SUPERFICIE[h.superficie] || h.superficie)}${h.observacion ? `<div class="text-muted">${escapar(h.observacion)}</div>` : ''}</div>
+          ${editar ? `<button type="button" class="btn btn-sm btn-outline-danger" data-quitar="${escapar(h[PK_HALLAZGO])}" title="Quitar el hallazgo"><i class="fas fa-times"></i></button>` : ''}</div>`).join('')
+        : '<div class="text-muted small">Esta pieza no tiene hallazgos.</div>');
+  }
+
+  function pintarLeyenda() {
+    $('leyenda').innerHTML = estados.map((e) => `<div class="col-12 col-sm-6 d-flex align-items-center gap-2 small"><span class="odo-muestra" style="background:${escapar(e.color)}"></span>
+      <span class="fw-semibold">${escapar(e.simbolo || '')}</span><span>${escapar(e.descripcion)}</span><span class="text-muted">· ${e.aplica_a === 'SUPERFICIE' ? 'superficie' : 'pieza'}</span></div>`).join('');
+  }
+
+  function pintarTabla() {
+    const hs = odontograma ? odontograma.hallazgos : [];
+    $('cantidadTotal').textContent = hs.length ? `(${hs.length})` : '';
+    $('resumenOdo').textContent = hs.length === 1 ? '· 1 hallazgo' : `· ${hs.length} hallazgos`;
+    $('tbodyTodos').innerHTML = hs.length ? hs.map((h) => `<tr><td class="ps-3 fw-semibold">${escapar(h.numero_diente)}</td><td>${escapar(NOMBRES_SUPERFICIE[h.superficie] || h.superficie)}</td>
+      <td><span class="odo-muestra me-1" style="background:${escapar(h.estado_color)}"></span>${escapar(h.estado_descripcion)}</td><td class="text-muted">${h.observacion ? escapar(h.observacion) : ''}</td></tr>`).join('')
+      : '<tr><td colspan="4" class="text-center text-muted py-3">Sin hallazgos.</td></tr>';
+  }
+
+  const repintar = () => { pintarOdontograma(); pintarPanel(); pintarTabla(); };
+
+  /* ───────── interacción ───────── */
+  $('odoLienzo').addEventListener('click', (ev) => {
+    const el = ev.target.closest('[data-pieza]');
+    if (!el) return;
+    const pieza = parseInt(el.dataset.pieza, 10);
+    const superficie = el.dataset.superficie || null;
+    if (seleccion.pieza !== pieza) seleccion = { pieza, superficie: null, estado: null };
+    if (superficie) {
+      const eraDeOtroTipo = (superficie === 'T') !== (seleccion.superficie === 'T');
+      seleccion.superficie = superficie;
+      if (eraDeOtroTipo) seleccion.estado = null;
+    }
+    $('errHallazgo').style.display = 'none';
+    repintar();
+  });
+  $('grupoSuperficie').addEventListener('click', (ev) => {
+    const b = ev.target.closest('button[data-superficie]');
+    if (!b || !seleccion.pieza) return;
+    const eraDeOtroTipo = (b.dataset.superficie === 'T') !== (seleccion.superficie === 'T');
+    seleccion.superficie = b.dataset.superficie;
+    if (eraDeOtroTipo) seleccion.estado = null;
+    repintar();
+  });
+  $('listaEstados').addEventListener('click', (ev) => {
+    const b = ev.target.closest('button[data-estado]');
+    if (!b) return;
+    seleccion.estado = parseInt(b.dataset.estado, 10);
+    pintarPanel();
+  });
+  $('chkTemporal').addEventListener('change', () => { mostrarTemporal = $('chkTemporal').checked; pintarOdontograma(); });
+
+  $('btnAgregar').addEventListener('click', async () => {
+    $('errHallazgo').style.display = 'none';
+    if (!odontograma || !seleccion.pieza || !seleccion.superficie || !seleccion.estado) return;
+    $('btnAgregar').disabled = true;
+    try {
+      const { data } = await pedir(`${API}/${odontograma[PK]}/hallazgos`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ numero_diente: seleccion.pieza, superficie: seleccion.superficie, id_estado_dental: seleccion.estado, observacion: $('txtObservacion').value })
+      });
+      if (data && data.success) {
+        $('txtObservacion').value = '';
+        await cargarOdontograma();
       } else {
-        console.error('❌ Respuesta sin éxito:', data);
-        Swal.fire('Error', 'No se pudieron cargar los estados dentales', 'error');
+        $('errHallazgo').textContent = (data && data.error) || 'No se pudo registrar el hallazgo.';
+        $('errHallazgo').style.display = 'block';
+        if (data && !data.campo) await cargarEstadoConsulta();   // la consulta pudo cerrarse mientras se cargaba
       }
-    })
-    .catch(err => {
-      console.error('❌ Error al cargar estados:', err);
-      Swal.fire('Error', `Error al cargar estados: ${err.message}`, 'error');
-    });
-}
+    } catch (e) {
+      $('errHallazgo').textContent = 'Ocurrió un error de conexión. Intente nuevamente.';
+      $('errHallazgo').style.display = 'block';
+    }
+    pintarPanel();
+  });
 
-// ========================================
-// GENERAR LEYENDA
-// ========================================
-function generarLeyenda() {
-  const container = $('#leyendaEstados');
-  container.empty();
-  
-  for (const [id, estado] of Object.entries(estadosDentales)) {
-    container.append(`
-      <div class="estado-item" data-estado-id="${id}">
-        <div class="color-box" style="background-color: ${estado.color};"></div>
-        <div>
-          <div style="font-size: 13px; font-weight: 600;">${estado.descripcion}</div>
-          <small class="text-muted">${estado.simbolo}</small>
-        </div>
-      </div>
-    `);
+  $('hallazgosPieza').addEventListener('click', async (ev) => {
+    const b = ev.target.closest('button[data-quitar]');
+    if (!b) return;
+    const r = await Swal.fire({ title: '¿Quitar este hallazgo?', text: 'Queda registrado como quitado en el historial; se puede volver a cargar.', icon: 'question',
+                                showCancelButton: true, confirmButtonText: 'Sí, quitar', cancelButtonText: 'Cancelar' });
+    if (!r.isConfirmed) return;
+    const { data } = await pedir(`${API}/hallazgos/${b.dataset.quitar}`, { method: 'DELETE' });
+    if (!(data && data.success)) await Swal.fire('No se pudo quitar', (data && data.error) || 'Ocurrió un error.', 'error');
+    await cargarOdontograma();
+  });
+
+  /* ───────── carga ───────── */
+  async function cargarEstadoConsulta() {
+    const { ok, data } = await pedir(`/api/v1/consultas/${ID_CONSULTA}/resumen`);
+    if (!ok || !data || !data.success) { error((data && data.error) || 'No se pudo cargar la consulta.'); return false; }
+    contexto = data.data;
+    const c = contexto.consulta;
+    $('tarjetaConsulta').style.display = 'block';
+    $('cNumero').textContent = c.numero;
+    $('cDetalle').textContent = `${c.nombre_paciente} · CI ${c.cedula_paciente} · ${c.nombre_medico} · ${fecha(c.fecha_cita)}`;
+    $('cBadge').innerHTML = badge(c.estado);
+    const abierta = ABIERTAS.indexOf(c.estado) >= 0;
+    $('cAviso').textContent = !abierta ? 'La consulta está cerrada: el odontograma queda en solo lectura.'
+      : (contexto.acciones.cargar_clinico ? '' : 'Solo el médico de la consulta crea y modifica su odontograma.');
+    return true;
   }
-  
-  // ✅ Evento FUERA de la función con delegación global
-  console.log('✅ Leyenda generada con', Object.keys(estadosDentales).length, 'estados');
-}
 
-// ========================================
-// EVENTO GLOBAL: Seleccionar estado
-// ========================================
-$(document).on('click', '.estado-item', function() {
-  $('.estado-item').css('background-color', '');
-  $(this).css('background-color', '#d4edda');
-  estadoSeleccionado = parseInt($(this).data('estado-id'));
-  console.log('✅ Estado seleccionado:', estadoSeleccionado, estadosDentales[estadoSeleccionado]);
-});
-
-// ========================================
-// EVENTO: CLICK EN SUPERFICIE DEL DIENTE
-// ========================================
-$(document).on('click', '.superficie-diente', function() {
-  const diente = $(this).closest('.diente-grupo').data('diente');
-  const superficie = $(this).data('superficie');
-  
-  console.log('🦷 Click en diente:', diente, 'superficie:', superficie);
-  console.log('🎨 Estado seleccionado actual:', estadoSeleccionado);
-  console.log('📚 Estados disponibles:', Object.keys(estadosDentales).length);
-  
-  if (!estadoSeleccionado) {
-    Swal.fire({
-      icon: 'warning',
-      title: 'Seleccione un estado',
-      text: 'Primero seleccione un estado de la leyenda a la izquierda',
-      timer: 2000
-    });
-    return;
-  }
-  
-  // Verificar que el estado existe
-  if (!estadosDentales[estadoSeleccionado]) {
-    console.error('❌ Estado no encontrado:', estadoSeleccionado);
-    Swal.fire('Error', 'Estado dental no válido', 'error');
-    return;
-  }
-  
-  // Aplicar color
-  const color = estadosDentales[estadoSeleccionado].color;
-  $(this).attr('fill', color);
-  
-  console.log(`✅ Diente ${diente} - Superficie ${superficie} = ${estadosDentales[estadoSeleccionado].descripcion}`);
-});
-
-// ========================================
-// DATATABLE: ODONTOGRAMAS
-// ========================================
-function initDatatableOdontogramas() {
-  $('#tblOdontogramas').DataTable({
-    language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
-    ajax: { url: '/api/v1/odontogramas', dataSrc: 'data' },
-    columns: [
-      { data: 'paciente' },
-      { data: 'cedula' },
-      { data: 'edad' },
-      { data: 'medico' },
-      { 
-        data: 'fecha_registro',
-        render: (data) => {
-          if (!data) return '';
-          const d = new Date(data);
-          return d.toLocaleDateString('es-PY');
-        }
-      },
-      {
-        data: 'estado',
-        render: (data) => {
-          if (data === 'Activo') return '<span class="badge-custom-activo">Activo</span>';
-          if (data === 'Finalizado') return '<span class="badge-custom-finalizado">Finalizado</span>';
-          return '<span class="badge-custom-inactivo">Inactivo</span>';
-        }
-      },
-      {
-        data: (row) => `
-          <button class="btn btn-success btn-sm" name="btn_ver" data-id="${row.id_odontograma}" title="Ver">
-            <i class="fas fa-eye"></i>
-          </button>
-          {% if puede('odontograma','editar') %}<button class="btn btn-warning btn-sm" name="btn_editar" data-id="${row.id_odontograma}" title="Editar">
-            <i class="fas fa-edit"></i>
-          </button>{% endif %}
-          {% if puede('odontograma','anular') %}<button class="btn btn-danger btn-sm" name="btn_eliminar" data-id="${row.id_odontograma}" title="Eliminar">
-            <i class="fas fa-trash-alt"></i>
-          </button>{% endif %}
-        `
-      }
-    ]
-  });
-}
-
-// ========================================
-// DATATABLE: CONSULTAS (el odontograma se registra desde una Consulta)
-// ========================================
-function initDatatableConsultas() {
-  $('#tblPacientes').DataTable({
-    language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
-    ajax: { url: '/api/v1/consultas/activas', dataSrc: 'data' },
-    columns: [
-      { data: 'nombre_paciente' },
-      { data: 'nombre_medico' },
-      { data: 'fecha_cita', render: (d) => d ? new Date(d + 'T00:00:00').toLocaleDateString('es-PY') : '' },
-      {
-        data: (row) => `
-          <button class="btn btn-primary btn-sm" name="btn_seleccionar_consulta" data-id="${row.id_consulta_cab}">
-            <i class="fas fa-check"></i> Seleccionar
-          </button>
-        `
-      }
-    ]
-  });
-
-  $('#tblPacientes').on('click', 'button[name="btn_seleccionar_consulta"]', function() {
-    const fila = $('#tblPacientes').DataTable().row($(this).closest('tr')).data();
-    $('#modalPaciente').modal('hide');
-    seleccionarConsulta(fila);
-  });
-}
-
-// Carga en el formulario la consulta elegida (paciente y médico salen de ella) y
-// precarga el odontograma con el estado del vigente del paciente (el de su última consulta).
-function seleccionarConsulta(c) {
-  $('#id_consulta_cab').val(c.id_consulta_cab);
-  $('#id_paciente').val(c.id_paciente);
-  $('#id_medico').val(c.id_medico);
-  $('#txtPaciente').val(c.nombre_paciente);
-  $('#txtMedico').val(c.nombre_medico);
-  $('#txtCedula').val('');
-  $('#txtEdad').val('');
-
-  fetch(`/api/v1/pacientes/${c.id_paciente}`)
-    .then(resp => resp.json())
-    .then(d => {
-      if (!d.success) return;
-      $('#txtCedula').val(d.data.cedula_entidad || '');
-      if (d.data.fecha_nacimiento) {
-        const f = new Date(d.data.fecha_nacimiento);
-        const hoy = new Date();
-        let edad = hoy.getFullYear() - f.getFullYear();
-        const m = hoy.getMonth() - f.getMonth();
-        if (m < 0 || (m === 0 && hoy.getDate() < f.getDate())) edad--;
-        $('#txtEdad').val(edad + ' años');
-      }
-    });
-
-  // Precarga solo al crear (al editar se muestra lo guardado)
-  if ($('#id_odontograma').val()) return;
-  fetch(`/api/v1/odontogramas/precarga/${c.id_consulta_cab}`)
-    .then(resp => resp.json())
-    .then(d => {
-      $('.superficie-diente').attr('fill', 'white');
-      if (!d.success || !d.data.detalles.length) return;
-      d.data.detalles.forEach(detalle => {
-        const color = estadosDentales[detalle.id_estado_dental]?.color || '#FFFFFF';
-        $(`.diente-grupo[data-diente="${detalle.numero_diente}"] .superficie-diente[data-superficie="${detalle.superficie}"]`)
-          .attr('fill', color);
-      });
-      Swal.fire({
-        icon: 'info',
-        title: 'Odontograma precargado',
-        text: 'Se cargó el estado del odontograma anterior del paciente. Modifique lo que cambió en esta consulta.',
-        timer: 3000
-      });
-    });
-}
-
-
-// ========================================
-// FUNCIÓN: AGREGAR NUEVO
-// ========================================
-function agregarNuevo() {
-  $('#btnNuevo').on('click', () => {
-    limpiarFormulario();
-    $('#modalOdontogramaTitle').html('<i class="fas fa-tooth"></i> Nuevo Odontograma');
-    $('#modalOdontograma').modal('show');
-  });
-}
-
-// ========================================
-// FUNCIÓN: LIMPIAR FORMULARIO
-// ========================================
-function limpiarFormulario() {
-  $('#id_odontograma').val('');
-  $('#id_consulta_cab').val('');
-  $('#id_paciente').val('');
-  $('#id_medico').val('');
-  $('#txtPaciente').val('');
-  $('#txtCedula').val('');
-  $('#txtEdad').val('');
-  $('#txtMedico').val('');
-  $('#fecha_registro').val(new Date().toISOString().split('T')[0]);
-  $('#estado').val('Activo');
-  $('#observaciones').val('');
-  
-  // Limpiar odontograma
-  $('.superficie-diente').attr('fill', 'white');
-  estadoSeleccionado = null;
-  $('.estado-item').css('background-color', '');
-  
-  console.log('🆕 Formulario limpio para nuevo odontograma');
-}
-
-// ========================================
-// FUNCIÓN: RECOLECTAR DATOS DEL ODONTOGRAMA
-// ========================================
-function recolectarDetallesOdontograma() {
-  const detalles = [];
-  
-  $('.diente-grupo').each(function() {
-    const diente = $(this).data('diente');
-    
-    $(this).find('.superficie-diente').each(function() {
-      const superficie = $(this).data('superficie');
-      const color = $(this).attr('fill');
-      
-      // Solo guardar si NO es blanco (tiene un estado aplicado)
-      if (color && color !== 'white' && color !== '#FFFFFF') {
-        // Buscar el estado que corresponde a este color
-        for (const [id, estado] of Object.entries(estadosDentales)) {
-          if (estado.color.toLowerCase() === color.toLowerCase()) {
-            detalles.push({
-              diente: parseInt(diente),
-              estado: parseInt(id),
-              superficie: superficie
-            });
-            break;
-          }
-        }
-      }
-    });
-  });
-  
-  console.log('📊 Detalles recolectados:', detalles.length);
-  return detalles;
-}
-
-// ========================================
-// FUNCIÓN: GUARDAR ODONTOGRAMA
-// ========================================
-function guardar() {
-  $('#btnGuardar').on('click', () => {
-    const id_odontograma = $('#id_odontograma').val();
-    
-    // Validaciones
-    if (!id_odontograma && !$('#id_consulta_cab').val()) {
-      Swal.fire('Error', 'Debe seleccionar la consulta del odontograma', 'error');
+  async function cargarOdontograma() {
+    const { ok, data } = await pedir(`${API}/consulta/${ID_CONSULTA}`);
+    if (!ok || !data || !data.success) { error((data && data.error) || 'No se pudo cargar el odontograma.'); return; }
+    odontograma = data.data;
+    const anular = $('btnAnularOdo');
+    if (anular) anular.style.display = odontograma && puedeEditar() && PUEDE_ANULAR ? '' : 'none';
+    if (!odontograma) {
+      $('filaOdo').style.display = 'none';
+      $('tarjetaSinOdo').style.display = 'block';
+      const crear = $('btnCrearOdo');
+      const cargar = contexto.acciones.cargar_clinico;
+      if (crear) crear.style.display = PUEDE_NUEVO && cargar ? '' : 'none';
+      $('textoSinOdo').textContent = cargar && PUEDE_NUEVO
+        ? 'Se crea precargado con el estado del último odontograma del paciente (si lo tiene); después se va completando durante la consulta.'
+        : 'Lo crea el médico de la consulta mientras la consulta esté programada o en proceso.';
       return;
     }
-    
-    // Recolectar detalles
-    const detalles = recolectarDetallesOdontograma();
-    
-    if (detalles.length === 0) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Odontograma vacío',
-        text: '¿Desea guardar el odontograma sin detalles?',
-        showCancelButton: true,
-        confirmButtonText: 'Sí, guardar',
-        cancelButtonText: 'Cancelar'
-      }).then(result => {
-        if (result.isConfirmed) {
-          enviarOdontograma(id_odontograma, detalles);
-        }
-      });
-    } else {
-      enviarOdontograma(id_odontograma, detalles);
-    }
-  });
-}
+    $('tarjetaSinOdo').style.display = 'none';
+    $('filaOdo').style.display = 'flex';
+    repintar();
+  }
 
-// ========================================
-// FUNCIÓN: ENVIAR ODONTOGRAMA AL SERVIDOR
-// ========================================
-function enviarOdontograma(id_odontograma, detalles) {
-  const payload = {
-    id_consulta_cab: parseInt($('#id_consulta_cab').val()),
-    fecha_registro: $('#fecha_registro').val(),
-    estado: $('#estado').val(),
-    observaciones: $('#observaciones').val() || '',
-    detalles: detalles
-  };
-  
-  const method = id_odontograma ? 'PUT' : 'POST';
-  const url = id_odontograma 
-    ? `/api/v1/odontogramas/${id_odontograma}` 
-    : '/api/v1/odontogramas';
-  
-  console.log('💾 Guardando odontograma:', payload);
-  
-  // Mostrar loading
-  Swal.fire({
-    title: 'Guardando...',
-    text: 'Por favor espere',
-    allowOutsideClick: false,
-    didOpen: () => {
-      Swal.showLoading();
-    }
-  });
-  
-  fetch(url, {
-    method: method,
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload)
-  })
-  .then(resp => resp.json())
-  .then(data => {
-    if (data.success) {
-      Swal.fire({
-        icon: 'success',
-        title: '¡Éxito!',
-        text: id_odontograma ? 'Odontograma actualizado correctamente' : 'Odontograma creado correctamente',
-        timer: 2000
-      });
-      
-      $('#modalOdontograma').modal('hide');
-      $('#tblOdontogramas').DataTable().ajax.reload();
-      
-      console.log('✅ Odontograma guardado:', data.data);
-    } else {
-      Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: data.error || 'No se pudo guardar el odontograma'
-      });
-      console.error('❌ Error:', data.error);
-    }
-  })
-  .catch(err => {
-    console.error('❌ Error al guardar:', err);
-    Swal.fire({
-      icon: 'error',
-      title: 'Error de conexión',
-      text: 'No se pudo conectar con el servidor'
-    });
-  });
-}
-
-// ========================================
-// FUNCIÓN: EDITAR ODONTOGRAMA
-// ========================================
-function editar() {
-  $('#tblOdontogramas').on('click', 'button[name="btn_editar"]', function() {
-    const id = $(this).data('id');
-    
-    console.log('✏️ Editando odontograma:', id);
-    
-    // Mostrar loading
-    Swal.fire({
-      title: 'Cargando...',
-      text: 'Por favor espere',
-      allowOutsideClick: false,
-      didOpen: () => {
-        Swal.showLoading();
-      }
-    });
-    
-    fetch(`/api/v1/odontogramas/${id}`)
-      .then(resp => resp.json())
-      .then(data => {
-        Swal.close();
-        
-        if (data.success) {
-          const o = data.data;
-          
-          // Llenar formulario
-          $('#id_odontograma').val(o.id_odontograma);
-          $('#id_consulta_cab').val(o.id_consulta_cab);
-          $('#id_paciente').val(o.id_paciente);
-          $('#id_medico').val(o.id_medico);
-          $('#txtPaciente').val(o.paciente);
-          $('#txtCedula').val(o.cedula);
-          $('#txtEdad').val(o.edad + ' años');
-          $('#txtMedico').val(o.medico);
-          $('#fecha_registro').val(o.fecha_registro);
-          $('#estado').val(o.estado);
-          $('#observaciones').val(o.observaciones || '');
-          
-          // Limpiar y pintar odontograma
-          $('.superficie-diente').attr('fill', 'white');
-          
-          if (o.detalles && o.detalles.length > 0) {
-            o.detalles.forEach(detalle => {
-              const color = estadosDentales[detalle.id_estado_dental]?.color || '#FFFFFF';
-              $(`.diente-grupo[data-diente="${detalle.numero_diente}"] .superficie-diente[data-superficie="${detalle.superficie}"]`)
-                .attr('fill', color);
-            });
-            console.log(`✅ ${o.detalles.length} detalles cargados`);
-          }
-          
-          $('#modalOdontogramaTitle').html('<i class="fas fa-edit"></i> Editar Odontograma');
-          $('#modalOdontograma').modal('show');
+  const crear = $('btnCrearOdo');
+  if (crear) {
+    crear.addEventListener('click', async () => {
+      crear.disabled = true;
+      try {
+        const { data } = await pedir(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id_consulta_cab: parseInt(ID_CONSULTA, 10) }) });
+        if (data && data.success) {
+          await Swal.fire({ icon: 'success', title: 'Odontograma creado', text: data.mensaje, timer: 3200, showConfirmButton: false });
         } else {
-          Swal.fire('Error', data.error || 'No se pudo cargar el odontograma', 'error');
+          await Swal.fire('No se pudo crear el odontograma', (data && data.error) || 'Ocurrió un error.', 'error');
         }
-      })
-      .catch(err => {
-        Swal.close();
-        console.error('Error al cargar odontograma:', err);
-        Swal.fire('Error', 'No se pudo conectar con el servidor', 'error');
+      } catch (e) { await Swal.fire('Error', 'Ocurrió un error de conexión.', 'error'); }
+      crear.disabled = false;
+      await cargarEstadoConsulta();
+      await cargarOdontograma();
+    });
+  }
+
+  const anular = $('btnAnularOdo');
+  if (anular) {
+    anular.addEventListener('click', async () => {
+      await L.anular({
+        api: API, id: odontograma[PK], descripcion: 'Odontograma de la consulta ' + contexto.consulta.numero,
+        titulo: '¿Anular el odontograma? Es definitivo. Se podrá crear otro mientras la consulta siga abierta.', exito: 'Anulado',
+        errorDefault: 'No se pudo anular el odontograma.', recargar: async () => { seleccion = { pieza: null, superficie: null, estado: null }; await cargarEstadoConsulta(); await cargarOdontograma(); }
       });
-  });
-}
-
-// ========================================
-// FUNCIÓN: VER ODONTOGRAMA (SOLO LECTURA)
-// ========================================
-function ver() {
-  $('#tblOdontogramas').on('click', 'button[name="btn_ver"]', function() {
-    const id = $(this).data('id');
-    
-    console.log('👁️ Visualizando odontograma:', id);
-    
-    // Mostrar loading
-    Swal.fire({
-      title: 'Cargando...',
-      text: 'Por favor espere',
-      allowOutsideClick: false,
-      didOpen: () => {
-        Swal.showLoading();
-      }
     });
-    
-    fetch(`/api/v1/odontogramas/${id}`)
-      .then(resp => resp.json())
-      .then(data => {
-        Swal.close();
-        
-        if (data.success) {
-          const o = data.data;
-          
-          // Crear HTML del modal
-          let html = `
-            <div class="row mb-3">
-              <div class="col-md-6">
-                <div class="card">
-                  <div class="card-header bg-light">
-                    <h6><i class="fas fa-user"></i> Información del Paciente</h6>
-                  </div>
-                  <div class="card-body">
-                    <p><strong>Paciente:</strong> ${o.paciente}</p>
-                    <p><strong>Cédula:</strong> ${o.cedula}</p>
-                    <p><strong>Edad:</strong> ${o.edad} años</p>
-                  </div>
-                </div>
-              </div>
-              <div class="col-md-6">
-                <div class="card">
-                  <div class="card-header bg-light">
-                    <h6><i class="fas fa-user-md"></i> Información del Médico</h6>
-                  </div>
-                  <div class="card-body">
-                    <p><strong>Médico:</strong> ${o.medico}</p>
-                    <p><strong>Fecha:</strong> ${new Date(o.fecha_registro).toLocaleDateString('es-PY')}</p>
-                    <p><strong>Estado:</strong> 
-                      ${o.estado === 'Activo' ? '<span class="badge-custom-activo">Activo</span>' : 
-                        o.estado === 'Finalizado' ? '<span class="badge-custom-finalizado">Finalizado</span>' : 
-                        '<span class="badge-custom-inactivo">Inactivo</span>'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            ${o.observaciones ? `
-            <div class="row mb-3">
-              <div class="col-12">
-                <div class="card">
-                  <div class="card-header bg-light">
-                    <h6><i class="fas fa-comment"></i> Observaciones</h6>
-                  </div>
-                  <div class="card-body">
-                    <p>${o.observaciones}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            ` : ''}
-            
-            <div class="row">
-              <div class="col-md-3">
-                <div class="card">
-                  <div class="card-header bg-light">
-                    <h6><i class="fas fa-palette"></i> Leyenda</h6>
-                  </div>
-                  <div class="card-body p-2" style="max-height: 400px; overflow-y: auto;">
-          `;
-          
-          // Agregar leyenda
-          for (const [id, estado] of Object.entries(estadosDentales)) {
-            html += `
-              <div style="display: flex; align-items: center; margin-bottom: 8px;">
-                <div style="width: 20px; height: 20px; background-color: ${estado.color}; border: 1px solid #333; margin-right: 8px; border-radius: 3px;"></div>
-                <small><strong>${estado.descripcion}</strong> (${estado.simbolo})</small>
-              </div>
-            `;
-          }
-          
-          html += `
-                  </div>
-                </div>
-              </div>
-              <div class="col-md-9">
-                <div class="card">
-                  <div class="card-header bg-light">
-                    <h6><i class="fas fa-teeth"></i> Odontograma Dental</h6>
-                  </div>
-                  <div class="card-body text-center" style="background-color: #f8f9fa;">
-                    <div id="odontogramaVer" style="overflow-x: auto;"></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          `;
-          
-          $('#modalVerOdontogramaBody').html(html);
-          
-          // Clonar SVG del odontograma
-          const svgClone = $('#odontogramaSVG').clone();
-          svgClone.attr('id', 'odontogramaSVGVer');
-          svgClone.find('.superficie-diente').attr('fill', 'white');
-          svgClone.find('.superficie-diente').css('cursor', 'default');
-          svgClone.find('.superficie-diente').off('click'); // Quitar eventos
-          
-          // Aplicar colores según los detalles
-          if (o.detalles && o.detalles.length > 0) {
-            o.detalles.forEach(detalle => {
-              const color = estadosDentales[detalle.id_estado_dental]?.color || '#FFFFFF';
-              svgClone.find(`.diente-grupo[data-diente="${detalle.numero_diente}"] .superficie-diente[data-superficie="${detalle.superficie}"]`)
-                .attr('fill', color);
-            });
-          }
-          
-          $('#odontogramaVer').html(svgClone);
-          $('#modalVerOdontograma').modal('show');
-          
-          console.log('✅ Odontograma visualizado correctamente');
-        } else {
-          Swal.fire('Error', data.error || 'No se pudo cargar el odontograma', 'error');
-        }
-      })
-      .catch(err => {
-        Swal.close();
-        console.error('Error al cargar odontograma:', err);
-        Swal.fire('Error', 'No se pudo conectar con el servidor', 'error');
-      });
-  });
-}
+  }
 
-// ========================================
-// FUNCIÓN: ELIMINAR ODONTOGRAMA
-// ========================================
-function eliminar() {
-  $('#tblOdontogramas').on('click', 'button[name="btn_eliminar"]', function() {
-    const id = $(this).data('id');
-    
-    Swal.fire({
-      icon: 'warning',
-      title: '¿Eliminar odontograma?',
-      text: 'Esta acción no se puede deshacer',
-      showCancelButton: true,
-      confirmButtonColor: '#d33',
-      cancelButtonColor: '#3085d6',
-      confirmButtonText: 'Sí, eliminar',
-      cancelButtonText: 'Cancelar'
-    }).then(result => {
-      if (result.isConfirmed) {
-        console.log('🗑️ Eliminando odontograma:', id);
-        
-        fetch(`/api/v1/odontogramas/${id}`, {
-          method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-          }
-        })
-        .then(resp => resp.json())
-        .then(data => {
-          if (data.success) {
-            Swal.fire({
-              icon: 'success',
-              title: 'Eliminado',
-              text: 'Odontograma eliminado correctamente',
-              timer: 2000
-            });
-            $('#tblOdontogramas').DataTable().ajax.reload();
-            console.log('✅ Odontograma eliminado');
-          } else {
-            Swal.fire('Error', data.error || 'No se pudo eliminar', 'error');
-          }
-        })
-        .catch(err => {
-          console.error('Error al eliminar:', err);
-          Swal.fire('Error', 'No se pudo conectar con el servidor', 'error');
-        });
-      }
-    });
-  });
-}
+  async function iniciarEditor() {
+    $('seccionEditor').style.display = 'block';
+    $('btnVolverConsulta').href = URL_CONSULTA + encodeURIComponent(ID_CONSULTA);
+    $('btnVolverConsulta').style.display = '';
+    try {
+      const r = await pedir('/api/v1/estados-dentales');
+      estados = (r.data && r.data.data) || [];
+      pintarLeyenda();
+      if (!(await cargarEstadoConsulta())) { $('seccionEditor').style.display = 'none'; return; }
+      await cargarOdontograma();
+    } catch (e) { error('Ocurrió un error de conexión. Intente nuevamente.'); }
+  }
 
-// ========================================
-// FUNCIÓN: ABRIR MODAL PACIENTE (MEJORADO)
-// ========================================
-function abrirModalPaciente() {
-  $('#txtPaciente').on('click', () => {
-    if ($('#id_odontograma').val()) return;   // la consulta de un odontograma existente no se cambia
-    // Guardar el estado del scroll del modal principal
-    const scrollTop = $('#modalOdontograma .modal-body').scrollTop();
-    
-    $('#modalPaciente').modal('show');
-    
-    if ($.fn.DataTable.isDataTable('#tblPacientes')) {
-      $('#tblPacientes').DataTable().ajax.reload();
-    }
-    
-    // Restaurar scroll cuando se cierre el modal de paciente
-    $('#modalPaciente').on('hidden.bs.modal', function () {
-      $('#modalOdontograma .modal-body').scrollTop(scrollTop);
-      
-      // Forzar que el modal principal mantenga el scroll
-      setTimeout(() => {
-        $('#modalOdontograma').css('overflow-y', 'auto');
-        $('body').addClass('modal-open');
-      }, 100);
-    });
-  });
-}
-
-// ========================================
-// FUNCIÓN: LIMPIAR TODO EL ODONTOGRAMA
-// ========================================
-function limpiarOdontograma() {
-  $('#btnLimpiarOdontograma').on('click', () => {
-    Swal.fire({
-      icon: 'warning',
-      title: '¿Limpiar odontograma?',
-      text: 'Se borrarán todos los estados aplicados',
-      showCancelButton: true,
-      confirmButtonText: 'Sí, limpiar',
-      cancelButtonText: 'Cancelar'
-    }).then(result => {
-      if (result.isConfirmed) {
-        $('.superficie-diente').attr('fill', 'white');
-        estadoSeleccionado = null;
-        $('.estado-item').css('background-color', '');
-        Swal.fire({
-          icon: 'success',
-          title: 'Limpiado',
-          text: 'Odontograma reiniciado',
-          timer: 1500
-        });
-        console.log('🧹 Odontograma limpiado');
-      }
-    });
-  });
-}
+  if (ID_CONSULTA) { iniciarEditor(); } else { $('seccionGlobal').style.display = 'block'; cargarGlobal(); }
+})();
 </script>
 {% endblock %}

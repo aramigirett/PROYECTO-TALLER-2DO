@@ -25,17 +25,29 @@
   }
 
   /* Cada validador devuelve '' si es válido o el mensaje de error. */
-  /* opciones: { max: 60, ampliada: false } (ampliada acepta además , % ( ) + &) */
+  /* opciones: { max: 60, ampliada: false, etiqueta: 'descripción', articulo: 'La' }
+     (ampliada acepta además , % ( ) + &; etiqueta/articulo permiten usarla con otro campo, ej. 'nombre comercial' / 'El') */
   function descripcion(v, opciones) {
     var max = (opciones && opciones.max) || MAX_DESCRIPCION;
     var ampliada = !!(opciones && opciones.ampliada);
+    var etiqueta = (opciones && opciones.etiqueta) || 'descripción';
+    var articulo = (opciones && opciones.articulo) || 'La';
     var t = limpiar(v).toUpperCase();
-    if (!t) return 'El campo descripción es obligatorio y no puede estar vacío.';
-    if (t.length > max) return 'La descripción no puede superar los ' + max + ' caracteres.';
+    if (!t) return 'El campo ' + etiqueta + ' es obligatorio y no puede estar vacío.';
+    if (t.length > max) return articulo + ' ' + etiqueta + ' no puede superar los ' + max + ' caracteres.';
     if (!(ampliada ? RE_DESCRIPCION_AMPLIADA : RE_DESCRIPCION).test(t))
       return ampliada
-        ? 'La descripción solo puede contener letras, números, espacios y los símbolos . - / , % ( ) + &'
-        : 'La descripción solo puede contener letras, números, espacios y los símbolos . - /';
+        ? articulo + ' ' + etiqueta + ' solo puede contener letras, números, espacios y los símbolos . - / , % ( ) + &'
+        : articulo + ' ' + etiqueta + ' solo puede contener letras, números, espacios y los símbolos . - /';
+    return '';
+  }
+
+  /* Presentación opcional (Insumos, Medicamentos). Espejo de validar_presentacion. */
+  function presentacion(v) {
+    var t = limpiar(v).toUpperCase();
+    if (!t) return '';
+    if (t.length > 100) return 'La presentación no puede superar los 100 caracteres.';
+    if (!RE_DESCRIPCION_AMPLIADA.test(t)) return 'La presentación solo puede contener letras, números, espacios y los símbolos . - / , % ( ) + &';
     return '';
   }
 
@@ -212,7 +224,7 @@
   }
 
   global.FacturacionValidadores = {
-    descripcion: descripcion, texto: texto, direccion: direccion, ubicacion: ubicacion, telefono: telefono, correo: correo,
+    descripcion: descripcion, presentacion: presentacion, texto: texto, direccion: direccion, ubicacion: ubicacion, telefono: telefono, correo: correo,
     ciRuc: ciRuc, calcularDvRuc: calcularDvRuc, nombre: nombre,
     telefonoOpcional: telefonoOpcional, correoOpcional: correoOpcional,
     precio: precio, monto: monto, iva: iva, cantidad: cantidad, cantidadPositiva: cantidadPositiva,

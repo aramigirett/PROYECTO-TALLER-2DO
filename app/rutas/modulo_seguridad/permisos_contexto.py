@@ -30,6 +30,20 @@ def id_funcionario_sesion():
     return g.id_funcionario_sesion
 
 
+def id_medico_sesion():
+    """
+    id_medico vinculado al usuario de la sesión, o None si el usuario no es un médico (Recepción, Cajero, Administrador...) o no hay
+    sesión. Los movimientos clínicos solo los carga un usuario vinculado a un médico Y que sea el médico de esa consulta (lo valida
+    cada API). Se lee de la base en cada request y se cachea en flask.g.
+    """
+    if not hasattr(g, 'id_medico_sesion'):
+        from app.dao.modulo_seguridad.UsuarioDao import UsuarioDao
+        id_usuario = session.get('id_usuario')
+        usuario = UsuarioDao().get_by_id(id_usuario) if id_usuario else None
+        g.id_medico_sesion = usuario.get('id_medico') if usuario else None
+    return g.id_medico_sesion
+
+
 def puede(ventana, accion):
     """
     True si el rol de la sesión actual puede hacer <accion> en <ventana>.

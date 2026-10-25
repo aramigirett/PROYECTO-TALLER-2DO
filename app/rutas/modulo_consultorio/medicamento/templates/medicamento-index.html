@@ -1,245 +1,249 @@
-{% extends 'base.html' %}
+{% extends 'base_tabler.html' %}
 
-{% block titulo %}
-Medicamentos
-{% endblock %}
+{% block titulo %}Medicamentos{% endblock %}
 
 {% block contenido %}
-<div class="container mt-10">
-  <h3>Listar Medicamentos</h3>
-
-  <!-- Tarjeta -->
-  <div class="card">
-    <div class="card-header">
-      {% if puede('medicamento','nuevo') %}<button type="button" class="btn btn-outline-primary" id="btnAgregar">Agregar</button>{% endif %}
+<div class="page-header d-print-none mb-3">
+  <div class="row align-items-center">
+    <div class="col">
+      <div class="page-pretitle">Consultorio · Referenciales</div>
+      <h2 class="page-title">Medicamentos</h2>
     </div>
-    <div class="card-body">
-      <div class="table-responsive">
-        <table class="table table-striped" id="tbl">
-          <thead>
-            <tr>
-              <th>Nombre Comercial</th>
-              <th>Presentación</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
+    {% if puede('medicamento', 'nuevo') %}
+    <div class="col-auto ms-auto">
+      <button type="button" class="btn btn-primary" id="btnAgregar">
+        <i class="fas fa-plus me-2"></i>Agregar
+      </button>
     </div>
-  </div>
-  <!-- /Tarjeta -->
-
-  <!-- Modal formulario -->
-  <div class="modal" id="modalFormulario">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
-      <div class="modal-content">
-        <!-- Modal Header -->
-        <div class="modal-header">
-          <h4 class="modal-title" id="modalTitle"></h4>
-          <button type="button" class="close" data-dismiss="modal">&times;</button>
-        </div>
-
-        <!-- Modal Body -->
-        <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
-          <input type="hidden" id="txtIdMedicamento">
-
-          <div class="container-fluid">
-            <div class="row">
-              <div class="col-md-12">
-                <div class="form-group">
-                  <label for="txtNombreComercial">Nombre Comercial:</label>
-                  <input type="text" class="form-control" placeholder="Ingrese el nombre comercial" id="txtNombreComercial">
-                </div>
-              </div>
-              <div class="col-md-12">
-                <div class="form-group">
-                  <label for="txtPresentacion">Presentación (opcional):</label>
-                  <input type="text" class="form-control" placeholder="Ej: Caja x 20 comprimidos" id="txtPresentacion">
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Modal Footer -->
-        <div class="modal-footer">
-          <button type="button" class="btn btn-primary" id="btnGuardar">Guardar</button>
-          <button type="button" class="btn btn-danger" data-dismiss="modal">Cerrar</button>
-        </div>
-      </div>
-    </div>
+    {% endif %}
   </div>
 </div>
 
+<div class="card">
+  <div class="card-header">
+    <label class="form-check form-switch mb-0">
+      <input class="form-check-input" type="checkbox" id="chkInactivos">
+      <span class="form-check-label">Mostrar inactivos</span>
+    </label>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table" id="tbl">
+      <thead>
+        <tr>
+          <th>Nombre comercial</th>
+          <th>Presentación</th>
+          <th style="width: 120px;">Estado</th>
+          <th class="w-1">Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="tbodyRegistros">
+        <tr><td colspan="4" class="text-center text-muted py-4">Cargando…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# Modal Alta / Modificar #}
+<div class="modal modal-blur fade" id="modalFormulario" tabindex="-1" aria-labelledby="modalTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalTitle"></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <form id="formulario" novalidate>
+        <div class="modal-body">
+          <input type="hidden" id="txtId">
+          <div class="mb-3">
+            <label class="form-label required" for="txtClave">Nombre comercial</label>
+            <input type="text" class="form-control" id="txtClave" maxlength="100"
+                   placeholder="Ej.: IBUPROFENO 400 MG" autocomplete="off" style="text-transform: uppercase;">
+            <div class="invalid-feedback"></div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="txt_presentacion">Presentación</label>
+            <input type="text" class="form-control" id="txt_presentacion" maxlength="100"
+                   placeholder="Ej.: CAJA X 20 COMPRIMIDOS" autocomplete="off" style="text-transform: uppercase;">
+            <div class="invalid-feedback"></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btnGuardar">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
-
 {% block js %}
+<script src="{{ url_for('static', filename='js/facturacion-listado.js') }}"></script>
+<script src="{{ url_for('static', filename='js/facturacion-validadores.js') }}"></script>
 <script>
+(function () {
+  const API = '/api/v1/medicamentos';
+  const V = window.FacturacionValidadores;
+  const PUEDE_EDITAR = {{ 'true' if puede('medicamento', 'editar') else 'false' }};
+  const PUEDE_ANULAR = {{ 'true' if puede('medicamento', 'anular') else 'false' }};
+  const ETIQUETA_IVA = { 0: 'Exenta', 5: '5%', 10: '10%' };
+  const NOMBRE = 'Medicamento';
+  const CLAVE = 'nombre_comercial';
+  const PK = 'id_medicamento';   // el JSON viene con las claves ordenadas alfabéticamente: nunca se toma la "primera"
 
-  const initDatatable = () => {
-    $('#tbl').DataTable({
-      language: {
-        url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}",
-      },
-      ajax: '/api/v1/medicamentos',
-      columns: [
-        { data: 'nombre_comercial' },
-        { data: d => d.presentacion || '-' },
-        { data: function(row) {
-            return `{% if puede('medicamento','editar') %}<button type="button" name="btn_editar" class="btn btn-info" data-id="${row.id_medicamento}" title="Editar"><i class="fas fa-edit"></i></button>{% endif %}
-                    {% if puede('medicamento','anular') %}<button type="button" name="btn_eliminar" class="btn btn-danger" data-id="${row.id_medicamento}" title="Eliminar"><i class="fas fa-trash-alt"></i></button>{% endif %}`
-          }
-        }
-      ]
+  const tbody = document.getElementById('tbodyRegistros');
+  const chkInactivos = document.getElementById('chkInactivos');
+  const modalEl = document.getElementById('modalFormulario');
+  const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+  const form = document.getElementById('formulario');
+  const inpId = document.getElementById('txtId');
+  const btnGuardar = document.getElementById('btnGuardar');
+  const campos = {
+    nombre_comercial: document.getElementById('txtClave'),
+    presentacion: document.getElementById('txt_presentacion'),
+  };
+  const validadores = {
+    nombre_comercial: (v) => V.descripcion(v, { max: 100, ampliada: true, etiqueta: 'nombre comercial', articulo: 'El' }),
+    presentacion: V.presentacion,
+  };
+
+  const L = window.FacturacionListado;
+  const { escapar, pedir } = L;
+
+  const limpiarErrores = () => Object.values(campos).forEach(V.limpiarCampo);
+
+  function validarFormulario() {
+    limpiarErrores();
+    let primero = null;
+    Object.keys(campos).forEach((k) => {
+      const msg = validadores[k](campos[k].value);
+      if (msg) { V.marcarCampo(campos[k], msg); primero = primero || campos[k]; }
     });
+    if (primero) primero.focus();
+    return !primero;
   }
 
-  const agregar = () => {
-    $('#btnAgregar').on('click', function(){
-      $('#modalTitle').text("Agregar Medicamento");
-      $('#txtIdMedicamento').val("");
-      $('#txtNombreComercial').val("");
-      $('#txtPresentacion').val("");
-      $('#modalFormulario').modal();
-    });
-  }
-
-  const guardar = () => {
-    $('#btnGuardar').on('click', function() {
-      const id = $('#txtIdMedicamento').val();
-      const nombre_comercial = $('#txtNombreComercial').val();
-      const presentacion = $('#txtPresentacion').val();
-      const tabla = $('#tbl').DataTable();
-
-      if(!nombre_comercial.trim()) {
-        Swal.fire("Error", "El campo Nombre Comercial no puede estar vacío.", "error");
+  async function cargar() {
+    try {
+      const { ok, data } = await pedir(L.urlListado(API, chkInactivos));
+      if (!ok || !data || !data.success) throw new Error();
+      if (!data.data.length) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">No hay registros.</td></tr>';
         return;
       }
-
-      const payload = { nombre_comercial, presentacion };
-
-      if(id) {
-        // update
-        fetch(`/api/v1/medicamentos/${id}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          }, body: JSON.stringify(payload)
-        })
-        .then(resp => resp.json())
-        .then(data => {
-          if(data && !data.error && data.success) {
-            tabla.ajax.reload();
-            Swal.fire("Actualizado", "El medicamento ha sido actualizado correctamente.", "success");
-          } else {
-            Swal.fire("Error", data.error, "error");
-          }
-        }).catch(err => {
-          console.error(err);
-          Swal.fire("Error", "Ocurrió un error al actualizar el medicamento.", "error");
-        });
-      } else {
-        // insert
-        fetch(`/api/v1/medicamentos`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          }, body: JSON.stringify(payload)
-        })
-        .then(resp => resp.json())
-        .then(data => {
-          if(data && !data.error && data.success) {
-            tabla.ajax.reload();
-            Swal.fire("Agregado", "El medicamento ha sido agregado correctamente.", "success");
-          } else {
-            Swal.fire("Error", data.error, "error");
-          }
-        }).catch(err => {
-          console.error(err);
-          Swal.fire("Error", "Ocurrió un error al guardar el medicamento.", "error");
-        });
-      }
-      $('#modalFormulario').modal("hide");
-    });
+      tbody.innerHTML = data.data.map((f) => {
+        const id = f[PK];
+        const acciones = L.acciones({ activo: f.activo, id, descripcion: f[CLAVE], puedeEditar: PUEDE_EDITAR, puedeAnular: PUEDE_ANULAR });
+        return `<tr class="${L.claseFila(f.activo)}">
+          <td>${escapar(f.nombre_comercial)}</td>
+          <td>${f.presentacion ? escapar(f.presentacion) : '—'}</td>
+          <td>${L.badgeEstado(f.activo)}</td>
+          <td class="text-nowrap"><div class="btn-list flex-nowrap">${acciones}</div></td>
+        </tr>`;
+      }).join('');
+    } catch (e) {
+      tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger py-4">No se pudo cargar el listado.</td></tr>';
+    }
   }
 
-  const editar = () => {
-    $('#tbl').on('click', 'button[name="btn_editar"]',function(){
-      const btn = $(this);
-      Swal.fire({
-        title: "¿Deseas editar este registro?",
-        showCancelButton: true,
-        confirmButtonText: "Si",
-        cancelButtonText: `No`
-      }).then((result) => {
-        if (result.isConfirmed) {
-          $('#modalTitle').text("Editar Medicamento");
-
-          const id = btn.data('id');
-
-          fetch(`/api/v1/medicamentos/${id}`, {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json'
-            }
-          })
-          .then(resp => resp.json())
-          .then(data => {
-            $('#txtIdMedicamento').val(data.data.id_medicamento);
-            $('#txtNombreComercial').val(data.data.nombre_comercial);
-            $('#txtPresentacion').val(data.data.presentacion || '');
-            $('#modalFormulario').modal();
-          });
-        }
-      });
-    });
+  function abrirModal(titulo, registro) {
+    document.getElementById('modalTitle').textContent = titulo;
+    inpId.value = registro ? registro[PK] : '';
+    campos[CLAVE].value = registro ? registro[CLAVE] : '';
+    campos.presentacion.value = registro ? registro.presentacion : '';
+    limpiarErrores();
+    modal.show();
   }
 
-  const eliminar = () => {
-    $('#tbl').on('click', 'button[name="btn_eliminar"]',function(){
-      const id = $(this).data('id');
-      Swal.fire({
-        title: "¿Deseas eliminar este registro?",
-        showCancelButton: true,
-        confirmButtonText: "Si",
-        cancelButtonText: `No`
-      }).then((result) => {
-        if (result.isConfirmed) {
-          fetch(`/api/v1/medicamentos/${id}`, {
-            method: 'DELETE',
-            headers: {
-              'Content-Type': 'application/json',
-            }
-          })
-          .then(resp => resp.json())
-          .then(data => {
-            if(data && !data.error && data.success) {
-              $('#tbl').DataTable().ajax.reload();
-              Swal.fire("Eliminado", data.mensaje, "success");
-            } else {
-              Swal.fire("Error", data.error, "error");
-            }
-          }).catch(err => {
-            Swal.fire("Error", "Ocurrió un error al eliminar el medicamento.", "error");
-          });
-        }
-      });
+  const btnAgregar = document.getElementById('btnAgregar');
+  if (btnAgregar) btnAgregar.addEventListener('click', () => abrirModal('Agregar ' + NOMBRE));
 
-    });
-  }
-
-  const addEvents = () => {
-    agregar();
-    guardar();
-    editar();
-    eliminar();
-  }
-
-  $(function() {
-    initDatatable();
-    addEvents();
+  modalEl.addEventListener('shown.bs.modal', () => campos[CLAVE].focus());
+  Object.values(campos).forEach((el) => {
+    el.addEventListener('input', () => V.limpiarCampo(el));
+    el.addEventListener('change', () => V.limpiarCampo(el));
   });
+
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    if (!validarFormulario()) return;
+
+    const id = inpId.value;
+    if (id) {
+      const c = await Swal.fire({
+        title: '¿Guardar los cambios?',
+        text: 'Se modificarán los datos de este registro.',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, guardar',
+        cancelButtonText: 'Cancelar'
+      });
+      if (!c.isConfirmed) return;
+    }
+
+    const payload = {};
+    Object.keys(campos).forEach((k) => { payload[k] = campos[k].value; });
+
+    btnGuardar.disabled = true;
+    try {
+      const { data } = await pedir(id ? `${API}/${id}` : API, {
+        method: id ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (data && data.success) {
+        modal.hide();
+        await cargar();
+        Swal.fire(id ? 'Actualizado' : 'Agregado', data.mensaje, 'success');
+      } else {
+        // La API indica el campo en error; si no, se muestra en el primero.
+        const campo = campos[data && data.campo] || campos[CLAVE];
+        V.marcarCampo(campo, (data && data.error) || 'No se pudo guardar.');
+        campo.focus();
+      }
+    } catch (e) {
+      V.marcarCampo(campos[CLAVE], 'Ocurrió un error de conexión. Intente nuevamente.');
+    } finally {
+      btnGuardar.disabled = false;
+    }
+  });
+
+  tbody.addEventListener('click', async (ev) => {
+    const btn = ev.target.closest('button[data-accion]');
+    if (!btn) return;
+    const id = btn.dataset.id;
+
+    if (btn.dataset.accion === 'editar') {
+      try {
+        const { data } = await pedir(`${API}/${id}`);
+        if (data && data.success) {
+          abrirModal('Editar ' + NOMBRE, data.data);
+        } else {
+          Swal.fire('Error', (data && data.error) || 'No se pudo cargar el registro.', 'error');
+          cargar();
+        }
+      } catch (e) {
+        Swal.fire('Error', 'Ocurrió un error de conexión.', 'error');
+      }
+    }
+
+    if (btn.dataset.accion === 'anular') {
+      await L.anular({
+        api: API, id, descripcion: btn.dataset.desc, titulo: '¿Anular este registro?', exito: 'Anulado',
+        errorDefault: 'No se pudo anular el registro.', recargar: cargar
+      });
+    }
+
+    if (btn.dataset.accion === 'reactivar') {
+      await L.reactivar({
+        api: API, id, descripcion: btn.dataset.desc, titulo: '¿Reactivar este registro?', exito: 'Reactivado',
+        errorDefault: 'No se pudo reactivar el registro.', recargar: cargar
+      });
+    }
+  });
+
+  chkInactivos.addEventListener('change', cargar);
+  cargar();
+})();
 </script>
 {% endblock %}

@@ -1,191 +1,20 @@
 # Data Access Object - DAO
-from flask import current_app as app
-from app.conexion.Conexion import Conexion
+from app.dao.referenciales_consultorio.CatalogoDao import CatalogoDao, DUPLICADO, NO_EXISTE, YA_ACTIVO  # noqa: F401
 
-class MedicamentoDao:
+
+class MedicamentoDao(CatalogoDao):
     """
-    DAO para la referencial 'Medicamentos' (tabla `medicamentos`).
-
-    Nombre Comercial es el único campo descriptivo (no hay campo Código) y
-    es el identificador de negocio: se valida duplicado sobre él.
-
-    `estaEnUso()` valida contra `receta_medicamento` (Generar Recetas e
-    Indicaciones).
+    Referencial `medicamentos` (Estándar de referenciales: borrado lógico, único parcial por nombre_comercial entre los activos,
+    Estado / Reactivar). La baja se bloquea si lo usan: Renglones de recetas vigentes (anular una receta anula sus renglones).
     """
+    TABLA = 'medicamentos'
+    PK = 'id_medicamento'
+    CLAVE = 'nombre_comercial'
+    EXTRAS = ('presentacion',)
+    NOMBRE = 'medicamento'
 
-    def getMedicamentos(self):
-        sql = """
-        SELECT id_medicamento, nombre_comercial, presentacion, fecha_registro
-        FROM medicamentos
-        WHERE activo = true
-        ORDER BY nombre_comercial
-        """
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-        try:
-            cur.execute(sql)
-            medicamentos = cur.fetchall()
-            return [
-                {
-                    'id_medicamento': m[0],
-                    'nombre_comercial': m[1],
-                    'presentacion': m[2],
-                    'fecha_registro': str(m[3]) if m[3] else None
-                }
-                for m in medicamentos
-            ]
-        except Exception as e:
-            app.logger.error(f"Error al obtener medicamentos: {str(e)}")
-            return []
-        finally:
-            cur.close()
-            con.close()
-
-    def getMedicamentoById(self, id_medicamento):
-        sql = """
-        SELECT id_medicamento, nombre_comercial, presentacion, fecha_registro
-        FROM medicamentos
-        WHERE id_medicamento = %s AND activo = true
-        """
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-        try:
-            cur.execute(sql, (id_medicamento,))
-            m = cur.fetchone()
-            if m:
-                return {
-                    'id_medicamento': m[0],
-                    'nombre_comercial': m[1],
-                    'presentacion': m[2],
-                    'fecha_registro': str(m[3]) if m[3] else None
-                }
-            return None
-        except Exception as e:
-            app.logger.error(f"Error al obtener medicamento: {str(e)}")
-            return None
-        finally:
-            cur.close()
-            con.close()
-
-    def existeDuplicado(self, nombre_comercial, excluir_id=None):
-        """
-        Verifica si ya existe (entre los activos) un medicamento con el
-        mismo nombre comercial (ignorando mayúsculas/minúsculas).
-        """
-        sql = "SELECT 1 FROM medicamentos WHERE activo = true AND UPPER(nombre_comercial) = UPPER(%s)"
-        params = [nombre_comercial]
-
-        if excluir_id:
-            sql += " AND id_medicamento != %s"
-            params.append(excluir_id)
-
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-        try:
-            cur.execute(sql, tuple(params))
-            return cur.fetchone() is not None
-        except Exception as e:
-            app.logger.error(f"Error al verificar duplicado de medicamento: {str(e)}")
-            return False
-        finally:
-            cur.close()
-            con.close()
-
-    def guardarMedicamento(self, nombre_comercial, presentacion=None):
-        sql = """
-        INSERT INTO medicamentos(nombre_comercial, presentacion)
-        VALUES(%s, %s) RETURNING id_medicamento
-        """
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-        try:
-            cur.execute(sql, (nombre_comercial, presentacion))
-            nuevo_id = cur.fetchone()[0]
-            con.commit()
-            return nuevo_id
-        except Exception as e:
-            app.logger.error(f"Error al insertar medicamento: {str(e)}")
-            con.rollback()
-            return False
-        finally:
-            cur.close()
-            con.close()
-
-    def updateMedicamento(self, id_medicamento, nombre_comercial, presentacion=None):
-        sql = """
-        UPDATE medicamentos
-        SET nombre_comercial = %s, presentacion = %s
-        WHERE id_medicamento = %s
-        """
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-        try:
-            cur.execute(sql, (nombre_comercial, presentacion, id_medicamento))
-            filas_afectadas = cur.rowcount
-            con.commit()
-            return filas_afectadas > 0
-        except Exception as e:
-            app.logger.error(f"Error al actualizar medicamento: {str(e)}")
-            con.rollback()
-            return False
-        finally:
-            cur.close()
-            con.close()
-
-    def estaEnUso(self, id_medicamento):
-        """
-        Indica si el medicamento está utilizado en alguna receta activa
-        (`receta_medicamento`).
-        """
-        sql = "SELECT EXISTS(SELECT 1 FROM receta_medicamento WHERE id_medicamento = %s AND activo = true)"
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-        try:
-            cur.execute(sql, (id_medicamento,))
-            return bool(cur.fetchone()[0])
-        except Exception as e:
-            app.logger.error(f"Error al verificar uso de medicamento: {str(e)}")
-            return True  # Ante la duda, bloquear el borrado
-        finally:
-            cur.close()
-            con.close()
-
-    def deleteMedicamento(self, id_medicamento):
-        """
-        Anula (baja lógica) un medicamento, validando antes que no esté en
-        uso en ninguna receta activa.
-
-        Returns:
-            bool | str: True si se anuló, False si no existía, "EN_USO" si
-            está en uso.
-        """
-        if self.estaEnUso(id_medicamento):
-            app.logger.warning(f"No se puede eliminar medicamento {id_medicamento}: está en uso")
-            return "EN_USO"
-
-        sql = """
-        UPDATE medicamentos
-        SET activo = false
-        WHERE id_medicamento = %s AND activo = true
-        """
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-        try:
-            cur.execute(sql, (id_medicamento,))
-            filas_afectadas = cur.rowcount
-            con.commit()
-            return filas_afectadas > 0
-        except Exception as e:
-            app.logger.error(f"Error al eliminar medicamento: {str(e)}")
-            con.rollback()
-            return False
-        finally:
-            cur.close()
-            con.close()
+    def _motivo_en_uso(self, cur, id_registro):
+        cur.execute("SELECT 1 FROM receta_medicamento WHERE id_medicamento = %s AND activo = true LIMIT 1", (id_registro,))
+        if cur.fetchone():
+            return "No se puede dar de baja, el medicamento está en una o más recetas."
+        return False

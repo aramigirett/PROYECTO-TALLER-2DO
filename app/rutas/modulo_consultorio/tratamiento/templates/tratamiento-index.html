@@ -1,521 +1,436 @@
-{% extends 'base.html' %}
+{% extends 'base_tabler.html' %}
 
-{% block titulo %}
-Gestionar Tratamientos
+{% block titulo %}Gestionar Tratamientos{% endblock %}
+
+{% block css %}
+<link href="{{ url_for('static', filename='css/facturacion.css') }}" rel="stylesheet">
 {% endblock %}
 
 {% block contenido %}
-<div class="container-fluid mt-4">
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <h3>Gestionar Tratamientos</h3>
-    {% if puede('tratamiento','nuevo') %}<button type="button" class="btn btn-primary" id="btnAgregar">
-      <i class="fas fa-plus-circle"></i> Nuevo Tratamiento
-    </button>{% endif %}
-  </div>
-
-  <div class="card shadow-sm">
-    <div class="card-body">
-      <div class="table-responsive">
-        <table class="table table-hover table-striped" id="tbl">
-          <thead class="table-light">
-            <tr>
-              <th>Paciente</th>
-              <th>Médico</th>
-              <th>Tipo de Tratamiento</th>
-              <th>Descripción</th>
-              <th>Fecha</th>
-              <th>Estado</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
+<div class="page-header d-print-none mb-3">
+  <div class="row align-items-center">
+    <div class="col">
+      <div class="page-pretitle text-muted">Consultorio &bull; Atención</div>
+      <h2 class="page-title fw-bold">Gestionar Tratamientos</h2>
+    </div>
+    <div class="col-auto d-flex gap-2">
+      <a href="#" class="btn btn-outline-secondary btn-sm" id="btnVolverConsulta" style="display: none;"><i class="fas fa-arrow-left me-1"></i> Volver a la consulta</a>
+      {% if es_medico and puede('tratamiento', 'nuevo') %}
+      <button type="button" class="btn btn-primary px-3 rounded-pill" id="btnNuevo" style="display: none;"><i class="fas fa-plus me-2"></i>Nuevo tratamiento</button>
+      {% endif %}
     </div>
   </div>
-
-  <!-- Modal Nuevo Tratamiento -->
-  <div class="modal fade" id="modalFormulario" tabindex="-1" role="dialog">
-    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
-      <div class="modal-content">
-        <div class="modal-header bg-primary text-white">
-          <h5 class="modal-title">Nuevo Tratamiento</h5>
-          <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
-        </div>
-        <div class="modal-body">
-
-          <!-- Consulta -->
-          <div class="form-group">
-            <label class="font-weight-bold">Consulta Activa *</label>
-            <div class="input-group">
-              <input type="hidden" id="id_consulta_cab">
-              <input type="text" class="form-control" id="txtConsulta" readonly
-                     placeholder="Click para seleccionar una consulta activa">
-              <div class="input-group-append">
-                <button class="btn btn-outline-primary" type="button" id="btnBuscarConsulta">
-                  <i class="fas fa-search"></i>
-                </button>
-              </div>
-            </div>
-            <small class="text-muted">Solo se listan consultas activas en estado Programada o En Proceso.</small>
-          </div>
-
-          <!-- Datos heredados -->
-          <div class="row">
-            <div class="col-md-4 mb-3">
-              <label class="font-weight-bold">Paciente</label>
-              <input type="text" class="form-control" id="txtPaciente" readonly>
-            </div>
-            <div class="col-md-4 mb-3">
-              <label class="font-weight-bold">Médico</label>
-              <input type="text" class="form-control" id="txtMedico" readonly>
-            </div>
-            <div class="col-md-4 mb-3">
-              <label class="font-weight-bold">Consultorio</label>
-              <input type="text" class="form-control" id="txtConsultorio" readonly>
-            </div>
-          </div>
-
-          <hr>
-
-          <!-- Diagnóstico (opcional) -->
-          <div class="form-group">
-            <label class="font-weight-bold">Diagnóstico (opcional)</label>
-            <select class="form-control" id="id_diagnostico">
-              <option value="">Sin diagnóstico</option>
-            </select>
-          </div>
-
-          <div class="row">
-            <div class="col-md-6 mb-3">
-              <label class="font-weight-bold">Tipo de Tratamiento *</label>
-              <select class="form-control" id="id_tipo_tratamiento">
-                <option value="">Seleccione...</option>
-              </select>
-            </div>
-            <div class="col-md-6 mb-3">
-              <label class="font-weight-bold">Fecha de Tratamiento *</label>
-              <input type="date" class="form-control" id="fecha_tratamiento">
-            </div>
-            <div class="col-md-12 mb-3">
-              <label class="font-weight-bold">Descripción *</label>
-              <textarea class="form-control" id="descripcion_tratamiento" rows="3"
-                        placeholder="Describa el tratamiento indicado..."></textarea>
-            </div>
-          </div>
-
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-primary" id="btnGuardar">Guardar</button>
-          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Modal Buscar Consulta -->
-  <div class="modal fade" id="modalBuscarConsulta" tabindex="-1" role="dialog">
-    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
-      <div class="modal-content">
-        <div class="modal-header bg-primary text-white">
-          <h5 class="modal-title">Seleccionar Consulta Activa</h5>
-          <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
-        </div>
-        <div class="modal-body">
-          <div class="table-responsive">
-            <table class="table table-hover" id="tblConsultas">
-              <thead>
-                <tr>
-                  <th>Fecha</th>
-                  <th>Hora</th>
-                  <th>Paciente</th>
-                  <th>Médico</th>
-                  <th>Estado</th>
-                  <th>Acciones</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Modal Ver Tratamiento -->
-  <div class="modal fade" id="modalVerTratamiento" tabindex="-1" role="dialog">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable" role="document">
-      <div class="modal-content">
-        <div class="modal-header bg-primary text-white">
-          <h5 class="modal-title"><i class="fas fa-notes-medical"></i> Tratamiento Completo</h5>
-          <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
-        </div>
-        <div class="modal-body">
-          <div class="row mb-3">
-            <div class="col-md-6">
-              <strong><i class="fas fa-user text-primary mr-1"></i> Paciente:</strong>
-              <p id="verPaciente" class="text-muted">-</p>
-            </div>
-            <div class="col-md-6">
-              <strong><i class="fas fa-user-md text-success mr-1"></i> Médico:</strong>
-              <p id="verMedico" class="text-muted">-</p>
-            </div>
-          </div>
-          <div class="row mb-3">
-            <div class="col-md-6">
-              <strong><i class="fas fa-door-open text-info mr-1"></i> Consultorio:</strong>
-              <p id="verConsultorio" class="text-muted">-</p>
-            </div>
-            <div class="col-md-6">
-              <strong><i class="fas fa-calendar text-warning mr-1"></i> Fecha de Tratamiento:</strong>
-              <p id="verFecha" class="text-muted">-</p>
-            </div>
-          </div>
-          <div class="row mb-3">
-            <div class="col-md-6">
-              <strong><i class="fas fa-notes-medical text-primary mr-1"></i> Tipo de Tratamiento:</strong>
-              <p id="verTipoTratamiento" class="text-muted">-</p>
-            </div>
-            <div class="col-md-6">
-              <strong><i class="fas fa-flag text-secondary mr-1"></i> Estado:</strong>
-              <p id="verEstado" class="text-muted">-</p>
-            </div>
-          </div>
-
-          <hr>
-          <h5 class="text-primary"><i class="fas fa-file-medical-alt mr-2"></i>Descripción</h5>
-          <p id="verDescripcion" class="text-muted">-</p>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
 </div>
 
-<!-- Librerías -->
-<link rel="stylesheet" href="https://cdn.datatables.net/1.10.21/css/dataTables.bootstrap4.min.css">
-<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<div class="alert alert-danger" id="errorGeneral" style="display: none;"></div>
 
+{# ── Contexto: la consulta (cuando se llega desde la Atención de la consulta) ── #}
+<div class="card border shadow-sm rounded-3 mb-3" id="tarjetaConsulta" style="display: none;">
+  <div class="card-body py-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
+    <div>
+      <div class="text-muted small text-uppercase fw-semibold">Consulta</div>
+      <div class="fw-bold" id="cNumero"></div>
+      <div class="text-muted small" id="cDetalle"></div>
+    </div>
+    <div class="d-flex align-items-center gap-3">
+      <span id="cBadge"></span>
+      <div class="small text-muted text-end" id="cAviso"></div>
+    </div>
+  </div>
+</div>
+
+{# ── Listado general ── #}
+<div id="seccionGlobal" style="display: none;">
+  <div class="card border shadow-sm rounded-3">
+    <div class="card-header bg-white py-3 border-bottom">
+      <div class="row g-2 align-items-end w-100">
+        <div class="col-12 col-md-4">
+          <label class="form-label small fw-semibold text-muted mb-1" for="filtroQ">Paciente, CI o tipo</label>
+          <input type="text" class="form-control form-control-sm" id="filtroQ" maxlength="80" placeholder="Buscar…" autocomplete="off">
+        </div>
+        <div class="col-12 col-md-2">
+          <label class="form-label small fw-semibold text-muted mb-1" for="filtroEstado">Estado</label>
+          <select class="form-select form-select-sm" id="filtroEstado">
+            <option value="">Todos</option><option value="pendiente">Pendiente</option><option value="en_seguimiento">En seguimiento</option><option value="finalizado">Finalizado</option>
+          </select>
+        </div>
+        <div class="col-6 col-md-2"><label class="form-label small fw-semibold text-muted mb-1" for="filtroDesde">Desde</label><input type="date" class="form-control form-control-sm" id="filtroDesde"></div>
+        <div class="col-6 col-md-2"><label class="form-label small fw-semibold text-muted mb-1" for="filtroHasta">Hasta</label><input type="date" class="form-control form-control-sm" id="filtroHasta"></div>
+        <div class="col-12 col-md-2"><button type="button" class="btn btn-sm btn-outline-secondary w-100" id="btnLimpiar"><i class="fas fa-eraser me-1"></i> Limpiar</button></div>
+      </div>
+      <div class="text-danger small mt-2 w-100" id="errFiltros" style="display: none;"></div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-vcenter table-hover card-table mb-0">
+        <thead class="bg-light text-muted small text-uppercase">
+          <tr><th class="ps-3 py-3">Fecha</th><th class="py-3">Paciente</th><th class="py-3">Médico</th><th class="py-3">Tipo</th><th class="py-3">Consulta</th>
+              <th class="py-3 text-center">Sesiones</th><th class="py-3 text-center">Estado</th><th class="pe-3 py-3 text-end w-1">Acciones</th></tr>
+        </thead>
+        <tbody id="tbodyGlobal"><tr><td colspan="8" class="text-center text-muted py-4"><div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>Cargando tratamientos…</td></tr></tbody>
+      </table>
+    </div>
+    <div class="card-footer bg-white d-flex align-items-center justify-content-between py-2">
+      <div class="text-muted small" id="infoPagina"></div>
+      <div class="btn-group btn-group-sm">
+        <button type="button" class="btn btn-outline-secondary" id="btnAnterior"><i class="fas fa-chevron-left"></i></button>
+        <button type="button" class="btn btn-outline-secondary" id="btnSiguiente"><i class="fas fa-chevron-right"></i></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── Tratamientos de una consulta ── #}
+<div id="seccionConsulta" style="display: none;">
+  <div class="card border shadow-sm rounded-3 mb-3">
+    <div class="card-header bg-white py-3 border-bottom d-flex align-items-center gap-2">
+      <i class="fas fa-prescription-bottle-alt text-primary"></i>
+      <h5 class="card-title mb-0 fw-bold">Tratamientos de esta consulta</h5>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-vcenter table-hover card-table mb-0">
+        <thead class="bg-light text-muted small text-uppercase">
+          <tr><th class="ps-3 py-3">Fecha</th><th class="py-3">Tipo</th><th class="py-3">Descripción</th><th class="py-3 text-center">Sesiones</th><th class="py-3 text-center">Estado</th>
+              <th class="pe-3 py-3 text-end w-1">Acciones</th></tr>
+        </thead>
+        <tbody id="tbodyConsulta"><tr><td colspan="6" class="text-center text-muted py-4">Cargando…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="card border shadow-sm rounded-3" id="tarjetaOtros">
+    <div class="card-header bg-white py-3 border-bottom d-flex align-items-center gap-2">
+      <i class="fas fa-route text-primary"></i>
+      <h5 class="card-title mb-0 fw-bold">Tratamientos en curso del paciente <span class="text-muted small fw-normal">(creados en otras consultas)</span></h5>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-vcenter table-hover card-table mb-0">
+        <thead class="bg-light text-muted small text-uppercase">
+          <tr><th class="ps-3 py-3">Fecha</th><th class="py-3">Tipo</th><th class="py-3">Consulta de origen</th><th class="py-3 text-center">Sesiones</th><th class="py-3 text-center">Estado</th>
+              <th class="pe-3 py-3 text-end w-1">Acciones</th></tr>
+        </thead>
+        <tbody id="tbodyOtros"><tr><td colspan="6" class="text-center text-muted py-4">Cargando…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{# ── Modal: ver ── #}
+<div class="modal modal-blur fade" id="modalVer" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title" id="verTitulo">Tratamiento</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+      <div class="modal-body" id="verCuerpo"></div>
+      <div class="modal-footer"><button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cerrar</button></div>
+    </div>
+  </div>
+</div>
+
+{% if es_medico and puede('tratamiento', 'nuevo') %}
+{# ── Modal: nuevo tratamiento ── #}
+<div class="modal modal-blur fade" id="modalNuevo" tabindex="-1" aria-labelledby="modalNuevoTitulo" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title" id="modalNuevoTitulo">Nuevo tratamiento</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+      <form id="formTr" novalidate>
+        <div class="modal-body">
+          <p class="text-muted small">El paciente, el médico y el consultorio se toman de la consulta. Nace <strong>pendiente</strong> y pasa a <em>en seguimiento</em> con la primera sesión; las sesiones se registran en esta u otras consultas del paciente. Una vez registrado no se modifica: se anula o se finaliza.</p>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label required" for="selTipo">Tipo de tratamiento</label>
+              <select class="form-select" id="selTipo"><option value="">Seleccione…</option></select>
+              <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label required" for="txtFecha">Fecha del tratamiento</label>
+              <input type="date" class="form-control" id="txtFecha">
+              <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-12">
+              <label class="form-label" for="selDiagnostico">Diagnóstico <span class="text-muted fw-normal">— opcional (de esta consulta)</span></label>
+              <select class="form-select" id="selDiagnostico"><option value="">Sin diagnóstico vinculado</option></select>
+              <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-12">
+              <label class="form-label required" for="txtDescripcion">Descripción del tratamiento</label>
+              <textarea class="form-control" id="txtDescripcion" rows="3" maxlength="1000"></textarea>
+              <div class="invalid-feedback"></div>
+            </div>
+          </div>
+          <div class="alert alert-danger mt-3 mb-0" id="errTr" style="display: none;"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btnGuardar">Registrar tratamiento</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
 {% endblock %}
 
-
 {% block js %}
+<script src="{{ url_for('static', filename='js/facturacion-listado.js') }}"></script>
+<script src="{{ url_for('static', filename='js/consultorio-validadores.js') }}"></script>
 <script>
+(function () {
+  const API = '/api/v1/tratamientos';
+  const PK = 'id_tratamiento';   // el JSON viene con las claves ordenadas alfabéticamente: nunca se toma la "primera"
+  const URL_CONSULTA = '/referenciales/consulta/consulta-detalle/';
+  const URL_SESIONES = '{{ url_for("sesiontratamiento.sesionTratamientoIndex") }}';
+  const L = window.FacturacionListado;
+  const CV = window.ConsultorioValidadores;
+  const { escapar, pedir } = L;
+  const PUEDE_NUEVO = {{ 'true' if (es_medico and puede('tratamiento', 'nuevo')) else 'false' }};
+  const PUEDE_ANULAR = {{ 'true' if (es_medico and puede('tratamiento', 'anular')) else 'false' }};
+  const PUEDE_FINALIZAR = {{ 'true' if (es_medico and puede('tratamiento', 'estado')) else 'false' }};
+  const PUEDE_VER_SESIONES = {{ 'true' if puede('sesiontratamiento', 'ver') else 'false' }};
+  const parametro = new URLSearchParams(window.location.search).get('consulta');
+  const ID_CONSULTA = /^\d+$/.test(parametro || '') ? parametro : null;
+  const POR_PAGINA = 15;
 
-// Parámetro de URL (cuando viene desde el botón "Tratamientos" de Consulta)
-const urlParams = new URLSearchParams(window.location.search);
-const idConsultaParam = urlParams.get('consulta');
+  const $ = (id) => document.getElementById(id);
+  const fecha = (s) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s || ''); return m ? `${m[3]}/${m[2]}/${m[1]}` : '—'; };
+  const hoy = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+  const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+  const ABIERTAS = ['programada', 'en_proceso'];
+  const corta = (t, n) => (t && t.length > n ? t.slice(0, n).trim() + '…' : (t || ''));
+  let estadoConsulta = null;   // { consulta, acciones }
 
-function formatDateForDisplay(fecha) {
-  if (!fecha) return '';
-  const d = new Date(fecha);
-  if (isNaN(d)) return '';
-  const day = String(d.getUTCDate()).padStart(2, '0');
-  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
-  const year = d.getUTCFullYear();
-  return `${day}/${month}/${year}`;
-}
+  const badge = (e) => {
+    const m = {
+      programada: ['fc-badge-pendiente', 'yellow', 'Programada'], en_proceso: ['fc-badge-neutral', 'blue', 'En proceso'],
+      finalizada: ['fc-badge-facturado', 'green', 'Finalizada'], cancelada: ['fc-badge-neutral', 'gray', 'Cancelada']
+    }[e] || ['fc-badge-neutral', 'gray', e];
+    return `<span class="fc-badge ${m[0]}"><span class="fc-status-dot fc-status-dot-${m[1]}"></span>${escapar(m[2])}</span>`;
+  };
+  const badgeTr = (e) => {
+    const m = { pendiente: ['fc-badge-pendiente', 'yellow', 'Pendiente'], en_seguimiento: ['fc-badge-neutral', 'blue', 'En seguimiento'], finalizado: ['fc-badge-facturado', 'green', 'Finalizado'] }[e]
+      || ['fc-badge-neutral', 'gray', e];
+    return `<span class="fc-badge ${m[0]}"><span class="fc-status-dot fc-status-dot-${m[1]}"></span>${escapar(m[2])}</span>`;
+  };
+  function error(msg) { const e = $('errorGeneral'); e.textContent = msg; e.style.display = 'block'; }
+  const urlSesiones = (f, conConsulta) => `${URL_SESIONES}?tratamiento=${encodeURIComponent(f[PK])}` + (conConsulta && ID_CONSULTA ? `&consulta=${encodeURIComponent(ID_CONSULTA)}` : '');
 
-// ============================================
-// DATATABLE: TRATAMIENTOS
-// ============================================
-function initDatatableTratamientos() {
-  if ($.fn.DataTable.isDataTable('#tbl')) {
-    $('#tbl').DataTable().destroy();
+  /* ───────── acciones de cada fila ───────── */
+  function acciones(f, esOtraConsulta) {
+    const id = escapar(f[PK]);
+    const desc = escapar(`${f.tipo_tratamiento} · ${f.nombre_paciente}`);
+    const botones = [`<button type="button" class="btn btn-sm btn-outline-primary" data-accion="ver" data-id="${id}" title="Ver"><i class="fas fa-eye"></i></button>`];
+    if (PUEDE_VER_SESIONES) {
+      const registrar = esOtraConsulta && estadoConsulta && estadoConsulta.acciones.cargar_clinico && f.estado !== 'finalizado';
+      botones.push(`<a class="btn btn-sm btn-outline-secondary" href="${urlSesiones(f, true)}" title="${registrar ? 'Registrar sesión en esta consulta' : 'Sesiones'}">`
+        + `<i class="fas fa-notes-medical${registrar ? ' text-success' : ''}"></i></a>`);
+    }
+    if (PUEDE_FINALIZAR && f.estado === 'en_seguimiento') {
+      botones.push(`<button type="button" class="btn btn-sm btn-outline-success" data-accion="finalizar" data-id="${id}" data-desc="${desc}" title="Finalizar"><i class="fas fa-flag-checkered"></i></button>`);
+    }
+    if (PUEDE_ANULAR && ABIERTAS.indexOf(f.estado_consulta) >= 0 && f.cantidad_sesiones === 0 && !f.facturado) {
+      botones.push(`<button type="button" class="btn btn-sm btn-outline-danger" data-accion="anular" data-id="${id}" data-desc="${desc}" title="Anular"><i class="fas fa-ban"></i></button>`);
+    }
+    return `<div class="btn-list flex-nowrap justify-content-end">${botones.join('')}</div>`;
   }
-  $('#tbl').DataTable({
-    language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
-    ajax: { url: '/api/v1/tratamientos', dataSrc: 'data' },
-    columns: [
-      { data: 'nombre_paciente' },
-      { data: 'nombre_medico' },
-      { data: 'tipo_tratamiento' },
-      { data: 'descripcion_tratamiento' },
-      { data: 'fecha_tratamiento', render: d => formatDateForDisplay(d) },
-      { data: 'estado' },
-      {
-        data: null,
-        render: row => `
-          <button class="btn btn-success btn-sm" name="btn_ver" data-id="${row.id_tratamiento}" title="Ver">
-            <i class="fas fa-eye"></i>
-          </button>
-          {% if puede('sesiontratamiento','ver') %}<button class="btn btn-info btn-sm" name="btn_sesiones" data-id="${row.id_tratamiento}" title="Procedimientos e Insumos">
-            <i class="fas fa-syringe"></i>
-          </button>{% endif %}
-          {% if puede('tratamiento','anular') %}<button class="btn btn-danger btn-sm" name="btn_anular" data-id="${row.id_tratamiento}" title="Anular">
-            <i class="fas fa-ban"></i>
-          </button>{% endif %}
-        `
-      }
-    ]
-  });
-}
 
-// ============================================
-// DATATABLE: CONSULTAS ACTIVAS
-// ============================================
-function initDatatableConsultas() {
-  if ($.fn.DataTable.isDataTable('#tblConsultas')) {
-    $('#tblConsultas').DataTable().destroy();
+  /* ───────── listado general ───────── */
+  const filtros = { q: $('filtroQ'), estado: $('filtroEstado'), desde: $('filtroDesde'), hasta: $('filtroHasta') };
+  let pagina = 1, total = 0;
+
+  async function cargarGlobal() {
+    $('errFiltros').style.display = 'none';
+    const p = new URLSearchParams();
+    Object.keys(filtros).forEach((k) => { if (filtros[k].value) p.set(k, filtros[k].value.trim()); });
+    p.set('pagina', pagina); p.set('por_pagina', POR_PAGINA);
+    try {
+      const { ok, data } = await pedir(API + '?' + p.toString());
+      if (!ok || !data || !data.success) {
+        if (data && data.error) { $('errFiltros').textContent = data.error; $('errFiltros').style.display = 'block'; }
+        throw new Error();
+      }
+      total = data.total;
+      $('tbodyGlobal').innerHTML = data.data.length ? data.data.map((f) => `<tr>
+        <td class="ps-3 text-nowrap">${fecha(f.fecha_tratamiento)}</td>
+        <td>${escapar(f.nombre_paciente)}<div class="text-muted small">CI ${escapar(f.cedula_paciente)}</div></td><td>${escapar(f.nombre_medico)}</td>
+        <td>${escapar(f.tipo_tratamiento)}</td><td><a href="${URL_CONSULTA}${encodeURIComponent(f.id_consulta_cab)}">${escapar(f.numero_consulta)}</a></td>
+        <td class="text-center">${escapar(f.cantidad_sesiones)}</td><td class="text-center">${badgeTr(f.estado)}</td>
+        <td class="pe-3 text-end">${acciones(f, false)}</td></tr>`).join('')
+        : '<tr><td colspan="8" class="text-center text-muted py-4">No hay tratamientos para los filtros elegidos.</td></tr>';
+      const d = total ? (pagina - 1) * POR_PAGINA + 1 : 0, h = Math.min(total, pagina * POR_PAGINA);
+      $('infoPagina').textContent = total ? `Mostrando ${d}–${h} de ${total}` : '';
+      $('btnAnterior').disabled = pagina <= 1;
+      $('btnSiguiente').disabled = pagina * POR_PAGINA >= total;
+    } catch (e) {
+      $('tbodyGlobal').innerHTML = $('errFiltros').style.display === 'none'
+        ? '<tr><td colspan="8" class="text-center text-danger py-4">No se pudo cargar el listado.</td></tr>'
+        : '<tr><td colspan="8" class="text-center text-muted py-4">Corrija los filtros.</td></tr>';
+    }
   }
-  $('#tblConsultas').DataTable({
-    language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
-    ajax: { url: '/api/v1/consultas/activas', dataSrc: 'data' },
-    columns: [
-      { data: 'fecha_cita', render: d => formatDateForDisplay(d) },
-      { data: 'hora_cita' },
-      { data: 'nombre_paciente' },
-      { data: 'nombre_medico' },
-      { data: 'estado' },
-      {
-        data: null,
-        render: row => `
-          <button class="btn btn-primary btn-sm" name="btn_seleccionar_consulta"
-                  data-id="${row.id_consulta_cab}"
-                  data-paciente="${row.nombre_paciente}"
-                  data-medico="${row.nombre_medico}"
-                  data-consultorio="${row.nombre_consultorio}"
-                  data-fecha="${row.fecha_cita}"
-                  data-hora="${row.hora_cita}">
-            Seleccionar
-          </button>
-        `
-      }
-    ]
+  const refiltrar = () => { pagina = 1; cargarGlobal(); };
+  Object.keys(filtros).forEach((k) => filtros[k].addEventListener(k === 'q' ? 'input' : 'change', k === 'q' ? debounce(refiltrar, 350) : refiltrar));
+  $('btnLimpiar').addEventListener('click', () => { Object.values(filtros).forEach((f) => { f.value = ''; }); refiltrar(); });
+  $('btnAnterior').addEventListener('click', () => { if (pagina > 1) { pagina--; cargarGlobal(); } });
+  $('btnSiguiente').addEventListener('click', () => { if (pagina * POR_PAGINA < total) { pagina++; cargarGlobal(); } });
+
+  /* ───────── tratamientos de la consulta y en curso del paciente ───────── */
+  async function cargarConsulta() {
+    try {
+      const propios = await pedir(`${API}?consulta=${encodeURIComponent(ID_CONSULTA)}&por_pagina=100`);
+      if (!propios.ok || !propios.data || !propios.data.success) { error((propios.data && propios.data.error) || 'No se pudieron cargar los tratamientos de la consulta.'); return; }
+      $('tbodyConsulta').innerHTML = propios.data.data.length ? propios.data.data.map((f) => `<tr>
+        <td class="ps-3 text-nowrap">${fecha(f.fecha_tratamiento)}</td><td>${escapar(f.tipo_tratamiento)}</td><td class="text-muted">${escapar(corta(f.descripcion_tratamiento, 70))}</td>
+        <td class="text-center">${escapar(f.cantidad_sesiones)}</td><td class="text-center">${badgeTr(f.estado)}</td>
+        <td class="pe-3 text-end">${acciones(f, false)}</td></tr>`).join('')
+        : '<tr><td colspan="6" class="text-center text-muted py-4">Esta consulta todavía no tiene tratamientos.</td></tr>';
+      const idPaciente = estadoConsulta && estadoConsulta.consulta.id_paciente;
+      if (!idPaciente) { $('tarjetaOtros').style.display = 'none'; return; }
+      const otros = await pedir(`${API}?paciente=${encodeURIComponent(idPaciente)}&en_curso=1&por_pagina=100`);
+      const lista = ((otros.data && otros.data.data) || []).filter((f) => String(f.id_consulta_cab) !== String(ID_CONSULTA));
+      $('tbodyOtros').innerHTML = lista.length ? lista.map((f) => `<tr>
+        <td class="ps-3 text-nowrap">${fecha(f.fecha_tratamiento)}</td><td>${escapar(f.tipo_tratamiento)}</td>
+        <td><a href="${URL_CONSULTA}${encodeURIComponent(f.id_consulta_cab)}">${escapar(f.numero_consulta)}</a></td>
+        <td class="text-center">${escapar(f.cantidad_sesiones)}</td><td class="text-center">${badgeTr(f.estado)}</td>
+        <td class="pe-3 text-end">${acciones(f, true)}</td></tr>`).join('')
+        : '<tr><td colspan="6" class="text-center text-muted py-4">El paciente no tiene otros tratamientos en curso.</td></tr>';
+    } catch (e) { error('Ocurrió un error de conexión. Intente nuevamente.'); }
+  }
+
+  async function leerEstadoConsulta() {
+    const { ok, data } = await pedir(`/api/v1/consultas/${ID_CONSULTA}/resumen`);
+    if (!ok || !data || !data.success) { error((data && data.error) || 'No se pudo cargar la consulta.'); return false; }
+    estadoConsulta = data.data;
+    const c = estadoConsulta.consulta;
+    $('tarjetaConsulta').style.display = 'block';
+    $('cNumero').textContent = c.numero;
+    $('cDetalle').textContent = `${c.nombre_paciente} · CI ${c.cedula_paciente} · ${c.nombre_medico} · ${fecha(c.fecha_cita)}`;
+    $('cBadge').innerHTML = badge(c.estado);
+    const abierta = ABIERTAS.indexOf(c.estado) >= 0;
+    $('cAviso').textContent = !abierta ? 'La consulta está cerrada: los tratamientos quedan en solo lectura.'
+      : (estadoConsulta.acciones.cargar_clinico ? '' : 'Solo el médico de la consulta registra y anula sus tratamientos.');
+    const nuevo = $('btnNuevo');
+    if (nuevo) nuevo.style.display = PUEDE_NUEVO && estadoConsulta.acciones.cargar_clinico ? '' : 'none';
+    return true;
+  }
+
+  async function iniciarConsulta() {
+    $('seccionConsulta').style.display = 'block';
+    $('btnVolverConsulta').href = URL_CONSULTA + encodeURIComponent(ID_CONSULTA);
+    $('btnVolverConsulta').style.display = '';
+    try {
+      if (!(await leerEstadoConsulta())) { $('seccionConsulta').style.display = 'none'; return; }
+    } catch (e) { error('Ocurrió un error de conexión. Intente nuevamente.'); return; }
+    await cargarConsulta();
+  }
+
+  const recargar = () => (ID_CONSULTA ? Promise.all([leerEstadoConsulta(), cargarConsulta()]) : cargarGlobal());
+
+  /* ───────── ver ───────── */
+  const modalVer = bootstrap.Modal.getOrCreateInstance($('modalVer'));
+  async function ver(id) {
+    const { ok, data } = await pedir(`${API}/${id}`);
+    if (!ok || !data || !data.success) { Swal.fire('No se pudo abrir', (data && data.error) || 'Ocurrió un error.', 'error'); return; }
+    const d = data.data;
+    const fila = (t, v) => `<div class="col-md-6"><div class="text-muted small text-uppercase fw-semibold">${t}</div><div>${v}</div></div>`;
+    const sesiones = (d.sesiones || []).map((s) => `<tr><td class="ps-3 fw-semibold">${escapar(s.numero_sesion)}</td><td class="text-nowrap">${fecha(s.fecha_sesion)}</td>
+      <td><a href="${URL_CONSULTA}${encodeURIComponent(s.id_consulta_cab)}">${escapar(s.numero_consulta)}</a></td>
+      <td>${(s.procedimientos || []).map((p) => `<span class="badge bg-light text-muted border me-1">${escapar(p.descripcion)}</span>`).join('')}</td></tr>`).join('');
+    $('verTitulo').textContent = `Tratamiento de ${d.tipo_tratamiento}`;
+    $('verCuerpo').innerHTML = `<div class="row g-3">
+      ${fila('Paciente', `${escapar(d.nombre_paciente)} <span class="text-muted">· CI ${escapar(d.cedula_paciente)}</span>`)}
+      ${fila('Médico', escapar(d.nombre_medico))}
+      ${fila('Consulta de origen', `<a href="${URL_CONSULTA}${encodeURIComponent(d.id_consulta_cab)}">${escapar(d.numero_consulta)}</a> ${badge(d.estado_consulta)}`)}
+      ${fila('Fecha del tratamiento', fecha(d.fecha_tratamiento))}
+      ${fila('Estado', badgeTr(d.estado) + (d.facturado ? ` <span class="text-muted small">· facturado (${escapar(d.numero_factura)})</span>` : ''))}
+      ${fila('Consultorio', d.nombre_consultorio ? escapar(d.nombre_consultorio) : '—')}
+      <div class="col-12"><div class="text-muted small text-uppercase fw-semibold">Descripción</div><div style="white-space: pre-wrap;">${escapar(d.descripcion_tratamiento)}</div></div>
+      <div class="col-12"><div class="text-muted small text-uppercase fw-semibold mb-1">Sesiones (${(d.sesiones || []).length})</div>
+        ${sesiones ? `<div class="table-responsive"><table class="table table-sm card-table mb-0"><thead class="text-muted small text-uppercase"><tr><th class="ps-3">N.º</th><th>Fecha</th><th>Consulta</th><th>Procedimientos</th></tr></thead><tbody>${sesiones}</tbody></table></div>`
+        : '<div class="text-muted">Todavía no tiene sesiones.</div>'}</div>
+    </div>`;
+    modalVer.show();
+  }
+
+  document.addEventListener('click', async (ev) => {
+    const btn = ev.target.closest('button[data-accion]');
+    if (!btn || !btn.closest('#tbodyGlobal, #tbodyConsulta, #tbodyOtros')) return;
+    const id = btn.dataset.id;
+    if (btn.dataset.accion === 'ver') await ver(id);
+    if (btn.dataset.accion === 'anular') {
+      await L.anular({ api: API, id, descripcion: btn.dataset.desc, titulo: '¿Anular este tratamiento? Es definitivo.', exito: 'Anulado',
+                       errorDefault: 'No se pudo anular el tratamiento.', recargar });
+    }
+    if (btn.dataset.accion === 'finalizar') {
+      const r = await Swal.fire({ title: '¿Finalizar este tratamiento?', text: `${btn.dataset.desc}. Ya no admitirá más sesiones.`, icon: 'question',
+                                  showCancelButton: true, confirmButtonText: 'Sí, finalizar', cancelButtonText: 'Cancelar' });
+      if (!r.isConfirmed) return;
+      const { data } = await pedir(`${API}/${id}/finalizar`, { method: 'PUT' });
+      if (data && data.success) await Swal.fire({ icon: 'success', title: 'Finalizado', text: data.mensaje, timer: 2200, showConfirmButton: false });
+      else await Swal.fire('No se pudo finalizar', (data && data.error) || 'Ocurrió un error.', 'error');
+      await recargar();
+    }
   });
 
-  $('#tblConsultas').on('click', 'button[name="btn_seleccionar_consulta"]', function() {
-    const btn = $(this);
-    const idConsulta = btn.data('id');
+  /* ───────── nuevo tratamiento ───────── */
+  if (PUEDE_NUEVO) {
+    const modalNuevo = bootstrap.Modal.getOrCreateInstance($('modalNuevo'));
+    const CAMPOS = { id_tipo_tratamiento: $('selTipo'), fecha_tratamiento: $('txtFecha'), id_diagnostico: $('selDiagnostico'), descripcion_tratamiento: $('txtDescripcion') };
+    const marcar = (campo, msg) => {
+      const el = CAMPOS[campo];
+      if (!el) { $('errTr').textContent = msg; $('errTr').style.display = 'block'; return null; }
+      el.classList.add('is-invalid'); el.parentElement.querySelector('.invalid-feedback').textContent = msg; return el;
+    };
+    const limpiar = () => {
+      Object.values(CAMPOS).forEach((el) => { el.classList.remove('is-invalid'); const fb = el.parentElement.querySelector('.invalid-feedback'); if (fb) fb.textContent = ''; });
+      $('errTr').style.display = 'none';
+    };
+    Object.values(CAMPOS).forEach((el) => { el.addEventListener('input', () => el.classList.remove('is-invalid')); el.addEventListener('change', () => el.classList.remove('is-invalid')); });
 
-    $('#id_consulta_cab').val(idConsulta);
-    $('#txtConsulta').val(`${formatDateForDisplay(btn.data('fecha'))} ${btn.data('hora')} - ${btn.data('paciente')}`);
-    $('#txtPaciente').val(btn.data('paciente'));
-    $('#txtMedico').val(btn.data('medico'));
-    $('#txtConsultorio').val(btn.data('consultorio'));
+    async function cargarCombos() {
+      const [t, d] = await Promise.all([pedir('/api/v1/tipos-tratamiento'), pedir(`/api/v1/diagnosticos-medicos/consulta/${ID_CONSULTA}`)]);
+      CAMPOS.id_tipo_tratamiento.innerHTML = '<option value="">Seleccione…</option>' + ((t.data && t.data.data) || []).map((x) => `<option value="${escapar(x.id_tipo_tratamiento)}">${escapar(x.descripcion)}</option>`).join('');
+      CAMPOS.id_diagnostico.innerHTML = '<option value="">Sin diagnóstico vinculado</option>' + ((d.data && d.data.data) || [])
+        .map((x) => `<option value="${escapar(x.id_diagnostico)}">${escapar(x.codigo)} · ${escapar(x.tipo_diagnostico)}${x.pieza_dental ? ' · pieza ' + escapar(x.pieza_dental) : ''}</option>`).join('');
+    }
 
-    // Cargar diagnósticos de esta consulta
-    $('#id_diagnostico').html('<option value="">Sin diagnóstico</option>');
-    fetch(`/api/v1/diagnosticos-medicos/consulta/${idConsulta}`)
-      .then(r => r.json())
-      .then(d => {
-        if (d.success) {
-          d.data.forEach(diag => {
-            $('#id_diagnostico').append(
-              `<option value="${diag.id_diagnostico}">${diag.descripcion_diagnostico} (${diag.tipo_diagnostico})</option>`
-            );
-          });
-        }
-      });
-
-    $('#modalBuscarConsulta').modal('hide');
-  });
-}
-
-// ============================================
-// CARGAR TIPOS DE TRATAMIENTO (combo)
-// ============================================
-function cargarTiposTratamiento() {
-  fetch('/api/v1/tipos-tratamiento')
-    .then(r => r.json())
-    .then(d => {
-      if (d.success) {
-        const select = $('#id_tipo_tratamiento');
-        select.html('<option value="">Seleccione...</option>');
-        d.data.forEach(t => {
-          select.append(`<option value="${t.id_tipo_tratamiento}">${t.descripcion}</option>`);
-        });
-      }
+    $('btnNuevo').addEventListener('click', async () => {
+      limpiar();
+      Object.values(CAMPOS).forEach((el) => { el.value = ''; });
+      CAMPOS.fecha_tratamiento.value = hoy(); CAMPOS.fecha_tratamiento.max = hoy();
+      await cargarCombos();
+      modalNuevo.show();
     });
-}
 
-// ============================================
-// PRESELECCIONAR CONSULTA (cuando viene desde el botón
-// "Tratamientos" del panel de Consulta) y abrir el modal Nuevo
-// ============================================
-function preseleccionarConsultaDesdeQuery() {
-  if (!idConsultaParam) return;
-  const idConsulta = parseInt(idConsultaParam);
-
-  limpiarModal();
-
-  fetch(`/api/v1/consultas/${idConsulta}`)
-    .then(r => r.json())
-    .then(d => {
-      if (!d.success) {
-        Swal.fire('Error', 'No se pudo cargar la consulta indicada.', 'error');
+    $('formTr').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      limpiar();
+      const valores = { id_tipo_tratamiento: CAMPOS.id_tipo_tratamiento.value, descripcion_tratamiento: CAMPOS.descripcion_tratamiento.value,
+                        fecha_tratamiento: CAMPOS.fecha_tratamiento.value, id_diagnostico: CAMPOS.id_diagnostico.value };
+      const errores = CV.tratamiento(valores, hoy());
+      const claves = Object.keys(errores);
+      if (claves.length) {
+        let primero = null;
+        claves.forEach((k) => { const el = marcar(k, errores[k]); primero = primero || el; });
+        if (primero) primero.focus();
         return;
       }
-      const c = d.data;
-
-      $('#id_consulta_cab').val(idConsulta);
-      $('#txtConsulta').val(`${formatDateForDisplay(c.fecha_cita)} ${c.hora_cita} - ${c.nombre_paciente}`);
-      $('#txtPaciente').val(c.nombre_paciente);
-      $('#txtMedico').val(c.nombre_medico);
-      $('#txtConsultorio').val(c.nombre_consultorio);
-
-      fetch(`/api/v1/diagnosticos-medicos/consulta/${idConsulta}`)
-        .then(r => r.json())
-        .then(dd => {
-          if (dd.success) {
-            dd.data.forEach(diag => {
-              $('#id_diagnostico').append(
-                `<option value="${diag.id_diagnostico}">${diag.descripcion_diagnostico} (${diag.tipo_diagnostico})</option>`
-              );
-            });
-          }
-        });
-
-      $('#modalFormulario').modal('show');
-    })
-    .catch(err => {
-      console.error(err);
-      Swal.fire('Error', 'No se pudo cargar la consulta indicada.', 'error');
+      const boton = $('btnGuardar');
+      boton.disabled = true;
+      try {
+        const { data } = await pedir(API, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify(Object.assign({ id_consulta_cab: parseInt(ID_CONSULTA, 10) }, valores)) });
+        if (data && data.success) {
+          modalNuevo.hide();
+          await Swal.fire({ icon: 'success', title: 'Tratamiento registrado', text: data.mensaje, timer: 2200, showConfirmButton: false });
+          await recargar();
+        } else {
+          const el = marcar((data && data.campo) || 'general', (data && data.error) || 'No se pudo registrar el tratamiento.');
+          if (el) el.focus();
+        }
+      } catch (e) {
+        marcar('general', 'Ocurrió un error de conexión. Intente nuevamente.');
+      } finally { boton.disabled = false; }
     });
-}
-
-// ============================================
-// LIMPIAR MODAL
-// ============================================
-function limpiarModal() {
-  $('#id_consulta_cab').val('');
-  $('#txtConsulta').val('');
-  $('#txtPaciente').val('');
-  $('#txtMedico').val('');
-  $('#txtConsultorio').val('');
-  $('#id_diagnostico').html('<option value="">Sin diagnóstico</option>');
-  $('#id_tipo_tratamiento').val('');
-  $('#descripcion_tratamiento').val('');
-  $('#fecha_tratamiento').val(new Date().toISOString().split('T')[0]);
-}
-
-// ============================================
-// EVENTOS
-// ============================================
-$('#btnAgregar').on('click', function() {
-  limpiarModal();
-  $('#modalFormulario').modal('show');
-});
-
-$('#btnBuscarConsulta').on('click', function() {
-  $('#modalBuscarConsulta').modal('show');
-});
-
-$('#btnGuardar').on('click', function() {
-  const payload = {
-    id_consulta_cab: $('#id_consulta_cab').val() ? parseInt($('#id_consulta_cab').val()) : null,
-    id_diagnostico: $('#id_diagnostico').val() ? parseInt($('#id_diagnostico').val()) : null,
-    id_tipo_tratamiento: $('#id_tipo_tratamiento').val() ? parseInt($('#id_tipo_tratamiento').val()) : null,
-    descripcion_tratamiento: $('#descripcion_tratamiento').val(),
-    fecha_tratamiento: $('#fecha_tratamiento').val()
-  };
-
-  if (!payload.id_consulta_cab) {
-    Swal.fire('Falta la Consulta', 'Debe seleccionar una Consulta activa.', 'warning');
-    return;
-  }
-  if (!payload.id_tipo_tratamiento) {
-    Swal.fire('Campo incompleto', 'Debe seleccionar el Tipo de Tratamiento.', 'warning');
-    return;
-  }
-  if (!payload.descripcion_tratamiento || !payload.descripcion_tratamiento.trim()) {
-    Swal.fire('Campo incompleto', 'La Descripción es obligatoria.', 'warning');
-    return;
-  }
-  if (!payload.fecha_tratamiento) {
-    Swal.fire('Campo incompleto', 'La Fecha de Tratamiento es obligatoria.', 'warning');
-    return;
   }
 
-  fetch('/api/v1/tratamientos', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  })
-  .then(r => r.json())
-  .then(d => {
-    if (d.success) {
-      $('#modalFormulario').modal('hide');
-      $('#tbl').DataTable().ajax.reload();
-      Swal.fire('Éxito', 'Tratamiento registrado correctamente', 'success');
-    } else {
-      Swal.fire('Error', d.error, 'error');
-    }
-  })
-  .catch(err => {
-    console.error(err);
-    Swal.fire('Error', 'Ocurrió un error al guardar el tratamiento.', 'error');
-  });
-});
-
-$('#tbl').on('click', 'button[name="btn_ver"]', function() {
-  const id = $(this).data('id');
-
-  fetch(`/api/v1/tratamientos/${id}`)
-    .then(r => r.json())
-    .then(d => {
-      if (d.success) {
-        const t = d.data;
-        $('#verPaciente').text(t.nombre_paciente);
-        $('#verMedico').text(t.nombre_medico);
-        $('#verConsultorio').text(t.nombre_consultorio || '-');
-        $('#verFecha').text(formatDateForDisplay(t.fecha_tratamiento));
-        $('#verTipoTratamiento').text(t.tipo_tratamiento);
-        $('#verEstado').text(t.estado);
-        $('#verDescripcion').text(t.descripcion_tratamiento);
-
-        $('#modalVerTratamiento').modal('show');
-      } else {
-        Swal.fire('Error', d.error || 'No se pudo cargar el tratamiento', 'error');
-      }
-    })
-    .catch(err => {
-      console.error('Error:', err);
-      Swal.fire('Error', 'No se pudo cargar el tratamiento', 'error');
-    });
-});
-
-$('#tbl').on('click', 'button[name="btn_sesiones"]', function() {
-  const id = $(this).data('id');
-  window.location.href = `{{ url_for('sesiontratamiento.sesionTratamientoIndex') }}?id_tratamiento=${id}`;
-});
-
-$('#tbl').on('click', 'button[name="btn_anular"]', function() {
-  const id = $(this).data('id');
-  Swal.fire({
-    title: '¿Anular este tratamiento?',
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonText: 'Sí, anular',
-    cancelButtonText: 'Cancelar'
-  }).then((result) => {
-    if (result.isConfirmed) {
-      fetch(`/api/v1/tratamientos/${id}`, { method: 'DELETE' })
-        .then(r => r.json())
-        .then(d => {
-          if (d.success) {
-            $('#tbl').DataTable().ajax.reload();
-            Swal.fire('Anulado', d.mensaje, 'success');
-          } else {
-            Swal.fire('Error', d.error, 'error');
-          }
-        })
-        .catch(err => {
-          Swal.fire('Error', 'Ocurrió un error al anular el tratamiento.', 'error');
-        });
-    }
-  });
-});
-
-$(function() {
-  initDatatableTratamientos();
-  initDatatableConsultas();
-  cargarTiposTratamiento();
-  preseleccionarConsultaDesdeQuery();
-});
+  /* ───────── arranque ───────── */
+  if (ID_CONSULTA) { iniciarConsulta(); } else { $('seccionGlobal').style.display = 'block'; cargarGlobal(); }
+})();
 </script>
 {% endblock %}

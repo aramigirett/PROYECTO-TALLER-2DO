@@ -7,6 +7,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
 import psycopg2
 from app import app
 from tests._conexion_pruebas import Conexion
+from tests.facturacion._limpieza import borrar_auditoria
 
 RAIZ = pathlib.Path(__file__).resolve().parents[2]
 SQL_PRECIO = RAIZ / 'app' / 'dao' / 'referenciales_consultorio' / 'tipo_tratamiento' / 'schema_tipo_tratamiento_precio.sql'
@@ -59,13 +60,13 @@ try:
     chk('columna precio NUMERIC(12,0) NOT NULL', cu.fetchone() == ('numeric', 12, 0, 'NO'))
     cu.execute("SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname='chk_tipos_tratamiento_precio'")
     fila = cu.fetchone(); chk('CHECK (precio > 0) existe', bool(fila) and 'precio' in fila[0] and '> (0)' in fila[0])
-    cu.execute("SELECT UPPER(descripcion), precio FROM tipos_tratamiento WHERE activo = true")
+    cu.execute("SELECT UPPER(descripcion), precio FROM tipos_tratamiento")   # activos o no: el usuario puede anularlos desde la pantalla
     activos = {d: p for d, p in cu.fetchall()}
     for d in SEEDS:   # relajado: existe y tiene precio > 0 (los valores pueden haberse editado desde la pantalla)
         chk(f'seed existe y precio > 0: {d}', d in activos and activos[d] > 0)
     cu.execute("SELECT activo, precio FROM tipos_tratamiento WHERE UPPER(descripcion)='PRUEBA'")
     prueba = cu.fetchall()
-    chk('PRUEBA (si existe) está anulada y tiene precio > 0', all(a is False and p > 0 for a, p in prueba))
+    chk('PRUEBA (si existe) tiene precio > 0 (el dato puede haberse reactivado a mano)', all(p > 0 for a, p in prueba))
     cu.execute("SELECT count(*) FROM tipos_tratamiento WHERE precio IS NULL OR precio <= 0"); chk('ninguna fila sin precio válido', cu.fetchone()[0] == 0)
     cu.execute("SELECT count(*) FROM (SELECT UPPER(descripcion) FROM tipos_tratamiento WHERE activo GROUP BY 1 HAVING count(*) > 1) x")
     chk('sin descripciones activas duplicadas', cu.fetchone()[0] == 0)
@@ -172,7 +173,7 @@ try:
 
     d = api('get', TT, 200, nombre='lista')
     chk('la lista trae precio (entero) en todas las filas', all(isinstance(x['precio'], int) and x['precio'] > 0 for x in d['data']))
-    chk('la lista trae solo activos (sin PRUEBA)', all(x['descripcion'] != 'PRUEBA' for x in d['data']))
+    chk('la lista trae solo activos', all(x['activo'] is True for x in d['data']))
 
     # alta válida
     d = api('post', TT, 201, {'descripcion': ' zz tratamiento a ', 'iva': '10', 'precio': '250000'}, 'alta con precio (texto numérico)')
@@ -226,17 +227,17 @@ try:
     api('put', f'{TT}/{a}', 400, {'descripcion': 'zz tratamiento a renombrado', 'precio': 0, 'iva': 7}, 'precio e IVA inválidos a la vez: manda el precio (se valida primero)', exacto=MSG, campo='precio')
 
     # baja (sigue funcionando)
-    api('delete', f'{TT}/{b}', 200, nombre='baja de un tipo sin tratamientos', contiene='eliminado')
+    api('delete', f'{TT}/{b}', 200, nombre='baja de un tipo sin tratamientos', contiene='anulado')
     d = api('get', TT, 200, nombre='lista tras la baja'); chk('el anulado no aparece', b not in {x['id_tipo_tratamiento'] for x in d['data']})
 
     # ---------- la vista ----------
     r = c.get('/referenciales/tipo-tratamiento/tipo-tratamiento-index')
     chk('vista Tipo Tratamiento: campo Precio y columna Precio',
-        r.status_code == 200 and b'id="txtPrecio"' in r.data and b'Precio</th>' in r.data)
+        r.status_code == 200 and b'id="txt_precio"' in r.data and b'Precio</th>' in r.data)
     chk('vista Tipo Tratamiento: combo IVA (10%, 5%, Exenta), columna IVA y su mensaje',
-        b'id="selIva"' in r.data and b'<option value="10">10%</option>' in r.data and b'<option value="5">5%</option>' in r.data
-        and b'<option value="0">Exenta</option>' in r.data and b'IVA</th>' in r.data and MSG_IVA.encode() in r.data)
-    chk('vista Tipo Tratamiento: carga facturacion-validadores.js y usa formatoGs', b'facturacion-validadores.js' in r.data and b'formatoGs' in r.data and MSG.encode() in r.data)
+        b'id="sel_iva"' in r.data and b'<option value="10">10%</option>' in r.data and b'<option value="5">5%</option>' in r.data
+        and b'<option value="0">Exenta</option>' in r.data and b'IVA</th>' in r.data and b'V.iva' in r.data)
+    chk('vista Tipo Tratamiento: carga facturacion-validadores.js y usa formatoGs', b'facturacion-validadores.js' in r.data and b'formatoGs' in r.data and b'V.precio' in r.data)
     r = c.get('/static/js/facturacion-validadores.js'); chk('el JS compartido sigue servido (precio y formatoGs)', r.status_code == 200 and b'precio:' in r.data and b'iva:' in r.data and b'formatoGs' in r.data)
 
     # ---------- regresión: Gestionar Tratamientos y demás lectores ----------
@@ -277,6 +278,7 @@ try:
 finally:
     if creados:
         cu.execute("DELETE FROM tipos_tratamiento WHERE id_tipo_tratamiento = ANY(%s)", (list(creados),))
+        borrar_auditoria(cu, 'tipos_tratamiento', creados)   # la API audita: se borra solo lo que generó este test
     cu.execute("DELETE FROM tipos_tratamiento WHERE id_tipo_tratamiento > %s AND descripcion LIKE 'ZZ%%'", (ID_INICIAL,))
     real.commit(); cu.close(); real.close()
 print('FALLOS:', fallos or 'ninguno')

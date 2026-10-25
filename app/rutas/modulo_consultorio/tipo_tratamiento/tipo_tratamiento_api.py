@@ -1,161 +1,21 @@
-from flask import Blueprint, request, jsonify, current_app as app
-import re
 from app.dao.referenciales_consultorio.tipo_tratamiento.TipoTratamientoDao import TipoTratamientoDao
-from app.rutas.modulo_seguridad.decorators import require_permiso, require_login
-# validar_precio se comparte con Ítems (Facturación): entero en guaraníes, mayor a 0, máx. NUMERIC(12,0)
-from app.rutas.modulo_facturacion.utils import validar_precio, validar_iva
-
-tipotratamientoapi = Blueprint('tipotratamientoapi', __name__)
+from app.rutas.modulo_consultorio.catalogo_api import Campo, crear_api_catalogo
+from app.rutas.modulo_consultorio.utils import normalizar_descripcion, validar_precio, validar_iva
 
 MSG_PRECIO = 'El precio debe ser un número entero mayor a 0.'
 
 
-# -------------------------
-# Funciones auxiliares de validación
-# -------------------------
-def descripcion_valida(texto):
-    # Permite letras (incluye ñ y acentos) y espacios
-    patron = r'^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]+$'
-    return re.match(patron, texto) is not None
+def _precio(data):
+    # Un único mensaje para cualquier precio inválido (vacío, decimal, texto, <= 0, fuera de rango)
+    valor, error = validar_precio(data.get('precio'))
+    return valor, (MSG_PRECIO if error else None)
 
 
-# -------------------------
-# Trae todos los tipos de tratamiento
-# -------------------------
-@tipotratamientoapi.route('/tipos-tratamiento', methods=['GET'])
-@require_login  # lookup: alimenta combos de otras pantallas
-def getTiposTratamiento():
-    dao = TipoTratamientoDao()
-    try:
-        tipos = dao.getTiposTratamiento()
-        return jsonify({'success': True, 'data': tipos, 'error': None}), 200
-    except Exception as e:
-        app.logger.error(f"Error al obtener tipos de tratamiento: {str(e)}")
-        return jsonify({'success': False, 'error': 'Ocurrió un error interno. Consulte con el administrador.'}), 500
-
-
-# -------------------------
-# Trae un tipo de tratamiento por ID
-# -------------------------
-@tipotratamientoapi.route('/tipos-tratamiento/<int:id_tipo_tratamiento>', methods=['GET'])
-@require_permiso('tipotratamiento', 'ver')
-def getTipoTratamiento(id_tipo_tratamiento):
-    dao = TipoTratamientoDao()
-    try:
-        tipo = dao.getTipoTratamientoById(id_tipo_tratamiento)
-        if tipo:
-            return jsonify({'success': True, 'data': tipo, 'error': None}), 200
-        else:
-            return jsonify({'success': False, 'error': 'No se encontró el tipo de tratamiento con el ID proporcionado.'}), 404
-    except Exception as e:
-        app.logger.error(f"Error al obtener tipo de tratamiento: {str(e)}")
-        return jsonify({'success': False, 'error': 'Ocurrió un error interno. Consulte con el administrador.'}), 500
-
-
-# -------------------------
-# Agrega un nuevo tipo de tratamiento
-# -------------------------
-@tipotratamientoapi.route('/tipos-tratamiento', methods=['POST'])
-@require_permiso('tipotratamiento', 'nuevo')
-def addTipoTratamiento():
-    data = request.get_json()
-    dao = TipoTratamientoDao()
-
-    if not data or 'descripcion' not in data or not data['descripcion'].strip():
-        return jsonify({'success': False, 'error': 'El campo descripción es obligatorio y no puede estar vacío.'}), 400
-
-    descripcion = data['descripcion'].strip().upper()
-
-    if not descripcion_valida(descripcion):
-        return jsonify({'success': False, 'error': 'La descripción solo puede contener letras y espacios, sin números ni caracteres especiales.'}), 400
-
-    precio, error_precio = validar_precio(data.get('precio'))
-    if error_precio:
-        # Un único mensaje para cualquier precio inválido (vacío, decimal, texto, <= 0, fuera de rango)
-        return jsonify({'success': False, 'error': MSG_PRECIO, 'campo': 'precio'}), 400
-
-    iva, error_iva = validar_iva(data.get('iva'))
-    if error_iva:
-        return jsonify({'success': False, 'error': error_iva, 'campo': 'iva'}), 400
-
-    try:
-        if dao.existeDuplicado(descripcion):
-            return jsonify({'success': False, 'error': 'Ya existe un tipo de tratamiento con esa descripción.'}), 400
-
-        nuevo_id = dao.guardarTipoTratamiento(descripcion, precio, iva)
-        if nuevo_id:
-            return jsonify({
-                'success': True,
-                'data': {'id_tipo_tratamiento': nuevo_id, 'descripcion': descripcion, 'precio': precio, 'iva': iva},
-                'error': None
-            }), 201
-        else:
-            return jsonify({'success': False, 'error': 'No se pudo guardar el tipo de tratamiento. Consulte con el administrador.'}), 500
-    except Exception as e:
-        app.logger.error(f"Error al agregar tipo de tratamiento: {str(e)}")
-        return jsonify({'success': False, 'error': 'Ocurrió un error interno. Consulte con el administrador.'}), 500
-
-
-# -------------------------
-# Actualiza un tipo de tratamiento
-# -------------------------
-@tipotratamientoapi.route('/tipos-tratamiento/<int:id_tipo_tratamiento>', methods=['PUT'])
-@require_permiso('tipotratamiento', 'editar')
-def updateTipoTratamiento(id_tipo_tratamiento):
-    data = request.get_json()
-    dao = TipoTratamientoDao()
-
-    if not data or 'descripcion' not in data or not data['descripcion'].strip():
-        return jsonify({'success': False, 'error': 'El campo descripción es obligatorio y no puede estar vacío.'}), 400
-
-    descripcion = data['descripcion'].strip().upper()
-
-    if not descripcion_valida(descripcion):
-        return jsonify({'success': False, 'error': 'La descripción solo puede contener letras y espacios, sin números ni caracteres especiales.'}), 400
-
-    precio, error_precio = validar_precio(data.get('precio'))
-    if error_precio:
-        # Un único mensaje para cualquier precio inválido (vacío, decimal, texto, <= 0, fuera de rango)
-        return jsonify({'success': False, 'error': MSG_PRECIO, 'campo': 'precio'}), 400
-
-    iva, error_iva = validar_iva(data.get('iva'))
-    if error_iva:
-        return jsonify({'success': False, 'error': error_iva, 'campo': 'iva'}), 400
-
-    try:
-        if dao.existeDuplicado(descripcion, excluir_id=id_tipo_tratamiento):
-            return jsonify({'success': False, 'error': 'Ya existe otro tipo de tratamiento con esa descripción.'}), 400
-
-        if dao.updateTipoTratamiento(id_tipo_tratamiento, descripcion, precio, iva):
-            return jsonify({
-                'success': True,
-                'data': {'id_tipo_tratamiento': id_tipo_tratamiento, 'descripcion': descripcion, 'precio': precio, 'iva': iva},
-                'error': None
-            }), 200
-        else:
-            return jsonify({'success': False, 'error': 'No se encontró el tipo de tratamiento con el ID proporcionado o no se pudo actualizar.'}), 404
-    except Exception as e:
-        app.logger.error(f"Error al actualizar tipo de tratamiento: {str(e)}")
-        return jsonify({'success': False, 'error': 'Ocurrió un error interno. Consulte con el administrador.'}), 500
-
-
-# -------------------------
-# Elimina (baja lógica) un tipo de tratamiento
-# -------------------------
-@tipotratamientoapi.route('/tipos-tratamiento/<int:id_tipo_tratamiento>', methods=['DELETE'])
-@require_permiso('tipotratamiento', 'anular')
-def deleteTipoTratamiento(id_tipo_tratamiento):
-    dao = TipoTratamientoDao()
-    try:
-        registro = dao.getTipoTratamientoById(id_tipo_tratamiento)
-        resultado = dao.deleteTipoTratamiento(id_tipo_tratamiento)
-        if resultado == "EN_USO":
-            return jsonify({'success': False, 'error': 'No se puede eliminar: este tipo de tratamiento está en uso en uno o más tratamientos registrados.'}), 409
-        if resultado:
-            descripcion = registro['descripcion'] if registro else 'seleccionado'
-            return jsonify({'success': True, 'mensaje': f'Tipo de tratamiento "{descripcion}" eliminado correctamente.', 'error': None}), 200
-        else:
-            return jsonify({'success': False, 'error': 'No se encontró el tipo de tratamiento con el ID proporcionado.'}), 404
-    except Exception as e:
-        app.logger.error(f"Error al eliminar tipo de tratamiento: {str(e)}")
-        return jsonify({'success': False, 'error': 'Ocurrió un error interno. Consulte con el administrador.'}), 500
+# Referencial `tipos_tratamiento`. Descripción en MAYÚSCULAS (la normaliza el servidor) con el modo ampliado: letras con tildes y Ñ,
+# números, espacios y . - / , % ( ) + &. Validación espejo en facturacion-validadores.js.
+tipotratamientoapi = crear_api_catalogo(
+    blueprint='tipotratamientoapi', ventana='tipotratamiento', ruta='/tipos-tratamiento', dao_cls=TipoTratamientoDao, entidad='tipos_tratamiento', nombre='tipo de tratamiento',
+    clave='descripcion', etiqueta_clave='Descripción', clave_frase='esa descripción',
+    validar_clave=lambda d: normalizar_descripcion(d, 100, True),
+    extras=[Campo('precio', 'Precio', _precio), Campo('iva', 'IVA', lambda d: validar_iva(d.get('iva')))],
+)

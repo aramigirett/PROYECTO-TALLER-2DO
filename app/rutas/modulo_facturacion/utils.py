@@ -42,21 +42,40 @@ def _como_texto(valor):
     return re.sub(r'\s+', ' ', valor).strip()
 
 
-def normalizar_descripcion(data, max_len=MAX_DESCRIPCION, ampliada=False):
+def normalizar_descripcion(data, max_len=MAX_DESCRIPCION, ampliada=False, campo='descripcion', etiqueta='descripción',
+                           articulo='La'):
     """
     Devuelve (descripcion, error). Quita espacios sobrantes y pasa a mayúsculas.
-    `ampliada=True` (ej. Ítems) acepta además los símbolos , % ( ) + &
+    `ampliada=True` (Ítems y todos los referenciales de Consultorio) acepta además los símbolos , % ( ) + &
+    `campo`/`etiqueta`/`articulo` permiten usarla con otro campo (ej. Medicamentos: 'nombre_comercial', 'nombre comercial', 'El').
     """
-    descripcion = _como_texto(data.get('descripcion') if isinstance(data, dict) else None).upper()
+    descripcion = _como_texto(data.get(campo) if isinstance(data, dict) else None).upper()
     if not descripcion:
-        return None, 'El campo descripción es obligatorio y no puede estar vacío.'
+        return None, f'El campo {etiqueta} es obligatorio y no puede estar vacío.'
     if len(descripcion) > max_len:
-        return None, f'La descripción no puede superar los {max_len} caracteres.'
+        return None, f'{articulo} {etiqueta} no puede superar los {max_len} caracteres.'
     if not (_RE_DESCRIPCION_AMPLIADA if ampliada else _RE_DESCRIPCION).match(descripcion):
-        return None, ('La descripción solo puede contener letras, números, espacios y los símbolos . - / , % ( ) + &'
+        return None, (f'{articulo} {etiqueta} solo puede contener letras, números, espacios y los símbolos . - / , % ( ) + &'
                       if ampliada else
-                      'La descripción solo puede contener letras, números, espacios y los símbolos . - /')
+                      f'{articulo} {etiqueta} solo puede contener letras, números, espacios y los símbolos . - /')
     return descripcion, None
+
+
+def validar_presentacion(valor, max_len=100):
+    """Presentación opcional (Insumos, Medicamentos): mayúsculas, mismos caracteres que la descripción ampliada.
+    Vacío => (None, None). Devuelve (texto, error)."""
+    if valor is None:
+        return None, None
+    if not isinstance(valor, str):
+        return None, 'La presentación debe ser un texto.'
+    texto = _como_texto(valor).upper()
+    if not texto:
+        return None, None
+    if len(texto) > max_len:
+        return None, f'La presentación no puede superar los {max_len} caracteres.'
+    if not _RE_DESCRIPCION_AMPLIADA.match(texto):
+        return None, 'La presentación solo puede contener letras, números, espacios y los símbolos . - / , % ( ) + &'
+    return texto, None
 
 
 def validar_texto(valor, nombre, max_len, mayusculas=False):
@@ -372,6 +391,8 @@ def estructura_auditoria(entidad, accion, detalle):
         pueda separar parsear_detalle() (y si no puede, None: queda solo el texto).
       - BAJA / REACTIVACION / CIERRE: el estado.
     """
+    if accion == 'BAJA' and isinstance(detalle, DetalleAuditoria) and 'Estado' in (detalle.nuevos or {}):
+        return (detalle.anteriores or None), detalle.nuevos      # la API sabe de qué estado pasa a Anulado (p. ej. Pendiente / Emitido -> Anulado)
     anteriores, nuevos = estado_de_accion(accion, entidad)
     if nuevos is not None:
         return anteriores, nuevos

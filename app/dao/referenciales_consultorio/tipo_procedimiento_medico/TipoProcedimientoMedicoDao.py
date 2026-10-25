@@ -1,190 +1,20 @@
 # Data Access Object - DAO
-from flask import current_app as app
-from app.conexion.Conexion import Conexion
+from app.dao.referenciales_consultorio.CatalogoDao import CatalogoDao, DUPLICADO, NO_EXISTE, YA_ACTIVO  # noqa: F401
 
-class TipoProcedimientoMedicoDao:
+
+class TipoProcedimientoMedicoDao(CatalogoDao):
     """
-    DAO para la referencial 'Tipo Procedimiento Médico' (tabla
-    `tipo_procedimiento_medico`).
-
-    `estaEnUso()` valida contra `consultas_detalle` y contra
-    `sesiones_tratamiento` (Gestionar Procedimientos e Insumos Utilizados).
+    Referencial `tipo_procedimiento_medico` (Estándar de referenciales: borrado lógico, único parcial por descripcion entre los activos,
+    Estado / Reactivar). La baja se bloquea si lo usan: procedimientos de sesiones de tratamiento vigentes (sesion_procedimientos).
     """
+    TABLA = 'tipo_procedimiento_medico'
+    PK = 'id_tipo_procedimiento'
+    CLAVE = 'descripcion'
+    EXTRAS = ()
+    NOMBRE = 'tipo de procedimiento médico'
 
-    def getTiposProcedimientoMedico(self):
-        sql = """
-        SELECT id_tipo_procedimiento, descripcion, fecha_registro
-        FROM tipo_procedimiento_medico
-        WHERE activo = true
-        ORDER BY descripcion
-        """
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-        try:
-            cur.execute(sql)
-            tipos = cur.fetchall()
-            return [
-                {
-                    'id_tipo_procedimiento': t[0],
-                    'descripcion': t[1],
-                    'fecha_registro': str(t[2]) if t[2] else None
-                }
-                for t in tipos
-            ]
-        except Exception as e:
-            app.logger.error(f"Error al obtener tipos de procedimiento médico: {str(e)}")
-            return []
-        finally:
-            cur.close()
-            con.close()
-
-    def getTipoProcedimientoMedicoById(self, id_tipo_procedimiento):
-        sql = """
-        SELECT id_tipo_procedimiento, descripcion, fecha_registro
-        FROM tipo_procedimiento_medico
-        WHERE id_tipo_procedimiento = %s AND activo = true
-        """
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-        try:
-            cur.execute(sql, (id_tipo_procedimiento,))
-            t = cur.fetchone()
-            if t:
-                return {
-                    'id_tipo_procedimiento': t[0],
-                    'descripcion': t[1],
-                    'fecha_registro': str(t[2]) if t[2] else None
-                }
-            return None
-        except Exception as e:
-            app.logger.error(f"Error al obtener tipo de procedimiento médico: {str(e)}")
-            return None
-        finally:
-            cur.close()
-            con.close()
-
-    def existeDuplicado(self, descripcion, excluir_id=None):
-        """
-        Verifica si ya existe (entre los activos) un tipo de procedimiento
-        médico con la misma descripción (ignorando mayúsculas/minúsculas).
-        """
-        sql = "SELECT 1 FROM tipo_procedimiento_medico WHERE activo = true AND UPPER(descripcion) = UPPER(%s)"
-        params = [descripcion]
-
-        if excluir_id:
-            sql += " AND id_tipo_procedimiento != %s"
-            params.append(excluir_id)
-
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-        try:
-            cur.execute(sql, tuple(params))
-            return cur.fetchone() is not None
-        except Exception as e:
-            app.logger.error(f"Error al verificar duplicado de tipo de procedimiento médico: {str(e)}")
-            return False
-        finally:
-            cur.close()
-            con.close()
-
-    def guardarTipoProcedimientoMedico(self, descripcion):
-        sql = """
-        INSERT INTO tipo_procedimiento_medico(descripcion)
-        VALUES(%s) RETURNING id_tipo_procedimiento
-        """
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-        try:
-            cur.execute(sql, (descripcion,))
-            nuevo_id = cur.fetchone()[0]
-            con.commit()
-            return nuevo_id
-        except Exception as e:
-            app.logger.error(f"Error al insertar tipo de procedimiento médico: {str(e)}")
-            con.rollback()
-            return False
-        finally:
-            cur.close()
-            con.close()
-
-    def updateTipoProcedimientoMedico(self, id_tipo_procedimiento, descripcion):
-        sql = """
-        UPDATE tipo_procedimiento_medico
-        SET descripcion = %s
-        WHERE id_tipo_procedimiento = %s
-        """
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-        try:
-            cur.execute(sql, (descripcion, id_tipo_procedimiento))
-            filas_afectadas = cur.rowcount
-            con.commit()
-            return filas_afectadas > 0
-        except Exception as e:
-            app.logger.error(f"Error al actualizar tipo de procedimiento médico: {str(e)}")
-            con.rollback()
-            return False
-        finally:
-            cur.close()
-            con.close()
-
-    def estaEnUso(self, id_tipo_procedimiento):
-        """
-        Indica si el tipo de procedimiento médico está referenciado en algún
-        detalle de consulta o en alguna sesión de tratamiento activa.
-        """
-        sql = """
-            SELECT EXISTS(SELECT 1 FROM consultas_detalle WHERE id_tipo_procedimiento = %s)
-                OR EXISTS(SELECT 1 FROM sesiones_tratamiento WHERE id_tipo_procedimiento = %s AND activo = true)
-        """
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-        try:
-            cur.execute(sql, (id_tipo_procedimiento, id_tipo_procedimiento))
-            return bool(cur.fetchone()[0])
-        except Exception as e:
-            app.logger.error(f"Error al verificar uso de tipo de procedimiento médico: {str(e)}")
-            return True  # Ante la duda, bloquear el borrado
-        finally:
-            cur.close()
-            con.close()
-
-    def deleteTipoProcedimientoMedico(self, id_tipo_procedimiento):
-        """
-        Anula (baja lógica) un tipo de procedimiento médico, validando antes
-        que no esté en uso.
-
-        Returns:
-            bool | str: True si se anuló, False si no existía, "EN_USO" si
-            está en uso en algún detalle de consulta.
-        """
-        if self.estaEnUso(id_tipo_procedimiento):
-            app.logger.warning(f"No se puede eliminar tipo de procedimiento médico {id_tipo_procedimiento}: está en uso")
-            return "EN_USO"
-
-        sql = """
-        UPDATE tipo_procedimiento_medico
-        SET activo = false
-        WHERE id_tipo_procedimiento = %s AND activo = true
-        """
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-        try:
-            cur.execute(sql, (id_tipo_procedimiento,))
-            filas_afectadas = cur.rowcount
-            con.commit()
-            return filas_afectadas > 0
-        except Exception as e:
-            app.logger.error(f"Error al eliminar tipo de procedimiento médico: {str(e)}")
-            con.rollback()
-            return False
-        finally:
-            cur.close()
-            con.close()
+    def _motivo_en_uso(self, cur, id_registro):
+        cur.execute("SELECT 1 FROM sesion_procedimientos WHERE id_tipo_procedimiento = %s AND activo = true LIMIT 1", (id_registro,))
+        if cur.fetchone():
+            return "No se puede dar de baja, el tipo de procedimiento está registrado en sesiones de tratamiento."
+        return False
