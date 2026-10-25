@@ -1382,7 +1382,7 @@ Plan aprobado: `plan_etapa3.md` (sin versionar). **Decisiones de negocio confirm
 - Tests: `smoke_consulta_vistas.py` (acceso por rol y por médico, Tabler sin jQuery, qué tarjetas ve cada rol, baja real por HTTP con el id de la vista) y `browser_consulta.py` (Edge headless con
   fetch simulado: listado, filtros, paginación, Nueva Consulta, atención de la consulta en 4 escenarios —médico programada, médico con ficha, Recepción, finalizada— y Fichas).
 
-### Etapa 6 (en curso): Recetas, Orden de Estudios y Orden de Análisis (con PDF)
+### Etapa 6 (hecha): Recetas, Orden de Estudios y Orden de Análisis (con PDF)
 Plan: `plan_etapa6.md` (sin versionar). **Decisiones confirmadas:** solo el médico de la consulta crea y anula (consulta programada / en proceso revalidada en la transacción; Recepción sin acceso, Administrador solo lectura;
 no se anula con la consulta finalizada); **avanza el estado de una orden solo el médico de la orden, también con la consulta FINALIZADA** (el paciente trae el resultado días después) y no con la cancelada ni anulada;
 vínculos opcionales con un diagnóstico vigente y con un tratamiento no cancelado **de la misma consulta** (así lo dice el CUS); la receta no tiene `estado` (el "estado inicial Pendiente" es de las órdenes); fecha del documento
@@ -1403,6 +1403,18 @@ fijada por el servidor; N.º de documento derivado del id (`RCT-0000012`, `OES-0
 - `validadores_clinicos.py` + `consultorio-validadores.js`: `validar_receta`, `validar_orden_estudio`, `validar_orden_analisis` y sus espejos (298 casos JS ↔ Python en `comparar_ficha_js_py.py`).
 - Tests: `smoke_receta.py`, `smoke_orden_clinica.py` (las dos órdenes con el mismo código, incluido el avance con la consulta finalizada y las carreras) y `smoke_pdf_documentos.py` (contenido de los tres PDF, marca, varias páginas, privacidad y
   la auditoría de cada descarga). `_fixtures.py`: la receta de los fixtures se inserta con su medicamento (trigger diferido) y suma `medicamento()`, `tipo_estudio()` y `tipo_analisis()`.
+
+**Commit 2 (hecho): vistas Tabler**
+- `receta-index.html` (reemplaza las 537 líneas SB Admin 2 + jQuery): **sin `?consulta=`** = listado con filtros (paciente o CI, fechas) y paginación en el servidor, con `Ver` (modal con la tabla de medicamentos, dosis, frecuencia, duración
+  e indicaciones), **`PDF`** (se abre en otra pestaña) y `Anular` (solo con la consulta abierta); **con `?consulta=<id>`** = tarjeta de la consulta, "Volver a la consulta", las recetas de esa consulta y el modal **Nueva receta** (filas de
+  medicamento con su dosis, frecuencia y duración que se agregan y se quitan, indicaciones generales y diagnóstico / tratamiento opcionales; mismas validaciones que el servidor con `consultorio-validadores.js`).
+- **Una sola plantilla para las dos órdenes**: `app/templates/orden-clinica-index.html` (reemplaza las dos de 547 líneas); la ruta de cada una le pasa `cfg` (título, API, clave primaria, columna del tipo, catálogo, ventana, validador).
+  Listado con filtros (paciente, CI o tipo; estado; fechas), `Ver` (+ PDF), **avanzar estado** con confirmación y **cancelar**. La vista ofrece avanzar también con la consulta FINALIZADA y solo lo niega con la cancelada; cancelar solo con la
+  consulta abierta y la orden no completada.
+- Las rutas pasan `es_medico`: solo un usuario vinculado a un médico ve los botones de registrar, avanzar y anular (el Administrador, no).
+- Tests: `smoke_docs_vistas.py` (acceso por rol, Tabler sin jQuery, quién ve cada botón, la plantilla común de las órdenes y el avance / la baja reales por HTTP con los ids de las vistas, incluso con la consulta finalizada) y
+  `browser_documentos.py` (Edge headless, 9 escenarios: receta en listado / consulta / rechazo del servidor / lectura, orden de estudios en listado / consulta / rechazo / lectura y orden de análisis).
+- Pendiente para la etapa 7: el Justificativo pasa al servicio común de PDF y a la misma auditoría de descargas.
 
 ### Etapa 5 (hecha): Tratamientos y Sesiones (Procedimientos e Insumos Utilizados)
 Plan: `plan_etapa5.md` (sin versionar). **Decisiones confirmadas:** cada sesión se registra DENTRO de una consulta; varios procedimientos por sesión; insumos opcionales (0 o más, sin repetir, cantidad 1–999);

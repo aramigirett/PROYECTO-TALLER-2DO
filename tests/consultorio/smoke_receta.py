@@ -74,7 +74,7 @@ try:
         cu.execute("WITH dx AS (INSERT INTO diagnosticos(codigo, id_consulta_cab, id_paciente, id_medico, id_tipo_diagnostico, descripcion_diagnostico, fecha_diagnostico, activo) "
                    "SELECT %s, %s, id_paciente, id_medico, %s, 'ZZ', CURRENT_DATE, %s FROM consultas_cab WHERE id_consulta_cab = %s RETURNING id_diagnostico), "
                    "sx AS (INSERT INTO diagnostico_sintoma(id_diagnostico, id_sintoma) SELECT id_diagnostico, %s FROM dx) SELECT id_diagnostico FROM dx",
-                   (f'ZQ{int(time.time() * 1000) % 10**8}', consulta, tipo_dx, activo, consulta, sintoma))
+                   (f'ZQ{fx._sufijo()[-8:]}', consulta, tipo_dx, activo, consulta, sintoma))
         i = cu.fetchone()[0]; cx.commit(); return i
 
     def tratamiento(consulta, estado='pendiente'):
