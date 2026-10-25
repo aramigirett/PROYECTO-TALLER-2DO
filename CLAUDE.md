@@ -1326,7 +1326,7 @@ Plan completo en `plan_consultorio.md` (sin versionar). Etapas 0 a 7, un commit 
   `schema_consultorio_base.sql` depende de esas tablas.
 - El DAO de Odontograma vive en `app/dao/referenciales_agendamiento/odontograma/` (ubicación equivocada; se mueve en la etapa 4).
 
-### Etapa 3 (en curso): Registrar Consulta + Ficha Médica — commit 1 hecho (base + backend de Consulta)
+### Etapa 3 (hecha): Registrar Consulta + Ficha Médica
 Plan aprobado: `plan_etapa3.md` (sin versionar). **Decisiones de negocio confirmadas:**
 - **Estados de la consulta:** `programada → en_proceso → finalizada` y `programada | en_proceso → cancelada`; `finalizada` y `cancelada` son finales. **Inicia y finaliza el
   médico de la consulta; cancela Recepción** (funcionario) **o el médico de la consulta**. `cancelada` ≠ `anulada`: cancelada = la atención no se realizó y queda en el
@@ -1367,7 +1367,20 @@ Plan aprobado: `plan_etapa3.md` (sin versionar). **Decisiones de negocio confirm
 - **Auditoría** (`ficha_medica_consulta`): ALTA (consulta y paciente), MODIFICACION **sin valores** (ni anteriores ni nuevos; "sin cambios" no audita) y BAJA (Activo → Anulado).
 - Tests: `smoke_ficha_medica.py` (115 chequeos: esquema, permisos por rol, 31 valores inválidos, IMC, una por consulta, estados de la consulta, auditoría sin valores, listado sin
   valores clínicos, dos altas simultáneas y la consulta que se cancela mientras se guarda) y `comparar_ficha_js_py.py`. `smoke_migracion02` ahora borra la auditoría que genera.
-- ⚠️ Hasta el commit 3 siguen siendo los viejos `consulta-index.html` (modal de ficha) y `ficha-medica-index.html`, que usan `/fichas-todas` y el `PUT` de consultas: no funcionan.
+**Commit 3 (hecho): vistas Tabler**
+- `consulta-index.html` (se reemplazaron las 2.142 líneas por ~330; se fueron el CSS "médico" de 700 líneas, jQuery, DataTables, Bootstrap 4 por CDN y el modal de funcionario):
+  4 indicadores del servidor, filtros (estado, paciente o CI, fechas) y paginación en el servidor, badges de estado, `Abrir` y `Anular`, y el modal **Nueva Consulta** (elegir una cita
+  `Confirmado` pendiente con buscador, duración opcional; no se elige médico, paciente ni funcionario).
+- **Pantalla central** `consulta-detalle.html` en `/referenciales/consulta/consulta-detalle/<id>` (contextual, sin entrada de menú; permiso `consulta ver`; 404 si no existe o está
+  anulada; 403 si es de otro médico): cabecera en tarjeta, acciones de estado según lo que devuelve `GET /consultas/<id>/resumen` (`acciones`: iniciar, finalizar, cancelar,
+  cargar_clinico), la **tarjeta de la Ficha Médica** (formulario con IMC en vivo y las mismas validaciones del servidor; vista, editar y anular) y la grilla de los 7 registros clínicos
+  con su contador de vigentes (se ofrecen según el `ver` de cada ventana destino; "Abrir" si puede cargar, "Ver" si no). Los destinos siguen en SB Admin 2 y se abren con `?consulta=<id>`
+  (Diagnósticos también con `&paciente=&medico=`). **Pendiente de las etapas 4 a 7:** que cada destino lea `?consulta=` con la validación nueva y agregue "Volver a la consulta".
+- `ficha-medica-index.html`: listado/auditoría transversal de fichas (consulta, paciente con CI, médico, estado de la consulta, cuántos datos tiene) **sin valores clínicos**; la ficha se
+  abre, edita o anula desde la consulta.
+- Las vistas declaran `const PK = 'id_consulta_cab'` / `PK_FICHA = 'id_ficha_medica'` (lección de la etapa 1: el JSON de Flask viene con las claves ordenadas).
+- Tests: `smoke_consulta_vistas.py` (acceso por rol y por médico, Tabler sin jQuery, qué tarjetas ve cada rol, baja real por HTTP con el id de la vista) y `browser_consulta.py` (Edge headless con
+  fetch simulado: listado, filtros, paginación, Nueva Consulta, atención de la consulta en 4 escenarios —médico programada, médico con ficha, Recepción, finalizada— y Fichas).
 
 ### Etapa 2 (hecha): Tipo Diagnóstico y Síntomas
 - Mismo `CatalogoDao` y `crear_api_catalogo` que la etapa 1 (ahora con `FECHA = False`: estas dos tablas no tienen `fecha_registro`). **Tipo Diagnóstico** lleva
