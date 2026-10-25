@@ -1,4 +1,4 @@
-"""Generar Recetas, Orden de Estudios y Orden de Análisis en un navegador real (Edge headless) con fetch simulado.
+"""Generar Recetas, Orden de Estudios, Orden de Análisis y Justificativo Médico en un navegador real (Edge headless) con fetch simulado.
 Cada vista se renderiza con Flask (sesión de Administrador: todos los permisos del catálogo) pasando `es_medico` (y `cfg` en las órdenes) como lo harían las rutas,
 se reescribe /static a file:// y se corre un script que usa el DOM, Bootstrap 5 y SweetAlert2 reales. El JSON simulado trae las claves ORDENADAS como Flask y las URL
 pedidas no pueden llevar ids no numéricos.
@@ -41,6 +41,12 @@ def receta(i, estado_consulta='en_proceso', id_consulta=18, activo=True):
                      'nombre_medico': 'OSCAR GONZALES', 'numero': 'RCT-%07d' % i, 'medicamentos': meds})
 
 
+def justificativo(i, estado, estado_consulta='en_proceso', id_consulta=18):
+    return ordenado({'id_justificativo': i, 'id_consulta_cab': id_consulta, 'numero_consulta': 'CON-%07d' % id_consulta, 'estado_consulta': estado_consulta, 'id_diagnostico': 7, 'codigo_diagnostico': 'DX-0007',
+                     'dias_reposo': 3, 'recomendaciones': 'Reposo relativo', 'fecha_justificativo': '2026-10-26', 'estado': estado, 'fecha_registro': '2026-10-26T09:30:00', 'id_paciente': 7,
+                     'nombre_paciente': 'JAVIER ACOSTA', 'cedula_paciente': '5098745', 'id_medico': 20, 'nombre_medico': 'OSCAR GONZALES', 'numero': 'JUS-%07d' % i})
+
+
 def orden(pk, tipo_col, i, estado, estado_consulta='en_proceso', id_consulta=18, prefijo='OES'):
     return ordenado({pk: i, 'id_consulta_cab': id_consulta, 'numero_consulta': 'CON-%07d' % id_consulta, 'estado_consulta': estado_consulta, 'id_diagnostico': 7, 'codigo_diagnostico': 'DX-0007',
                      'id_tratamiento': None, 'tipo_tratamiento': None, tipo_col: 3, 'tipo': 'RADIOGRAFÍA PANORÁMICA', 'motivo_orden': 'Control previo a la extracción',
@@ -66,6 +72,9 @@ DIAGNOSTICOS = [ordenado({'id_diagnostico': 7, 'codigo': 'DX-0007', 'tipo_diagno
 TRATAMIENTOS = [ordenado({'id_tratamiento': 9, 'tipo_tratamiento': 'ENDODONCIA', 'estado': 'en_seguimiento'})]
 RECHAZO_TIPO = {'campo': 'id_tipo_estudio', 'error': 'El tipo de estudio seleccionado está inactivo.'}
 
+JUS_GLOBAL = [justificativo(61, 'pendiente'), justificativo(62, 'emitido', 'finalizada', 15), justificativo(63, 'pendiente', 'finalizada', 16), justificativo(64, 'pendiente', 'cancelada', 17),
+              justificativo(65, 'emitido'), justificativo(66, 'anulado')]
+
 ESCENARIOS = {
     're_listado': dict(plantilla='receta-index.html', es_medico=True, url='', lista=RECETAS_GLOBAL, total=31, detalle=receta(31)),
     're_consulta': dict(plantilla='receta-index.html', es_medico=True, url='?consulta=18', resumen=resumen('en_proceso', True), lista=[receta(31), receta(33)], detalle=receta(31)),
@@ -79,6 +88,12 @@ ESCENARIOS = {
                                 detalle=OE(41, 'pendiente'), rechazo=RECHAZO_TIPO),
     'oe_lectura': dict(plantilla='orden-clinica-index.html', cfg='estudios', es_medico=False, url='?consulta=18', resumen=resumen('finalizada', False), lista=ORDENES_GLOBAL,
                        detalle=OE(41, 'pendiente')),
+    'ju_listado': dict(plantilla='justificativo-medico-index.html', es_medico=True, url='', lista=JUS_GLOBAL, total=31, detalle=justificativo(61, 'pendiente')),
+    'ju_consulta': dict(plantilla='justificativo-medico-index.html', es_medico=True, url='?consulta=18', resumen=resumen('en_proceso', True), lista=[justificativo(61, 'pendiente'), justificativo(65, 'emitido')],
+                        detalle=justificativo(61, 'pendiente')),
+    'ju_consulta_rechazo': dict(plantilla='justificativo-medico-index.html', es_medico=True, url='?consulta=18', resumen=resumen('en_proceso', True), lista=[justificativo(61, 'pendiente')],
+                                detalle=justificativo(61, 'pendiente'), rechazo={'campo': 'id_diagnostico', 'error': 'El diagnóstico seleccionado no existe, está anulado o no pertenece a esta consulta.'}),
+    'ju_lectura': dict(plantilla='justificativo-medico-index.html', es_medico=False, url='?consulta=18', resumen=resumen('finalizada', False), lista=JUS_GLOBAL, detalle=justificativo(61, 'pendiente')),
     'oa_listado': dict(plantilla='orden-clinica-index.html', cfg='analisis', es_medico=True, url='?consulta=18', resumen=resumen('en_proceso', True),
                        lista=[OA(51, 'pendiente'), OA(52, 'enviado', 'en_proceso')], detalle=OA(51, 'pendiente')),
 }
@@ -98,8 +113,8 @@ window.fetch = function (url, opts) {
   var path = url.split('?')[0];
   if (metodo === 'GET') {
     if (/\/api\/v1\/consultas\/\d+\/resumen$/.test(path)) cuerpo.data = E.resumen;
-    else if (/\/api\/v1\/(recetas|orden-estudios|orden-analisis)\/\d+$/.test(path)) cuerpo.data = E.detalle;
-    else if (/\/api\/v1\/(recetas|orden-estudios|orden-analisis)$/.test(path)) { cuerpo.data = E.lista; cuerpo.total = E.total || E.lista.length; }
+    else if (/\/api\/v1\/(recetas|orden-estudios|orden-analisis|justificativos)\/\d+$/.test(path)) cuerpo.data = E.detalle;
+    else if (/\/api\/v1\/(recetas|orden-estudios|orden-analisis|justificativos)$/.test(path)) { cuerpo.data = E.lista; cuerpo.total = E.total || E.lista.length; }
     else if (/\/api\/v1\/medicamentos$/.test(path)) cuerpo.data = %(meds)s;
     else if (/\/api\/v1\/tipos-estudio$/.test(path)) cuerpo.data = %(te)s;
     else if (/\/api\/v1\/tipos-analisis$/.test(path)) cuerpo.data = %(ta)s;
@@ -299,6 +314,82 @@ PRUEBAS['oe_lectura'] = r"""
   r.aviso_de_consulta_cerrada = /Finalizada/.test(txt('cBadge')) && /solo lectura|no admite/.test(txt('cAviso'));
   r.sin_avanzar_ni_cancelar_pero_con_ver_y_pdf = !document.querySelector('[data-accion="avanzar"]') && !document.querySelector('[data-accion="anular"]') && !!document.querySelector('[data-accion="ver"]')
     && !!document.querySelector('a[href$="/pdf"]');
+"""
+
+PRUEBAS['ju_listado'] = r"""
+  r.sin_errores_al_cargar = window.__errores.length === 0;
+  var f = filas();
+  r.seis_filas = f.length === 6;
+  r.fila_con_numero_paciente_dias_y_estado = /JUS-0000061/.test(f[0].textContent) && /JAVIER ACOSTA/.test(f[0].textContent) && /CI 5098745/.test(f[0].textContent) && /Pendiente/.test(f[0].textContent)
+    && f[0].querySelectorAll('td')[5].textContent.trim() === '3';
+  r.pdf_con_el_id_numerico = f[0].querySelector('a[href$="/pdf"]').getAttribute('href') === '/api/v1/justificativos/61/pdf' && f[0].querySelector('a[href$="/pdf"]').getAttribute('target') === '_blank';
+  // 0 pendiente/abierta · 1 emitido/finalizada · 2 pendiente/finalizada · 3 pendiente/cancelada · 4 emitido/abierta · 5 anulado
+  r.generar_solo_los_pendientes_y_tambien_con_la_consulta_finalizada = !!f[0].querySelector('[data-accion="generar"]') && !f[1].querySelector('[data-accion="generar"]') && !!f[2].querySelector('[data-accion="generar"]')
+    && !f[3].querySelector('[data-accion="generar"]') && !f[4].querySelector('[data-accion="generar"]') && !f[5].querySelector('[data-accion="generar"]');
+  r.anular_pendientes_y_emitidos_solo_con_la_consulta_abierta = !!f[0].querySelector('[data-accion="anular"]') && !f[1].querySelector('[data-accion="anular"]') && !f[2].querySelector('[data-accion="anular"]')
+    && !f[3].querySelector('[data-accion="anular"]') && !!f[4].querySelector('[data-accion="anular"]') && !f[5].querySelector('[data-accion="anular"]');
+  r.sin_boton_nuevo_fuera_de_la_consulta = !visible('btnNuevo');
+  escribir('filtroEstado', 'emitido'); await esperar(500);
+  r.filtro_estado_va_al_servidor = llamadas('GET', /estado=emitido/).length === 1;
+  $('btnLimpiar').click(); await esperar(400);
+  f = filas();
+  f[0].querySelector('[data-accion="ver"]').click(); await esperar(600);
+  r.ver_con_dias_recomendaciones_estado_y_pdf = $('modalVer').classList.contains('show') && /JUS-0000061/.test(txt('verTitulo')) && /Reposo relativo/.test(txt('verCuerpo')) && /Pendiente/.test(txt('verCuerpo'))
+    && /borrador/.test(txt('verCuerpo')) && $('verPdf').getAttribute('href') === '/api/v1/justificativos/61/pdf';
+  $('modalVer').querySelector('[data-bs-dismiss="modal"]').click(); await esperar(600);
+  f = filas();
+  f[0].querySelector('[data-accion="generar"]').click(); await esperar(400);
+  r.generar_pide_confirmacion_y_avisa_del_cambio = !!document.querySelector('.swal2-popup') && /Generar el justificativo/.test(document.querySelector('.swal2-popup').textContent) && /Emitido/.test(document.querySelector('.swal2-popup').textContent)
+    && llamadas('PUT', /./).length === 0;
+  document.querySelector('.swal2-confirm').click(); await esperar(700);
+  r.generar_hace_put_a_emitir_con_el_id_numerico_sin_cuerpo = llamadas('PUT', /\/api\/v1\/justificativos\/61\/emitir$/).length === 1 && llamadas('PUT', /./)[0].body === null;
+  await cerrarSwal();
+  f = filas();
+  f[4].querySelector('[data-accion="anular"]').click(); await esperar(400);
+  r.anular_avisa_que_es_definitivo = !!document.querySelector('.swal2-popup') && /Anular este justificativo/.test(document.querySelector('.swal2-popup').textContent) && /definitivo/.test(document.querySelector('.swal2-popup').textContent);
+  document.querySelector('.swal2-confirm').click(); await esperar(700);
+  r.anular_hace_delete_al_id_numerico = llamadas('DELETE', /\/api\/v1\/justificativos\/65$/).length === 1;
+  await cerrarSwal();
+"""
+
+_ALTA_JU = r"""
+  r.sin_errores_al_cargar = window.__errores.length === 0;
+  r.tarjeta_y_volver_a_la_consulta = visible('tarjetaConsulta') && txt('cNumero') === 'CON-0000018' && $('btnVolverConsulta').getAttribute('href') === '/referenciales/consulta/consulta-detalle/18';
+  r.filas_sin_columnas_de_paciente = filas().length >= 1 && filas()[0].querySelectorAll('td').length === 5;
+  r.boton_nuevo_visible = visible('btnNuevo');
+  $('btnNuevo').click(); await esperar(900);
+  r.modal_abre_con_los_diagnosticos = $('modalNuevo').classList.contains('show') && $('selDiagnostico').options.length === 2;
+  await submit('formJus');
+  r.vacio_no_envia_y_marca_los_dias = llamadas('POST', /./).length === 0 && $('txtDias').classList.contains('is-invalid') && /obligatorios/.test(fb('txtDias'));
+  escribir('txtDias', '366'); await submit('formJus');
+  r.mas_de_365_se_rechaza_en_el_formulario = $('txtDias').classList.contains('is-invalid') && /1 a 365/.test(fb('txtDias')) && llamadas('POST', /./).length === 0;
+  escribir('txtDias', '0'); await submit('formJus');
+  r.cero_se_rechaza_en_el_formulario = $('txtDias').classList.contains('is-invalid') && llamadas('POST', /./).length === 0;
+  escribir('txtDias', '3'); escribir('txtRecomendaciones', 'Reposo relativo'); escribir('selDiagnostico', '7');
+"""
+
+PRUEBAS['ju_consulta'] = _ALTA_JU + r"""
+  await submit('formJus');
+  var post = llamadas('POST', /\/api\/v1\/justificativos$/);
+  var b = post.length ? JSON.parse(post[0].body) : {};
+  r.un_post_con_consulta_dias_recomendaciones_y_diagnostico = post.length === 1 && b.id_consulta_cab === 18 && b.dias_reposo === '3' && b.recomendaciones === 'Reposo relativo' && b.id_diagnostico === '7';
+  r.post_no_manda_estado_fecha_ni_paciente = !('estado' in b) && !('fecha_justificativo' in b) && !('id_paciente' in b);
+  r.exito = !!document.querySelector('.swal2-popup') && /registrado/.test(document.querySelector('.swal2-popup').textContent);
+  await cerrarSwal();
+  r.cierra_el_modal_y_recarga = !$('modalNuevo').classList.contains('show') && llamadas('GET', /\/api\/v1\/justificativos\?.*consulta=18/).length >= 2;
+"""
+
+PRUEBAS['ju_consulta_rechazo'] = _ALTA_JU + r"""
+  await submit('formJus');
+  r.el_servidor_rechaza_y_el_error_va_al_campo = $('selDiagnostico').classList.contains('is-invalid') && /no pertenece/.test(fb('selDiagnostico'));
+  r.el_modal_sigue_abierto_y_el_boton_se_rehabilita = $('modalNuevo').classList.contains('show') && !$('btnGuardar').disabled;
+  r.no_se_mostro_exito = !document.querySelector('.swal2-popup');
+"""
+
+PRUEBAS['ju_lectura'] = r"""
+  r.sin_errores_al_cargar = window.__errores.length === 0;
+  r.sin_boton_nuevo_ni_formulario = !$('btnNuevo') && !$('formJus');
+  r.sin_generar_ni_anular_pero_con_ver_y_pdf = !document.querySelector('[data-accion="generar"]') && !document.querySelector('[data-accion="anular"]') && !!document.querySelector('[data-accion="ver"]') && !!document.querySelector('a[href$="/pdf"]');
 """
 
 PRUEBAS['oa_listado'] = r"""

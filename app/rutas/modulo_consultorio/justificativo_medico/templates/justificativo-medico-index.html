@@ -1,455 +1,350 @@
-{% extends 'base.html' %}
+{% extends 'base_tabler.html' %}
 
-{% block titulo %}
-Generar Justificativo Médico
+{% block titulo %}Generar Justificativo Médico{% endblock %}
+
+{% block css %}
+<link href="{{ url_for('static', filename='css/facturacion.css') }}" rel="stylesheet">
 {% endblock %}
 
 {% block contenido %}
-<div class="container-fluid mt-4">
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <h3>Generar Justificativo Médico</h3>
-    {% if puede('justificativomedico','nuevo') %}<button type="button" class="btn btn-primary" id="btnAgregar">
-      <i class="fas fa-plus-circle"></i> Nuevo Justificativo
-    </button>{% endif %}
-  </div>
-
-  <div class="card shadow-sm">
-    <div class="card-body">
-      <div class="table-responsive">
-        <table class="table table-hover table-striped" id="tbl">
-          <thead class="table-light">
-            <tr>
-              <th>Paciente</th>
-              <th>Médico</th>
-              <th>Días de Reposo</th>
-              <th>Fecha</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
+<div class="page-header d-print-none mb-3">
+  <div class="row align-items-center">
+    <div class="col">
+      <div class="page-pretitle text-muted">Consultorio &bull; Atención</div>
+      <h2 class="page-title fw-bold">Generar Justificativo Médico</h2>
+    </div>
+    <div class="col-auto d-flex gap-2">
+      <a href="#" class="btn btn-outline-secondary btn-sm" id="btnVolverConsulta" style="display: none;"><i class="fas fa-arrow-left me-1"></i> Volver a la consulta</a>
+      {% if es_medico and puede('justificativomedico', 'nuevo') %}
+      <button type="button" class="btn btn-primary px-3 rounded-pill" id="btnNuevo" style="display: none;"><i class="fas fa-plus me-2"></i>Nuevo justificativo</button>
+      {% endif %}
     </div>
   </div>
-
-  <!-- Modal Nuevo Justificativo -->
-  <div class="modal fade" id="modalFormulario" tabindex="-1" role="dialog">
-    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
-      <div class="modal-content">
-        <div class="modal-header bg-primary text-white">
-          <h5 class="modal-title">Nuevo Justificativo Médico</h5>
-          <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
-        </div>
-        <div class="modal-body">
-
-          <!-- Consulta -->
-          <div class="form-group">
-            <label class="font-weight-bold">Consulta Activa *</label>
-            <div class="input-group">
-              <input type="hidden" id="id_consulta_cab">
-              <input type="text" class="form-control" id="txtConsulta" readonly
-                     placeholder="Click para seleccionar una consulta activa">
-              <div class="input-group-append">
-                <button class="btn btn-outline-primary" type="button" id="btnBuscarConsulta">
-                  <i class="fas fa-search"></i>
-                </button>
-              </div>
-            </div>
-            <small class="text-muted">Solo se listan consultas activas en estado Programada o En Proceso.</small>
-          </div>
-
-          <div class="row">
-            <div class="col-md-6 mb-3">
-              <label class="font-weight-bold">Paciente</label>
-              <input type="text" class="form-control" id="txtPaciente" readonly>
-            </div>
-            <div class="col-md-6 mb-3">
-              <label class="font-weight-bold">Médico</label>
-              <input type="text" class="form-control" id="txtMedico" readonly>
-            </div>
-          </div>
-
-          <hr>
-
-          <div class="row">
-            <div class="col-md-12 mb-3">
-              <label class="font-weight-bold">Diagnóstico (opcional)</label>
-              <select class="form-control" id="id_diagnostico">
-                <option value="">Sin diagnóstico</option>
-              </select>
-            </div>
-            <div class="col-md-6 mb-3">
-              <label class="font-weight-bold">Días de Reposo *</label>
-              <input type="number" class="form-control" id="dias_reposo" min="1" step="1">
-            </div>
-            <div class="col-md-6 mb-3">
-              <label class="font-weight-bold">Fecha *</label>
-              <input type="date" class="form-control" id="fecha_justificativo">
-            </div>
-            <div class="col-md-12 mb-3">
-              <label class="font-weight-bold">Recomendaciones</label>
-              <textarea class="form-control" id="recomendaciones" rows="3"
-                        placeholder="Recomendaciones adicionales (opcional)..."></textarea>
-            </div>
-          </div>
-
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-primary" id="btnGuardar">Guardar</button>
-          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Modal Buscar Consulta -->
-  <div class="modal fade" id="modalBuscarConsulta" tabindex="-1" role="dialog">
-    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
-      <div class="modal-content">
-        <div class="modal-header bg-primary text-white">
-          <h5 class="modal-title">Seleccionar Consulta Activa</h5>
-          <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
-        </div>
-        <div class="modal-body">
-          <div class="table-responsive">
-            <table class="table table-hover" id="tblConsultas">
-              <thead>
-                <tr>
-                  <th>Fecha</th>
-                  <th>Hora</th>
-                  <th>Paciente</th>
-                  <th>Médico</th>
-                  <th>Estado</th>
-                  <th>Acciones</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Modal Ver Justificativo -->
-  <div class="modal fade" id="modalVerJustificativo" tabindex="-1" role="dialog">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable" role="document">
-      <div class="modal-content">
-        <div class="modal-header bg-primary text-white">
-          <h5 class="modal-title"><i class="fas fa-file-medical"></i> Justificativo Médico Completo</h5>
-          <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
-        </div>
-        <div class="modal-body">
-          <div class="row mb-3">
-            <div class="col-md-6">
-              <strong><i class="fas fa-user text-primary mr-1"></i> Paciente:</strong>
-              <p id="verPaciente" class="text-muted">-</p>
-            </div>
-            <div class="col-md-6">
-              <strong><i class="fas fa-user-md text-success mr-1"></i> Médico:</strong>
-              <p id="verMedico" class="text-muted">-</p>
-            </div>
-          </div>
-          <div class="row mb-3">
-            <div class="col-md-6">
-              <strong><i class="fas fa-bed text-warning mr-1"></i> Días de Reposo:</strong>
-              <p id="verDiasReposo" class="text-muted">-</p>
-            </div>
-            <div class="col-md-6">
-              <strong><i class="fas fa-calendar text-info mr-1"></i> Fecha:</strong>
-              <p id="verFecha" class="text-muted">-</p>
-            </div>
-          </div>
-          <div class="row mb-3">
-            <div class="col-md-6">
-              <strong><i class="fas fa-flag text-secondary mr-1"></i> Estado:</strong>
-              <p id="verEstado" class="text-muted">-</p>
-            </div>
-          </div>
-          <hr>
-          <strong>Recomendaciones:</strong>
-          <p id="verRecomendaciones" class="text-muted">-</p>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
 </div>
 
-<!-- Librerías -->
-<link rel="stylesheet" href="https://cdn.datatables.net/1.10.21/css/dataTables.bootstrap4.min.css">
-<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<div class="alert alert-danger" id="errorGeneral" style="display: none;"></div>
 
+<div class="card border shadow-sm rounded-3 mb-3" id="tarjetaConsulta" style="display: none;">
+  <div class="card-body py-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
+    <div>
+      <div class="text-muted small text-uppercase fw-semibold">Consulta</div>
+      <div class="fw-bold" id="cNumero"></div>
+      <div class="text-muted small" id="cDetalle"></div>
+    </div>
+    <div class="d-flex align-items-center gap-3">
+      <span id="cBadge"></span>
+      <div class="small text-muted text-end" id="cAviso"></div>
+    </div>
+  </div>
+</div>
+
+<div class="card border shadow-sm rounded-3">
+  <div class="card-header bg-white py-3 border-bottom">
+    <div class="row g-2 align-items-end w-100">
+      <div class="col-12 col-md-4">
+        <label class="form-label small fw-semibold text-muted mb-1" for="filtroQ">Paciente o CI</label>
+        <input type="text" class="form-control form-control-sm" id="filtroQ" maxlength="80" placeholder="Buscar por nombre o CI…" autocomplete="off">
+      </div>
+      <div class="col-12 col-md-2">
+        <label class="form-label small fw-semibold text-muted mb-1" for="filtroEstado">Estado</label>
+        <select class="form-select form-select-sm" id="filtroEstado">
+          <option value="">Todos (sin anulados)</option><option value="pendiente">Pendiente</option><option value="emitido">Emitido</option><option value="anulado">Anulado</option>
+        </select>
+      </div>
+      <div class="col-6 col-md-2"><label class="form-label small fw-semibold text-muted mb-1" for="filtroDesde">Desde</label><input type="date" class="form-control form-control-sm" id="filtroDesde"></div>
+      <div class="col-6 col-md-2"><label class="form-label small fw-semibold text-muted mb-1" for="filtroHasta">Hasta</label><input type="date" class="form-control form-control-sm" id="filtroHasta"></div>
+      <div class="col-12 col-md-2"><button type="button" class="btn btn-sm btn-outline-secondary w-100" id="btnLimpiar"><i class="fas fa-eraser me-1"></i> Limpiar</button></div>
+    </div>
+    <div class="text-danger small mt-2 w-100" id="errFiltros" style="display: none;"></div>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-vcenter table-hover card-table mb-0">
+      <thead class="bg-light text-muted small text-uppercase">
+        <tr><th class="ps-3 py-3">N.º</th><th class="py-3">Fecha</th><th class="py-3 col-global">Paciente</th><th class="py-3 col-global">Médico</th><th class="py-3 col-global">Consulta</th>
+            <th class="py-3 text-center">Días de reposo</th><th class="py-3 text-center">Estado</th><th class="pe-3 py-3 text-end w-1">Acciones</th></tr>
+      </thead>
+      <tbody id="tbody"><tr><td colspan="8" class="text-center text-muted py-4"><div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>Cargando justificativos…</td></tr></tbody>
+    </table>
+  </div>
+  <div class="card-footer bg-white d-flex align-items-center justify-content-between py-2">
+    <div class="text-muted small" id="infoPagina"></div>
+    <div class="btn-group btn-group-sm">
+      <button type="button" class="btn btn-outline-secondary" id="btnAnterior"><i class="fas fa-chevron-left"></i></button>
+      <button type="button" class="btn btn-outline-secondary" id="btnSiguiente"><i class="fas fa-chevron-right"></i></button>
+    </div>
+  </div>
+</div>
+
+{# ── Modal: ver ── #}
+<div class="modal modal-blur fade" id="modalVer" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title" id="verTitulo">Justificativo</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+      <div class="modal-body" id="verCuerpo"></div>
+      <div class="modal-footer"><a href="#" target="_blank" rel="noopener" class="btn btn-outline-primary" id="verPdf"><i class="fas fa-file-pdf me-1"></i> Descargar PDF</a>
+        <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cerrar</button></div>
+    </div>
+  </div>
+</div>
+
+{% if es_medico and puede('justificativomedico', 'nuevo') %}
+{# ── Modal: nuevo justificativo ── #}
+<div class="modal modal-blur fade" id="modalNuevo" tabindex="-1" aria-labelledby="modalNuevoTitulo" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title" id="modalNuevoTitulo">Nuevo justificativo</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+      <form id="formJus" novalidate>
+        <div class="modal-body">
+          <p class="text-muted small">El paciente y el médico se toman de la consulta y la fecha la fija el sistema (hoy). Se registra <strong>pendiente</strong> (el PDF sale como borrador); con <em>Generar</em> pasa a <strong>emitido</strong> y queda como documento oficial. No se modifica: se emite o se anula.</p>
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label required" for="txtDias">Días de reposo</label>
+              <input type="number" class="form-control" id="txtDias" min="1" max="365" step="1" inputmode="numeric">
+              <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-md-8">
+              <label class="form-label" for="selDiagnostico">Diagnóstico <span class="text-muted fw-normal">— opcional (de esta consulta)</span></label>
+              <select class="form-select" id="selDiagnostico"><option value="">Sin diagnóstico vinculado</option></select>
+              <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-12">
+              <label class="form-label" for="txtRecomendaciones">Recomendaciones <span class="text-muted fw-normal">— opcional</span></label>
+              <textarea class="form-control" id="txtRecomendaciones" rows="3" maxlength="2000"></textarea>
+              <div class="invalid-feedback"></div>
+            </div>
+          </div>
+          <div class="alert alert-danger mt-3 mb-0" id="errJus" style="display: none;"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btnGuardar">Registrar justificativo</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
 {% endblock %}
 
-
 {% block js %}
+<script src="{{ url_for('static', filename='js/facturacion-listado.js') }}"></script>
+<script src="{{ url_for('static', filename='js/consultorio-validadores.js') }}"></script>
 <script>
+(function () {
+  const API = '/api/v1/justificativos';
+  const PK = 'id_justificativo';   // el JSON viene con las claves ordenadas alfabéticamente: nunca se toma la "primera"
+  const URL_CONSULTA = '/referenciales/consulta/consulta-detalle/';
+  const L = window.FacturacionListado;
+  const CV = window.ConsultorioValidadores;
+  const { escapar, pedir } = L;
+  const PUEDE_NUEVO = {{ 'true' if (es_medico and puede('justificativomedico', 'nuevo')) else 'false' }};
+  const PUEDE_ANULAR = {{ 'true' if (es_medico and puede('justificativomedico', 'anular')) else 'false' }};
+  const PUEDE_GENERAR = {{ 'true' if (es_medico and puede('justificativomedico', 'estado')) else 'false' }};
+  const parametro = new URLSearchParams(window.location.search).get('consulta');
+  const ID_CONSULTA = /^\d+$/.test(parametro || '') ? parametro : null;
+  const POR_PAGINA = 15;
+  const ABIERTAS = ['programada', 'en_proceso'];
+  const ETIQUETA = { pendiente: 'Pendiente', emitido: 'Emitido', anulado: 'Anulado' };
 
-const urlParams = new URLSearchParams(window.location.search);
-const idConsultaParam = urlParams.get('consulta');
+  const $ = (id) => document.getElementById(id);
+  const fecha = (s) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s || ''); return m ? `${m[3]}/${m[2]}/${m[1]}` : '—'; };
+  const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+  let estadoConsulta = null;
 
-function formatDateForDisplay(fecha) {
-  if (!fecha) return '';
-  const d = new Date(fecha);
-  if (isNaN(d)) return '';
-  const day = String(d.getUTCDate()).padStart(2, '0');
-  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
-  const year = d.getUTCFullYear();
-  return `${day}/${month}/${year}`;
-}
+  const badge = (e) => {
+    const m = {
+      programada: ['fc-badge-pendiente', 'yellow', 'Programada'], en_proceso: ['fc-badge-neutral', 'blue', 'En proceso'],
+      finalizada: ['fc-badge-facturado', 'green', 'Finalizada'], cancelada: ['fc-badge-neutral', 'gray', 'Cancelada']
+    }[e] || ['fc-badge-neutral', 'gray', e];
+    return `<span class="fc-badge ${m[0]}"><span class="fc-status-dot fc-status-dot-${m[1]}"></span>${escapar(m[2])}</span>`;
+  };
+  const badgeJus = (e) => {
+    const m = { pendiente: ['fc-badge-pendiente', 'yellow'], emitido: ['fc-badge-facturado', 'green'], anulado: ['fc-badge-neutral', 'gray'] }[e] || ['fc-badge-neutral', 'gray'];
+    return `<span class="fc-badge ${m[0]}"><span class="fc-status-dot fc-status-dot-${m[1]}"></span>${escapar(ETIQUETA[e] || e)}</span>`;
+  };
+  function error(msg) { const e = $('errorGeneral'); e.textContent = msg; e.style.display = 'block'; }
 
-// ============================================
-// DATATABLE: JUSTIFICATIVOS
-// ============================================
-function initDatatableJustificativos() {
-  if ($.fn.DataTable.isDataTable('#tbl')) {
-    $('#tbl').DataTable().destroy();
+  /* ───────── acciones de cada fila ───────── */
+  function acciones(f) {
+    const id = escapar(f[PK]);
+    const desc = escapar(`${f.numero} · ${f.nombre_paciente}`);
+    const b = [`<button type="button" class="btn btn-sm btn-outline-primary" data-accion="ver" data-id="${id}" title="Ver"><i class="fas fa-eye"></i></button>`,
+               `<a class="btn btn-sm btn-outline-secondary" href="${API}/${id}/pdf" target="_blank" rel="noopener" title="Descargar PDF"><i class="fas fa-file-pdf"></i></a>`];
+    // "Generar" lo emite; se puede también con la consulta finalizada (se genera el documento aunque la consulta ya cerró), no con la cancelada
+    if (PUEDE_GENERAR && f.estado === 'pendiente' && f.estado_consulta !== 'cancelada') {
+      b.push(`<button type="button" class="btn btn-sm btn-outline-success" data-accion="generar" data-id="${id}" data-desc="${desc}" title="Generar el justificativo"><i class="fas fa-stamp"></i></button>`);
+    }
+    if (PUEDE_ANULAR && f.estado !== 'anulado' && ABIERTAS.indexOf(f.estado_consulta) >= 0) {
+      b.push(`<button type="button" class="btn btn-sm btn-outline-danger" data-accion="anular" data-id="${id}" data-desc="${desc}" title="Anular"><i class="fas fa-ban"></i></button>`);
+    }
+    return `<div class="btn-list flex-nowrap justify-content-end">${b.join('')}</div>`;
   }
-  $('#tbl').DataTable({
-    language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
-    ajax: { url: '/api/v1/justificativos', dataSrc: 'data' },
-    columns: [
-      { data: 'nombre_paciente' },
-      { data: 'nombre_medico' },
-      { data: 'dias_reposo' },
-      { data: 'fecha_justificativo', render: d => formatDateForDisplay(d) },
-      {
-        data: null,
-        render: row => `
-          <button class="btn btn-success btn-sm" name="btn_ver" data-id="${row.id_justificativo}" title="Ver">
-            <i class="fas fa-eye"></i>
-          </button>
-          <button class="btn btn-info btn-sm" name="btn_pdf" data-id="${row.id_justificativo}" title="Descargar PDF">
-            <i class="fas fa-file-pdf"></i>
-          </button>
-          {% if puede('justificativomedico','anular') %}<button class="btn btn-danger btn-sm" name="btn_anular" data-id="${row.id_justificativo}" title="Anular">
-            <i class="fas fa-ban"></i>
-          </button>{% endif %}
-        `
-      }
-    ]
-  });
-}
 
-// ============================================
-// DATATABLE: CONSULTAS ACTIVAS
-// ============================================
-function initDatatableConsultas() {
-  if ($.fn.DataTable.isDataTable('#tblConsultas')) {
-    $('#tblConsultas').DataTable().destroy();
+  /* ───────── listado ───────── */
+  const filtros = { q: $('filtroQ'), estado: $('filtroEstado'), desde: $('filtroDesde'), hasta: $('filtroHasta') };
+  let pagina = 1, total = 0;
+
+  async function cargar() {
+    $('errFiltros').style.display = 'none';
+    const p = new URLSearchParams();
+    Object.keys(filtros).forEach((k) => { if (filtros[k].value) p.set(k, filtros[k].value.trim()); });
+    if (ID_CONSULTA) p.set('consulta', ID_CONSULTA);
+    p.set('pagina', pagina); p.set('por_pagina', POR_PAGINA);
+    const columnas = ID_CONSULTA ? 5 : 8;
+    try {
+      const { ok, data } = await pedir(API + '?' + p.toString());
+      if (!ok || !data || !data.success) {
+        if (data && data.error) { $('errFiltros').textContent = data.error; $('errFiltros').style.display = 'block'; }
+        throw new Error();
+      }
+      total = data.total;
+      $('tbody').innerHTML = data.data.length ? data.data.map((f) => `<tr>
+        <td class="ps-3 fw-semibold text-nowrap">${escapar(f.numero)}</td><td class="text-nowrap">${fecha(f.fecha_justificativo)}</td>
+        ${ID_CONSULTA ? '' : `<td>${escapar(f.nombre_paciente)}<div class="text-muted small">CI ${escapar(f.cedula_paciente)}</div></td><td>${escapar(f.nombre_medico)}</td>
+        <td><a href="${URL_CONSULTA}${encodeURIComponent(f.id_consulta_cab)}">${escapar(f.numero_consulta)}</a></td>`}
+        <td class="text-center">${escapar(f.dias_reposo)}</td><td class="text-center">${badgeJus(f.estado)}</td><td class="pe-3 text-end">${acciones(f)}</td></tr>`).join('')
+        : `<tr><td colspan="${columnas}" class="text-center text-muted py-4">No hay justificativos para los filtros elegidos.</td></tr>`;
+      const d = total ? (pagina - 1) * POR_PAGINA + 1 : 0, h = Math.min(total, pagina * POR_PAGINA);
+      $('infoPagina').textContent = total ? `Mostrando ${d}–${h} de ${total}` : '';
+      $('btnAnterior').disabled = pagina <= 1;
+      $('btnSiguiente').disabled = pagina * POR_PAGINA >= total;
+    } catch (e) {
+      $('tbody').innerHTML = $('errFiltros').style.display === 'none'
+        ? `<tr><td colspan="${columnas}" class="text-center text-danger py-4">No se pudo cargar el listado.</td></tr>`
+        : `<tr><td colspan="${columnas}" class="text-center text-muted py-4">Corrija los filtros.</td></tr>`;
+    }
   }
-  $('#tblConsultas').DataTable({
-    language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
-    ajax: { url: '/api/v1/consultas/activas', dataSrc: 'data' },
-    columns: [
-      { data: 'fecha_cita', render: d => formatDateForDisplay(d) },
-      { data: 'hora_cita' },
-      { data: 'nombre_paciente' },
-      { data: 'nombre_medico' },
-      { data: 'estado' },
-      {
-        data: null,
-        render: row => `
-          <button class="btn btn-primary btn-sm" name="btn_seleccionar_consulta"
-                  data-id="${row.id_consulta_cab}"
-                  data-paciente="${row.nombre_paciente}"
-                  data-medico="${row.nombre_medico}"
-                  data-fecha="${row.fecha_cita}"
-                  data-hora="${row.hora_cita}">
-            Seleccionar
-          </button>
-        `
-      }
-    ]
+  const refiltrar = () => { pagina = 1; cargar(); };
+  Object.keys(filtros).forEach((k) => filtros[k].addEventListener(k === 'q' ? 'input' : 'change', k === 'q' ? debounce(refiltrar, 350) : refiltrar));
+  $('btnLimpiar').addEventListener('click', () => { Object.values(filtros).forEach((f) => { f.value = ''; }); refiltrar(); });
+  $('btnAnterior').addEventListener('click', () => { if (pagina > 1) { pagina--; cargar(); } });
+  $('btnSiguiente').addEventListener('click', () => { if (pagina * POR_PAGINA < total) { pagina++; cargar(); } });
+
+  async function leerConsulta() {
+    const { ok, data } = await pedir(`/api/v1/consultas/${ID_CONSULTA}/resumen`);
+    if (!ok || !data || !data.success) { error((data && data.error) || 'No se pudo cargar la consulta.'); return false; }
+    estadoConsulta = data.data;
+    const c = estadoConsulta.consulta;
+    $('tarjetaConsulta').style.display = 'block';
+    $('cNumero').textContent = c.numero;
+    $('cDetalle').textContent = `${c.nombre_paciente} · CI ${c.cedula_paciente} · ${c.nombre_medico} · ${fecha(c.fecha_cita)}`;
+    $('cBadge').innerHTML = badge(c.estado);
+    const abierta = ABIERTAS.indexOf(c.estado) >= 0;
+    $('cAviso').textContent = !abierta ? 'La consulta está cerrada: no admite nuevos justificativos ni anulaciones, pero el médico puede generar los pendientes.'
+      : (estadoConsulta.acciones.cargar_clinico ? '' : 'Solo el médico de la consulta registra, genera y anula sus justificativos.');
+    const nuevo = $('btnNuevo');
+    if (nuevo) nuevo.style.display = PUEDE_NUEVO && estadoConsulta.acciones.cargar_clinico ? '' : 'none';
+    return true;
+  }
+  const recargar = () => (ID_CONSULTA ? Promise.all([leerConsulta(), cargar()]) : cargar());
+
+  /* ───────── ver ───────── */
+  const modalVer = bootstrap.Modal.getOrCreateInstance($('modalVer'));
+  async function ver(id) {
+    const { ok, data } = await pedir(`${API}/${id}`);
+    if (!ok || !data || !data.success) { Swal.fire('No se pudo abrir', (data && data.error) || 'Ocurrió un error.', 'error'); return; }
+    const d = data.data;
+    const fila = (t, v) => `<div class="col-md-6"><div class="text-muted small text-uppercase fw-semibold">${t}</div><div>${v}</div></div>`;
+    $('verTitulo').textContent = d.numero;
+    $('verPdf').href = `${API}/${encodeURIComponent(d[PK])}/pdf`;
+    $('verCuerpo').innerHTML = `<div class="row g-3">
+      ${fila('Paciente', `${escapar(d.nombre_paciente)} <span class="text-muted">· CI ${escapar(d.cedula_paciente)}</span>`)}
+      ${fila('Médico', escapar(d.nombre_medico))}
+      ${fila('Consulta', `<a href="${URL_CONSULTA}${encodeURIComponent(d.id_consulta_cab)}">${escapar(d.numero_consulta)}</a> ${badge(d.estado_consulta)}`)}
+      ${fila('Fecha', fecha(d.fecha_justificativo))}
+      ${fila('Estado', badgeJus(d.estado) + (d.estado === 'pendiente' ? ' <span class="text-muted small">· el PDF sale como borrador hasta generarlo</span>' : ''))}
+      ${fila('Días de reposo', escapar(d.dias_reposo))}
+      ${fila('Diagnóstico vinculado', d.codigo_diagnostico ? escapar(d.codigo_diagnostico) : '—')}
+      <div class="col-12"><div class="text-muted small text-uppercase fw-semibold">Recomendaciones</div><div style="white-space: pre-wrap;">${d.recomendaciones ? escapar(d.recomendaciones) : '—'}</div></div>
+    </div>`;
+    modalVer.show();
+  }
+
+  document.addEventListener('click', async (ev) => {
+    const btn = ev.target.closest('button[data-accion]');
+    if (!btn || !btn.closest('#tbody')) return;
+    const id = btn.dataset.id;
+    if (btn.dataset.accion === 'ver') await ver(id);
+    if (btn.dataset.accion === 'anular') {
+      await L.anular({ api: API, id, descripcion: btn.dataset.desc, titulo: '¿Anular este justificativo? Es definitivo.', exito: 'Anulado',
+                       errorDefault: 'No se pudo anular el justificativo.', recargar });
+    }
+    if (btn.dataset.accion === 'generar') {
+      const r = await Swal.fire({ title: '¿Generar el justificativo?', text: `${btn.dataset.desc}. Pasa a "Emitido" y queda como documento oficial (el PDF deja de ser un borrador).`, icon: 'question',
+                                  showCancelButton: true, confirmButtonText: 'Sí, generar', cancelButtonText: 'Cancelar' });
+      if (!r.isConfirmed) return;
+      const { data } = await pedir(`${API}/${id}/emitir`, { method: 'PUT' });
+      if (data && data.success) await Swal.fire({ icon: 'success', title: 'Justificativo emitido', text: data.mensaje, timer: 2400, showConfirmButton: false });
+      else await Swal.fire('No se pudo generar', (data && data.error) || 'Ocurrió un error.', 'error');
+      await recargar();
+    }
   });
 
-  $('#tblConsultas').on('click', 'button[name="btn_seleccionar_consulta"]', function() {
-    const btn = $(this);
-    seleccionarConsulta(btn.data('id'), btn.data('paciente'), btn.data('medico'), btn.data('fecha'), btn.data('hora'));
-    $('#modalBuscarConsulta').modal('hide');
-  });
-}
+  /* ───────── nuevo justificativo ───────── */
+  if (PUEDE_NUEVO) {
+    const modalNuevo = bootstrap.Modal.getOrCreateInstance($('modalNuevo'));
+    const CAMPOS = { dias_reposo: $('txtDias'), recomendaciones: $('txtRecomendaciones'), id_diagnostico: $('selDiagnostico') };
+    const marcar = (campo, msg) => {
+      const el = CAMPOS[campo];
+      if (!el) { $('errJus').textContent = msg; $('errJus').style.display = 'block'; return null; }
+      el.classList.add('is-invalid'); el.parentElement.querySelector('.invalid-feedback').textContent = msg; return el;
+    };
+    const limpiar = () => {
+      Object.values(CAMPOS).forEach((el) => { el.classList.remove('is-invalid'); const fb = el.parentElement.querySelector('.invalid-feedback'); if (fb) fb.textContent = ''; });
+      $('errJus').style.display = 'none';
+    };
+    Object.values(CAMPOS).forEach((el) => { el.addEventListener('input', () => el.classList.remove('is-invalid')); el.addEventListener('change', () => el.classList.remove('is-invalid')); });
 
-function seleccionarConsulta(idConsulta, paciente, medico, fecha, hora) {
-  $('#id_consulta_cab').val(idConsulta);
-  $('#txtConsulta').val(`${formatDateForDisplay(fecha)} ${hora || ''} - ${paciente}`);
-  $('#txtPaciente').val(paciente);
-  $('#txtMedico').val(medico);
-
-  $('#id_diagnostico').html('<option value="">Sin diagnóstico</option>');
-  fetch(`/api/v1/diagnosticos-medicos/consulta/${idConsulta}`)
-    .then(r => r.json())
-    .then(d => {
-      if (d.success) {
-        d.data.forEach(diag => {
-          $('#id_diagnostico').append(
-            `<option value="${diag.id_diagnostico}">${diag.descripcion_diagnostico} (${diag.tipo_diagnostico})</option>`
-          );
-        });
-      }
+    $('btnNuevo').addEventListener('click', async () => {
+      limpiar();
+      Object.values(CAMPOS).forEach((el) => { el.value = ''; });
+      const d = await pedir(`/api/v1/diagnosticos-medicos/consulta/${ID_CONSULTA}`);
+      CAMPOS.id_diagnostico.innerHTML = '<option value="">Sin diagnóstico vinculado</option>' + ((d.data && d.data.data) || [])
+        .map((x) => `<option value="${escapar(x.id_diagnostico)}">${escapar(x.codigo)} · ${escapar(x.tipo_diagnostico)}${x.pieza_dental ? ' · pieza ' + escapar(x.pieza_dental) : ''}</option>`).join('');
+      modalNuevo.show();
     });
-}
 
-// ============================================
-// LIMPIAR MODAL
-// ============================================
-function limpiarModal() {
-  $('#id_consulta_cab').val('');
-  $('#txtConsulta').val('');
-  $('#txtPaciente').val('');
-  $('#txtMedico').val('');
-  $('#id_diagnostico').html('<option value="">Sin diagnóstico</option>');
-  $('#dias_reposo').val('');
-  $('#recomendaciones').val('');
-  $('#fecha_justificativo').val(new Date().toISOString().split('T')[0]);
-}
-
-// ============================================
-// PRESELECCIONAR CONSULTA (cuando viene desde el botón
-// "Justificativo Médico" del panel de Consulta) y abrir el modal Nuevo
-// ============================================
-function preseleccionarConsultaDesdeQuery() {
-  if (!idConsultaParam) return;
-  const idConsulta = parseInt(idConsultaParam);
-
-  limpiarModal();
-
-  fetch(`/api/v1/consultas/${idConsulta}`)
-    .then(r => r.json())
-    .then(d => {
-      if (!d.success) {
-        Swal.fire('Error', 'No se pudo cargar la consulta indicada.', 'error');
+    $('formJus').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      limpiar();
+      const valores = { dias_reposo: CAMPOS.dias_reposo.value, recomendaciones: CAMPOS.recomendaciones.value, id_diagnostico: CAMPOS.id_diagnostico.value };
+      const errores = CV.justificativo(valores);
+      const claves = Object.keys(errores);
+      if (claves.length) {
+        let primero = null;
+        claves.forEach((k) => { const el = marcar(k, errores[k]); primero = primero || el; });
+        if (primero) primero.focus();
         return;
       }
-      const c = d.data;
-      seleccionarConsulta(idConsulta, c.nombre_paciente, c.nombre_medico, c.fecha_cita, c.hora_cita);
-      $('#modalFormulario').modal('show');
-    })
-    .catch(err => {
-      console.error(err);
-      Swal.fire('Error', 'No se pudo cargar la consulta indicada.', 'error');
+      const boton = $('btnGuardar');
+      boton.disabled = true;
+      try {
+        const { data } = await pedir(API, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify(Object.assign({ id_consulta_cab: parseInt(ID_CONSULTA, 10) }, valores)) });
+        if (data && data.success) {
+          modalNuevo.hide();
+          await Swal.fire({ icon: 'success', title: 'Justificativo registrado', text: data.mensaje, timer: 2600, showConfirmButton: false });
+          await recargar();
+        } else {
+          const el = marcar((data && data.campo) || 'general', (data && data.error) || 'No se pudo registrar el justificativo.');
+          if (el) el.focus();
+        }
+      } catch (e) {
+        marcar('general', 'Ocurrió un error de conexión. Intente nuevamente.');
+      } finally { boton.disabled = false; }
     });
-}
-
-// ============================================
-// EVENTOS
-// ============================================
-$('#btnAgregar').on('click', function() {
-  limpiarModal();
-  $('#modalFormulario').modal('show');
-});
-
-$('#btnBuscarConsulta').on('click', function() {
-  $('#modalBuscarConsulta').modal('show');
-});
-
-$('#btnGuardar').on('click', function() {
-  const payload = {
-    id_consulta_cab: $('#id_consulta_cab').val() ? parseInt($('#id_consulta_cab').val()) : null,
-    id_diagnostico: $('#id_diagnostico').val() ? parseInt($('#id_diagnostico').val()) : null,
-    dias_reposo: $('#dias_reposo').val() ? parseInt($('#dias_reposo').val()) : null,
-    recomendaciones: $('#recomendaciones').val() || null,
-    fecha_justificativo: $('#fecha_justificativo').val()
-  };
-
-  if (!payload.id_consulta_cab) {
-    Swal.fire('Falta la Consulta', 'Debe seleccionar una Consulta activa.', 'warning');
-    return;
-  }
-  if (!payload.dias_reposo || payload.dias_reposo <= 0) {
-    Swal.fire('Campo incompleto', 'Los Días de Reposo son obligatorios y deben ser mayores a cero.', 'warning');
-    return;
   }
 
-  fetch('/api/v1/justificativos', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  })
-  .then(r => r.json())
-  .then(d => {
-    if (d.success) {
-      $('#modalFormulario').modal('hide');
-      $('#tbl').DataTable().ajax.reload();
-      Swal.fire('Éxito', 'Justificativo médico registrado correctamente', 'success');
-    } else {
-      Swal.fire('Error', d.error, 'error');
+  /* ───────── arranque ───────── */
+  (async function () {
+    if (ID_CONSULTA) {
+      document.querySelectorAll('.col-global').forEach((e) => { e.style.display = 'none'; });
+      $('btnVolverConsulta').href = URL_CONSULTA + encodeURIComponent(ID_CONSULTA);
+      $('btnVolverConsulta').style.display = '';
+      try { if (!(await leerConsulta())) return; } catch (e) { error('Ocurrió un error de conexión. Intente nuevamente.'); return; }
     }
-  })
-  .catch(err => {
-    console.error(err);
-    Swal.fire('Error', 'Ocurrió un error al guardar el justificativo médico.', 'error');
-  });
-});
-
-$('#tbl').on('click', 'button[name="btn_ver"]', function() {
-  const id = $(this).data('id');
-
-  fetch(`/api/v1/justificativos/${id}`)
-    .then(r => r.json())
-    .then(d => {
-      if (d.success) {
-        const j = d.data;
-        $('#verPaciente').text(j.nombre_paciente);
-        $('#verMedico').text(j.nombre_medico);
-        $('#verDiasReposo').text(j.dias_reposo);
-        $('#verFecha').text(formatDateForDisplay(j.fecha_justificativo));
-        $('#verEstado').text(j.estado);
-        $('#verRecomendaciones').text(j.recomendaciones || '-');
-        $('#modalVerJustificativo').modal('show');
-      } else {
-        Swal.fire('Error', d.error || 'No se pudo cargar el justificativo médico', 'error');
-      }
-    })
-    .catch(err => {
-      console.error('Error:', err);
-      Swal.fire('Error', 'No se pudo cargar el justificativo médico', 'error');
-    });
-});
-
-$('#tbl').on('click', 'button[name="btn_pdf"]', function() {
-  const id = $(this).data('id');
-  window.open(`/api/v1/justificativos/${id}/pdf`, '_blank');
-});
-
-$('#tbl').on('click', 'button[name="btn_anular"]', function() {
-  const id = $(this).data('id');
-  Swal.fire({
-    title: '¿Anular este justificativo médico?',
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonColor: '#d33',
-    cancelButtonColor: '#3085d6',
-    confirmButtonText: 'Sí, anular',
-    cancelButtonText: 'Cancelar'
-  }).then((result) => {
-    if (result.isConfirmed) {
-      fetch(`/api/v1/justificativos/${id}`, { method: 'DELETE' })
-        .then(r => r.json())
-        .then(d => {
-          if (d.success) {
-            $('#tbl').DataTable().ajax.reload();
-            Swal.fire('Anulado', d.mensaje, 'success');
-          } else {
-            Swal.fire('Error', d.error, 'error');
-          }
-        })
-        .catch(err => {
-          Swal.fire('Error', 'Ocurrió un error al anular el justificativo médico.', 'error');
-        });
-    }
-  });
-});
-
-$(function() {
-  initDatatableJustificativos();
-  initDatatableConsultas();
-  preseleccionarConsultaDesdeQuery();
-});
+    await cargar();
+  })();
+})();
 </script>
 {% endblock %}

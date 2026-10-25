@@ -1400,6 +1400,13 @@ consulta, también con la consulta finalizada, no con la cancelada ni anulada, a
 - `validar_justificativo` + espejo JS (324 casos JS ↔ Python en el comparador). Test: `smoke_justificativo.py` (esquema, permisos, validaciones, ciclo pendiente → emitido → anulado, consulta finalizada / cancelada / anulada, privacidad, PDF con sus tres marcas y
   la auditoría de cada descarga, auditoría sin contenido y carreras).
 
+**Commit 2 (hecho): vista Tabler**
+- `justificativo-medico-index.html` (reemplaza las 455 líneas SB Admin 2 + jQuery): listado con filtros (paciente o CI, estado, fechas) y paginación en el servidor, con `Ver`, **`PDF`**, **`Generar`** (pendiente → emitido, con confirmación; también con la
+  consulta finalizada, no con la cancelada) y `Anular` (pendiente o emitido, solo con la consulta abierta); con `?consulta=<id>`: tarjeta de la consulta, "Volver a la consulta", los justificativos de esa consulta y el modal **Nuevo justificativo** (días de
+  reposo 1–365, recomendaciones, diagnóstico opcional; mismas validaciones que el servidor). Las rutas pasan `es_medico`.
+- Tests: `smoke_justificativo_vistas.py` (acceso por rol, Tabler sin jQuery, quién ve cada botón, generar / anular / PDF reales por HTTP con los ids de la vista, también con la consulta finalizada) y 4 escenarios más en `browser_documentos.py` (listado, de la
+  consulta, rechazo del servidor, lectura).
+
 ### Etapa 6 (hecha): Recetas, Orden de Estudios y Orden de Análisis (con PDF)
 Plan: `plan_etapa6.md` (sin versionar). **Decisiones confirmadas:** solo el médico de la consulta crea y anula (consulta programada / en proceso revalidada en la transacción; Recepción sin acceso, Administrador solo lectura;
 no se anula con la consulta finalizada); **avanza el estado de una orden solo el médico de la orden, también con la consulta FINALIZADA** (el paciente trae el resultado días después) y no con la cancelada ni anulada;
