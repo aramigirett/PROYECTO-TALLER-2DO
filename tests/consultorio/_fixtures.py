@@ -123,9 +123,13 @@ class Fixtures:
         cab = self._insertar('cita_cabecera', 'id_cita_cabecera',
                              "INSERT INTO cita_cabecera(id_paciente, id_agenda_cabecera, observaciones, estado, id_funcionario) VALUES (%s,%s,'ZZ','Activo',%s)",
                              (id_paciente, cab_agenda, id_funcionario))
-        return self._insertar('cita_detalle', 'id_cita_detalle',
-                              "INSERT INTO cita_detalle(id_cita_cabecera, id_agenda_detalle, fecha_cita, hora_cita, motivo_consulta, id_estado_cita) "
-                              "VALUES (%s,%s,%s,%s,'ZZ',%s)", (cab, det_agenda, fecha, hora, self.estado_cita[estado]))
+        i = self._insertar('cita_detalle', 'id_cita_detalle',
+                           "INSERT INTO cita_detalle(id_cita_cabecera, id_agenda_detalle, fecha_cita, hora_cita, motivo_consulta, id_estado_cita) "
+                           "VALUES (%s,%s,%s,%s,'ZZ',%s)", (cab, det_agenda, fecha, hora, self.estado_cita[estado]))
+        if estado in ('Reservado', 'Confirmado', 'Realizado'):   # igual que Agendamiento: la cita vigente ocupa un cupo
+            self.cu.execute("UPDATE agenda_detalle SET cupos_disponibles = cupos_disponibles - 1 WHERE id_agenda_detalle = %s", (det_agenda,))
+            self.cx.commit()
+        return i
 
     def estado_de_cita(self, id_cita):
         return self._uno("SELECT ec.descripcion FROM cita_detalle cd JOIN estado_cita ec USING (id_estado_cita) WHERE cd.id_cita_detalle = %s", (id_cita,))

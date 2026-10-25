@@ -151,15 +151,38 @@ try:
     llamar(C_REC, 'delete', f'{URL}/{id1}', 409, nombre='no se anula una consulta finalizada', contiene='finalizada')
 
     # cancelar: Recepción desde programada; el médico desde en_proceso
-    id2 = fx.registrar_consulta(nueva_cita(), f_rec)
-    llamar(C_REC, 'patch', f'{URL}/{id2}/estado', 200, {'estado': 'cancelada'}, 'Recepción cancela una consulta programada')
+    cita2 = nueva_cita()
+    id2 = fx.registrar_consulta(cita2, f_rec)
+
+    def cupos(cita):
+        return q("SELECT ad.cupos_disponibles FROM agenda_detalle ad JOIN cita_detalle cd USING (id_agenda_detalle) WHERE cd.id_cita_detalle=%s", (cita,))[0][0]
+    cupos_antes = cupos(cita2)
+    llamar(C_REC, 'patch', f'{URL}/{id2}/estado', 200, {'estado': 'cancelada'}, 'Recepción cancela una consulta programada', contiene='La cita pasó a Cancelado')
     llamar(C_REC, 'patch', f'{URL}/{id2}/estado', 409, {'estado': 'en_proceso'}, 'cancelada es final')
-    chk('cancelada queda en el historial (activa) y su cita sigue Realizado', consulta(id2)[:2] == ('cancelada', True) and fx.estado_de_cita(consulta(id2)[3]) == 'Realizado')
-    id3 = fx.registrar_consulta(nueva_cita(), f_rec, 'en_proceso')
+    chk('cancelada queda en el historial (activa)', consulta(id2)[:2] == ('cancelada', True))
+    chk('la cita de una consulta cancelada pasa a Cancelado (NO queda Realizado ni vuelve a Confirmado)', fx.estado_de_cita(cita2) == 'Cancelado')
+    chk('...y se devuelve el cupo de la agenda', cupos(cita2) == cupos_antes + 1)
+    a = auditoria(id2)
+    chk('auditoría de la cancelación: solo el estado + la cita que pasa a Cancelado', a[-1][2] == {'Estado': 'Programada'} and a[-1][3] == {'Estado': 'Cancelada'}
+        and 'pasa a Cancelado' in a[-1][5])
+    ids_d = {x['id_cita_detalle'] for x in llamar(C_REC, 'get', URL + '/citas-disponibles', 200, nombre='buscador tras cancelar')['data']}
+    chk('la cita Cancelado NO se ofrece para consultar de nuevo', cita2 not in ids_d)
+    cita3 = nueva_cita()
+    id3 = fx.registrar_consulta(cita3, f_rec, 'en_proceso')
     llamar(C_MED2, 'patch', f'{URL}/{id3}/estado', 403, {'estado': 'cancelada'}, 'otro médico no cancela', contiene='Recepción o el médico')
     llamar(C_MED, 'patch', f'{URL}/{id3}/estado', 200, {'estado': 'cancelada'}, 'el médico de la consulta cancela una en proceso')
+    chk('también el médico: la cita de la consulta cancelada pasa a Cancelado', fx.estado_de_cita(cita3) == 'Cancelado')
     # cancelar y anular son cosas distintas
     chk('cancelada != anulada: sigue activa', consulta(id3)[1] is True)
+    # si la cita ya no estaba Realizado (la tocó Agendamiento), no se pisa
+    cita4 = nueva_cita()
+    id4 = fx.registrar_consulta(cita4, f_rec)
+    cu.execute("UPDATE cita_detalle SET id_estado_cita=%s WHERE id_cita_detalle=%s", (fx.estado_cita['Reprogramado'], cita4)); cx.commit()
+    llamar(C_REC, 'patch', f'{URL}/{id4}/estado', 200, {'estado': 'cancelada'}, 'cancelar cuando la cita ya no estaba Realizado')
+    chk('la cita que ya no estaba Realizado no se pisa', fx.estado_de_cita(cita4) == 'Reprogramado')
+    # anular una consulta cancelada: la cita sigue Cancelado (no vuelve a Confirmado)
+    llamar(C_REC, 'delete', f'{URL}/{id3}', 200, nombre='se puede anular una consulta cancelada')
+    chk('anular una cancelada no reabre la cita: sigue Cancelado', fx.estado_de_cita(cita3) == 'Cancelado')
 
     print('\n=== Anular (baja por error, definitiva)')
     ca = nueva_cita()

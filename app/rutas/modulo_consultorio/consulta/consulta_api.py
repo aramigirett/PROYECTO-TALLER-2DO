@@ -237,10 +237,16 @@ def cambiarEstadoConsulta(consulta_id):
             ctx = r['contexto']
             numero = numero_consulta(consulta_id)
             ant, nue = ETIQUETA_ESTADO[r['anterior']], ETIQUETA_ESTADO[r['nuevo']]
+            extra = ''
+            if r['nuevo'] == 'cancelada':
+                extra = (f"; cita N.º {r['id_cita']} pasa a Cancelado (cupo devuelto)" if r['cita_cancelada']
+                         else f"; la cita N.º {r['id_cita']} no estaba Realizado ({r['estado_cita']}): no se modificó")
             _auditar(ENTIDAD, consulta_id, 'MODIFICACION',
-                     DetalleAuditoria(f"Consulta {numero} de {_paciente(ctx)}; Estado: {ant} -> {nue}", {'Estado': ant}, {'Estado': nue}))
-            return jsonify({'success': True, 'data': {'id_consulta_cab': consulta_id, 'estado': r['nuevo']},
-                            'mensaje': f"Consulta {numero}: {ant.lower()} → {nue.lower()}.", 'error': None}), 200
+                     DetalleAuditoria(f"Consulta {numero} de {_paciente(ctx)}; Estado: {ant} -> {nue}{extra}", {'Estado': ant}, {'Estado': nue}))
+            return jsonify({'success': True, 'data': {'id_consulta_cab': consulta_id, 'estado': r['nuevo'],
+                                                      'cita_cancelada': r['cita_cancelada']},
+                            'mensaje': f"Consulta {numero}: {ant.lower()} → {nue.lower()}."
+                                       + (' La cita pasó a Cancelado.' if r['cita_cancelada'] else ''), 'error': None}), 200
         codigo = r.get('error')
         if codigo == 'TRANSICION_INVALIDA':
             return respuesta_error(f"No se puede pasar una consulta de {ETIQUETA_ESTADO[r['anterior']].lower()} a "

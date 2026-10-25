@@ -10,7 +10,8 @@ Reglas (Registrar Consulta):
     Inician y finalizan la atención el médico de la consulta; cancela el funcionario (Recepción) o el médico de la consulta.
   - Anular (baja por error, definitiva): bloqueada si la consulta está finalizada o tiene datos clínicos vigentes (Ficha Médica,
     Diagnóstico, Odontograma, Tratamiento, Receta, Órdenes de Estudio o de Análisis, Justificativo). La cita vuelve a "Confirmado".
-  - cancelada != anulada: cancelada = la atención no se realizó y queda en el historial.
+  - cancelada != anulada: cancelada = la atención no se realizó y queda en el historial; su cita pasa de 'Realizado' a 'Cancelado' (no vuelve a
+    'Confirmado') y se devuelve el cupo de la agenda. Anulada = baja por error: la cita vuelve a 'Confirmado'.
 Toda operación que cambia datos toma bloqueos de fila (la consulta primero, la cita después) dentro de una transacción.
 =====================================================
 """
@@ -361,14 +362,14 @@ class ConsultaDao:
         con = Conexion().getConexion()
         cur = con.cursor()
         try:
-            cur.execute("""SELECT cc.estado, cc.activo, cc.id_medico, CONCAT(p.nombre, ' ', p.apellido), p.cedula_entidad
+            cur.execute("""SELECT cc.estado, cc.activo, cc.id_medico, CONCAT(p.nombre, ' ', p.apellido), p.cedula_entidad, cc.id_cita
                            FROM consultas_cab cc JOIN paciente p ON cc.id_paciente = p.id_paciente
                            WHERE cc.id_consulta_cab = %s FOR UPDATE OF cc""", (id_consulta_cab,))
             fila = cur.fetchone()
             if not fila or not fila[1]:
                 con.rollback()
                 return {'error': 'NO_ENCONTRADA'}
-            actual, _, id_medico, pac_nombre, pac_ci = fila
+            actual, _, id_medico, pac_nombre, pac_ci, id_cita = fila
             if nuevo not in TRANSICIONES.get(actual, ()):
                 con.rollback()
                 return {'error': 'TRANSICION_INVALIDA', 'anterior': actual, 'nuevo': nuevo}
@@ -385,8 +386,32 @@ class ConsultaDao:
                             (nuevo, dur, id_consulta_cab))
             else:
                 cur.execute("UPDATE consultas_cab SET estado = %s WHERE id_consulta_cab = %s", (nuevo, id_consulta_cab))
+
+            cita_cancelada, estado_cita = False, None
+            if nuevo == 'cancelada':
+                # la atención no se hizo: la cita deja de estar 'Realizado' y pasa a 'Cancelado' (NO vuelve a 'Confirmado'), en la misma
+                # transacción y devolviendo el cupo (Realizado ocupa cupo, Cancelado no). La cita se bloquea después de la consulta.
+                cur.execute("SELECT id_agenda_detalle FROM cita_detalle WHERE id_cita_detalle = %s FOR UPDATE", (id_cita,))
+                cita = cur.fetchone()
+                cur.execute("""SELECT ec.descripcion FROM cita_detalle cd JOIN estado_cita ec ON cd.id_estado_cita = ec.id_estado_cita
+                               WHERE cd.id_cita_detalle = %s""", (id_cita,))
+                fila_estado = cur.fetchone()
+                estado_cita = fila_estado[0] if fila_estado else None
+                if cita and estado_cita == 'Realizado':
+                    cur.execute("SELECT id_estado_cita FROM estado_cita WHERE descripcion = 'Cancelado'")
+                    cancelado = cur.fetchone()
+                    if not cancelado:
+                        raise Exception("No existe el estado 'Cancelado' en estado_cita")
+                    cur.execute("UPDATE cita_detalle SET id_estado_cita = %s, fecha_cambio_estado = NOW() WHERE id_cita_detalle = %s",
+                                (cancelado[0], id_cita))
+                    cur.execute("""UPDATE agenda_detalle
+                                   SET cupos_disponibles = LEAST(cupos_maximos, cupos_disponibles + 1),
+                                       estado_detalle = CASE WHEN estado_detalle = 'Agotado' THEN 'Disponible' ELSE estado_detalle END
+                                   WHERE id_agenda_detalle = %s""", (cita[0],))
+                    cita_cancelada = True
             con.commit()
-            return {'ok': True, 'anterior': actual, 'nuevo': nuevo, 'duracion': dur,
+            return {'ok': True, 'anterior': actual, 'nuevo': nuevo, 'duracion': dur, 'id_cita': id_cita,
+                    'cita_cancelada': cita_cancelada, 'estado_cita': estado_cita,
                     'contexto': {'paciente': pac_nombre, 'cedula': pac_ci}}
         except Exception as e:
             app.logger.error(f"Error al cambiar el estado de la consulta: {str(e)}")

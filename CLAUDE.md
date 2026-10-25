@@ -1330,7 +1330,8 @@ Plan completo en `plan_consultorio.md` (sin versionar). Etapas 0 a 7, un commit 
 Plan aprobado: `plan_etapa3.md` (sin versionar). **Decisiones de negocio confirmadas:**
 - **Estados de la consulta:** `programada → en_proceso → finalizada` y `programada | en_proceso → cancelada`; `finalizada` y `cancelada` son finales. **Inicia y finaliza el
   médico de la consulta; cancela Recepción** (funcionario) **o el médico de la consulta**. `cancelada` ≠ `anulada`: cancelada = la atención no se realizó y queda en el
-  historial (la cita no se toca); anulada = baja por error, definitiva, y la cita vuelve a `Confirmado`.
+  historial, y **su cita pasa de `Realizado` a `Cancelado`** en la misma transacción (devolviendo el cupo; no vuelve a `Confirmado` y se audita); anulada = baja por error,
+  definitiva, y la cita vuelve a `Confirmado`. Si la cita ya no estaba `Realizado` (la tocó Agendamiento) no se pisa y la auditoría lo dice.
 - **Quién carga lo clínico:** el usuario debe estar vinculado a un médico (`id_medico_sesion()` en `permisos_contexto.py`) **y ser el médico de esa consulta** (se aplica a
   Ficha Médica ya y al resto de los movimientos en las etapas siguientes). El **Administrador queda con lectura clínica** (puede ver; no crea, edita ni cambia estados
   clínicos). Un médico solo ve SUS consultas en el listado y en el resumen.
