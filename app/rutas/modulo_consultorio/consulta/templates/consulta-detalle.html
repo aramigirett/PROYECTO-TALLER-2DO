@@ -10,128 +10,215 @@
 <div class="page-header d-print-none mb-3">
   <div class="row align-items-center">
     <div class="col">
-      <div class="page-pretitle text-muted">Consultorio &bull; <a href="{{ url_for('consulta.consultaIndex') }}" class="text-muted">Registrar Consulta</a></div>
-      <h2 class="page-title fw-bold">Consulta {{ numero }}</h2>
+      <div class="page-pretitle text-muted">
+        Consultorio &bull; <a href="{{ url_for('consulta.consultaIndex') }}" class="text-muted text-decoration-none">Registrar Consulta</a>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <h2 class="page-title fw-bold mb-0" style="color: var(--fc-text-main, #0f172a);">Atención de la Consulta</h2>
+        <span class="badge bg-light text-primary border font-monospace fs-5 px-2 py-1">{{ numero }}</span>
+      </div>
     </div>
     <div class="col-auto">
-      <a href="{{ url_for('consulta.consultaIndex') }}" class="btn btn-outline-secondary btn-sm"><i class="fas fa-arrow-left me-1"></i> Volver al listado</a>
+      <a href="{{ url_for('consulta.consultaIndex') }}" class="btn btn-outline-secondary btn-sm px-3">
+        <i class="fas fa-arrow-left me-1"></i> Volver al listado
+      </a>
     </div>
   </div>
 </div>
 
-<div id="cargando" class="text-center text-muted py-5"><div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>Cargando la consulta…</div>
-<div class="alert alert-danger" id="errorGeneral" style="display: none;"></div>
+<div id="cargando" class="card border shadow-sm rounded-3 text-center text-muted py-5 mb-3">
+  <div class="card-body">
+    <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+    <span>Cargando datos clínicos de la consulta…</span>
+  </div>
+</div>
+
+<div class="alert alert-danger shadow-sm" id="errorGeneral" style="display: none;"></div>
 
 <div id="contenido" style="display: none;">
 
-  {# ── Cabecera de la consulta ── #}
-  <div class="card border shadow-sm rounded-3 mb-3">
-    <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between">
+  {# ── Cabecera clínica destacada de la consulta ── #}
+  <div class="card fc-hero-card fc-hero-card-open shadow-sm mb-4" id="tarjetaCabecera">
+    <div class="card-header bg-white py-3 border-bottom d-flex flex-wrap align-items-center justify-content-between gap-2">
       <div class="d-flex align-items-center gap-2">
-        <i class="fas fa-notes-medical text-primary"></i>
-        <h5 class="card-title mb-0 fw-bold">Datos de la consulta</h5>
+        <div class="fc-vital-icon" style="width: 34px; height: 34px;">
+          <i class="fas fa-notes-medical"></i>
+        </div>
+        <div>
+          <h5 class="card-title mb-0 fw-bold">Datos de la consulta <span class="text-primary font-monospace ms-1">{{ numero }}</span></h5>
+          <div class="text-muted small">Resumen del paciente, profesional asignado y estado de atención</div>
+        </div>
       </div>
       <span id="badgeEstado"></span>
     </div>
     <div class="card-body p-3 p-md-4">
       <div class="row g-3">
-        <div class="col-md-4"><div class="text-muted small text-uppercase fw-semibold">Paciente</div><div id="dPaciente" class="fw-semibold"></div><div class="text-muted small" id="dCedula"></div></div>
-        <div class="col-md-4"><div class="text-muted small text-uppercase fw-semibold">Médico</div><div id="dMedico" class="fw-semibold"></div></div>
-        <div class="col-md-4"><div class="text-muted small text-uppercase fw-semibold">Consultorio</div><div id="dConsultorio" class="fw-semibold"></div></div>
-        <div class="col-md-4"><div class="text-muted small text-uppercase fw-semibold">Fecha y hora de la cita</div><div id="dFecha"></div></div>
-        <div class="col-md-4"><div class="text-muted small text-uppercase fw-semibold">Duración</div><div id="dDuracion"></div></div>
-        <div class="col-md-4"><div class="text-muted small text-uppercase fw-semibold">Registrada por</div><div id="dFuncionario"></div><div class="text-muted small" id="dRegistro"></div></div>
+        <div class="col-12 col-sm-6 col-lg-4">
+          <div class="fc-chip">
+            <div class="fc-chip-label"><i class="fas fa-user-injured text-primary"></i>Paciente</div>
+            <div id="dPaciente" class="fc-chip-value"></div>
+            <div class="text-muted small font-monospace mt-1" id="dCedula"></div>
+          </div>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-4">
+          <div class="fc-chip">
+            <div class="fc-chip-label"><i class="fas fa-user-md text-primary"></i>Médico tratante</div>
+            <div id="dMedico" class="fc-chip-value"></div>
+          </div>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-4">
+          <div class="fc-chip">
+            <div class="fc-chip-label"><i class="fas fa-clinic-medical text-primary"></i>Consultorio</div>
+            <div id="dConsultorio" class="fc-chip-value"></div>
+          </div>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-4">
+          <div class="fc-chip">
+            <div class="fc-chip-label"><i class="far fa-calendar-check text-primary"></i>Fecha y hora de la cita</div>
+            <div id="dFecha" class="fc-chip-value font-monospace"></div>
+          </div>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-4">
+          <div class="fc-chip">
+            <div class="fc-chip-label"><i class="far fa-clock text-primary"></i>Duración</div>
+            <div id="dDuracion" class="fc-chip-value"></div>
+          </div>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-4">
+          <div class="fc-chip">
+            <div class="fc-chip-label"><i class="fas fa-id-badge text-primary"></i>Registrada por</div>
+            <div id="dFuncionario" class="fc-chip-value"></div>
+            <div class="text-muted small mt-1" id="dRegistro"></div>
+          </div>
+        </div>
       </div>
-      <div class="mt-3 d-flex flex-wrap gap-2" id="accionesEstado">
-        <button type="button" class="btn btn-primary" id="btnIniciar" style="display: none;"><i class="fas fa-play me-1"></i> Iniciar atención</button>
-        <button type="button" class="btn btn-success" id="btnFinalizar" style="display: none;"><i class="fas fa-flag-checkered me-1"></i> Finalizar atención</button>
-        <button type="button" class="btn btn-outline-danger" id="btnCancelar" style="display: none;"><i class="fas fa-times-circle me-1"></i> Cancelar consulta</button>
+
+      <div class="mt-3 pt-3 border-top d-flex flex-wrap align-items-center justify-content-between gap-2" id="accionesEstado">
+        <div class="d-flex flex-wrap gap-2">
+          <button type="button" class="btn btn-primary px-3 shadow-sm" id="btnIniciar" style="display: none;">
+            <i class="fas fa-play me-2"></i>Iniciar atención
+          </button>
+          <button type="button" class="btn btn-success px-3 shadow-sm" id="btnFinalizar" style="display: none;">
+            <i class="fas fa-flag-checkered me-2"></i>Finalizar atención
+          </button>
+        </div>
+        <button type="button" class="btn btn-outline-danger px-3" id="btnCancelar" style="display: none;">
+          <i class="fas fa-times-circle me-1"></i> Cancelar consulta
+        </button>
       </div>
-      <div class="alert alert-secondary mt-3 mb-0 small" id="avisoLectura" style="display: none;"></div>
+
+      <div class="fc-readonly-banner mt-3 mb-0 small" id="avisoLectura" style="display: none;"></div>
     </div>
   </div>
 
   {% if puede('fichamedica', 'ver') %}
   {# ── Ficha médica (una por consulta) ── #}
-  <div class="card border shadow-sm rounded-3 mb-3" id="tarjetaFicha">
+  <div class="card border shadow-sm rounded-3 mb-4" id="tarjetaFicha">
     <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2">
       <div class="d-flex align-items-center gap-2">
-        <i class="fas fa-file-medical-alt text-primary"></i>
-        <h5 class="card-title mb-0 fw-bold">Ficha médica</h5>
-        <span id="badgeFicha"></span>
+        <div class="fc-vital-icon" style="width: 34px; height: 34px;">
+          <i class="fas fa-file-medical-alt"></i>
+        </div>
+        <div>
+          <div class="d-flex align-items-center gap-2">
+            <h5 class="card-title mb-0 fw-bold">Ficha médica</h5>
+            <span id="badgeFicha"></span>
+          </div>
+          <div class="text-muted small">Signos vitales, antropometría y evaluación física/bucal</div>
+        </div>
       </div>
       <div class="btn-list">
-        <button type="button" class="btn btn-sm btn-primary" id="btnRegistrarFicha" style="display: none;"><i class="fas fa-plus me-1"></i> Registrar ficha</button>
-        <button type="button" class="btn btn-sm btn-outline-primary" id="btnEditarFicha" style="display: none;"><i class="fas fa-edit me-1"></i> Editar</button>
-        <button type="button" class="btn btn-sm btn-outline-danger" id="btnAnularFicha" style="display: none;"><i class="fas fa-ban me-1"></i> Anular</button>
+        <button type="button" class="btn btn-sm btn-primary px-3" id="btnRegistrarFicha" style="display: none;">
+          <i class="fas fa-plus me-1"></i> Registrar ficha
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-primary" id="btnEditarFicha" style="display: none;">
+          <i class="fas fa-edit me-1"></i> Editar
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-danger" id="btnAnularFicha" style="display: none;">
+          <i class="fas fa-ban me-1"></i> Anular
+        </button>
       </div>
     </div>
     <div class="card-body p-3 p-md-4">
-      <div id="fichaVacia" class="text-muted" style="display: none;"></div>
+      <div id="fichaVacia" class="text-muted py-3 px-3 rounded-3 border bg-light-subtle text-center" style="display: none;"></div>
 
-      {# vista de solo lectura #}
+      {# vista de solo lectura con indicadores de signos vitales #}
       <div id="fichaVista" style="display: none;">
+        <div class="small fw-bold text-uppercase text-muted mb-2" style="letter-spacing: 0.05em;">
+          <i class="fas fa-heartbeat text-primary me-1"></i> Signos vitales e indicadores
+        </div>
         <div class="row g-3" id="fichaValores"></div>
         <div class="mt-3" id="fichaTextos"></div>
       </div>
 
       {# formulario (alta y edición) #}
       <form id="fichaForm" novalidate style="display: none;">
+        <div class="small fw-bold text-uppercase text-muted mb-2" style="letter-spacing: 0.05em;">
+          <i class="fas fa-heartbeat text-primary me-1"></i> Signos vitales y antropometría
+        </div>
+        <div class="row g-3 mb-3">
+          <div class="col-6 col-md-3">
+            <label class="form-label fw-semibold small" for="fPresion">Presión arterial (mmHg)</label>
+            <input type="text" class="form-control font-monospace" id="fPresion" maxlength="9" placeholder="120/80" autocomplete="off">
+            <div class="invalid-feedback"></div>
+          </div>
+          <div class="col-6 col-md-3">
+            <label class="form-label fw-semibold small" for="fTemperatura">Temperatura (°C)</label>
+            <input type="text" inputmode="decimal" class="form-control font-monospace" id="fTemperatura" maxlength="5" placeholder="36.5" autocomplete="off">
+            <div class="invalid-feedback"></div>
+          </div>
+          <div class="col-6 col-md-3">
+            <label class="form-label fw-semibold small" for="fFC">Frecuencia cardíaca (lpm)</label>
+            <input type="text" inputmode="numeric" class="form-control font-monospace" id="fFC" maxlength="3" placeholder="72" autocomplete="off">
+            <div class="invalid-feedback"></div>
+          </div>
+          <div class="col-6 col-md-3">
+            <label class="form-label fw-semibold small" for="fFR">Frecuencia respiratoria (rpm)</label>
+            <input type="text" inputmode="numeric" class="form-control font-monospace" id="fFR" maxlength="2" placeholder="16" autocomplete="off">
+            <div class="invalid-feedback"></div>
+          </div>
+          <div class="col-6 col-md-3">
+            <label class="form-label fw-semibold small" for="fPeso">Peso (kg)</label>
+            <input type="text" inputmode="decimal" class="form-control font-monospace" id="fPeso" maxlength="6" placeholder="70" autocomplete="off">
+            <div class="invalid-feedback"></div>
+          </div>
+          <div class="col-6 col-md-3">
+            <label class="form-label fw-semibold small" for="fTalla">Talla (cm)</label>
+            <input type="text" inputmode="decimal" class="form-control font-monospace" id="fTalla" maxlength="6" placeholder="175" autocomplete="off">
+            <div class="invalid-feedback"></div>
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-semibold small" for="fImc">IMC (calculado automáticamente)</label>
+            <input type="text" class="form-control bg-light font-monospace fw-bold text-primary" id="fImc" readonly tabindex="-1" placeholder="—">
+            <div class="form-hint small">Lo calcula el sistema con el peso y la talla.</div>
+          </div>
+        </div>
+
+        <div class="small fw-bold text-uppercase text-muted mb-2 pt-2 border-top" style="letter-spacing: 0.05em;">
+          <i class="fas fa-stethoscope text-primary me-1"></i> Evaluación clínica y observaciones
+        </div>
         <div class="row g-3">
-          <div class="col-6 col-md-3">
-            <label class="form-label" for="fPresion">Presión arterial (mmHg)</label>
-            <input type="text" class="form-control" id="fPresion" maxlength="9" placeholder="120/80" autocomplete="off">
-            <div class="invalid-feedback"></div>
-          </div>
-          <div class="col-6 col-md-3">
-            <label class="form-label" for="fTemperatura">Temperatura (°C)</label>
-            <input type="text" inputmode="decimal" class="form-control" id="fTemperatura" maxlength="5" placeholder="36.5" autocomplete="off">
-            <div class="invalid-feedback"></div>
-          </div>
-          <div class="col-6 col-md-3">
-            <label class="form-label" for="fFC">Frecuencia cardíaca (lpm)</label>
-            <input type="text" inputmode="numeric" class="form-control" id="fFC" maxlength="3" placeholder="72" autocomplete="off">
-            <div class="invalid-feedback"></div>
-          </div>
-          <div class="col-6 col-md-3">
-            <label class="form-label" for="fFR">Frecuencia respiratoria (rpm)</label>
-            <input type="text" inputmode="numeric" class="form-control" id="fFR" maxlength="2" placeholder="16" autocomplete="off">
-            <div class="invalid-feedback"></div>
-          </div>
-          <div class="col-6 col-md-3">
-            <label class="form-label" for="fPeso">Peso (kg)</label>
-            <input type="text" inputmode="decimal" class="form-control" id="fPeso" maxlength="6" placeholder="70" autocomplete="off">
-            <div class="invalid-feedback"></div>
-          </div>
-          <div class="col-6 col-md-3">
-            <label class="form-label" for="fTalla">Talla (cm)</label>
-            <input type="text" inputmode="decimal" class="form-control" id="fTalla" maxlength="6" placeholder="175" autocomplete="off">
-            <div class="invalid-feedback"></div>
-          </div>
-          <div class="col-6 col-md-3">
-            <label class="form-label" for="fImc">IMC (calculado)</label>
-            <input type="text" class="form-control" id="fImc" readonly tabindex="-1">
-            <div class="form-hint">Lo calcula el sistema con el peso y la talla.</div>
-          </div>
           <div class="col-12">
-            <label class="form-label" for="fExamenFisico">Examen físico general</label>
-            <textarea class="form-control" id="fExamenFisico" rows="2" maxlength="2000"></textarea>
+            <label class="form-label fw-semibold small" for="fExamenFisico">Examen físico general</label>
+            <textarea class="form-control" id="fExamenFisico" rows="2" maxlength="2000" placeholder="Estado general, mucosas, adenopatías…"></textarea>
             <div class="invalid-feedback"></div>
           </div>
           <div class="col-12 col-md-6">
-            <label class="form-label" for="fExamenBucal">Examen bucal</label>
-            <textarea class="form-control" id="fExamenBucal" rows="3" maxlength="2000"></textarea>
+            <label class="form-label fw-semibold small" for="fExamenBucal">Examen bucal</label>
+            <textarea class="form-control" id="fExamenBucal" rows="3" maxlength="2000" placeholder="Tejidos blandos, encías, oclusión, higiene…"></textarea>
             <div class="invalid-feedback"></div>
           </div>
           <div class="col-12 col-md-6">
-            <label class="form-label" for="fObservaciones">Observaciones del médico</label>
-            <textarea class="form-control" id="fObservaciones" rows="3" maxlength="2000"></textarea>
+            <label class="form-label fw-semibold small" for="fObservaciones">Observaciones del médico</label>
+            <textarea class="form-control" id="fObservaciones" rows="3" maxlength="2000" placeholder="Antecedentes relevantes, alergias o notas adicionales…"></textarea>
             <div class="invalid-feedback"></div>
           </div>
         </div>
         <div class="alert alert-danger mt-3 mb-0" id="errFicha" style="display: none;"></div>
-        <div class="mt-3 d-flex gap-2">
-          <button type="submit" class="btn btn-primary" id="btnGuardarFicha">Guardar ficha</button>
+        <div class="mt-3 pt-3 border-top d-flex gap-2">
+          <button type="submit" class="btn btn-primary px-4" id="btnGuardarFicha">
+            <i class="fas fa-save me-1"></i> Guardar ficha
+          </button>
           <button type="button" class="btn btn-link link-secondary" id="btnCancelarFicha">Cancelar</button>
         </div>
       </form>
@@ -141,13 +228,22 @@
 
   {# ── Movimientos clínicos de la consulta ── #}
   <div class="card border shadow-sm rounded-3 mb-3">
-    <div class="card-header bg-white py-3 border-bottom d-flex align-items-center gap-2">
-      <i class="fas fa-clipboard-list text-primary"></i>
-      <h5 class="card-title mb-0 fw-bold">Registros clínicos de la consulta</h5>
+    <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2">
+      <div class="d-flex align-items-center gap-2">
+        <div class="fc-vital-icon" style="width: 34px; height: 34px;">
+          <i class="fas fa-clipboard-list"></i>
+        </div>
+        <div>
+          <h5 class="card-title mb-0 fw-bold">Registros clínicos de la consulta</h5>
+          <div class="text-muted small">Módulos asistenciales vinculados a esta atención</div>
+        </div>
+      </div>
     </div>
     <div class="card-body p-3 p-md-4">
-      <p class="text-muted small">Cada registro se carga en su propia pantalla, ya vinculado a esta consulta. Los números indican cuántos registros vigentes hay.
-        Solo el médico de la consulta los carga, mientras la consulta esté programada o en proceso.</p>
+      <p class="text-muted small mb-3">
+        Cada registro se carga en su propia pantalla, ya vinculado a esta consulta. Los números indican cuántos registros vigentes hay.
+        Solo el médico de la consulta los carga, mientras la consulta esté programada o en proceso.
+      </p>
       <div class="row g-3" id="gridMovimientos"></div>
     </div>
   </div>
@@ -174,13 +270,13 @@
 
   /* Registros clínicos que ve este usuario (según el `ver` de cada ventana destino). */
   const MOVIMIENTOS = [
-    {% if puede('diagnostico', 'ver') %}{ clave: 'diagnosticos', titulo: 'Diagnósticos', icono: 'fa-diagnoses', url: '{{ url_for("diagnostico_medico.diagnosticoIndex") }}', extra: true },{% endif %}
-    {% if puede('odontograma', 'ver') %}{ clave: 'odontogramas', titulo: 'Odontograma', icono: 'fa-teeth', url: '{{ url_for("odontograma.odontogramaIndex") }}' },{% endif %}
-    {% if puede('tratamiento', 'ver') %}{ clave: 'tratamientos', titulo: 'Tratamientos y sesiones', icono: 'fa-prescription-bottle-alt', url: '{{ url_for("tratamiento.tratamientoIndex") }}' },{% endif %}
-    {% if puede('receta', 'ver') %}{ clave: 'recetas', titulo: 'Recetas e indicaciones', icono: 'fa-prescription', url: '{{ url_for("receta.recetaIndex") }}' },{% endif %}
-    {% if puede('ordenestudio', 'ver') %}{ clave: 'ordenes_estudio', titulo: 'Órdenes de estudios', icono: 'fa-x-ray', url: '{{ url_for("ordenestudio.ordenEstudioIndex") }}' },{% endif %}
-    {% if puede('ordenanalisis', 'ver') %}{ clave: 'ordenes_analisis', titulo: 'Órdenes de análisis', icono: 'fa-flask', url: '{{ url_for("ordenanalisis.ordenAnalisisIndex") }}' },{% endif %}
-    {% if puede('justificativomedico', 'ver') %}{ clave: 'justificativos', titulo: 'Justificativos médicos', icono: 'fa-file-signature', url: '{{ url_for("justificativomedico.justificativoMedicoIndex") }}' },{% endif %}
+    {% if puede('diagnostico', 'ver') %}{ clave: 'diagnosticos', titulo: 'Diagnósticos', sub: 'Patologías y síntomas', icono: 'fa-diagnoses', url: '{{ url_for("diagnostico_medico.diagnosticoIndex") }}', extra: true },{% endif %}
+    {% if puede('odontograma', 'ver') %}{ clave: 'odontogramas', titulo: 'Odontograma', sub: 'Mapa dental por piezas FDI', icono: 'fa-teeth', url: '{{ url_for("odontograma.odontogramaIndex") }}' },{% endif %}
+    {% if puede('tratamiento', 'ver') %}{ clave: 'tratamientos', titulo: 'Tratamientos y sesiones', sub: 'Planes terapéuticos y avance', icono: 'fa-prescription-bottle-alt', url: '{{ url_for("tratamiento.tratamientoIndex") }}' },{% endif %}
+    {% if puede('receta', 'ver') %}{ clave: 'recetas', titulo: 'Recetas e indicaciones', sub: 'Prescripción farmacológica', icono: 'fa-prescription', url: '{{ url_for("receta.recetaIndex") }}' },{% endif %}
+    {% if puede('ordenestudio', 'ver') %}{ clave: 'ordenes_estudio', titulo: 'Órdenes de estudios', sub: 'Radiografías e imágenes', icono: 'fa-x-ray', url: '{{ url_for("ordenestudio.ordenEstudioIndex") }}' },{% endif %}
+    {% if puede('ordenanalisis', 'ver') %}{ clave: 'ordenes_analisis', titulo: 'Órdenes de análisis', sub: 'Laboratorio clínico', icono: 'fa-flask', url: '{{ url_for("ordenanalisis.ordenAnalisisIndex") }}' },{% endif %}
+    {% if puede('justificativomedico', 'ver') %}{ clave: 'justificativos', titulo: 'Justificativos médicos', sub: 'Constancias y reposo', icono: 'fa-file-signature', url: '{{ url_for("justificativomedico.justificativoMedicoIndex") }}' },{% endif %}
   ];
 
   const $ = (id) => document.getElementById(id);
@@ -192,7 +288,7 @@
 
   const badge = (e) => {
     const m = {
-      programada: ['fc-badge-pendiente', 'yellow', 'Programada'], en_proceso: ['fc-badge-neutral', 'blue', 'En proceso'],
+      programada: ['fc-badge-pendiente', 'yellow', 'Programada'], en_proceso: ['fc-badge-proceso', 'blue', 'En proceso'],
       finalizada: ['fc-badge-facturado', 'green', 'Finalizada'], cancelada: ['fc-badge-neutral', 'gray', 'Cancelada']
     }[e] || ['fc-badge-neutral', 'gray', e];
     return `<span class="fc-badge ${m[0]}"><span class="fc-status-dot fc-status-dot-${m[1]}"></span>${escapar(m[2])}</span>`;
@@ -228,6 +324,18 @@
     $('errorGeneral').style.display = 'none';
     $('contenido').style.display = 'block';
     $('badgeEstado').innerHTML = badge(c.estado);
+
+    const cab = $('tarjetaCabecera');
+    if (cab) {
+      const claseBorde = {
+        programada: 'fc-hero-card-pending',
+        en_proceso: 'fc-hero-card-open',
+        finalizada: 'fc-hero-card-done',
+        cancelada: 'fc-hero-card-closed'
+      }[c.estado] || 'fc-hero-card-open';
+      cab.className = `card fc-hero-card ${claseBorde} shadow-sm mb-4`;
+    }
+
     $('dPaciente').textContent = c.nombre_paciente;
     $('dCedula').textContent = 'CI ' + c.cedula_paciente;
     $('dMedico').textContent = c.nombre_medico;
@@ -237,9 +345,13 @@
     $('dFuncionario').textContent = c.nombre_funcionario || '—';
     $('dRegistro').textContent = 'el ' + fechaHora(c.fecha_registro);
 
-    $('btnIniciar').style.display = PUEDE_ESTADO && a.iniciar ? '' : 'none';
-    $('btnFinalizar').style.display = PUEDE_ESTADO && a.finalizar ? '' : 'none';
-    $('btnCancelar').style.display = PUEDE_ESTADO && a.cancelar ? '' : 'none';
+    const verIniciar = PUEDE_ESTADO && a.iniciar;
+    const verFinalizar = PUEDE_ESTADO && a.finalizar;
+    const verCancelar = PUEDE_ESTADO && a.cancelar;
+    $('btnIniciar').style.display = verIniciar ? '' : 'none';
+    $('btnFinalizar').style.display = verFinalizar ? '' : 'none';
+    $('btnCancelar').style.display = verCancelar ? '' : 'none';
+    $('accionesEstado').style.display = (verIniciar || verFinalizar || verCancelar) ? '' : 'none';
 
     const aviso = $('avisoLectura');
     if (c.estado === 'finalizada') {
@@ -266,10 +378,19 @@
       let url = `${m.url}?consulta=${encodeURIComponent(ID_CONSULTA)}`;
       if (m.extra) url += `&paciente=${encodeURIComponent(c.id_paciente)}&medico=${encodeURIComponent(c.id_medico)}`;
       const n = estado.contadores[m.clave] || 0;
-      return `<div class="col-6 col-lg-3"><div class="card border h-100"><div class="card-body d-flex flex-column">
-        <div class="d-flex align-items-center gap-2 mb-2"><i class="fas ${m.icono} text-primary"></i><span class="fw-semibold">${escapar(m.titulo)}</span></div>
-        <div class="mb-3"><span class="h3 mb-0">${n}</span> <span class="text-muted small">${n === 1 ? 'vigente' : 'vigentes'}</span></div>
-        <a class="btn btn-sm ${a.cargar_clinico ? 'btn-outline-primary' : 'btn-outline-secondary'} mt-auto" href="${url}">
+      return `<div class="col-12 col-sm-6 col-lg-4 col-xl-3"><div class="card fc-record-card${n > 0 ? ' has-items' : ''} h-100"><div class="card-body p-3 d-flex flex-column">
+        <div class="d-flex align-items-start justify-content-between gap-2 mb-3">
+          <div class="fc-record-icon"><i class="fas ${m.icono}"></i></div>
+          <div class="fc-record-counter">
+            <span class="h3 mb-0 fw-bold">${n}</span>
+            <span class="text-muted small d-block" style="font-size: 0.7rem;">${n === 1 ? 'vigente' : 'vigentes'}</span>
+          </div>
+        </div>
+        <div class="mb-3">
+          <div class="fw-bold text-dark" style="font-size: 0.96rem;">${escapar(m.titulo)}</div>
+          <div class="text-muted small">${escapar(m.sub || '')}</div>
+        </div>
+        <a class="btn btn-sm ${a.cargar_clinico ? 'btn-outline-primary' : 'btn-outline-secondary'} w-100 mt-auto" href="${url}">
           ${a.cargar_clinico ? 'Abrir' : 'Ver'} <i class="fas fa-arrow-right ms-1"></i></a>
       </div></div></div>`;
     }).join('');
@@ -341,16 +462,34 @@
     if (ficha) {
       $('badgeFicha').innerHTML = '<span class="fc-badge fc-badge-facturado"><span class="fc-status-dot fc-status-dot-green"></span>Registrada</span>';
       const valores = [
-        ['Presión arterial', ficha.presion_arterial, 'mmHg'], ['Temperatura', ficha.temperatura, '°C'],
-        ['Frecuencia cardíaca', ficha.frecuencia_cardiaca, 'lpm'], ['Frecuencia respiratoria', ficha.frecuencia_respiratoria, 'rpm'],
-        ['Peso', ficha.peso, 'kg'], ['Talla', ficha.talla, 'cm'], ['IMC', ficha.imc, '']
+        ['Presión arterial', ficha.presion_arterial, 'mmHg', 'fa-heartbeat'],
+        ['Temperatura', ficha.temperatura, '°C', 'fa-thermometer-half'],
+        ['Frecuencia cardíaca', ficha.frecuencia_cardiaca, 'lpm', 'fa-heart'],
+        ['Frecuencia respiratoria', ficha.frecuencia_respiratoria, 'rpm', 'fa-lungs'],
+        ['Peso', ficha.peso, 'kg', 'fa-weight'],
+        ['Talla', ficha.talla, 'cm', 'fa-ruler-vertical'],
+        ['IMC', ficha.imc, 'kg/m²', 'fa-calculator']
       ].filter((v) => v[1] !== null && v[1] !== undefined && v[1] !== '');
       $('fichaValores').innerHTML = valores.length
-        ? valores.map((v) => `<div class="col-6 col-md-3"><div class="text-muted small text-uppercase fw-semibold">${escapar(v[0])}</div><div class="fw-semibold">${escapar(v[1])} <span class="text-muted fw-normal small">${v[2]}</span></div></div>`).join('')
-        : '<div class="col-12 text-muted">Sin signos vitales cargados.</div>';
-      const textos = [['Examen físico general', ficha.examen_fisico_general], ['Examen bucal', ficha.examen_bucal], ['Observaciones del médico', ficha.observaciones_medico]]
-        .filter((t) => t[1]);
-      $('fichaTextos').innerHTML = textos.map((t) => `<div class="mb-2"><div class="text-muted small text-uppercase fw-semibold">${escapar(t[0])}</div><div style="white-space: pre-wrap;">${escapar(t[1])}</div></div>`).join('');
+        ? valores.map((v) => `<div class="col-6 col-md-4 col-xl-3"><div class="fc-vital-card">
+            <div class="fc-vital-icon"><i class="fas ${v[3]}"></i></div>
+            <div>
+              <div class="text-muted small text-uppercase fw-semibold" style="font-size: 0.7rem;">${escapar(v[0])}</div>
+              <div class="fc-vital-value">${escapar(v[1])}<span class="fc-vital-unit">${v[2]}</span></div>
+            </div>
+          </div></div>`).join('')
+        : '<div class="col-12 text-muted small">Sin signos vitales cargados.</div>';
+      const textos = [
+        ['Examen físico general', ficha.examen_fisico_general, 'fa-user-check'],
+        ['Examen bucal', ficha.examen_bucal, 'fa-teeth-open'],
+        ['Observaciones del médico', ficha.observaciones_medico, 'fa-comment-medical']
+      ].filter((t) => t[1]);
+      $('fichaTextos').innerHTML = textos.length
+        ? `<div class="row g-3">${textos.map((t) => `<div class="col-12 col-md-4"><div class="fc-clinical-note h-100">
+            <div class="fc-clinical-note-title"><i class="fas ${t[2]} me-1"></i>${escapar(t[0])}</div>
+            <div class="fc-clinical-note-body">${escapar(t[1])}</div>
+          </div></div>`).join('')}</div>`
+        : '';
       $('fichaVista').style.display = 'block';
       if (puedeCargar && PUEDE_FICHA_EDITAR) $('btnEditarFicha').style.display = '';
       if (puedeCargar && PUEDE_FICHA_ANULAR) $('btnAnularFicha').style.display = '';
