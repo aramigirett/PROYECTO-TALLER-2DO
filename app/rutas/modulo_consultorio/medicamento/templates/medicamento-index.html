@@ -89,6 +89,7 @@
   const ETIQUETA_IVA = { 0: 'Exenta', 5: '5%', 10: '10%' };
   const NOMBRE = 'Medicamento';
   const CLAVE = 'nombre_comercial';
+  const PK = 'id_medicamento';   // el JSON viene con las claves ordenadas alfabéticamente: nunca se toma la "primera"
 
   const tbody = document.getElementById('tbodyRegistros');
   const chkInactivos = document.getElementById('chkInactivos');
@@ -131,7 +132,7 @@
         return;
       }
       tbody.innerHTML = data.data.map((f) => {
-        const id = f[Object.keys(f)[0]];
+        const id = f[PK];
         const acciones = L.acciones({ activo: f.activo, id, descripcion: f[CLAVE], puedeEditar: PUEDE_EDITAR, puedeAnular: PUEDE_ANULAR });
         return `<tr class="${L.claseFila(f.activo)}">
           <td>${escapar(f.nombre_comercial)}</td>
@@ -147,7 +148,7 @@
 
   function abrirModal(titulo, registro) {
     document.getElementById('modalTitle').textContent = titulo;
-    inpId.value = registro ? registro[Object.keys(registro)[0]] : '';
+    inpId.value = registro ? registro[PK] : '';
     campos[CLAVE].value = registro ? registro[CLAVE] : '';
     campos.presentacion.value = registro ? registro.presentacion : '';
     limpiarErrores();

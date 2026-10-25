@@ -27,9 +27,13 @@ MOCK = r"""
 window.__calls = []; window.__errores = [];
 window.addEventListener('error', function (e) { window.__errores.push(String(e.message)); });
 window.addEventListener('unhandledrejection', function (e) { window.__errores.push('promesa: ' + String(e.reason)); });
+// Igual que el servidor real: Flask ordena las claves alfabéticamente (la primera es 'activo', NO la clave primaria).
 function fila(id, texto, activo) {
-  return {id_registro_falso: id, activo: activo, descripcion: texto, nombre_comercial: texto, presentacion: 'CAJA X 10',
-          precio: 150000, iva: 10, fecha_registro: '2026-10-24 10:00:00'};
+  var o = {activo: activo, descripcion: texto, nombre_comercial: texto, presentacion: 'CAJA X 10',
+           precio: 150000, iva: 10, fecha_registro: '2026-10-24 10:00:00'};
+  o['__PK__'] = id;
+  var ordenado = {}; Object.keys(o).sort().forEach(function (k) { ordenado[k] = o[k]; });
+  return ordenado;
 }
 var FILAS = [fila(1, 'ACTIVA UNO', true), fila(2, 'ACTIVA DOS', true), fila(3, 'INACTIVA TRES', false)];
 window.fetch = function (url, opts) {
@@ -91,6 +95,7 @@ PRUEBA = r"""
       btnReac = filas().filter(function (f) { return /INACTIVA TRES/.test(f.textContent); })[0].querySelector('[data-accion="reactivar"]');
       btnReac.click(); await esperar(400);
       var ok = document.querySelector('.swal2-confirm'); if (ok) ok.click(); await esperar(600);
+      r.ninguna_url_con_id_no_numerico = window.__calls.every(function (c) { return !/\/api\/v1\/[a-z-]+\/(true|false|null|undefined)(\/|$)/.test(c.url); });
       r.reactivar_hace_patch_al_id_correcto = llamadas('PATCH', /\/3\/reactivar$/).length === 1;
       r.recarga_la_lista_tras_reactivar = llamadas('GET', /\?inactivos=1$/).length >= 2;
       var exito = document.querySelector('.swal2-popup');
@@ -174,7 +179,8 @@ total_fallos = 0
 for nombre, (url, clave, extras) in VISTAS.items():
     html = c.get(url).get_data(as_text=True)
     html = html.replace('"/static/', '"' + STATIC)
-    html = html.replace('<head>', '<head>' + MOCK, 1)
+    pk = re.search(r"const PK = '([a-z_]+)'", html).group(1)   # la clave primaria que declara la vista
+    html = html.replace('<head>', '<head>' + MOCK.replace('__PK__', pk), 1)
     prueba = PRUEBA.replace('__EXTRAS__', json.dumps(extras)).replace('__CLAVE__', clave)
     html = html.replace('</body>', prueba + '</body>', 1)
     archivo = SALIDA / f'{nombre}.html'

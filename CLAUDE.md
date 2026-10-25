@@ -1340,6 +1340,10 @@ Tipo Tratamiento, Tipo Insumo Utilizado, Tipo Procedimiento Médico, Medicamento
 - **Bajas bloqueadas (409) si están en uso:** Tipo Tratamiento → tratamientos no `cancelado`; Insumo → `sesion_insumos` activos; Procedimiento → sesiones
   activas; Medicamento → `receta_medicamento` activos; Estudio / Análisis → órdenes no `cancelado`. **Pendiente de las etapas 5 y 6:** que el alta/edición de
   esos registros hijos tome `FOR SHARE` sobre la fila del referencial (el protocolo del estándar) para que una baja concurrente espere.
+- **Id en las vistas:** cada plantilla declara `const PK = '<clave primaria>'` y arma las URL con `f[PK]`. **Nunca tomar "la primera clave" del JSON:** Flask
+  devuelve las claves ordenadas alfabéticamente y la primera es `activo` (la vista pedía `/tipos-tratamiento/true` y todo daba 404: anular, reactivar y editar).
+  `smoke_referenciales_consultorio` hace la baja y la reactivación reales por HTTP con el id que arma la vista y comprueba contra `url_map` que todas las filas
+  reales resuelvan sus rutas; `browser_referenciales` usa un mock con las claves ordenadas como el servidor.
 - **Auditoría** (`auditoria_cambios`, módulo "Referenciales Consultorio"): ALTA, MODIFICACION (solo lo que cambió; sin cambios no audita), BAJA y REACTIVACION.
 - Tests: `tests/consultorio/smoke_referenciales_consultorio.py` (338 chequeos sobre los 6), `tests/consultorio/browser_referenciales.py` (Edge headless, ~230
   chequeos de DOM) y `smoke_tipo_tratamiento.py` actualizado (el test limpia ahora la auditoría que genera).

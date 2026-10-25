@@ -5,6 +5,7 @@ Por cada uno: vista Tabler, validaciones (modo ampliado de descripción), alta/m
 Estado / "Mostrar inactivos" / Reactivar, baja bloqueada si está en uso (409; los cancelados no cuentan), auditoría estructurada
 en `auditoria_cambios` (módulo y JSON) y permisos. Datos `ZZ`: se borran por ID, junto con su auditoría.
 """
+import re
 import sys
 sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parents[2]))
 from app import app
@@ -227,6 +228,37 @@ try:
             q(f"SELECT activo FROM {T} WHERE {PK}=%s", (i,))[0][0] is True and all(x[0] != 'BAJA' for x in auditoria(T, i)))
         e['en_uso_ok'](i)
         api('delete', f'{url}/{i}', 200, nombre=f'{n}: anular cuando el uso ya no está vigente')
+
+        # ---- como lo hace la vista: el id sale de la clave primaria declarada, y la baja/reactivación reales van por HTTP ----
+        # (Flask devuelve el JSON con las claves ORDENADAS: la primera es 'activo'. Una vista que tome "la primera clave" pide /<recurso>/true -> 404.)
+        pk_vista = re.search(r"const PK = '([a-z_]+)'", txt).group(1)
+        api_vista = re.search(r"const API = '([^']+)'", txt).group(1)
+        chk(f'{n}: la vista declara la clave primaria real ({PK}) y no adivina la primera clave del JSON', pk_vista == PK and 'Object.keys(f)' not in txt and 'Object.keys(registro)' not in txt)
+        chk(f'{n}: la vista llama a la API registrada ({url})', api_vista == url)
+        lista_real = api('get', url + '?inactivos=1', 200, nombre=f'{n}: lista real para armar las URL como la vista')['data']
+        chk(f'{n}: la primera clave del JSON NO es la clave primaria (la trampa existe) y la clave primaria está en cada fila',
+            list(lista_real[0])[0] != PK and all(PK in x for x in lista_real))
+        adaptador = app.url_map.bind('localhost')
+
+        def resuelve(metodo, ruta):
+            try:
+                adaptador.match(ruta, method=metodo)
+                return True
+            except Exception:
+                return False
+        chk(f'{n}: TODAS las filas reales (también los datos iniciales) resuelven GET/PUT/DELETE/PATCH-reactivar en url_map',
+            all(resuelve(m, f'{api_vista}/{x[pk_vista]}' + ('/reactivar' if m == 'PATCH' else ''))
+                for x in lista_real for m in ('GET', 'PUT', 'DELETE', 'PATCH')))
+        chk(f'{n}: la URL con una clave no numérica ("true") NO existe (es lo que producía el 404)', not resuelve('DELETE', f'{api_vista}/true'))
+        dv = api('post', url, 201, {**base, K: 'zz via vista'}, f'{n}: alta para la prueba de la vista')
+        creados[T].add(dv['data'][PK])
+        fila_vista = next(x for x in api('get', url, 200, nombre=f'{n}: lista')['data'] if x[K] == 'ZZ VIA VISTA')
+        vid = fila_vista[pk_vista]
+        api('get', f'{api_vista}/{vid}', 200, nombre=f'{n}: editar (GET por id de la vista)')
+        api('delete', f'{api_vista}/{vid}', 200, nombre=f'{n}: ANULAR por HTTP con el id de la vista', contiene='anulado')
+        chk(f'{n}: quedó inactivo en la base', q(f"SELECT activo FROM {T} WHERE {PK}=%s", (vid,))[0][0] is False)
+        api('patch', f'{api_vista}/{vid}/reactivar', 200, nombre=f'{n}: REACTIVAR por HTTP con el id de la vista', contiene='reactivado')
+        chk(f'{n}: quedó activo en la base', q(f"SELECT activo FROM {T} WHERE {PK}=%s", (vid,))[0][0] is True)
 
         # ---- permisos ----
         sesion(CAJERO)
