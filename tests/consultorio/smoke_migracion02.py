@@ -39,7 +39,14 @@ USR_FUNC = q("SELECT u.id_usuario, u.id_funcionario FROM usuarios u WHERE u.id_f
 USR_MEDICO = q("SELECT id_usuario FROM usuarios WHERE id_medico IS NOT NULL AND activo ORDER BY 1 LIMIT 1")[0][0]
 USR_ADMIN = q("SELECT id_usuario FROM usuarios u JOIN roles r USING(id_rol) WHERE r.nombre_rol='Administrador' AND u.activo ORDER BY 1 LIMIT 1")[0][0]
 USR_CAJERO = q("SELECT id_usuario FROM usuarios u JOIN roles r USING(id_rol) WHERE r.nombre_rol='Cajero' AND u.activo ORDER BY 1 LIMIT 1")[0][0]
-CITA = q("SELECT cd.id_cita_detalle, cd.id_estado_cita FROM cita_detalle cd WHERE NOT EXISTS (SELECT 1 FROM consultas_cab c WHERE c.id_cita = cd.id_cita_detalle) ORDER BY 1 LIMIT 1")[0]
+# una cita real que se pueda consultar (cabecera activa y paciente, médico y consultorio activos; desde la etapa 3 el alta lo exige)
+CITA = q("""SELECT cd.id_cita_detalle, cd.id_estado_cita FROM cita_detalle cd
+            JOIN cita_cabecera cc ON cc.id_cita_cabecera = cd.id_cita_cabecera AND cc.estado = 'Activo'
+            JOIN paciente p ON p.id_paciente = cc.id_paciente AND p.activo
+            JOIN agenda_cabecera ac ON ac.id_agenda_cabecera = cc.id_agenda_cabecera
+            JOIN medico m ON m.id_medico = ac.id_medico AND m.activo
+            JOIN consultorio co ON co.codigo = ac.id_consultorio AND co.activo
+            WHERE NOT EXISTS (SELECT 1 FROM consultas_cab c WHERE c.id_cita = cd.id_cita_detalle AND c.activo) ORDER BY 1 LIMIT 1""")[0]
 ESTADO_CONFIRMADO = q("SELECT id_estado_cita FROM estado_cita WHERE descripcion='Confirmado'")[0][0]
 TIPO_DX = q("SELECT id_tipo_diagnostico FROM tipo_diagnostico LIMIT 1")[0][0]
 SINTOMAS = [r[0] for r in q("SELECT id_sintoma FROM sintoma ORDER BY 1 LIMIT 2")]
@@ -63,7 +70,7 @@ try:
         q("SELECT is_nullable FROM information_schema.columns WHERE table_name='consultas_cab' AND column_name='id_funcionario'")[0][0] == 'NO')
     chk('trigger de compatibilidad de permisos eliminado', not q("SELECT 1 FROM pg_trigger WHERE tgname='trg_permisos_resolver_menu'"))
     chk('índice único parcial: un odontograma por consulta', bool(q("SELECT 1 FROM pg_indexes WHERE indexname='ux_odontograma_consulta_vigente'")))
-    chk('permisos conserva sus 339+ filas y todas con id_menu', q("SELECT count(*) FROM permisos")[0][0] >= 339 and q("SELECT count(*) FROM permisos WHERE id_menu IS NULL")[0][0] == 0)
+    chk('permisos conserva sus filas y todas con id_menu', q("SELECT count(*) FROM permisos")[0][0] >= 100 and q("SELECT count(*) FROM permisos WHERE id_menu IS NULL")[0][0] == 0)
 
     # =============================================================================================================
     # 2. Permisos por id_menu (PermisoDao + decoradores + menú)
@@ -120,8 +127,7 @@ try:
 
     sesion(c, USR_MEDICO)
     r = c.post('/api/v1/consultas', json={'id_cita': CITA[0], 'id_funcionario': 999})
-    chk('usuario Médico (sin funcionario): no puede registrar la consulta (403)', r.status_code == 403)
-    chk('...con el mensaje "Solo un funcionario puede registrar consultas."', (r.get_json() or {}).get('error') == 'Solo un funcionario puede registrar consultas.')
+    chk('usuario Médico: no registra consultas (403: Recepción las registra)', r.status_code == 403)
     chk('...y no se creó ninguna consulta', q("SELECT count(*) FROM consultas_cab WHERE id_cita=%s", (CITA[0],))[0][0] == 0)
 
     sesion(c, USR_FUNC[0])

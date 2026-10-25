@@ -109,6 +109,9 @@ try:
     chk('la 2.ª corrida no duplica los estados dentales', firma(cu)[-1] == firma(tc)[-1])
     tc.execute((DAO / 'schema_consultorio_etapa0.sql').read_text(encoding='utf-8')); t.commit()
     chk('schema_consultorio_etapa0.sql sobre una base ya al día es un no-op', firma(cu) == firma(tc))
+    for etapa in ('schema_consultorio_etapa2.sql', 'schema_consultorio_etapa3.sql'):
+        tc.execute((DAO / etapa).read_text(encoding='utf-8')); t.commit()
+        chk(f'{etapa} sobre una base ya al día es un no-op', firma(cu) == firma(tc))
     t.close()
 except Exception as e:
     chk(f'base temporal: {e}', False)

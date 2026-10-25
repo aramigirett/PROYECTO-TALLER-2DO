@@ -42,7 +42,7 @@ MODULO_POR_ENTIDAD = {
     'odontograma': MODULO_CONSULTORIO, 'tratamientos': MODULO_CONSULTORIO, 'sesiones_tratamiento': MODULO_CONSULTORIO,
     'recetas': MODULO_CONSULTORIO, 'orden_estudios': MODULO_CONSULTORIO, 'orden_analisis': MODULO_CONSULTORIO,
     'justificativo_medico': MODULO_CONSULTORIO,
-    'backup': MODULO_SEGURIDAD, 'auditoria_cambios': MODULO_SEGURIDAD, 'auditoria_acceso': MODULO_SEGURIDAD,
+    'backup': MODULO_SEGURIDAD, 'usuarios': MODULO_SEGURIDAD, 'permisos': MODULO_SEGURIDAD, 'auditoria_cambios': MODULO_SEGURIDAD, 'auditoria_acceso': MODULO_SEGURIDAD,
 }
 MODULO_DESCONOCIDO = 'Otro'
 MODULOS = (REFERENCIALES_FACTURACION, MODULO_FACTURACION, REFERENCIALES_CONSULTORIO, MODULO_CONSULTORIO, MODULO_SEGURIDAD)
@@ -62,7 +62,7 @@ ETIQUETA_ENTIDAD = {
     'deposito': 'Depósito', 'cliente': 'Cliente', 'cuenta_bancaria': 'Cuenta Bancaria',
     'apertura_cierre_caja': 'Apertura y Cierre de Caja', 'pedido_venta_cab': 'Pedido de Cliente', 'venta_cab': 'Venta',
     'cobro_cab': 'Cobro', 'nota_remision_cab': 'Nota de Remisión', 'nota_credito_debito_cab': 'Nota de Crédito/Débito',
-    'arqueo_caja': 'Arqueo de Caja', 'recaudacion_depositar': 'Recaudación a Depositar', 'backup': 'Copia de Seguridad',
+    'arqueo_caja': 'Arqueo de Caja', 'recaudacion_depositar': 'Recaudación a Depositar', 'backup': 'Copia de Seguridad', 'usuarios': 'Usuario', 'permisos': 'Permisos de un rol',
     'auditoria_cambios': 'Auditoría de Cambios', 'auditoria_acceso': 'Tablero de Accesos',
     'tipos_tratamiento': 'Tipo de Tratamiento', 'insumos': 'Tipo de Insumo', 'tipo_procedimiento_medico': 'Tipo de Procedimiento Médico',
     'medicamentos': 'Medicamento', 'tipo_estudio': 'Tipo de Estudio', 'tipo_analisis': 'Tipo de Análisis',

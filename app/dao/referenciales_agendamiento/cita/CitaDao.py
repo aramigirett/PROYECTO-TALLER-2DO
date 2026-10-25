@@ -845,7 +845,7 @@ class CitaDao:
         WHERE ec.descripcion = 'Confirmado'
           AND cc.estado <> 'Inactivo'
           AND NOT EXISTS (
-              SELECT 1 FROM consultas_cab con WHERE con.id_cita = cd.id_cita_detalle
+              SELECT 1 FROM consultas_cab con WHERE con.id_cita = cd.id_cita_detalle AND con.activo = true
           )
         ORDER BY cd.fecha_cita, cd.hora_cita
         """

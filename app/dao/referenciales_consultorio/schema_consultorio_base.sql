@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS consultas_cab (
     activo boolean DEFAULT true,
     CONSTRAINT chk_estado_consulta CHECK (((estado)::text = ANY ((ARRAY['programada'::character varying, 'en_proceso'::character varying, 'finalizada'::character varying, 'cancelada'::character varying])::text[]))),
     CONSTRAINT consultas_cab_pkey PRIMARY KEY (id_consulta_cab),
-    CONSTRAINT uk_consulta_cita UNIQUE (id_cita),
+    CONSTRAINT chk_consulta_duracion CHECK (duracion_minutos IS NULL OR duracion_minutos BETWEEN 1 AND 480),
     CONSTRAINT fk_consulta_cita FOREIGN KEY (id_cita) REFERENCES cita_detalle(id_cita_detalle) ON UPDATE CASCADE ON DELETE RESTRICT,
     CONSTRAINT fk_consulta_consultorio FOREIGN KEY (id_consultorio) REFERENCES consultorio(codigo),
     CONSTRAINT fk_consulta_funcionario FOREIGN KEY (id_funcionario) REFERENCES funcionario(id_funcionario) ON UPDATE CASCADE ON DELETE RESTRICT,
@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS consultas_cab (
 CREATE INDEX IF NOT EXISTS idx_consulta_fecha ON consultas_cab USING btree (fecha_cita);
 CREATE INDEX IF NOT EXISTS idx_consulta_medico ON consultas_cab USING btree (id_medico);
 CREATE INDEX IF NOT EXISTS idx_consulta_paciente ON consultas_cab USING btree (id_paciente);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_consulta_cita_activa ON consultas_cab USING btree (id_cita) WHERE (activo = true);
 
 CREATE TABLE IF NOT EXISTS estado_dental (
     id_estado_dental SERIAL,
@@ -173,7 +174,24 @@ CREATE TABLE IF NOT EXISTS ficha_medica_consulta (
     fecha_registro timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     activo boolean DEFAULT true,
     CONSTRAINT ficha_medica_consulta_pkey PRIMARY KEY (id_ficha_medica),
-    CONSTRAINT fk_ficha_consulta FOREIGN KEY (id_consulta_cab) REFERENCES consultas_cab(id_consulta_cab) ON DELETE CASCADE
+    CONSTRAINT fk_ficha_consulta FOREIGN KEY (id_consulta_cab) REFERENCES consultas_cab(id_consulta_cab) ON DELETE RESTRICT,
+    -- Rangos clínicos aprobados, presión SSS/DDD (sistólica > diastólica) y al menos un dato. En una base ya existente, chk_ficha_con_datos se
+    -- agrega NOT VALID (schema_consultorio_etapa3.sql) para conservar una ficha vacía anterior a la etapa 3.
+    CONSTRAINT chk_ficha_rangos CHECK (
+        (temperatura IS NULL OR temperatura BETWEEN 30 AND 45)
+        AND (frecuencia_cardiaca IS NULL OR frecuencia_cardiaca BETWEEN 20 AND 250)
+        AND (frecuencia_respiratoria IS NULL OR frecuencia_respiratoria BETWEEN 5 AND 80)
+        AND (peso IS NULL OR peso BETWEEN 1 AND 500)
+        AND (talla IS NULL OR talla BETWEEN 30 AND 250)),
+    CONSTRAINT chk_ficha_presion CHECK (
+        presion_arterial IS NULL
+        OR (presion_arterial ~ '^[0-9]{2,3}/[0-9]{2,3}$'
+            AND split_part(presion_arterial, '/', 1)::int BETWEEN 50 AND 300
+            AND split_part(presion_arterial, '/', 2)::int BETWEEN 30 AND 200
+            AND split_part(presion_arterial, '/', 1)::int > split_part(presion_arterial, '/', 2)::int)),
+    CONSTRAINT chk_ficha_con_datos CHECK (
+        num_nonnulls(presion_arterial, temperatura, frecuencia_cardiaca, frecuencia_respiratoria, peso, talla,
+                     examen_fisico_general, examen_bucal, observaciones_medico) > 0)
 );
 CREATE INDEX IF NOT EXISTS idx_ficha_consulta ON ficha_medica_consulta USING btree (id_consulta_cab);
 CREATE UNIQUE INDEX IF NOT EXISTS uk_ficha_medica_consulta_activa ON ficha_medica_consulta USING btree (id_consulta_cab) WHERE (activo = true);

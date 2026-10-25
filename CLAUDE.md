@@ -1317,12 +1317,44 @@ Plan completo en `plan_consultorio.md` (sin versionar). Etapas 0 a 7, un commit 
 - Test: `tests/consultorio/smoke_esquema_consultorio.py` (reconstruye las tablas en una base temporal y las compara con la real).
 - **Corrección a la tabla de estado de referenciales de más arriba:** Tipo Diagnóstico y Síntomas YA tenían `activo` e índice único parcial en la base; solo
   sus DAO seguían con `DELETE` físico (resuelto en la etapa 2).
-- **Decidido para la etapa 3:** al anular una consulta, la cita vuelve a `Confirmado` (para poder registrar otra) y `consultas_cab.id_cita` pasa a ser
-  UNIQUE parcial (`WHERE activo = true`); la anulación se audita. Hoy `uk_consulta_cita` es UNIQUE total y la cita queda `Realizado`.
+- ✅ **Resuelto en la etapa 3:** al anular una consulta la cita vuelve a `Confirmado` y `consultas_cab.id_cita` es UNIQUE parcial (`WHERE activo = true`); la anulación se audita.
+- **Pendiente de la migración de Agendamiento (médicos):** al intentar eliminar un médico con historial, el mensaje dice *"No se encontró el médico con el ID 19 o
+  no se pudo eliminar"*. Tiene que ser **baja lógica** (`medico.activo`) con un mensaje claro de que está en uso (consultas, agendas, citas, usuario vinculado), y
+  `MedicoDao.deleteMedico` debe devolver `"EN_USO"` con el motivo y la API responder 409 (como Paciente→cliente y Consultorio→cajas).
 - **Pendiente de la migración de Agendamiento:** generar el script base (`CREATE TABLE`) de Agendamiento y de Seguridad (paciente, medico, funcionario,
   consultorio, cita_*, agenda_*, usuarios, roles, permisos, menu, auditoría...) para que la base completa se pueda reconstruir desde el repo.
   `schema_consultorio_base.sql` depende de esas tablas.
 - El DAO de Odontograma vive en `app/dao/referenciales_agendamiento/odontograma/` (ubicación equivocada; se mueve en la etapa 4).
+
+### Etapa 3 (en curso): Registrar Consulta + Ficha Médica — commit 1 hecho (base + backend de Consulta)
+Plan aprobado: `plan_etapa3.md` (sin versionar). **Decisiones de negocio confirmadas:**
+- **Estados de la consulta:** `programada → en_proceso → finalizada` y `programada | en_proceso → cancelada`; `finalizada` y `cancelada` son finales. **Inicia y finaliza el
+  médico de la consulta; cancela Recepción** (funcionario) **o el médico de la consulta**. `cancelada` ≠ `anulada`: cancelada = la atención no se realizó y queda en el
+  historial (la cita no se toca); anulada = baja por error, definitiva, y la cita vuelve a `Confirmado`.
+- **Quién carga lo clínico:** el usuario debe estar vinculado a un médico (`id_medico_sesion()` en `permisos_contexto.py`) **y ser el médico de esa consulta** (se aplica a
+  Ficha Médica ya y al resto de los movimientos en las etapas siguientes). El **Administrador queda con lectura clínica** (puede ver; no crea, edita ni cambia estados
+  clínicos). Un médico solo ve SUS consultas en el listado y en el resumen.
+- **Permisos** (`schema_permisos_consultorio_roles.sql`, idempotente y auditado): `Medico` = consulta `ver`/`estado`, y todo lo clínico (Ficha con `ver/nuevo/editar/anular`);
+  `Recepcion` = consulta `ver/nuevo/estado/anular` y Ficha solo `ver`. Los usuarios vinculados a un médico pasan al rol `Medico` (los usuarios 9 y 10 están inactivos).
+  `fichamedica` suma la acción `nuevo` en el catálogo.
+- **Anular una consulta** también se bloquea con Odontograma, Receta, Órdenes (no canceladas) o Justificativo vigentes y con la consulta finalizada (el CUS: "no es posible
+  anular una consulta con datos clínicos asociados").
+- **Lecturas clínicas** (la ficha) restringidas a `fichamedica: ver`; **rangos clínicos de la ficha aprobados** (temperatura 30–45 °C, FC 20–250, FR 5–80, presión sistólica
+  50–300 y diastólica 30–200 con sistólica > diastólica, peso 1–500 kg, talla 30–250 cm) y **no se permiten fichas sin ningún dato**; n.º de consulta `CON-0000017` derivado del id.
+- **Mejora futura (fuera de esta etapa): reasignación del médico de una consulta** (p. ej. un suplente). Hoy el médico de la consulta es el de la cita y no se puede cambiar.
+**Commit 1 (hecho):**
+- `schema_consultorio_etapa3.sql` (id_cita único parcial, duración 1–480, CHECK de rangos y de la presión de la ficha, FK de la ficha a `RESTRICT`; `chk_ficha_con_datos` va
+  `NOT VALID` a propósito para no tocar la ficha vacía 15 anterior) y su reflejo en `schema_consultorio_base.sql`.
+- `ConsultaDao`/`consulta_api.py` reescritos: alta con bloqueo de la cita (`FOR UPDATE`, consulta simple: bloquearla con el JOIN a `estado_cita` daba "no encontrada" al
+  perder una carrera), paciente/médico/consultorio/funcionario activos, estado inicial siempre `programada`; `PATCH /consultas/<id>/estado` (reemplaza al `PUT` libre);
+  `DELETE` con reversión de la cita; `GET /consultas` con filtros y paginación en el servidor; `/indicadores`; `/citas-disponibles`; `/<id>/resumen` (solo contadores).
+- Auditoría de `consultas_cab` (ALTA, MODIFICACION de estado y BAJA) con N.º de consulta, paciente con CI y médico; nunca contenido clínico.
+- `CitaDao.getCitasConfirmadasSinConsulta` ya no cuenta las consultas anuladas.
+- Tests: `smoke_consulta.py` (134 chequeos, incluida la carrera de dos altas) con `tests/consultorio/_fixtures.py` (datos `ZZ` por SQL, sin depender de usuarios reales).
+- Datos de prueba para la prueba manual con el médico Oscar Gonzales (CI 2222222, usuario con rol `Medico`): `scripts/datos_prueba_oscar.py` (idempotente; sin `--ejecutar`
+  solo simula). Los médicos Laura González y Andrea Cabrera (15 y 19) tienen sus usuarios INACTIVOS: no usarlos para probar.
+- ⚠️ Hasta el commit 3 la pantalla `consulta-index.html` (SB Admin 2) sigue siendo la vieja: lista y alta funcionan, pero "Editar" (el `PUT` ya no existe) y el modal de ficha
+  quedan para los commits 2 y 3.
 
 ### Etapa 2 (hecha): Tipo Diagnóstico y Síntomas
 - Mismo `CatalogoDao` y `crear_api_catalogo` que la etapa 1 (ahora con `FECHA = False`: estas dos tablas no tienen `fecha_registro`). **Tipo Diagnóstico** lleva
