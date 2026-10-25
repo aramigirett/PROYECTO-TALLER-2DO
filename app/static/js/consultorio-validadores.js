@@ -232,10 +232,65 @@
     return errores;
   }
 
+  /* ───────── Etapa 6: Receta y Órdenes (espejo de validar_receta / validar_orden_estudio / validar_orden_analisis) ───────── */
+  var MAX_INDICACIONES_RECETA = 2000, MAX_TEXTO_MEDICAMENTO = 100, MAX_MOTIVO_ORDEN = 1000, MAX_INDICACIONES_ORDEN = 2000;
+
+  function vinculos(d, errores) {
+    if (!vacio(d.id_diagnostico) && idPositivo(d.id_diagnostico) === null) errores.id_diagnostico = 'El diagnóstico no es válido.';
+    if (!vacio(d.id_tratamiento) && idPositivo(d.id_tratamiento) === null) errores.id_tratamiento = 'El tratamiento no es válido.';
+  }
+
+  /* Valida la receta completa: { campo: mensaje }. `d.medicamentos` es una lista de { id_medicamento, dosis, frecuencia, duracion }. */
+  function receta(d) {
+    var errores = {}, i;
+    var e = textoLargo(d.indicaciones_generales, MAX_INDICACIONES_RECETA, true, 'Las indicaciones generales son obligatorias.',
+                       'Las indicaciones generales no pueden superar los ' + MAX_INDICACIONES_RECETA + ' caracteres.', 'Las indicaciones generales contienen caracteres no permitidos.');
+    if (e) errores.indicaciones_generales = e;
+    var meds = d.medicamentos;
+    if (Object.prototype.toString.call(meds) !== '[object Array]' || !meds.length) errores.medicamentos = 'Debe agregar al menos un medicamento.';
+    else {
+      var vistos = {}, campos = ['dosis', 'frecuencia', 'duracion'];
+      for (i = 0; i < meds.length && !errores.medicamentos; i++) {
+        var it = meds[i];
+        if (!it || typeof it !== 'object' || idPositivo(it.id_medicamento) === null) { errores.medicamentos = 'Cada medicamento necesita su medicamento.'; break; }
+        for (var k = 0; k < campos.length; k++) {
+          var valor = it[campos[k]];
+          if (vacio(valor) || typeof valor !== 'string') { errores.medicamentos = 'Cada medicamento debe tener dosis, frecuencia y duración.'; break; }
+          valor = recortar(valor);
+          if (valor.length > MAX_TEXTO_MEDICAMENTO) { errores.medicamentos = 'La dosis, la frecuencia y la duración no pueden superar los ' + MAX_TEXTO_MEDICAMENTO + ' caracteres.'; break; }
+          if (RE_CONTROL.test(valor)) { errores.medicamentos = 'La dosis, la frecuencia y la duración contienen caracteres no permitidos.'; break; }
+        }
+        if (errores.medicamentos) break;
+        var clave = 'm' + idPositivo(it.id_medicamento);
+        if (vistos[clave]) { errores.medicamentos = 'No repita el mismo medicamento.'; break; }
+        vistos[clave] = true;
+      }
+    }
+    vinculos(d, errores);
+    return errores;
+  }
+
+  function orden(d, campoTipo, etiquetaTipo) {
+    var errores = {};
+    if (vacio(d[campoTipo])) errores[campoTipo] = 'El ' + etiquetaTipo + ' es obligatorio.';
+    else if (idPositivo(d[campoTipo]) === null) errores[campoTipo] = 'El ' + etiquetaTipo + ' no es válido.';
+    var e = textoLargo(d.motivo_orden, MAX_MOTIVO_ORDEN, true, 'El motivo de la orden es obligatorio.',
+                       'El motivo no puede superar los ' + MAX_MOTIVO_ORDEN + ' caracteres.', 'El motivo contiene caracteres no permitidos.');
+    if (e) errores.motivo_orden = e;
+    e = textoLargo(d.indicaciones, MAX_INDICACIONES_ORDEN, false, 'Las indicaciones deben ser un texto.',
+                   'Las indicaciones no pueden superar los ' + MAX_INDICACIONES_ORDEN + ' caracteres.', 'Las indicaciones contienen caracteres no permitidos.');
+    if (e) errores.indicaciones = e;
+    vinculos(d, errores);
+    return errores;
+  }
+  function ordenEstudio(d) { return orden(d, 'id_tipo_estudio', 'tipo de estudio'); }
+  function ordenAnalisis(d) { return orden(d, 'id_tipo_analisis', 'tipo de análisis'); }
+
   global.ConsultorioValidadores = {
     presion: presion, temperatura: temperatura, frecuenciaCardiaca: frecuenciaCardiaca,
     frecuenciaRespiratoria: frecuenciaRespiratoria, peso: peso, talla: talla, textoClinico: textoClinico, imc: imc, ficha: ficha,
     piezaFdi: piezaFdi, piezaValida: piezaValida, superficie: superficie, diagnostico: diagnostico,
-    tratamiento: tratamiento, sesion: sesion
+    tratamiento: tratamiento, sesion: sesion,
+    receta: receta, ordenEstudio: ordenEstudio, ordenAnalisis: ordenAnalisis
   };
 })(window);

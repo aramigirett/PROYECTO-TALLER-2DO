@@ -12,7 +12,7 @@ import tempfile
 RAIZ = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(RAIZ))
 from app.rutas.modulo_consultorio.validadores_clinicos import (validar_diagnostico, validar_ficha, validar_pieza_fdi, validar_sesion, validar_superficie,
-                                                               validar_tratamiento)
+                                                               validar_tratamiento, validar_receta, validar_orden_estudio, validar_orden_analisis)
 
 ORDEN = ['presion_arterial', 'temperatura', 'frecuencia_cardiaca', 'frecuencia_respiratoria', 'peso', 'talla',
          'examen_fisico_general', 'examen_bucal', 'observaciones_medico']
@@ -91,6 +91,46 @@ SESIONES = [SE_BASE, {**SE_BASE, 'insumos': []}, {**SE_BASE, 'insumos': None}, {
             {**SE_BASE, 'insumos': [{'id_insumo': 4, 'cantidad': 1000}], 'proxima_cita': 'x'}]
 
 
+# ---- Etapa 6: receta y órdenes ----
+ORDEN_RE = ['indicaciones_generales', 'medicamentos', 'id_diagnostico', 'id_tratamiento']
+MED = {'id_medicamento': 3, 'dosis': '500 mg', 'frecuencia': 'cada 8 horas', 'duracion': '7 días'}
+RE_BASE = {'indicaciones_generales': 'Tomar con comida', 'medicamentos': [MED, {**MED, 'id_medicamento': '4'}], 'id_diagnostico': 7, 'id_tratamiento': None}
+RECETAS = [RE_BASE, {**RE_BASE, 'id_diagnostico': None}, {**RE_BASE, 'id_tratamiento': 9}, {**RE_BASE, 'id_tratamiento': 'x'}, {**RE_BASE, 'id_diagnostico': 0},
+           {**RE_BASE, 'id_diagnostico': ''}, {**RE_BASE, 'indicaciones_generales': ''}, {**RE_BASE, 'indicaciones_generales': '  '}, {**RE_BASE, 'indicaciones_generales': 'a' * 2001},
+           {**RE_BASE, 'indicaciones_generales': 'a' * 2000}, {**RE_BASE, 'indicaciones_generales': 'raro'}, {**RE_BASE, 'indicaciones_generales': 5},
+           {**RE_BASE, 'medicamentos': []}, {**RE_BASE, 'medicamentos': None}, {**RE_BASE, 'medicamentos': 'x'}, {**RE_BASE, 'medicamentos': ['x']},
+           {**RE_BASE, 'medicamentos': [{**MED, 'id_medicamento': 0}]}, {**RE_BASE, 'medicamentos': [{**MED, 'id_medicamento': None}]},
+           {**RE_BASE, 'medicamentos': [{**MED, 'dosis': ''}]}, {**RE_BASE, 'medicamentos': [{**MED, 'frecuencia': '  '}]}, {**RE_BASE, 'medicamentos': [{**MED, 'duracion': None}]},
+           {**RE_BASE, 'medicamentos': [{**MED, 'dosis': 'a' * 101}]}, {**RE_BASE, 'medicamentos': [{**MED, 'dosis': 'a' * 100}]}, {**RE_BASE, 'medicamentos': [{**MED, 'duracion': 'raro'}]},
+           {**RE_BASE, 'medicamentos': [{**MED, 'dosis': 5}]}, {**RE_BASE, 'medicamentos': [MED, MED]}, {**RE_BASE, 'medicamentos': [MED, {**MED, 'id_medicamento': '3'}]},
+           {**RE_BASE, 'medicamentos': [{**MED, 'dosis': ''}, MED, MED]}, {**RE_BASE, 'indicaciones_generales': '', 'medicamentos': []},
+           {**RE_BASE, 'medicamentos': [], 'id_diagnostico': 'x'}, {**RE_BASE, 'id_diagnostico': 'x', 'id_tratamiento': 'y'}]
+ORDEN_OR = ['id_tipo', 'motivo_orden', 'indicaciones', 'id_diagnostico', 'id_tratamiento']
+OR_BASE = {'id_tipo': 3, 'motivo_orden': 'Control radiográfico', 'indicaciones': 'En ayunas', 'id_diagnostico': 7, 'id_tratamiento': None}
+ORDENES = [OR_BASE, {**OR_BASE, 'id_diagnostico': None}, {**OR_BASE, 'id_tratamiento': 9}, {**OR_BASE, 'id_tratamiento': 'x'}, {**OR_BASE, 'id_diagnostico': 0},
+           {**OR_BASE, 'id_tipo': None}, {**OR_BASE, 'id_tipo': ''}, {**OR_BASE, 'id_tipo': 'x'}, {**OR_BASE, 'id_tipo': 0}, {**OR_BASE, 'id_tipo': '5'}, {**OR_BASE, 'id_tipo': True},
+           {**OR_BASE, 'motivo_orden': ''}, {**OR_BASE, 'motivo_orden': '  '}, {**OR_BASE, 'motivo_orden': 'a' * 1001}, {**OR_BASE, 'motivo_orden': 'a' * 1000},
+           {**OR_BASE, 'motivo_orden': 'raro'}, {**OR_BASE, 'motivo_orden': 5}, {**OR_BASE, 'indicaciones': None}, {**OR_BASE, 'indicaciones': ''},
+           {**OR_BASE, 'indicaciones': 'b' * 2001}, {**OR_BASE, 'indicaciones': 'b' * 2000}, {**OR_BASE, 'indicaciones': 'raro'}, {**OR_BASE, 'indicaciones': 5},
+           {**OR_BASE, 'id_tipo': None, 'motivo_orden': ''}, {**OR_BASE, 'motivo_orden': '', 'indicaciones': 'raro'}, {**OR_BASE, 'indicaciones': 'raro', 'id_diagnostico': 'x'}]
+
+
+def _con_tipo(caso, campo):
+    return {(campo if k == 'id_tipo' else k): v for k, v in caso.items()}
+
+
+def esperado_re(caso):
+    return validar_receta(caso)[1] or ''
+
+
+def esperado_oe(caso):
+    return validar_orden_estudio(_con_tipo(caso, 'id_tipo_estudio'))[1] or ''
+
+
+def esperado_oa(caso):
+    return validar_orden_analisis(_con_tipo(caso, 'id_tipo_analisis'))[1] or ''
+
+
 def esperado_tr(caso):
     return validar_tratamiento(caso, HOY)[1] or ''
 
@@ -137,6 +177,10 @@ var TRATAMIENTOS = %(tr)s;
 var ORDEN_TR = %(orden_tr)s;
 var SESIONES = %(se)s;
 var ORDEN_SE = %(orden_se)s;
+var RECETAS = %(re)s;
+var ORDEN_RE = %(orden_re)s;
+var ORDENES = %(ord)s;
+var ORDEN_OR = %(orden_or)s;
 var out = [];
 for (var i = 0; i < CASOS.length; i++) {
   var errores = V.ficha(CASOS[i]);
@@ -166,6 +210,24 @@ for (var q = 0; q < SESIONES.length; q++) {
   for (var ks = 0; ks < ORDEN_SE.length && !prs; ks++) { if (es[ORDEN_SE[ks]]) prs = es[ORDEN_SE[ks]]; }
   out.push('se	' + q + '	' + prs);
 }
+var conTipo = function (o, campo) { var c = {}; for (var k in o) { if (o.hasOwnProperty(k)) c[k === 'id_tipo' ? campo : k] = o[k]; } return c; };
+for (var a = 0; a < RECETAS.length; a++) {
+  var er2 = V.receta(RECETAS[a]);
+  var p2 = '';
+  for (var k2 = 0; k2 < ORDEN_RE.length && !p2; k2++) { if (er2[ORDEN_RE[k2]]) p2 = er2[ORDEN_RE[k2]]; }
+  out.push('re	' + a + '	' + p2);
+}
+for (var b = 0; b < ORDENES.length; b++) {
+  var ee = V.ordenEstudio(conTipo(ORDENES[b], 'id_tipo_estudio')), ea = V.ordenAnalisis(conTipo(ORDENES[b], 'id_tipo_analisis'));
+  var pe = '', pa = '';
+  for (var k3 = 0; k3 < ORDEN_OR.length; k3++) {
+    var cn = ORDEN_OR[k3];
+    if (!pe && ee[cn === 'id_tipo' ? 'id_tipo_estudio' : cn]) pe = ee[cn === 'id_tipo' ? 'id_tipo_estudio' : cn];
+    if (!pa && ea[cn === 'id_tipo' ? 'id_tipo_analisis' : cn]) pa = ea[cn === 'id_tipo' ? 'id_tipo_analisis' : cn];
+  }
+  out.push('oe	' + b + '	' + pe);
+  out.push('oa	' + b + '	' + pa);
+}
 var so = new ActiveXObject('ADODB.Stream'); so.Type = 2; so.Charset = 'utf-8'; so.Open();
 so.WriteText(out.join('\n')); so.SaveToFile(WScript.Arguments(1), 2); so.Close();
 """
@@ -175,7 +237,8 @@ with tempfile.TemporaryDirectory() as tmp:
     salida = pathlib.Path(tmp) / 'salida.txt'
     runner.write_text(RUNNER % {'orden': json.dumps(ORDEN), 'casos': json.dumps(CASOS), 'piezas': json.dumps(PIEZAS), 'superficies': json.dumps(SUPERFICIES),
                                 'dx': json.dumps(DIAGNOSTICOS), 'orden_dx': json.dumps(ORDEN_DX), 'hoy': json.dumps(HOY), 'tr': json.dumps(TRATAMIENTOS),
-                                'orden_tr': json.dumps(ORDEN_TR), 'se': json.dumps(SESIONES), 'orden_se': json.dumps(ORDEN_SE)}, encoding='ascii')
+                                'orden_tr': json.dumps(ORDEN_TR), 'se': json.dumps(SESIONES), 'orden_se': json.dumps(ORDEN_SE),
+                                're': json.dumps(RECETAS), 'orden_re': json.dumps(ORDEN_RE), 'ord': json.dumps(ORDENES), 'orden_or': json.dumps(ORDEN_OR)}, encoding='ascii')
     proc = subprocess.run(['cscript', '//nologo', '//E:jscript', str(runner), str(RAIZ / 'app' / 'static' / 'js' / 'consultorio-validadores.js'),
                            str(salida)], capture_output=True, text=True)
     if proc.returncode != 0 or not salida.exists():
@@ -199,13 +262,14 @@ for fila in filas:
         i = int(fila[1])
         js_error = fila[2].rstrip('\r') if len(fila) > 2 else ''
         py_error = {'pieza': lambda: esperado_pieza(PIEZAS[i]), 'superficie': lambda: esperado_superficie(SUPERFICIES[i]), 'dx': lambda: esperado_dx(DIAGNOSTICOS[i]), 'tr': lambda: esperado_tr(TRATAMIENTOS[i]),
-                    'se': lambda: esperado_se(SESIONES[i])}[tipo]()
+                    'se': lambda: esperado_se(SESIONES[i]), 're': lambda: esperado_re(RECETAS[i]),
+                    'oe': lambda: esperado_oe(ORDENES[i]), 'oa': lambda: esperado_oa(ORDENES[i])}[tipo]()
         ok = js_error == py_error
-        etiqueta = tipo + ' ' + json.dumps({'pieza': PIEZAS, 'superficie': SUPERFICIES, 'dx': DIAGNOSTICOS, 'tr': TRATAMIENTOS, 'se': SESIONES}[tipo][i], ensure_ascii=False)[:80]
+        etiqueta = tipo + ' ' + json.dumps({'pieza': PIEZAS, 'superficie': SUPERFICIES, 'dx': DIAGNOSTICOS, 'tr': TRATAMIENTOS, 'se': SESIONES, 're': RECETAS, 'oe': ORDENES, 'oa': ORDENES}[tipo][i], ensure_ascii=False)[:80]
         esp = (py_error or 'válido')[:70]
         dif = f'JS={js_error!r} PY={py_error!r}'
     total += 1
     fallos += (not ok)
     print(('OK  ' if ok else 'DIFF'), etiqueta, '->', esp if ok else dif)
 print('DIFERENCIAS:', fallos, 'de', total)
-sys.exit(1 if fallos or total != len(CASOS) + len(PIEZAS) + len(SUPERFICIES) + len(DIAGNOSTICOS) + len(TRATAMIENTOS) + len(SESIONES) else 0)
+sys.exit(1 if fallos or total != len(CASOS) + len(PIEZAS) + len(SUPERFICIES) + len(DIAGNOSTICOS) + len(TRATAMIENTOS) + len(SESIONES) + len(RECETAS) + 2 * len(ORDENES) else 0)

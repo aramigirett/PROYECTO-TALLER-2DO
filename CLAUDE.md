@@ -1382,6 +1382,28 @@ Plan aprobado: `plan_etapa3.md` (sin versionar). **Decisiones de negocio confirm
 - Tests: `smoke_consulta_vistas.py` (acceso por rol y por médico, Tabler sin jQuery, qué tarjetas ve cada rol, baja real por HTTP con el id de la vista) y `browser_consulta.py` (Edge headless con
   fetch simulado: listado, filtros, paginación, Nueva Consulta, atención de la consulta en 4 escenarios —médico programada, médico con ficha, Recepción, finalizada— y Fichas).
 
+### Etapa 6 (en curso): Recetas, Orden de Estudios y Orden de Análisis (con PDF)
+Plan: `plan_etapa6.md` (sin versionar). **Decisiones confirmadas:** solo el médico de la consulta crea y anula (consulta programada / en proceso revalidada en la transacción; Recepción sin acceso, Administrador solo lectura;
+no se anula con la consulta finalizada); **avanza el estado de una orden solo el médico de la orden, también con la consulta FINALIZADA** (el paciente trae el resultado días después) y no con la cancelada ni anulada;
+vínculos opcionales con un diagnóstico vigente y con un tratamiento no cancelado **de la misma consulta** (así lo dice el CUS); la receta no tiene `estado` (el "estado inicial Pendiente" es de las órdenes); fecha del documento
+fijada por el servidor; N.º de documento derivado del id (`RCT-0000012`, `OES-0000005`, `OAN-0000003`), sin columnas nuevas.
+**Commit 1 (hecho): base, backend y PDF**
+- `schema_consultorio_etapa6.sql` (idempotente; `schema_consultorio_base.sql` actualizado): único parcial `receta_medicamento (receta, medicamento) WHERE activo` (un medicamento no se repite en una receta; si había repetidos
+  vigentes se dejó el primero), `activo` NOT NULL, CHECK de textos no vacíos y trigger diferido `trg_receta_con_medicamento` (toda receta vigente tiene al menos un medicamento).
+- Código común: `documento_clinico.py` (consulta y vínculos bloqueados, N.º de documento, clínica y médico para el PDF) y `orden_base.py` (`OrdenBaseDao`: las dos órdenes son idénticas, solo cambia el catálogo; `OrdenEstudioDao` y
+  `OrdenAnalisisDao` solo declaran tabla y columnas) con la fábrica de API `orden_api_base.crear_orden_api` (`/api/v1/orden-estudios` y `/orden-analisis`); `RecetaDao` + `receta_api.py` (`/api/v1/recetas`).
+  Bloqueos: consulta `FOR UPDATE` → diagnóstico y tratamiento `FOR SHARE` → medicamentos / tipo `FOR SHARE` en orden de id (los inactivos se rechazan; lo ya cargado se sigue mostrando aunque el catálogo se anule).
+  Avanzar el estado: consulta `FOR SHARE` → orden `FOR UPDATE`, un paso por vez que calcula el sistema (el cuerpo no elige el estado).
+- Endpoints (todos con privacidad: un médico solo lee lo de SUS consultas): `GET` lista (filtros `q`, `estado`, `desde`, `hasta`, `consulta`, paginación), `GET /<id>`, `POST`, `PUT /<id>/estado` (órdenes), `DELETE /<id>`, `GET /<id>/pdf`.
+- Auditoría (`recetas`, `orden_estudios`, `orden_analisis`): ALTA, BAJA, MODIFICACION (estado de la orden) y **EXPORTACION en cada descarga del PDF**, con N.º de documento, consulta y paciente con CI; **nunca** medicamentos, dosis,
+  tipos, motivo ni indicaciones.
+- **PDF** (`app/Services/documento_clinico_pdf_service.py`, patrón `calcular_datos_documento` / `dibujar_documento` / `generarDocumentoPdf`): encabezado con la clínica (`empresa`), título, N.º y fecha, paciente con CI, médico con
+  especialidad (y N.º de registro solo si lo tiene), el contenido (receta: tabla de medicamentos + indicaciones; órdenes: tipo, motivo, indicaciones y estado), firma y sello, marca ANULADA / CANCELADA en rojo (se descarga igual) y
+  continúa en otra página si es largo. **Lleva el contenido clínico; la auditoría no.** El Justificativo (etapa 7) pasará a este servicio.
+- `validadores_clinicos.py` + `consultorio-validadores.js`: `validar_receta`, `validar_orden_estudio`, `validar_orden_analisis` y sus espejos (298 casos JS ↔ Python en `comparar_ficha_js_py.py`).
+- Tests: `smoke_receta.py`, `smoke_orden_clinica.py` (las dos órdenes con el mismo código, incluido el avance con la consulta finalizada y las carreras) y `smoke_pdf_documentos.py` (contenido de los tres PDF, marca, varias páginas, privacidad y
+  la auditoría de cada descarga). `_fixtures.py`: la receta de los fixtures se inserta con su medicamento (trigger diferido) y suma `medicamento()`, `tipo_estudio()` y `tipo_analisis()`.
+
 ### Etapa 5 (hecha): Tratamientos y Sesiones (Procedimientos e Insumos Utilizados)
 Plan: `plan_etapa5.md` (sin versionar). **Decisiones confirmadas:** cada sesión se registra DENTRO de una consulta; varios procedimientos por sesión; insumos opcionales (0 o más, sin repetir, cantidad 1–999);
 solo el médico crea, anula y finaliza (Recepción sin acceso, Administrador solo lectura); anulación de tratamiento definitiva; anular una sesión solo la última vigente, desde su consulta abierta, con cascada, y el
@@ -1485,7 +1507,7 @@ Tipo Tratamiento, Tipo Insumo Utilizado, Tipo Procedimiento Médico, Medicamento
   `normalizar_descripcion` ganó `campo`/`etiqueta`/`articulo` (Medicamentos usa `nombre_comercial` / "nombre comercial" / "El") y `validar_presentacion`
   (opcional, hasta 100, mismos caracteres); espejo en `facturacion-validadores.js` (`V.presentacion`, y `V.descripcion` con `etiqueta`/`articulo`).
 - **Bajas bloqueadas (409) si están en uso:** Tipo Tratamiento → tratamientos no `cancelado`; Insumo → `sesion_insumos` activos; Procedimiento → sesiones
-  activas; Medicamento → `receta_medicamento` activos; Estudio / Análisis → órdenes no `cancelado`. **Etapa 5 (hecha):** el alta de tratamientos y sesiones toma `FOR SHARE` sobre tipo de tratamiento, procedimiento e insumo. **Pendiente de la etapa 6:** lo mismo para Medicamento, Tipo Estudio y Tipo Análisis.
+  activas; Medicamento → `receta_medicamento` activos; Estudio / Análisis → órdenes no `cancelado`. **Etapa 5 (hecha):** el alta de tratamientos y sesiones toma `FOR SHARE` sobre tipo de tratamiento, procedimiento e insumo. **Etapa 6 (hecha):** lo mismo para Medicamento, Tipo Estudio y Tipo Análisis.
 - **Id en las vistas:** cada plantilla declara `const PK = '<clave primaria>'` y arma las URL con `f[PK]`. **Nunca tomar "la primera clave" del JSON:** Flask
   devuelve las claves ordenadas alfabéticamente y la primera es `activo` (la vista pedía `/tipos-tratamiento/true` y todo daba 404: anular, reactivar y editar).
   `smoke_referenciales_consultorio` hace la baja y la reactivación reales por HTTP con el id que arma la vista y comprueba contra `url_map` que todas las filas

@@ -316,6 +316,7 @@ CREATE TABLE IF NOT EXISTS orden_analisis (
     estado character varying(20) DEFAULT 'pendiente'::character varying NOT NULL,
     fecha_registro timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT orden_analisis_estado_check CHECK (((estado)::text = ANY ((ARRAY['pendiente'::character varying, 'enviado'::character varying, 'en_proceso'::character varying, 'completado'::character varying, 'cancelado'::character varying])::text[]))),
+    CONSTRAINT chk_orden_analisis_motivo CHECK (btrim(motivo_orden) <> '') NOT VALID,
     CONSTRAINT orden_analisis_pkey PRIMARY KEY (id_orden_analisis),
     CONSTRAINT orden_analisis_id_consulta_cab_fkey FOREIGN KEY (id_consulta_cab) REFERENCES consultas_cab(id_consulta_cab) ON DELETE RESTRICT,
     CONSTRAINT orden_analisis_id_diagnostico_fkey FOREIGN KEY (id_diagnostico) REFERENCES diagnosticos(id_diagnostico) ON DELETE RESTRICT,
@@ -335,6 +336,7 @@ CREATE TABLE IF NOT EXISTS orden_estudios (
     estado character varying(20) DEFAULT 'pendiente'::character varying NOT NULL,
     fecha_registro timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT orden_estudios_estado_check CHECK (((estado)::text = ANY ((ARRAY['pendiente'::character varying, 'enviado'::character varying, 'en_proceso'::character varying, 'completado'::character varying, 'cancelado'::character varying])::text[]))),
+    CONSTRAINT chk_orden_estudio_motivo CHECK (btrim(motivo_orden) <> '') NOT VALID,
     CONSTRAINT orden_estudios_pkey PRIMARY KEY (id_orden_estudio),
     CONSTRAINT orden_estudios_id_consulta_cab_fkey FOREIGN KEY (id_consulta_cab) REFERENCES consultas_cab(id_consulta_cab) ON DELETE RESTRICT,
     CONSTRAINT orden_estudios_id_diagnostico_fkey FOREIGN KEY (id_diagnostico) REFERENCES diagnosticos(id_diagnostico) ON DELETE RESTRICT,
@@ -349,8 +351,9 @@ CREATE TABLE IF NOT EXISTS recetas (
     id_tratamiento integer,
     indicaciones_generales text NOT NULL,
     fecha_receta date DEFAULT CURRENT_DATE NOT NULL,
-    activo boolean DEFAULT true,
+    activo boolean DEFAULT true NOT NULL,
     fecha_registro timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_receta_indicaciones CHECK (btrim(indicaciones_generales) <> '') NOT VALID,
     CONSTRAINT recetas_pkey PRIMARY KEY (id_receta),
     CONSTRAINT recetas_id_consulta_cab_fkey FOREIGN KEY (id_consulta_cab) REFERENCES consultas_cab(id_consulta_cab) ON DELETE RESTRICT,
     CONSTRAINT recetas_id_diagnostico_fkey FOREIGN KEY (id_diagnostico) REFERENCES diagnosticos(id_diagnostico) ON DELETE RESTRICT,
@@ -396,11 +399,14 @@ CREATE TABLE IF NOT EXISTS receta_medicamento (
     dosis character varying(100) NOT NULL,
     frecuencia character varying(100) NOT NULL,
     duracion character varying(100) NOT NULL,
-    activo boolean DEFAULT true,
+    activo boolean DEFAULT true NOT NULL,
+    CONSTRAINT chk_receta_medicamento_textos CHECK (btrim(dosis) <> '' AND btrim(frecuencia) <> '' AND btrim(duracion) <> '') NOT VALID,
     CONSTRAINT receta_medicamento_pkey PRIMARY KEY (id_receta_medicamento),
     CONSTRAINT receta_medicamento_id_medicamento_fkey FOREIGN KEY (id_medicamento) REFERENCES medicamentos(id_medicamento) ON DELETE RESTRICT,
     CONSTRAINT receta_medicamento_id_receta_fkey FOREIGN KEY (id_receta) REFERENCES recetas(id_receta) ON DELETE RESTRICT
 );
+CREATE UNIQUE INDEX IF NOT EXISTS uk_receta_medicamento_activo ON receta_medicamento (id_receta, id_medicamento) WHERE activo = true;
+CREATE INDEX IF NOT EXISTS idx_receta_medicamento_medicamento ON receta_medicamento (id_medicamento);
 
 CREATE TABLE IF NOT EXISTS sesion_insumos (
     id_sesion_insumo SERIAL,
@@ -450,6 +456,27 @@ CREATE CONSTRAINT TRIGGER trg_sesion_con_procedimiento
     AFTER INSERT OR UPDATE OF activo ON sesiones_tratamiento
     DEFERRABLE INITIALLY DEFERRED
     FOR EACH ROW EXECUTE FUNCTION fn_validar_sesion_procedimiento();
+
+CREATE INDEX IF NOT EXISTS idx_receta_consulta ON recetas (id_consulta_cab);
+CREATE INDEX IF NOT EXISTS idx_orden_estudios_consulta ON orden_estudios (id_consulta_cab);
+CREATE INDEX IF NOT EXISTS idx_orden_analisis_consulta ON orden_analisis (id_consulta_cab);
+
+CREATE OR REPLACE FUNCTION fn_validar_receta_medicamento() RETURNS trigger AS $$
+-- Una receta vigente tiene al menos un medicamento vigente. Se verifica al CONFIRMAR la transacción (la receta y sus medicamentos se insertan juntos).
+BEGIN
+    IF NEW.activo AND NOT EXISTS (SELECT 1 FROM receta_medicamento WHERE id_receta = NEW.id_receta AND activo = true) THEN
+        RAISE EXCEPTION 'La receta % debe tener al menos un medicamento.', NEW.id_receta USING ERRCODE = 'check_violation';
+    END IF;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+COMMENT ON FUNCTION fn_validar_receta_medicamento() IS 'Trigger diferido: toda receta vigente tiene al menos un medicamento (receta_medicamento).';
+
+DROP TRIGGER IF EXISTS trg_receta_con_medicamento ON recetas;
+CREATE CONSTRAINT TRIGGER trg_receta_con_medicamento
+    AFTER INSERT OR UPDATE OF activo ON recetas
+    DEFERRABLE INITIALLY DEFERRED
+    FOR EACH ROW EXECUTE FUNCTION fn_validar_receta_medicamento();
 
 CREATE OR REPLACE FUNCTION fn_validar_diagnostico_sintoma() RETURNS trigger AS $$
 -- Un diagnóstico vigente tiene al menos un síntoma. Se verifica al CONFIRMAR la transacción (el diagnóstico y sus síntomas se insertan juntos).

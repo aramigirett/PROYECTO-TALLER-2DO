@@ -387,3 +387,104 @@ def validar_sesion(data, hoy=None):
         lista.append({'id_insumo': i, 'cantidad': n})
     v['insumos'] = sorted(lista, key=lambda x: x['id_insumo'])
     return v, None, None
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Etapa 6: Receta y Órdenes de Estudio / de Análisis (espejo en consultorio-validadores.js: receta / ordenEstudio / ordenAnalisis)
+# ---------------------------------------------------------------------------------------------------------------------
+MAX_INDICACIONES_RECETA = 2000
+MAX_TEXTO_MEDICAMENTO = 100
+MAX_MOTIVO_ORDEN = 1000
+MAX_INDICACIONES_ORDEN = 2000
+
+
+def _vinculos(data, v):
+    """Diagnóstico y tratamiento opcionales (enteros positivos). Devuelve (mensaje, campo) o (None, None)."""
+    for campo, etiqueta in (('id_diagnostico', 'El diagnóstico'), ('id_tratamiento', 'El tratamiento')):
+        valor = data.get(campo)
+        if _vacio(valor):
+            v[campo] = None
+        else:
+            v[campo] = _id_positivo(valor)
+            if v[campo] is None:
+                return f'{etiqueta} no es válido.', campo
+    return None, None
+
+
+def validar_receta(data):
+    """
+    Valida los datos de una receta (lo que el navegador puede definir). Devuelve (valores, None, None) o (None, mensaje, campo).
+    indicaciones_generales: obligatorias (hasta 2.000). medicamentos: lista de {id_medicamento, dosis, frecuencia, duracion}, AL MENOS UNO, sin repetir el mismo
+    medicamento; dosis, frecuencia y duración obligatorias (hasta 100). id_diagnostico / id_tratamiento: opcionales. Paciente, médico, consulta y fecha NO se toman del navegador.
+    """
+    if not isinstance(data, dict):
+        return None, 'Los datos enviados no son válidos.', None
+    v = {}
+    texto, e = _texto_largo(data.get('indicaciones_generales'), MAX_INDICACIONES_RECETA, True, 'Las indicaciones generales son obligatorias.',
+                            f'Las indicaciones generales no pueden superar los {MAX_INDICACIONES_RECETA} caracteres.', 'Las indicaciones generales contienen caracteres no permitidos.')
+    if e:
+        return None, e, 'indicaciones_generales'
+    v['indicaciones_generales'] = texto
+    medicamentos = data.get('medicamentos')
+    if not isinstance(medicamentos, list) or not medicamentos:
+        return None, 'Debe agregar al menos un medicamento.', 'medicamentos'
+    vistos, lista = set(), []
+    for item in medicamentos:
+        if not isinstance(item, dict) or _id_positivo(item.get('id_medicamento')) is None:
+            return None, 'Cada medicamento necesita su medicamento.', 'medicamentos'
+        fila = {'id_medicamento': _id_positivo(item['id_medicamento'])}
+        for campo in ('dosis', 'frecuencia', 'duracion'):
+            valor = item.get(campo)
+            if _vacio(valor) or not isinstance(valor, str):
+                return None, 'Cada medicamento debe tener dosis, frecuencia y duración.', 'medicamentos'
+            valor = valor.strip()
+            if len(valor) > MAX_TEXTO_MEDICAMENTO:
+                return None, f'La dosis, la frecuencia y la duración no pueden superar los {MAX_TEXTO_MEDICAMENTO} caracteres.', 'medicamentos'
+            if _RE_CONTROL.search(valor):
+                return None, 'La dosis, la frecuencia y la duración contienen caracteres no permitidos.', 'medicamentos'
+            fila[campo] = valor
+        if fila['id_medicamento'] in vistos:
+            return None, 'No repita el mismo medicamento.', 'medicamentos'
+        vistos.add(fila['id_medicamento'])
+        lista.append(fila)
+    v['medicamentos'] = sorted(lista, key=lambda x: x['id_medicamento'])
+    mensaje, campo = _vinculos(data, v)
+    if mensaje:
+        return None, mensaje, campo
+    return v, None, None
+
+
+def _validar_orden(data, campo_tipo, etiqueta_tipo):
+    if not isinstance(data, dict):
+        return None, 'Los datos enviados no son válidos.', None
+    v = {}
+    tipo = data.get(campo_tipo)
+    if _vacio(tipo):
+        return None, f'El {etiqueta_tipo} es obligatorio.', campo_tipo
+    v[campo_tipo] = _id_positivo(tipo)
+    if v[campo_tipo] is None:
+        return None, f'El {etiqueta_tipo} no es válido.', campo_tipo
+    motivo, e = _texto_largo(data.get('motivo_orden'), MAX_MOTIVO_ORDEN, True, 'El motivo de la orden es obligatorio.',
+                             f'El motivo no puede superar los {MAX_MOTIVO_ORDEN} caracteres.', 'El motivo contiene caracteres no permitidos.')
+    if e:
+        return None, e, 'motivo_orden'
+    v['motivo_orden'] = motivo
+    indicaciones, e = _texto_largo(data.get('indicaciones'), MAX_INDICACIONES_ORDEN, False, 'Las indicaciones deben ser un texto.',
+                                   f'Las indicaciones no pueden superar los {MAX_INDICACIONES_ORDEN} caracteres.', 'Las indicaciones contienen caracteres no permitidos.')
+    if e:
+        return None, e, 'indicaciones'
+    v['indicaciones'] = indicaciones
+    mensaje, campo = _vinculos(data, v)
+    if mensaje:
+        return None, mensaje, campo
+    return v, None, None
+
+
+def validar_orden_estudio(data):
+    """Orden de estudio: tipo de estudio y motivo obligatorios, indicaciones y vínculos (diagnóstico, tratamiento) opcionales."""
+    return _validar_orden(data, 'id_tipo_estudio', 'tipo de estudio')
+
+
+def validar_orden_analisis(data):
+    """Orden de análisis: tipo de análisis y motivo obligatorios, indicaciones y vínculos (diagnóstico, tratamiento) opcionales."""
+    return _validar_orden(data, 'id_tipo_analisis', 'tipo de análisis')

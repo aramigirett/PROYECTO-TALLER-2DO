@@ -122,6 +122,21 @@ class Fixtures:
         s = self._sufijo()
         return self._insertar('insumos', 'id_insumo', "INSERT INTO insumos(descripcion, activo) VALUES (%s,%s)", (f'ZZ INSUMO {s[-6:]}', activo))
 
+    def medicamento(self, activo=True):
+        """Un medicamento ZZ (referencial). Devuelve su id."""
+        s = self._sufijo()
+        return self._insertar('medicamentos', 'id_medicamento', "INSERT INTO medicamentos(nombre_comercial, activo) VALUES (%s,%s)", (f'ZZ MEDICAMENTO {s[-6:]}', activo))
+
+    def tipo_estudio(self, activo=True):
+        """Un tipo de estudio ZZ (referencial). Devuelve su id."""
+        s = self._sufijo()
+        return self._insertar('tipo_estudio', 'id_tipo_estudio', "INSERT INTO tipo_estudio(descripcion, activo) VALUES (%s,%s)", (f'ZZ ESTUDIO {s[-6:]}', activo))
+
+    def tipo_analisis(self, activo=True):
+        """Un tipo de análisis ZZ (referencial). Devuelve su id."""
+        s = self._sufijo()
+        return self._insertar('tipo_analisis', 'id_tipo_analisis', "INSERT INTO tipo_analisis(descripcion, activo) VALUES (%s,%s)", (f'ZZ ANALISIS {s[-6:]}', activo))
+
     def estado_dental(self, aplica_a='SUPERFICIE', activo=True):
         """Un estado dental ZZ. Devuelve su id."""
         s = self._sufijo()
@@ -194,6 +209,7 @@ class Fixtures:
         tipo_trat = self._uno("SELECT id_tipo_tratamiento FROM tipos_tratamiento WHERE activo ORDER BY 1 LIMIT 1")
         tipo_est = self._uno("SELECT id_tipo_estudio FROM tipo_estudio WHERE activo ORDER BY 1 LIMIT 1")
         tipo_ana = self._uno("SELECT id_tipo_analisis FROM tipo_analisis WHERE activo ORDER BY 1 LIMIT 1")
+        med_receta = self.medicamento() if tipo == 'receta' else None
         modelos = {
             'ficha': ('ficha_medica_consulta', 'id_ficha_medica',
                       "INSERT INTO ficha_medica_consulta(id_consulta_cab, temperatura) VALUES (%s, 36.5)", (id_consulta,)),
@@ -208,8 +224,11 @@ class Fixtures:
             'tratamiento': ('tratamientos', 'id_tratamiento',
                             "INSERT INTO tratamientos(codigo, id_consulta_cab, id_paciente, id_medico, id_tipo_tratamiento, descripcion_tratamiento, fecha_tratamiento, estado) "
                             "VALUES (%s,%s,%s,%s,%s,'ZZ',CURRENT_DATE,'pendiente')", (f'ZT{s[-8:]}', id_consulta, pac, med, tipo_trat)),
+            # una receta vigente exige al menos un medicamento (trigger diferido): se inserta todo antes de confirmar
             'receta': ('recetas', 'id_receta',
-                       "INSERT INTO recetas(id_consulta_cab, indicaciones_generales, fecha_receta) VALUES (%s,'ZZ',CURRENT_DATE)", (id_consulta,)),
+                       "WITH rc AS (INSERT INTO recetas(id_consulta_cab, indicaciones_generales, fecha_receta) VALUES (%s,'ZZ',CURRENT_DATE) RETURNING id_receta), "
+                       "rm AS (INSERT INTO receta_medicamento(id_receta, id_medicamento, dosis, frecuencia, duracion) SELECT id_receta, %s, 'ZZ', 'ZZ', 'ZZ' FROM rc) "
+                       "SELECT id_receta FROM rc", (id_consulta, med_receta)),
             'orden_estudio': ('orden_estudios', 'id_orden_estudio',
                               "INSERT INTO orden_estudios(id_consulta_cab, id_tipo_estudio, motivo_orden, fecha_orden, estado) VALUES (%s,%s,'ZZ',CURRENT_DATE,'pendiente')",
                               (id_consulta, tipo_est)),
@@ -220,7 +239,7 @@ class Fixtures:
                               "INSERT INTO justificativo_medico(id_consulta_cab, dias_reposo, fecha_justificativo, estado) VALUES (%s,1,CURRENT_DATE,'activo')", (id_consulta,)),
         }
         tabla, pk, sql, p = modelos[tipo]
-        if tipo == 'diagnostico':   # la consulta WITH ya devuelve el id: _insertar le agregaría RETURNING
+        if tipo in ('diagnostico', 'receta'):   # la consulta WITH ya devuelve el id: _insertar le agregaría RETURNING
             self.cu.execute(sql, p)
             i = self.cu.fetchone()[0]
             self.cx.commit()
@@ -272,6 +291,14 @@ class Fixtures:
                 self.cu.execute("DELETE FROM sesion_procedimientos WHERE id_tipo_procedimiento = %s", (i,))
             if tabla == 'insumos':
                 self.cu.execute("DELETE FROM sesion_insumos WHERE id_insumo = %s", (i,))
+            if tabla == 'recetas':
+                self.cu.execute("DELETE FROM receta_medicamento WHERE id_receta = %s", (i,))
+            if tabla == 'medicamentos':
+                self.cu.execute("DELETE FROM receta_medicamento WHERE id_medicamento = %s", (i,))
+            if tabla == 'tipo_estudio':
+                self.cu.execute("DELETE FROM orden_estudios WHERE id_tipo_estudio = %s", (i,))
+            if tabla == 'tipo_analisis':
+                self.cu.execute("DELETE FROM orden_analisis WHERE id_tipo_analisis = %s", (i,))
             self.cu.execute(f"DELETE FROM {tabla} WHERE {pk} = %s", (i,))
         # consultas registradas por la API (no pasaron por registrar_consulta): se borran por las citas ZZ
         for entidad, ids in self._auditoria.items():
