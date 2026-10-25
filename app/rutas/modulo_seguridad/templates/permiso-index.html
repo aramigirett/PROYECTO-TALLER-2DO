@@ -1,193 +1,130 @@
-{% extends 'base.html' %}
+{% extends 'base_tabler.html' %}
 
-{% block titulo %}
-Roles y Permisos
-{% endblock %}
+{% block titulo %}Roles y Permisos{% endblock %}
 
 {% block contenido %}
-<div class="container-fluid mt-10">
-  <h3>Roles y Permisos</h3>
-  <p class="text-muted">
-    Definí qué puede ver y hacer cada rol, pantalla por pantalla. Administrador no aparece acá: siempre ve y puede todo.
-  </p>
-
-  <div class="card mb-4">
-    <div class="card-body">
-      <div class="form-group" style="max-width: 320px;">
-        <label for="selRol">Rol a configurar:</label>
-        <select class="form-control" id="selRol">
-          <option value="">Seleccione un rol</option>
-        </select>
-      </div>
+<div class="page-header d-print-none mb-3">
+  <div class="row align-items-center">
+    <div class="col">
+      <div class="page-pretitle">Seguridad</div>
+      <h2 class="page-title">Roles y Permisos</h2>
+      <div class="text-muted mt-1">Defina qué puede ver y hacer cada rol, pantalla por pantalla. El Administrador no aparece: siempre puede todo. Cada cambio queda en la auditoría.</div>
     </div>
-  </div>
-
-  <div class="card" id="cardMatriz" style="display:none;">
-    <div class="card-header">
-      Permisos de <span id="nombreRolActual"></span>
-    </div>
-    <div class="card-body">
-      <div class="table-responsive">
-        <table class="table table-bordered table-striped" id="tblMatriz">
-          <thead>
-            <tr>
-              <th>Pantalla</th>
-              <th class="text-center" style="width: 90px;">Ver</th>
-              <th class="text-center" style="width: 90px;">Nuevo</th>
-              <th class="text-center" style="width: 90px;">Editar</th>
-              <th class="text-center" style="width: 90px;">Anular</th>
-              <th class="text-center" style="width: 90px;">Estado</th>
-              <th class="text-center" style="width: 110px;">Desbloquear</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <div id="sinRolSeleccionado" class="text-muted">
-    Elegí un rol arriba para ver y editar su matriz de permisos.
   </div>
 </div>
+
+<div class="card mb-3">
+  <div class="card-body">
+    <div style="max-width: 320px;">
+      <label class="form-label" for="selRol">Rol a configurar</label>
+      <select class="form-select" id="selRol"><option value="">Seleccione un rol</option></select>
+    </div>
+  </div>
+</div>
+
+<div class="card" id="cardMatriz" style="display: none;">
+  <div class="card-header"><h3 class="card-title">Permisos de <span id="nombreRolActual"></span></h3></div>
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table" id="tblMatriz">
+      <thead>
+        <tr>
+          <th>Pantalla</th>
+          <th class="text-center" style="width: 90px;">Ver</th>
+          <th class="text-center" style="width: 90px;">Nuevo</th>
+          <th class="text-center" style="width: 90px;">Editar</th>
+          <th class="text-center" style="width: 90px;">Anular</th>
+          <th class="text-center" style="width: 90px;">Estado</th>
+          <th class="text-center" style="width: 110px;">Desbloquear</th>
+        </tr>
+      </thead>
+      <tbody id="tbodyMatriz"></tbody>
+    </table>
+  </div>
+</div>
+
+<div id="sinRolSeleccionado" class="text-muted">Elija un rol arriba para ver y editar su matriz de permisos.</div>
 {% endblock %}
 
-
 {% block js %}
+<script src="{{ url_for('static', filename='js/facturacion-listado.js') }}"></script>
 <script>
-
+(function () {
   const ACCIONES = ['ver', 'nuevo', 'editar', 'anular', 'estado', 'desbloquear'];
-  let catalogoModulos = null;
+  const { escapar, pedir } = window.FacturacionListado;
+  const selRol = document.getElementById('selRol');
+  const tbody = document.getElementById('tbodyMatriz');
+  let catalogo = null;
 
-  const toast = Swal.mixin({
-    toast: true,
-    position: 'top-end',
-    showConfirmButton: false,
-    timer: 1800,
-    timerProgressBar: true
+  const toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 1800, timerProgressBar: true });
+
+  async function cargarRoles() {
+    const { data } = await pedir('/api/v1/roles-restringibles');
+    if (data && data.success) {
+      data.data.forEach((r) => selRol.insertAdjacentHTML('beforeend', `<option value="${escapar(r.id_rol)}">${escapar(r.nombre_rol)}</option>`));
+    }
+  }
+
+  async function cargarCatalogo() {
+    if (!catalogo) {
+      const { data } = await pedir('/api/v1/permisos/catalogo');
+      catalogo = (data && data.success) ? data.data : [];
+    }
+    return catalogo;
+  }
+
+  function celda(ventana, accion, disponible, marcado) {
+    if (!disponible) return '<td class="text-center text-muted">&mdash;</td>';
+    return `<td class="text-center"><input type="checkbox" class="form-check-input permiso-checkbox" data-ventana="${escapar(ventana)}" data-accion="${accion}" ${marcado ? 'checked' : ''}></td>`;
+  }
+
+  function dibujar(modulos, otorgados) {
+    const set = new Set(otorgados.map((p) => `${p.ventana}|${p.accion}`));
+    tbody.innerHTML = modulos.map((m) =>
+      `<tr class="bg-light"><td colspan="7"><strong>${escapar(m.modulo)}</strong></td></tr>` +
+      m.ventanas.map((v) => `<tr><td>${escapar(v.etiqueta)}</td>` +
+        ACCIONES.map((a) => celda(v.ventana, a, v.acciones.includes(a), set.has(`${v.ventana}|${a}`))).join('') + '</tr>').join('')
+    ).join('');
+  }
+
+  selRol.addEventListener('change', async () => {
+    if (!selRol.value) {
+      document.getElementById('cardMatriz').style.display = 'none';
+      document.getElementById('sinRolSeleccionado').style.display = '';
+      return;
+    }
+    document.getElementById('nombreRolActual').textContent = selRol.options[selRol.selectedIndex].text;
+    try {
+      const [modulos, matriz] = await Promise.all([cargarCatalogo(), pedir(`/api/v1/permisos/matriz/${selRol.value}`)]);
+      dibujar(modulos, (matriz.data && matriz.data.success) ? matriz.data.data : []);
+      document.getElementById('sinRolSeleccionado').style.display = 'none';
+      document.getElementById('cardMatriz').style.display = '';
+    } catch (e) {
+      Swal.fire('Error', 'No se pudo cargar la matriz de permisos.', 'error');
+    }
   });
 
-  const cargarRoles = () => {
-    return fetch('/api/v1/roles-restringibles')
-      .then(resp => resp.json())
-      .then(result => {
-        const sel = $('#selRol');
-        sel.find('option:not(:first)').remove();
-        if (result && result.success) {
-          result.data.forEach(rol => {
-            sel.append(`<option value="${rol.id_rol}">${rol.nombre_rol}</option>`);
-          });
-        }
+  tbody.addEventListener('change', async (ev) => {
+    const chk = ev.target.closest('.permiso-checkbox');
+    if (!chk) return;
+    const otorgar = chk.checked;
+    try {
+      const { data } = await pedir('/api/v1/permisos/matriz', {
+        method: otorgar ? 'POST' : 'DELETE', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_rol: parseInt(selRol.value, 10), ventana: chk.dataset.ventana, accion: chk.dataset.accion })
       });
-  };
-
-  const cargarCatalogo = () => {
-    if (catalogoModulos) {
-      return Promise.resolve(catalogoModulos);
-    }
-    return fetch('/api/v1/permisos/catalogo')
-      .then(resp => resp.json())
-      .then(result => {
-        catalogoModulos = (result && result.success) ? result.data : [];
-        return catalogoModulos;
-      });
-  };
-
-  const celdaCheckbox = (ventana, accion, disponible, marcado) => {
-    if (!disponible) {
-      return '<td class="text-center text-muted">&mdash;</td>';
-    }
-    const checked = marcado ? 'checked' : '';
-    return `<td class="text-center">
-      <input type="checkbox" class="permiso-checkbox" data-ventana="${ventana}" data-accion="${accion}" ${checked}>
-    </td>`;
-  };
-
-  const renderizarMatriz = (modulos, otorgados) => {
-    const $tbody = $('#tblMatriz tbody');
-    $tbody.empty();
-
-    const set = new Set(otorgados.map(p => `${p.ventana}|${p.accion}`));
-
-    modulos.forEach(modulo => {
-      $tbody.append(`<tr class="bg-light"><td colspan="7"><strong>${modulo.modulo}</strong></td></tr>`);
-      modulo.ventanas.forEach(ventana => {
-        const celdas = ACCIONES.map(accion => {
-          const disponible = ventana.acciones.includes(accion);
-          const marcado = set.has(`${ventana.ventana}|${accion}`);
-          return celdaCheckbox(ventana.ventana, accion, disponible, marcado);
-        }).join('');
-        $tbody.append(`<tr><td>${ventana.etiqueta}</td>${celdas}</tr>`);
-      });
-    });
-  };
-
-  const cargarMatrizDeRol = (idRol) => {
-    return fetch(`/api/v1/permisos/matriz/${idRol}`)
-      .then(resp => resp.json())
-      .then(result => (result && result.success) ? result.data : []);
-  };
-
-  const onCambiarRol = () => {
-    $('#selRol').on('change', function() {
-      const idRol = $(this).val();
-      const nombreRol = $(this).find('option:selected').text();
-
-      if (!idRol) {
-        $('#cardMatriz').hide();
-        $('#sinRolSeleccionado').show();
-        return;
+      if (data && data.success) {
+        toast.fire({ icon: 'success', title: otorgar ? 'Permiso otorgado' : 'Permiso revocado' });
+      } else {
+        chk.checked = !otorgar;
+        Swal.fire('Error', (data && data.error) || 'No se pudo actualizar el permiso.', 'error');
       }
-
-      $('#nombreRolActual').text(nombreRol);
-
-      Promise.all([cargarCatalogo(), cargarMatrizDeRol(idRol)])
-        .then(([modulos, otorgados]) => {
-          renderizarMatriz(modulos, otorgados);
-          $('#sinRolSeleccionado').hide();
-          $('#cardMatriz').show();
-        })
-        .catch(err => {
-          console.error(err);
-          Swal.fire('Error', 'No se pudo cargar la matriz de permisos.', 'error');
-        });
-    });
-  };
-
-  const onTogglearPermiso = () => {
-    $('#tblMatriz').on('change', '.permiso-checkbox', function() {
-      const $chk = $(this);
-      const idRol = $('#selRol').val();
-      const ventana = $chk.data('ventana');
-      const accion = $chk.data('accion');
-      const otorgar = $chk.is(':checked');
-
-      const peticion = otorgar
-        ? fetch('/api/v1/permisos/matriz', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id_rol: parseInt(idRol), ventana, accion }) })
-        : fetch('/api/v1/permisos/matriz', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id_rol: parseInt(idRol), ventana, accion }) });
-
-      peticion
-        .then(resp => resp.json())
-        .then(result => {
-          if (result && result.success) {
-            toast.fire({ icon: 'success', title: otorgar ? 'Permiso otorgado' : 'Permiso revocado' });
-          } else {
-            $chk.prop('checked', !otorgar);
-            Swal.fire('Error', (result && result.error) || 'No se pudo actualizar el permiso.', 'error');
-          }
-        })
-        .catch(err => {
-          console.error(err);
-          $chk.prop('checked', !otorgar);
-          Swal.fire('Error', 'Ocurrió un error al actualizar el permiso.', 'error');
-        });
-    });
-  };
-
-  $(function() {
-    cargarRoles();
-    onCambiarRol();
-    onTogglearPermiso();
+    } catch (e) {
+      chk.checked = !otorgar;
+      Swal.fire('Error', 'Ocurrió un error al actualizar el permiso.', 'error');
+    }
   });
+
+  cargarRoles();
+})();
 </script>
 {% endblock %}
