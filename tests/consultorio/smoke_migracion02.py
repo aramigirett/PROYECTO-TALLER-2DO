@@ -8,6 +8,7 @@ import sys
 sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parents[2]))
 from app import app
 from tests._conexion_pruebas import Conexion
+from tests.facturacion._limpieza import borrar_auditoria
 
 fallos = []
 
@@ -250,6 +251,7 @@ finally:
             cu.execute("DELETE FROM diagnosticos WHERE id_diagnostico=%s", (dx,))
     if id_consulta:
         cu.execute("DELETE FROM consultas_cab WHERE id_consulta_cab=%s", (id_consulta,))
+        borrar_auditoria(cu, 'consultas_cab', [id_consulta])   # la API de consultas audita: se borra solo lo que generó este test
     cu.execute("UPDATE cita_detalle SET id_estado_cita=%s WHERE id_cita_detalle=%s", (CITA[1], CITA[0]))
     cx.commit()
     cu.execute("SELECT count(*) FROM consultas_cab WHERE id_cita=%s", (CITA[0],))

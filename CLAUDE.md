@@ -1354,8 +1354,20 @@ Plan aprobado: `plan_etapa3.md` (sin versionar). **Decisiones de negocio confirm
 - Tests: `smoke_consulta.py` (134 chequeos, incluida la carrera de dos altas) con `tests/consultorio/_fixtures.py` (datos `ZZ` por SQL, sin depender de usuarios reales).
 - Datos de prueba para la prueba manual con el médico Oscar Gonzales (CI 2222222, usuario con rol `Medico`): `scripts/datos_prueba_oscar.py` (idempotente; sin `--ejecutar`
   solo simula). Los médicos Laura González y Andrea Cabrera (15 y 19) tienen sus usuarios INACTIVOS: no usarlos para probar.
-- ⚠️ Hasta el commit 3 la pantalla `consulta-index.html` (SB Admin 2) sigue siendo la vieja: lista y alta funcionan, pero "Editar" (el `PUT` ya no existe) y el modal de ficha
-  quedan para los commits 2 y 3.
+**Commit 2 (hecho): Ficha Médica**
+- **Validaciones** (servidor: `app/rutas/modulo_consultorio/validadores_clinicos.py`; espejo `app/static/js/consultorio-validadores.js`; base: `chk_ficha_rangos` y
+  `chk_ficha_presion`): temperatura 30–45 °C, FC 20–250, FR 5–80, presión `SSS/DDD` (50–300 / 30–200, sistólica > diastólica), peso 1–500 kg, talla 30–250 cm (hasta 2 decimales,
+  coma o punto), textos hasta 2.000 caracteres, **al menos un dato**. **El IMC lo calcula el servidor** (`peso / (talla/100)²`, 2 decimales); el del navegador se ignora.
+  Si cambia un rango, cambiar los tres sitios; `tests/consultorio/comparar_ficha_js_py.py` verifica que JS y Python den lo mismo (74 casos, con JScript).
+- **Quién y cuándo:** crear, editar y anular la ficha: solo el médico de esa consulta (`id_medico_sesion()`), con la consulta `programada` o `en_proceso`; se revalida DENTRO de la
+  transacción con la consulta bloqueada (`FOR UPDATE`), así que si la cancelan mientras se carga, la ficha se rechaza (409). Una ficha activa por consulta (índice parcial + 409).
+  Recepción y el Administrador solo leen.
+- **Privacidad:** las lecturas (`/ficha-medica/consulta/<id>` y `/ficha-medica/<id>`) ya no son `@require_login`: piden `fichamedica ver`, y un médico solo lee las de SUS consultas.
+  El listado (`GET /ficha-medica`, reemplaza a `/fichas-todas`) identifica la ficha (consulta, paciente con CI, médico, fecha, cuántos datos tiene) y **no devuelve ningún valor clínico**.
+- **Auditoría** (`ficha_medica_consulta`): ALTA (consulta y paciente), MODIFICACION **sin valores** (ni anteriores ni nuevos; "sin cambios" no audita) y BAJA (Activo → Anulado).
+- Tests: `smoke_ficha_medica.py` (115 chequeos: esquema, permisos por rol, 31 valores inválidos, IMC, una por consulta, estados de la consulta, auditoría sin valores, listado sin
+  valores clínicos, dos altas simultáneas y la consulta que se cancela mientras se guarda) y `comparar_ficha_js_py.py`. `smoke_migracion02` ahora borra la auditoría que genera.
+- ⚠️ Hasta el commit 3 siguen siendo los viejos `consulta-index.html` (modal de ficha) y `ficha-medica-index.html`, que usan `/fichas-todas` y el `PUT` de consultas: no funcionan.
 
 ### Etapa 2 (hecha): Tipo Diagnóstico y Síntomas
 - Mismo `CatalogoDao` y `crear_api_catalogo` que la etapa 1 (ahora con `FECHA = False`: estas dos tablas no tienen `fecha_registro`). **Tipo Diagnóstico** lleva
