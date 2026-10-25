@@ -191,7 +191,6 @@ try:
 
     reglas = [r for r in app.url_map.iter_rules() if 'GET' in r.methods and not r.arguments and r.endpoint != 'static'
               and r.rule.startswith(('/api/v1', '/referenciales'))]
-    # '/vista' (ruta suelta de app/__init__.py) renderiza vista-index.html sin 'stats': falla igual con postgres, no es de permisos
     cuerpos_500 = []
     for r in sorted(reglas, key=lambda x: x.rule):
         resp = c.get(r.rule)

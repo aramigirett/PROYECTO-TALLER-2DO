@@ -1,6 +1,6 @@
 from flask import g, jsonify, render_template, request, session, url_for, current_app as app
 
-from app.rutas.modulo_seguridad.menu_catalog import CATALOGO_MENU
+from app.rutas.modulo_seguridad.menu_servicio import etiqueta_ventana
 
 
 def _es_api():
@@ -10,12 +10,7 @@ def _es_api():
 def _etiqueta_ventana():
     """Nombre legible de la ventana que require_permiso dejó en g (si la conoce)."""
     ventana = g.get('ventana_denegada')
-    if not ventana:
-        return None
-    for item in CATALOGO_MENU:
-        if item['ventana'] == ventana:
-            return item['etiqueta']
-    return None
+    return etiqueta_ventana(ventana) if ventana else None
 
 
 def _responder(codigo, titulo, mensaje, icono, **extra):
@@ -33,10 +28,10 @@ def _responder(codigo, titulo, mensaje, icono, **extra):
     )
     if con_sesion:
         try:
-            return render_template('errores/error.html', layout='base.html', **contexto), codigo
+            return render_template('errores/error.html', layout='base_tabler.html', **contexto), codigo
         except Exception:
             # Si el layout completo falla (p. ej. base de datos caída), no encadenar otro error.
-            app.logger.exception('No se pudo renderizar la página de error con base.html')
+            app.logger.exception('No se pudo renderizar la página de error con base_tabler.html')
     try:
         return render_template('errores/error.html', layout='errores/_standalone.html', **contexto), codigo
     except Exception:

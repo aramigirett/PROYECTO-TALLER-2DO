@@ -1,0 +1,239 @@
+{% extends 'base_tabler.html' %}
+
+{% block titulo %}Mantener Menú{% endblock %}
+
+{% block contenido %}
+<div class="page-header d-print-none mb-3">
+  <div class="row align-items-center">
+    <div class="col">
+      <div class="page-pretitle">Seguridad</div>
+      <h2 class="page-title">Mantener Menú</h2>
+      <div class="text-muted mt-1">El menú lateral, el buscador y la matriz de Roles y Permisos salen de esta tabla. Una ventana anulada desaparece del menú y deja de dar acceso a los roles.</div>
+    </div>
+    {% if puede('menu', 'nuevo') %}
+    <div class="col-auto ms-auto">
+      <button type="button" class="btn btn-primary" id="btnAgregar"><i class="fas fa-plus me-2"></i>Agregar</button>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <label class="form-check form-switch mb-0">
+      <input class="form-check-input" type="checkbox" id="chkInactivos">
+      <span class="form-check-label">Mostrar inactivos</span>
+    </label>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table" id="tbl">
+      <thead>
+        <tr><th>Módulo / Ventana</th><th>Clave</th><th>Ruta</th><th>Ícono</th><th class="text-center">Orden</th><th>Visibilidad</th><th style="width: 110px;">Estado</th><th class="w-1">Acciones</th></tr>
+      </thead>
+      <tbody id="tbody"><tr><td colspan="8" class="text-center text-muted py-4">Cargando…</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="modal modal-blur fade" id="modalFormulario" tabindex="-1" aria-labelledby="modalTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalTitle"></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <form id="formulario" novalidate>
+        <div class="modal-body">
+          <input type="hidden" id="txtId">
+          <div class="mb-3" id="bloqueTipo">
+            <label class="form-label required">Tipo</label>
+            <div class="form-selectgroup w-100">
+              <label class="form-selectgroup-item flex-fill"><input type="radio" name="tipo" value="ventana" class="form-selectgroup-input" checked><span class="form-selectgroup-label">Ventana</span></label>
+              <label class="form-selectgroup-item flex-fill"><input type="radio" name="tipo" value="modulo" class="form-selectgroup-input"><span class="form-selectgroup-label">Módulo</span></label>
+            </div>
+          </div>
+          <div class="mb-3 bloque-ventana">
+            <label class="form-label required" for="selModulo">Módulo</label>
+            <select class="form-select" id="selModulo"><option value="">Seleccione…</option></select>
+            <div class="invalid-feedback"></div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label required" for="txtDescripcion">Descripción</label>
+            <input type="text" class="form-control" id="txtDescripcion" maxlength="60" autocomplete="off">
+            <div class="invalid-feedback"></div>
+          </div>
+          <div class="mb-3 bloque-ventana">
+            <label class="form-label required" for="txtClave">Clave</label>
+            <input type="text" class="form-control" id="txtClave" maxlength="60" autocomplete="off" placeholder="ej. reportes">
+            <div class="invalid-feedback"></div>
+            <div class="form-hint" id="hintClave">Identifica la ventana en los permisos. No se puede cambiar después. Las acciones que tiene (ver, nuevo, editar…) las define el código: una ventana nueva solo tiene "ver".</div>
+          </div>
+          <div class="mb-3 bloque-ventana">
+            <label class="form-label required" for="selRuta">Pantalla (ruta)</label>
+            <select class="form-select" id="selRuta"><option value="">Seleccione…</option></select>
+            <div class="invalid-feedback"></div>
+          </div>
+          <div class="row">
+            <div class="col-md-8 mb-3">
+              <label class="form-label" for="txtIcono">Ícono (FontAwesome)</label>
+              <div class="input-group"><span class="input-group-text"><i class="fas fa-circle" id="vistaIcono"></i></span>
+                <input type="text" class="form-control" id="txtIcono" maxlength="50" placeholder="fa-users" autocomplete="off"></div>
+              <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-md-4 mb-3">
+              <label class="form-label required" for="txtOrden">Orden</label>
+              <input type="number" class="form-control" id="txtOrden" min="0" max="32000">
+              <div class="invalid-feedback"></div>
+            </div>
+          </div>
+          <div class="bloque-ventana">
+            <label class="form-check form-switch"><input class="form-check-input" type="checkbox" id="chkVisible" checked><span class="form-check-label">Se muestra en el menú lateral y en el buscador</span></label>
+            <label class="form-check form-switch"><input class="form-check-input" type="checkbox" id="chkAdmin"><span class="form-check-label">Solo el Administrador (no se delega en Roles y Permisos)</span></label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btnGuardar">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script src="{{ url_for('static', filename='js/facturacion-validadores.js') }}"></script>
+<script src="{{ url_for('static', filename='js/facturacion-listado.js') }}"></script>
+<script>
+(function () {
+  const API = '/api/v1/menus';
+  const PUEDE_EDITAR = {{ 'true' if puede('menu', 'editar') else 'false' }};
+  const PUEDE_ANULAR = {{ 'true' if puede('menu', 'anular') else 'false' }};
+  const tbody = document.getElementById('tbody');
+  const chk = document.getElementById('chkInactivos');
+  const modalEl = document.getElementById('modalFormulario');
+  const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+  const form = document.getElementById('formulario');
+  const btnGuardar = document.getElementById('btnGuardar');
+  const L = window.FacturacionListado;
+  const V = window.FacturacionValidadores;
+  const { escapar, pedir } = L;
+  const inp = { id_menu_padre: document.getElementById('selModulo'), descripcion: document.getElementById('txtDescripcion'), clave: document.getElementById('txtClave'),
+                ruta: document.getElementById('selRuta'), icono: document.getElementById('txtIcono'), orden: document.getElementById('txtOrden') };
+  const CAMPOS = Object.keys(inp);
+  const tipo = () => document.querySelector('input[name="tipo"]:checked').value;
+  let filas = [];
+
+  function dibujar() {
+    if (!filas.length) { tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No hay entradas de menú.</td></tr>'; return; }
+    tbody.innerHTML = filas.map((f) => {
+      const esMod = f.tipo === 'modulo';
+      const acciones = L.acciones({ activo: f.activo, id: f.id_menu, descripcion: f.descripcion, puedeEditar: PUEDE_EDITAR, puedeAnular: PUEDE_ANULAR && !f.protegida })
+        + (f.protegida ? '<span class="badge bg-azure-lt align-self-center" title="Parte de la administración del sistema: no se anula">Protegida</span>' : '');
+      const vis = esMod ? '' : `${f.visible_en_menu ? '<span class="badge bg-success-lt">En el menú</span>' : '<span class="badge bg-secondary-lt">Contextual</span>'}${f.solo_admin ? ' <span class="badge bg-purple-lt">Administrador</span>' : ''}`;
+      return `<tr class="${L.claseFila(f.activo)} ${esMod ? 'table-light fw-bold' : ''}">
+        <td>${esMod ? '' : '<span class="ms-4"></span>'}<i class="fas ${escapar(f.icono || 'fa-circle')} me-2"></i>${escapar(f.descripcion)}</td>
+        <td>${escapar(f.clave || '')}</td><td class="text-muted small">${escapar(f.ruta || '')}</td><td class="text-muted small">${escapar(f.icono || '')}</td>
+        <td class="text-center">${escapar(f.orden)}</td><td>${vis}</td><td>${L.badgeEstado(f.activo)}</td>
+        <td class="text-nowrap"><div class="btn-list flex-nowrap">${acciones}</div></td></tr>`;
+    }).join('');
+  }
+
+  async function cargar() {
+    try {
+      const { ok, data } = await pedir(L.urlListado(API, chk));
+      if (!ok || !data || !data.success) throw new Error();
+      filas = data.data;
+      dibujar();
+    } catch (e) {
+      tbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger py-4">No se pudo cargar el listado.</td></tr>';
+    }
+  }
+
+  function alternar() {
+    const v = tipo() === 'ventana';
+    document.querySelectorAll('.bloque-ventana').forEach((e) => { e.style.display = v ? '' : 'none'; });
+  }
+  document.querySelectorAll('input[name="tipo"]').forEach((r) => r.addEventListener('change', alternar));
+  inp.icono.addEventListener('input', () => { document.getElementById('vistaIcono').className = 'fas ' + (/^fa-[a-z0-9-]+$/.test(inp.icono.value) ? inp.icono.value : 'fa-circle'); });
+  CAMPOS.forEach((k) => { inp[k].addEventListener('input', () => V.limpiarCampo(inp[k])); inp[k].addEventListener('change', () => V.limpiarCampo(inp[k])); });
+
+  async function abrirModal(titulo, f) {
+    document.getElementById('modalTitle').textContent = titulo;
+    document.getElementById('txtId').value = f ? f.id_menu : '';
+    const [m, r] = await Promise.all([pedir(API + '?inactivos=1'), pedir(API + '/rutas')]);
+    const modulos = ((m.data && m.data.success) ? m.data.data : []).filter((x) => x.tipo === 'modulo' && x.activo);
+    inp.id_menu_padre.innerHTML = '<option value="">Seleccione…</option>' + modulos.map((x) => `<option value="${escapar(x.id_menu)}">${escapar(x.descripcion)}</option>`).join('');
+    const rutas = (r.data && r.data.success) ? r.data.data : [];
+    inp.ruta.innerHTML = '<option value="">Seleccione…</option>' + rutas.map((x) => `<option value="${escapar(x.endpoint)}">${escapar(x.url)} (${escapar(x.endpoint)})</option>`).join('');
+    document.querySelector(`input[name="tipo"][value="${f ? f.tipo : 'ventana'}"]`).checked = true;
+    document.getElementById('bloqueTipo').style.display = f ? 'none' : '';
+    inp.id_menu_padre.value = f && f.id_menu_padre ? f.id_menu_padre : '';
+    inp.descripcion.value = f ? f.descripcion : '';
+    inp.clave.value = f ? (f.clave || '') : ''; inp.clave.disabled = !!f;
+    inp.ruta.value = f && f.ruta ? f.ruta : '';
+    inp.icono.value = f ? (f.icono || '') : ''; inp.icono.dispatchEvent(new Event('input'));
+    inp.orden.value = f ? f.orden : '';
+    document.getElementById('chkVisible').checked = f ? f.visible_en_menu : true;
+    const admin = document.getElementById('chkAdmin'); admin.checked = f ? f.solo_admin : false; admin.disabled = !!(f && f.protegida);
+    // una entrada protegida no cambia de módulo ni de ruta
+    inp.id_menu_padre.disabled = !!(f && f.protegida); inp.ruta.disabled = !!(f && f.protegida);
+    CAMPOS.forEach((k) => V.limpiarCampo(inp[k]));
+    alternar();
+    modal.show();
+  }
+  const btnAgregar = document.getElementById('btnAgregar');
+  if (btnAgregar) btnAgregar.addEventListener('click', () => abrirModal('Agregar entrada de menú'));
+
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    CAMPOS.forEach((k) => V.limpiarCampo(inp[k]));
+    const id = document.getElementById('txtId').value;
+    const esVentana = tipo() === 'ventana';
+    let error = false;
+    if (!inp.descripcion.value.trim()) { V.marcarCampo(inp.descripcion, 'El campo descripción es obligatorio y no puede estar vacío.'); error = true; }
+    if (inp.orden.value === '' || Number(inp.orden.value) < 0 || Number(inp.orden.value) > 32000) { V.marcarCampo(inp.orden, 'El orden debe ser un número de 0 a 32.000.'); error = true; }
+    if (inp.icono.value && !/^fa-[a-z0-9]+(-[a-z0-9]+)*$/.test(inp.icono.value.trim())) { V.marcarCampo(inp.icono, 'El ícono debe ser una clase de FontAwesome, por ejemplo fa-users.'); error = true; }
+    if (esVentana) {
+      if (!inp.id_menu_padre.value) { V.marcarCampo(inp.id_menu_padre, 'Elija el módulo.'); error = true; }
+      if (!inp.ruta.value) { V.marcarCampo(inp.ruta, 'Elija la pantalla.'); error = true; }
+      if (!id && !/^[a-z][a-z0-9]{1,59}$/.test(inp.clave.value.trim())) { V.marcarCampo(inp.clave, 'La clave debe tener de 2 a 60 caracteres: minúsculas y números, empezando por una letra.'); error = true; }
+    }
+    if (error) return;
+    if (id) {
+      const c = await Swal.fire({ title: '¿Guardar los cambios?', text: 'Se modificará esta entrada de menú.', icon: 'question', showCancelButton: true, confirmButtonText: 'Sí, guardar', cancelButtonText: 'Cancelar' });
+      if (!c.isConfirmed) return;
+    }
+    const cuerpo = { tipo: tipo(), descripcion: inp.descripcion.value.trim(), icono: inp.icono.value.trim(), orden: parseInt(inp.orden.value, 10) };
+    if (esVentana) Object.assign(cuerpo, { id_menu_padre: parseInt(inp.id_menu_padre.value, 10), ruta: inp.ruta.value, clave: inp.clave.value.trim(),
+                                           visible_en_menu: document.getElementById('chkVisible').checked, solo_admin: document.getElementById('chkAdmin').checked });
+    btnGuardar.disabled = true;
+    try {
+      const { data } = await pedir(id ? `${API}/${id}` : API, { method: id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo) });
+      if (data && data.success) { modal.hide(); await cargar(); Swal.fire(id ? 'Actualizada' : 'Agregada', data.mensaje + ' El menú lateral se actualiza al recargar la página.', 'success'); }
+      else V.marcarCampo(inp[data && data.campo && inp[data.campo] ? data.campo : 'descripcion'], (data && data.error) || 'No se pudo guardar la entrada de menú.');
+    } catch (e) {
+      V.marcarCampo(inp.descripcion, 'Ocurrió un error de conexión. Intente nuevamente.');
+    } finally {
+      btnGuardar.disabled = false;
+    }
+  });
+
+  tbody.addEventListener('click', async (ev) => {
+    const btn = ev.target.closest('button[data-accion]');
+    if (!btn) return;
+    const id = btn.dataset.id;
+    if (btn.dataset.accion === 'editar') {
+      const { data } = await pedir(`${API}/${id}`);
+      if (data && data.success) await abrirModal('Editar entrada de menú', data.data);
+      else { Swal.fire('Error', (data && data.error) || 'No se pudo cargar la entrada.', 'error'); cargar(); }
+    }
+    if (btn.dataset.accion === 'anular') await L.anular({ api: API, id, descripcion: btn.dataset.desc, titulo: '¿Anular esta entrada de menú?', exito: 'Anulada', errorDefault: 'No se pudo anular la entrada.', recargar: cargar });
+    if (btn.dataset.accion === 'reactivar') await L.reactivar({ api: API, id, descripcion: btn.dataset.desc, titulo: '¿Reactivar esta entrada de menú?', exito: 'Reactivada', errorDefault: 'No se pudo reactivar la entrada.', recargar: cargar });
+  });
+
+  chk.addEventListener('change', cargar);
+  cargar();
+})();
+</script>
+{% endblock %}

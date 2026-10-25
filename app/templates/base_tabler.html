@@ -799,16 +799,12 @@
                         </a>
                     </li>
 
-                    {# Módulos dinámicos filtrados por permisos del rol #}
+                    {# Módulos y ventanas de la tabla menu (Mantener Menú): solo las activas con permiso 'ver' para el rol #}
                     {% for modulo in menu_agrupado %}
                         {% set ep_activo = namespace(found=false) %}
                         {% for item in modulo.entradas %}
                             {% if request.endpoint == item.endpoint %}{% set ep_activo.found = true %}{% endif %}
                         {% endfor %}
-                        {% set es_seg_admin = modulo.modulo == 'Módulo Seguridad' and session.get('nombre_rol') == 'Administrador' %}
-                        {% if es_seg_admin and request.endpoint == 'permiso.permisoIndex' %}
-                            {% set ep_activo.found = true %}
-                        {% endif %}
 
                         <li class="oc-sidebar-item oc-has-submenu {% if ep_activo.found %}open{% endif %}">
                             <button type="button"
@@ -828,17 +824,6 @@
                                     </a>
                                 </li>
                                 {% endfor %}
-
-                                {# Ítem exclusivo Administrador: Roles y Permisos #}
-                                {% if es_seg_admin %}
-                                <li>
-                                    <a href="{{ url_for('permiso.permisoIndex') }}"
-                                       class="oc-sidebar-sublink {% if request.endpoint == 'permiso.permisoIndex' %}active{% endif %}">
-                                        <i class="fas fa-key oc-subnav-icon"></i>
-                                        <span>Roles y Permisos</span>
-                                    </a>
-                                </li>
-                                {% endif %}
                             </ul>
                         </li>
                     {% endfor %}

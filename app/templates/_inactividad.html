@@ -1,4 +1,4 @@
-{# Cierre por inactividad (cliente). Lo incluyen base.html y base_tabler.html; solo se carga con sesión iniciada. #}
+{# Cierre por inactividad (cliente). Lo incluye base_tabler.html; solo se carga con sesión iniciada. #}
 {% if session.get('id_usuario') %}
 <script src="{{ url_for('static', filename='js/inactividad.js') }}"
         data-limite="{{ inactividad_cfg.limite }}"

@@ -33,6 +33,7 @@ from app.rutas.modulo_seguridad.usuario_routes import usuariomod
 from app.rutas.modulo_seguridad.auditoria_routes import auditoriamod
 from app.rutas.modulo_seguridad.permiso_routes import permisomod
 from app.rutas.modulo_seguridad.backup_routes import backupmod
+from app.rutas.modulo_seguridad.menu_routes import menumod
 from app.rutas.modulo_seguridad.auditoria_cambios_routes import auditoriacambiosmod
 from app.rutas.referenciales.ciudad.ciudad_routes import ciumod #ciudad
 from app.rutas.referenciales.especialidad.especialidad_routes import especimod  #especialidad
@@ -81,6 +82,7 @@ app.register_blueprint(usuariomod, url_prefix=f'{modulo0}/usuario')
 app.register_blueprint(auditoriamod, url_prefix=f'{modulo0}/auditoria')
 app.register_blueprint(permisomod, url_prefix=f'{modulo0}/permiso')
 app.register_blueprint(backupmod, url_prefix=f'{modulo0}/backup')
+app.register_blueprint(menumod, url_prefix=f'{modulo0}/menu')
 app.register_blueprint(auditoriacambiosmod, url_prefix=f'{modulo0}/auditoria-cambios')
 app.register_blueprint(ciumod, url_prefix=f'{modulo0}/ciudad') #ciudad
 app.register_blueprint(especimod, url_prefix=f'{modulo0}/especialidad') #especialidad
@@ -148,6 +150,7 @@ from app.rutas.modulo_seguridad.auditoria_cambios_api import auditoriacambiosapi
 
 #menu (Módulo Seguridad - buscador general)
 from app.rutas.modulo_seguridad.menu_api import menuapi
+from app.rutas.modulo_seguridad.menu_abm_api import menuabmapi
 
 #Agendamiento nuevo
 from app.rutas.modulo_agendamiento.medico.medico_api import medicoapi
@@ -215,6 +218,7 @@ app.register_blueprint(auditoriacambiosapi, url_prefix=version1)
 
 version1 = '/api/v1'
 app.register_blueprint(menuapi, url_prefix=version1)
+app.register_blueprint(menuabmapi, url_prefix=version1)
 
 #Agendamiento nuevo
 version1 = '/api/v1'
@@ -387,12 +391,12 @@ app.register_blueprint(diagnosticos_medicos_mod, url_prefix=f'{modulo0}/diagnost
 # disponibles en todos los templates sin pasarlos a mano en cada render_template.
 # ============================================
 from app.rutas.modulo_seguridad.permisos_contexto import puede
-from app.rutas.modulo_seguridad.menu_catalog import agrupar_por_modulo_visible
+from app.rutas.modulo_seguridad.menu_servicio import menu_visible
 
 
 @app.context_processor
 def inject_permisos():
-    return dict(puede=puede, menu_agrupado=agrupar_por_modulo_visible())
+    return dict(puede=puede, menu_agrupado=menu_visible())
 
 
 # ============================================
@@ -408,10 +412,6 @@ registrar_controles_de_sesion(app)
 from app.rutas.errores import registrar_manejadores_de_error
 registrar_manejadores_de_error(app)
 
-
-@app.route('/vista')
-def vista():
-    return render_template('vista-index.html')
 
 
 

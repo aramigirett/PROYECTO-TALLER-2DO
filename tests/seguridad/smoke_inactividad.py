@@ -1,6 +1,6 @@
 """Cierre de sesión por inactividad: el SERVIDOR vence la sesión pasados SESSION_INACTIVIDAD_MINUTOS (vistas y /api/), la deja
 en auditoria_acceso como CIERRE_INACTIVIDAD y redirige al login con "Sesión cerrada por inactividad"; /sesion/estado no renueva,
-/sesion/extender sí; el tiempo y el aviso salen del .env; el aviso con cuenta regresiva (inactividad.js) está en base.html y en
+/sesion/extender sí; el tiempo y el aviso salen del .env; el aviso con cuenta regresiva (inactividad.js) está en base_tabler.html (base.html se retiró) y en
 base_tabler.html, y su lógica se prueba en Edge headless con reloj y red simulados (inactividad_test.html).
 Borra SOLO las filas de auditoría que generó (por ID)."""
 import os, re, subprocess, sys, time, pathlib, tempfile
@@ -12,7 +12,7 @@ from app.dao.modulo_seguridad.UsuarioDao import UsuarioDao
 
 EDGE = r'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe'
 fallos = []
-VISTA_SBADMIN = '/referenciales/auditoria/auditoria-index'          # extiende base.html
+VISTA_SBADMIN = '/referenciales/auditoria/auditoria-index'          # extiende base_tabler.html
 VISTA_TABLER = '/referenciales/formacobro/forma-cobro-index'        # extiende base_tabler.html
 
 
@@ -143,7 +143,7 @@ try:
     # =========================================================================================================================
     # 6. EL AVISO (JS) ESTÁ EN LAS DOS PLANTILLAS BASE
     # =========================================================================================================================
-    for nombre, url in (('base.html (SB Admin)', VISTA_SBADMIN), ('base_tabler.html (Tabler)', VISTA_TABLER)):
+    for nombre, url in (('base_tabler.html (vista de Seguridad)', VISTA_SBADMIN), ('base_tabler.html (vista de Facturación)', VISTA_TABLER)):
         html = cliente(60).get(url).get_data(as_text=True)
         chk(f'{nombre}: incluye inactividad.js con límite 1800 s y aviso 120 s',
             'js/inactividad.js' in html and 'data-limite="1800"' in html and 'data-aviso="120"' in html)
