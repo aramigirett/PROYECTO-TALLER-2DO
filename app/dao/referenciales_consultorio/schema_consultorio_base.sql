@@ -282,8 +282,9 @@ CREATE TABLE IF NOT EXISTS tratamientos (
     id_tipo_tratamiento integer NOT NULL,
     descripcion_tratamiento text NOT NULL,
     fecha_tratamiento date NOT NULL,
-    estado character varying(20) DEFAULT 'pendiente'::character varying,
+    estado character varying(20) DEFAULT 'pendiente'::character varying NOT NULL,
     fecha_registro timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_tratamiento_descripcion CHECK ((btrim(descripcion_tratamiento) <> ''::text)) NOT VALID,
     CONSTRAINT chk_estado_trat CHECK (((estado)::text = ANY ((ARRAY['pendiente'::character varying, 'en_seguimiento'::character varying, 'finalizado'::character varying, 'cancelado'::character varying])::text[]))),
     CONSTRAINT tratamientos_pkey PRIMARY KEY (id_tratamiento),
     CONSTRAINT tratamientos_codigo_key UNIQUE (codigo),
@@ -360,18 +361,33 @@ CREATE TABLE IF NOT EXISTS sesiones_tratamiento (
     id_sesion SERIAL,
     id_tratamiento integer NOT NULL,
     numero_sesion integer NOT NULL,
-    id_tipo_procedimiento integer NOT NULL,
     fecha_sesion date DEFAULT CURRENT_DATE NOT NULL,
     descripcion_procedimiento text NOT NULL,
     observaciones text,
     proxima_cita date,
-    activo boolean DEFAULT true,
+    activo boolean DEFAULT true NOT NULL,
     fecha_registro timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    id_consulta_cab integer NOT NULL,
+    CONSTRAINT chk_sesion_descripcion CHECK ((btrim(descripcion_procedimiento) <> ''::text)) NOT VALID,
+    CONSTRAINT chk_sesion_proxima_cita CHECK (((proxima_cita IS NULL) OR (proxima_cita >= fecha_sesion))) NOT VALID,
     CONSTRAINT sesiones_tratamiento_pkey PRIMARY KEY (id_sesion),
-    CONSTRAINT sesiones_tratamiento_id_tipo_procedimiento_fkey FOREIGN KEY (id_tipo_procedimiento) REFERENCES tipo_procedimiento_medico(id_tipo_procedimiento) ON DELETE RESTRICT,
+    CONSTRAINT fk_sesion_consulta FOREIGN KEY (id_consulta_cab) REFERENCES consultas_cab(id_consulta_cab) ON UPDATE CASCADE ON DELETE RESTRICT,
     CONSTRAINT sesiones_tratamiento_id_tratamiento_fkey FOREIGN KEY (id_tratamiento) REFERENCES tratamientos(id_tratamiento) ON DELETE RESTRICT
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uk_sesion_tratamiento_numero ON sesiones_tratamiento USING btree (id_tratamiento, numero_sesion) WHERE (activo = true);
+CREATE INDEX IF NOT EXISTS idx_sesion_consulta ON sesiones_tratamiento USING btree (id_consulta_cab);
+
+CREATE TABLE IF NOT EXISTS sesion_procedimientos (
+    id_sesion_procedimiento SERIAL,
+    id_sesion integer NOT NULL,
+    id_tipo_procedimiento integer NOT NULL,
+    activo boolean NOT NULL DEFAULT true,
+    CONSTRAINT sesion_procedimientos_pkey PRIMARY KEY (id_sesion_procedimiento),
+    CONSTRAINT sesion_procedimientos_id_sesion_fkey FOREIGN KEY (id_sesion) REFERENCES sesiones_tratamiento(id_sesion) ON DELETE RESTRICT,
+    CONSTRAINT sesion_procedimientos_id_tipo_fkey FOREIGN KEY (id_tipo_procedimiento) REFERENCES tipo_procedimiento_medico(id_tipo_procedimiento) ON DELETE RESTRICT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_sesion_procedimiento_activo ON sesion_procedimientos (id_sesion, id_tipo_procedimiento) WHERE activo = true;
+CREATE INDEX IF NOT EXISTS idx_sesion_procedimientos_tipo ON sesion_procedimientos (id_tipo_procedimiento);
 
 CREATE TABLE IF NOT EXISTS receta_medicamento (
     id_receta_medicamento SERIAL,
@@ -391,12 +407,49 @@ CREATE TABLE IF NOT EXISTS sesion_insumos (
     id_sesion integer NOT NULL,
     id_insumo integer NOT NULL,
     cantidad integer NOT NULL,
-    activo boolean DEFAULT true,
+    activo boolean DEFAULT true NOT NULL,
     CONSTRAINT sesion_insumos_cantidad_check CHECK ((cantidad > 0)),
+    CONSTRAINT chk_sesion_insumo_cantidad CHECK (((cantidad >= 1) AND (cantidad <= 999))),
     CONSTRAINT sesion_insumos_pkey PRIMARY KEY (id_sesion_insumo),
     CONSTRAINT sesion_insumos_id_insumo_fkey FOREIGN KEY (id_insumo) REFERENCES insumos(id_insumo) ON DELETE RESTRICT,
     CONSTRAINT sesion_insumos_id_sesion_fkey FOREIGN KEY (id_sesion) REFERENCES sesiones_tratamiento(id_sesion) ON DELETE RESTRICT
 );
+CREATE UNIQUE INDEX IF NOT EXISTS uk_sesion_insumo_activo ON sesion_insumos (id_sesion, id_insumo) WHERE activo = true;
+CREATE INDEX IF NOT EXISTS idx_sesion_insumos_insumo ON sesion_insumos (id_insumo);
+
+CREATE OR REPLACE FUNCTION fn_validar_sesion_consulta() RETURNS trigger AS $$
+-- La consulta en la que se registra una sesión es del mismo paciente y del mismo médico que el tratamiento.
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM tratamientos t JOIN consultas_cab c ON c.id_consulta_cab = NEW.id_consulta_cab
+                    WHERE t.id_tratamiento = NEW.id_tratamiento AND t.id_paciente = c.id_paciente AND t.id_medico = c.id_medico) THEN
+        RAISE EXCEPTION 'La consulta de la sesión debe ser del mismo paciente y del mismo médico que el tratamiento.' USING ERRCODE = 'check_violation';
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+COMMENT ON FUNCTION fn_validar_sesion_consulta() IS 'Trigger: una sesión se registra en una consulta del mismo paciente y médico que su tratamiento.';
+
+DROP TRIGGER IF EXISTS trg_validar_sesion_consulta ON sesiones_tratamiento;
+CREATE TRIGGER trg_validar_sesion_consulta
+    BEFORE INSERT ON sesiones_tratamiento
+    FOR EACH ROW EXECUTE FUNCTION fn_validar_sesion_consulta();
+
+CREATE OR REPLACE FUNCTION fn_validar_sesion_procedimiento() RETURNS trigger AS $$
+-- Una sesión vigente tiene al menos un procedimiento. Se verifica al CONFIRMAR la transacción (la sesión y sus procedimientos se insertan juntos).
+BEGIN
+    IF NEW.activo AND NOT EXISTS (SELECT 1 FROM sesion_procedimientos WHERE id_sesion = NEW.id_sesion AND activo = true) THEN
+        RAISE EXCEPTION 'La sesión % debe tener al menos un procedimiento.', NEW.numero_sesion USING ERRCODE = 'check_violation';
+    END IF;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+COMMENT ON FUNCTION fn_validar_sesion_procedimiento() IS 'Trigger diferido: toda sesión vigente tiene al menos un procedimiento (sesion_procedimientos).';
+
+DROP TRIGGER IF EXISTS trg_sesion_con_procedimiento ON sesiones_tratamiento;
+CREATE CONSTRAINT TRIGGER trg_sesion_con_procedimiento
+    AFTER INSERT OR UPDATE OF activo ON sesiones_tratamiento
+    DEFERRABLE INITIALLY DEFERRED
+    FOR EACH ROW EXECUTE FUNCTION fn_validar_sesion_procedimiento();
 
 CREATE OR REPLACE FUNCTION fn_validar_diagnostico_sintoma() RETURNS trigger AS $$
 -- Un diagnóstico vigente tiene al menos un síntoma. Se verifica al CONFIRMAR la transacción (el diagnóstico y sus síntomas se insertan juntos).

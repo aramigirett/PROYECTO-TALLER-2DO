@@ -150,9 +150,92 @@
     return errores;
   }
 
+  /* ───────── Etapa 5: Tratamiento y Sesiones (espejo de validar_tratamiento / validar_sesion) ───────── */
+  var MAX_DESCRIPCION_TRAT = 1000, MAX_DESCRIPCION_SESION = 1000, MAX_OBSERVACIONES_SESION = 2000;
+  var CANT_MIN = 1, CANT_MAX = 999;
+  var RE_FECHA = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+  function fechaIsoValida(v) {
+    if (typeof v !== 'string') return false;
+    var m = RE_FECHA.exec(recortar(v));
+    if (!m) return false;
+    var a = parseInt(m[1], 10), me = parseInt(m[2], 10), d = parseInt(m[3], 10);
+    var f = new Date(Date.UTC(a, me - 1, d));
+    return f.getUTCFullYear() === a && f.getUTCMonth() === me - 1 && f.getUTCDate() === d;
+  }
+
+  /* entero positivo o null (un booleano no vale) */
+  function idPositivo(v) {
+    if (typeof v === 'boolean') return null;
+    var t = recortar(v);
+    return (RE_ENTERO.test(t) && parseInt(t, 10) > 0) ? parseInt(t, 10) : null;
+  }
+
+  /* '' si es válido o el mensaje. `hoy` es AAAA-MM-DD. */
+  function textoLargo(v, maximo, obligatorio, msgVacio, msgLargo, msgControl) {
+    if (vacio(v)) return obligatorio ? msgVacio : '';
+    if (typeof v !== 'string') return msgVacio;
+    var t = recortar(v);
+    if (t.length > maximo) return msgLargo;
+    if (RE_CONTROL.test(t)) return msgControl;
+    return '';
+  }
+
+  function tratamiento(d, hoy) {
+    var errores = {};
+    if (vacio(d.id_tipo_tratamiento)) errores.id_tipo_tratamiento = 'El tipo de tratamiento es obligatorio.';
+    else if (idPositivo(d.id_tipo_tratamiento) === null) errores.id_tipo_tratamiento = 'El tipo de tratamiento no es válido.';
+    var e = textoLargo(d.descripcion_tratamiento, MAX_DESCRIPCION_TRAT, true, 'La descripción del tratamiento es obligatoria.',
+                       'La descripción no puede superar los ' + MAX_DESCRIPCION_TRAT + ' caracteres.', 'La descripción contiene caracteres no permitidos.');
+    if (e) errores.descripcion_tratamiento = e;
+    if (!vacio(d.fecha_tratamiento)) {
+      if (!fechaIsoValida(d.fecha_tratamiento)) errores.fecha_tratamiento = 'La fecha del tratamiento no es válida (AAAA-MM-DD).';
+      else if (recortar(d.fecha_tratamiento) > hoy) errores.fecha_tratamiento = 'La fecha del tratamiento no puede ser futura.';
+    }
+    if (!vacio(d.id_diagnostico) && idPositivo(d.id_diagnostico) === null) errores.id_diagnostico = 'El diagnóstico no es válido.';
+    return errores;
+  }
+
+  /* Valida la sesión completa: { campo: mensaje }. `d.procedimientos` es una lista de ids; `d.insumos`, una lista de { id_insumo, cantidad }. */
+  function sesion(d, hoy) {
+    var errores = {}, i;
+    if (!d.procedimientos || !d.procedimientos.length) errores.procedimientos = 'Debe elegir al menos un procedimiento.';
+    else {
+      for (i = 0; i < d.procedimientos.length; i++) {
+        if (idPositivo(d.procedimientos[i]) === null) { errores.procedimientos = 'Los procedimientos deben enviarse como una lista de IDs.'; break; }
+      }
+    }
+    var e = textoLargo(d.descripcion_procedimiento, MAX_DESCRIPCION_SESION, true, 'La descripción de la sesión es obligatoria.',
+                       'La descripción no puede superar los ' + MAX_DESCRIPCION_SESION + ' caracteres.', 'La descripción contiene caracteres no permitidos.');
+    if (e) errores.descripcion_procedimiento = e;
+    e = textoLargo(d.observaciones, MAX_OBSERVACIONES_SESION, false, 'Las observaciones deben ser un texto.',
+                   'Las observaciones no pueden superar los ' + MAX_OBSERVACIONES_SESION + ' caracteres.', 'Las observaciones contienen caracteres no permitidos.');
+    if (e) errores.observaciones = e;
+    if (!vacio(d.proxima_cita)) {
+      if (!fechaIsoValida(d.proxima_cita)) errores.proxima_cita = 'La próxima cita no es válida (AAAA-MM-DD).';
+      else if (recortar(d.proxima_cita) < hoy) errores.proxima_cita = 'La próxima cita no puede ser anterior a hoy.';
+    }
+    var insumos = (d.insumos === null || d.insumos === undefined) ? [] : d.insumos;
+    if (Object.prototype.toString.call(insumos) !== '[object Array]') errores.insumos = 'Los insumos deben enviarse como una lista.';
+    else {
+      var vistos = {};
+      for (i = 0; i < insumos.length; i++) {
+        var it = insumos[i];
+        if (!it || typeof it !== 'object' || idPositivo(it.id_insumo) === null) { errores.insumos = 'Cada insumo necesita su tipo de insumo.'; break; }
+        var n = idPositivo(it.cantidad);
+        if (n === null || n < CANT_MIN || n > CANT_MAX) { errores.insumos = 'La cantidad de cada insumo debe ser un número entero de ' + CANT_MIN + ' a ' + CANT_MAX + '.'; break; }
+        var clave = 'i' + idPositivo(it.id_insumo);
+        if (vistos[clave]) { errores.insumos = 'No repita el mismo insumo: sume las cantidades en un solo renglón.'; break; }
+        vistos[clave] = true;
+      }
+    }
+    return errores;
+  }
+
   global.ConsultorioValidadores = {
     presion: presion, temperatura: temperatura, frecuenciaCardiaca: frecuenciaCardiaca,
     frecuenciaRespiratoria: frecuenciaRespiratoria, peso: peso, talla: talla, textoClinico: textoClinico, imc: imc, ficha: ficha,
-    piezaFdi: piezaFdi, piezaValida: piezaValida, superficie: superficie, diagnostico: diagnostico
+    piezaFdi: piezaFdi, piezaValida: piezaValida, superficie: superficie, diagnostico: diagnostico,
+    tratamiento: tratamiento, sesion: sesion
   };
 })(window);

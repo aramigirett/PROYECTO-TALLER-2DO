@@ -105,6 +105,23 @@ class Fixtures:
         s = self._sufijo()
         return self._insertar('sintoma', 'id_sintoma', "INSERT INTO sintoma(descripcion_sintoma, activo) VALUES (%s,%s)", (f'ZZ SINTOMA {s[-6:]}', activo))
 
+    def tipo_tratamiento(self, activo=True):
+        """Un tipo de tratamiento ZZ (referencial). Devuelve su id."""
+        s = self._sufijo()
+        return self._insertar('tipos_tratamiento', 'id_tipo_tratamiento',
+                              "INSERT INTO tipos_tratamiento(descripcion, precio, iva, activo) VALUES (%s,1000,10,%s)", (f'ZZ TIPO TRAT {s[-6:]}', activo))
+
+    def tipo_procedimiento(self, activo=True):
+        """Un tipo de procedimiento médico ZZ (referencial). Devuelve su id."""
+        s = self._sufijo()
+        return self._insertar('tipo_procedimiento_medico', 'id_tipo_procedimiento',
+                              "INSERT INTO tipo_procedimiento_medico(descripcion, activo) VALUES (%s,%s)", (f'ZZ PROCEDIMIENTO {s[-6:]}', activo))
+
+    def insumo(self, activo=True):
+        """Un tipo de insumo ZZ (referencial). Devuelve su id."""
+        s = self._sufijo()
+        return self._insertar('insumos', 'id_insumo', "INSERT INTO insumos(descripcion, activo) VALUES (%s,%s)", (f'ZZ INSUMO {s[-6:]}', activo))
+
     def estado_dental(self, aplica_a='SUPERFICIE', activo=True):
         """Un estado dental ZZ. Devuelve su id."""
         s = self._sufijo()
@@ -234,19 +251,27 @@ class Fixtures:
             self.cu.execute("RESET session_replication_role")
         for tabla, pk, i in reversed(self._borrar):
             if tabla == 'consultas_cab':
-                for hija, col in (('ficha_medica_consulta', 'id_consulta_cab'), ('odontograma_detalle', None), ('odontograma', 'id_consulta_cab'),
-                                  ('diagnostico_sintoma', None), ('diagnosticos', 'id_consulta_cab'), ('tratamientos', 'id_consulta_cab'),
+                for hija, col in (('ficha_medica_consulta', 'id_consulta_cab'), ('odontograma', 'id_consulta_cab'),
                                   ('recetas', 'id_consulta_cab'), ('orden_estudios', 'id_consulta_cab'), ('orden_analisis', 'id_consulta_cab'),
-                                  ('justificativo_medico', 'id_consulta_cab')):
+                                  ('justificativo_medico', 'id_consulta_cab'), ('tratamientos', 'id_consulta_cab'), ('diagnosticos', 'id_consulta_cab')):
                     if col is None:
                         continue
                     if hija == 'odontograma':
                         self.cu.execute("DELETE FROM odontograma_detalle WHERE id_odontograma IN (SELECT id_odontograma FROM odontograma WHERE id_consulta_cab = %s)", (i,))
                     if hija == 'diagnosticos':
                         self.cu.execute("DELETE FROM diagnostico_sintoma WHERE id_diagnostico IN (SELECT id_diagnostico FROM diagnosticos WHERE id_consulta_cab = %s)", (i,))
+                    if hija == 'tratamientos':
+                        sub = "SELECT id_sesion FROM sesiones_tratamiento WHERE id_consulta_cab = %s OR id_tratamiento IN (SELECT id_tratamiento FROM tratamientos WHERE id_consulta_cab = %s)"
+                        self.cu.execute(f"DELETE FROM sesion_insumos WHERE id_sesion IN ({sub})", (i, i))
+                        self.cu.execute(f"DELETE FROM sesion_procedimientos WHERE id_sesion IN ({sub})", (i, i))
+                        self.cu.execute("DELETE FROM sesiones_tratamiento WHERE id_consulta_cab = %s OR id_tratamiento IN (SELECT id_tratamiento FROM tratamientos WHERE id_consulta_cab = %s)", (i, i))
                     if hija == 'recetas':
                         self.cu.execute("DELETE FROM receta_medicamento WHERE id_receta IN (SELECT id_receta FROM recetas WHERE id_consulta_cab = %s)", (i,))
                     self.cu.execute(f"DELETE FROM {hija} WHERE {col} = %s", (i,))
+            if tabla == 'tipo_procedimiento_medico':
+                self.cu.execute("DELETE FROM sesion_procedimientos WHERE id_tipo_procedimiento = %s", (i,))
+            if tabla == 'insumos':
+                self.cu.execute("DELETE FROM sesion_insumos WHERE id_insumo = %s", (i,))
             self.cu.execute(f"DELETE FROM {tabla} WHERE {pk} = %s", (i,))
         # consultas registradas por la API (no pasaron por registrar_consulta): se borran por las citas ZZ
         for entidad, ids in self._auditoria.items():

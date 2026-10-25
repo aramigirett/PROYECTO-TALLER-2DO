@@ -7,6 +7,7 @@ app/dao/referenciales_consultorio/schema_consultorio_etapa3.sql). El servidor va
 Rangos aprobados: temperatura 30–45 °C; frecuencia cardíaca 20–250 lpm; frecuencia respiratoria 5–80 rpm; presión sistólica 50–300 y
 diastólica 30–200 mmHg con sistólica > diastólica; peso 1–500 kg; talla 30–250 cm. No se admite una ficha sin ningún dato.
 """
+import datetime
 import re
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
@@ -237,4 +238,152 @@ def validar_diagnostico(data):
         if _RE_CONTROL.search(observaciones):
             return None, 'Las observaciones contienen caracteres no permitidos.', 'observaciones'
         v['observaciones'] = observaciones
+    return v, None, None
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Etapa 5: Tratamiento y Sesiones (espejo en consultorio-validadores.js: tratamiento / sesion)
+# ---------------------------------------------------------------------------------------------------------------------
+MAX_DESCRIPCION_TRAT = 1000
+MAX_DESCRIPCION_SESION = 1000
+MAX_OBSERVACIONES_SESION = 2000
+CANTIDAD_INSUMO = (1, 999)
+_RE_FECHA = re.compile(r'^(\d{4})-(\d{2})-(\d{2})$')
+
+
+def _fecha_iso(valor):
+    """(texto AAAA-MM-DD | None, error). Una fecha real del calendario, escrita así."""
+    if not isinstance(valor, str) or not _RE_FECHA.match(valor.strip()):
+        return None, 'inválida'
+    texto = valor.strip()
+    try:
+        datetime.date.fromisoformat(texto)
+    except ValueError:
+        return None, 'inválida'
+    return texto, None
+
+
+def _id_positivo(valor):
+    if isinstance(valor, (bool, float)):
+        return None
+    texto = str(valor).strip()
+    return int(texto) if _RE_ENTERO.match(texto) and int(texto) > 0 else None
+
+
+def _texto_largo(valor, maximo, obligatorio, vacio_msg, largo_msg, control_msg):
+    """(texto|None, error)."""
+    if _vacio(valor):
+        return (None, vacio_msg) if obligatorio else (None, None)
+    if not isinstance(valor, str):
+        return None, vacio_msg
+    texto = valor.strip()
+    if len(texto) > maximo:
+        return None, largo_msg
+    if _RE_CONTROL.search(texto):
+        return None, control_msg
+    return texto, None
+
+
+def validar_tratamiento(data, hoy=None):
+    """
+    Valida los datos de un tratamiento (lo que el navegador puede definir). Devuelve (valores, None, None) o (None, mensaje, campo).
+    id_tipo_tratamiento: entero positivo, obligatorio. descripcion_tratamiento: obligatoria (hasta 1.000). fecha_tratamiento: opcional (sin dato = hoy),
+    no puede ser futura. id_diagnostico: opcional, entero positivo. Paciente, médico, consultorio, consulta y estado NO se toman del navegador.
+    `hoy` es 'AAAA-MM-DD' (el servidor pasa su fecha).
+    """
+    if not isinstance(data, dict):
+        return None, 'Los datos enviados no son válidos.', None
+    hoy = hoy or datetime.date.today().isoformat()
+    v = {}
+    tipo = data.get('id_tipo_tratamiento')
+    if _vacio(tipo):
+        return None, 'El tipo de tratamiento es obligatorio.', 'id_tipo_tratamiento'
+    v['id_tipo_tratamiento'] = _id_positivo(tipo)
+    if v['id_tipo_tratamiento'] is None:
+        return None, 'El tipo de tratamiento no es válido.', 'id_tipo_tratamiento'
+    descripcion, e = _texto_largo(data.get('descripcion_tratamiento'), MAX_DESCRIPCION_TRAT, True, 'La descripción del tratamiento es obligatoria.',
+                                  f'La descripción no puede superar los {MAX_DESCRIPCION_TRAT} caracteres.', 'La descripción contiene caracteres no permitidos.')
+    if e:
+        return None, e, 'descripcion_tratamiento'
+    v['descripcion_tratamiento'] = descripcion
+    fecha = data.get('fecha_tratamiento')
+    if _vacio(fecha):
+        v['fecha_tratamiento'] = hoy
+    else:
+        texto, e = _fecha_iso(fecha)
+        if e:
+            return None, 'La fecha del tratamiento no es válida (AAAA-MM-DD).', 'fecha_tratamiento'
+        if texto > hoy:
+            return None, 'La fecha del tratamiento no puede ser futura.', 'fecha_tratamiento'
+        v['fecha_tratamiento'] = texto
+    diagnostico = data.get('id_diagnostico')
+    if _vacio(diagnostico):
+        v['id_diagnostico'] = None
+    else:
+        v['id_diagnostico'] = _id_positivo(diagnostico)
+        if v['id_diagnostico'] is None:
+            return None, 'El diagnóstico no es válido.', 'id_diagnostico'
+    return v, None, None
+
+
+def validar_sesion(data, hoy=None):
+    """
+    Valida los datos de una sesión de tratamiento. Devuelve (valores, None, None) o (None, mensaje, campo).
+    procedimientos: lista de ids de tipo de procedimiento, AL MENOS UNO (los repetidos se unifican). descripcion_procedimiento: obligatoria (hasta 1.000).
+    observaciones: opcionales (hasta 2.000). proxima_cita: opcional, no anterior a hoy. insumos: lista (puede estar vacía) de {id_insumo, cantidad 1–999},
+    sin repetir el mismo insumo. La fecha de la sesión la pone el servidor; consulta y tratamiento se validan en el DAO.
+    """
+    if not isinstance(data, dict):
+        return None, 'Los datos enviados no son válidos.', None
+    hoy = hoy or datetime.date.today().isoformat()
+    v = {}
+    procedimientos = data.get('procedimientos')
+    if not isinstance(procedimientos, list) or not procedimientos:
+        return None, 'Debe elegir al menos un procedimiento.', 'procedimientos'
+    ids = []
+    for p in procedimientos:
+        i = _id_positivo(p)
+        if i is None:
+            return None, 'Los procedimientos deben enviarse como una lista de IDs.', 'procedimientos'
+        ids.append(i)
+    v['procedimientos'] = sorted(set(ids))
+    descripcion, e = _texto_largo(data.get('descripcion_procedimiento'), MAX_DESCRIPCION_SESION, True, 'La descripción de la sesión es obligatoria.',
+                                  f'La descripción no puede superar los {MAX_DESCRIPCION_SESION} caracteres.', 'La descripción contiene caracteres no permitidos.')
+    if e:
+        return None, e, 'descripcion_procedimiento'
+    v['descripcion_procedimiento'] = descripcion
+    observaciones, e = _texto_largo(data.get('observaciones'), MAX_OBSERVACIONES_SESION, False, 'Las observaciones deben ser un texto.',
+                                    f'Las observaciones no pueden superar los {MAX_OBSERVACIONES_SESION} caracteres.', 'Las observaciones contienen caracteres no permitidos.')
+    if e:
+        return None, e, 'observaciones'
+    v['observaciones'] = observaciones
+    proxima = data.get('proxima_cita')
+    if _vacio(proxima):
+        v['proxima_cita'] = None
+    else:
+        texto, e = _fecha_iso(proxima)
+        if e:
+            return None, 'La próxima cita no es válida (AAAA-MM-DD).', 'proxima_cita'
+        if texto < hoy:
+            return None, 'La próxima cita no puede ser anterior a hoy.', 'proxima_cita'
+        v['proxima_cita'] = texto
+    insumos = data.get('insumos')
+    if insumos is None:
+        insumos = []
+    if not isinstance(insumos, list):
+        return None, 'Los insumos deben enviarse como una lista.', 'insumos'
+    vistos, lista = set(), []
+    msg_cantidad = f'La cantidad de cada insumo debe ser un número entero de {CANTIDAD_INSUMO[0]} a {CANTIDAD_INSUMO[1]}.'
+    for item in insumos:
+        if not isinstance(item, dict) or _id_positivo(item.get('id_insumo')) is None:
+            return None, 'Cada insumo necesita su tipo de insumo.', 'insumos'
+        n = _id_positivo(item.get('cantidad'))
+        if n is None or not CANTIDAD_INSUMO[0] <= n <= CANTIDAD_INSUMO[1]:
+            return None, msg_cantidad, 'insumos'
+        i = _id_positivo(item['id_insumo'])
+        if i in vistos:
+            return None, 'No repita el mismo insumo: sume las cantidades en un solo renglón.', 'insumos'
+        vistos.add(i)
+        lista.append({'id_insumo': i, 'cantidad': n})
+    v['insumos'] = sorted(lista, key=lambda x: x['id_insumo'])
     return v, None, None

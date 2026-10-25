@@ -11,7 +11,8 @@ import tempfile
 
 RAIZ = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(RAIZ))
-from app.rutas.modulo_consultorio.validadores_clinicos import validar_diagnostico, validar_ficha, validar_pieza_fdi, validar_superficie
+from app.rutas.modulo_consultorio.validadores_clinicos import (validar_diagnostico, validar_ficha, validar_pieza_fdi, validar_sesion, validar_superficie,
+                                                               validar_tratamiento)
 
 ORDEN = ['presion_arterial', 'temperatura', 'frecuencia_cardiaca', 'frecuencia_respiratoria', 'peso', 'talla',
          'examen_fisico_general', 'examen_bucal', 'observaciones_medico']
@@ -56,6 +57,48 @@ DIAGNOSTICOS = [DX_BASE, {**DX_BASE, 'pieza_dental': None}, {**DX_BASE, 'pieza_d
                 {**DX_BASE, 'sintomas': [], 'pieza_dental': '99'}, {**DX_BASE, 'pieza_dental': '99', 'descripcion_diagnostico': ''}]
 
 
+# ---- Etapa 5: tratamiento y sesión (con "hoy" fijo para que JS y Python comparen lo mismo) ----
+HOY = '2026-10-25'
+ORDEN_TR = ['id_tipo_tratamiento', 'descripcion_tratamiento', 'fecha_tratamiento', 'id_diagnostico']
+TR_BASE = {'id_tipo_tratamiento': 3, 'descripcion_tratamiento': 'Limpieza completa', 'fecha_tratamiento': '2026-10-25', 'id_diagnostico': 7}
+TRATAMIENTOS = [TR_BASE, {**TR_BASE, 'fecha_tratamiento': None}, {**TR_BASE, 'fecha_tratamiento': ''}, {**TR_BASE, 'id_diagnostico': None}, {**TR_BASE, 'id_diagnostico': ''},
+                {**TR_BASE, 'id_diagnostico': 'x'}, {**TR_BASE, 'id_diagnostico': 0}, {**TR_BASE, 'id_diagnostico': '8'}, {**TR_BASE, 'id_tipo_tratamiento': None},
+                {**TR_BASE, 'id_tipo_tratamiento': ''}, {**TR_BASE, 'id_tipo_tratamiento': 'x'}, {**TR_BASE, 'id_tipo_tratamiento': 0}, {**TR_BASE, 'id_tipo_tratamiento': '5'},
+                {**TR_BASE, 'descripcion_tratamiento': ''}, {**TR_BASE, 'descripcion_tratamiento': '  '}, {**TR_BASE, 'descripcion_tratamiento': 'a' * 1001},
+                {**TR_BASE, 'descripcion_tratamiento': 'a' * 1000}, {**TR_BASE, 'descripcion_tratamiento': 'raro'}, {**TR_BASE, 'descripcion_tratamiento': 5},
+                {**TR_BASE, 'fecha_tratamiento': '2026-10-26'}, {**TR_BASE, 'fecha_tratamiento': '2026-10-24'}, {**TR_BASE, 'fecha_tratamiento': '2026-02-30'},
+                {**TR_BASE, 'fecha_tratamiento': '2026-13-01'}, {**TR_BASE, 'fecha_tratamiento': '25/10/2026'}, {**TR_BASE, 'fecha_tratamiento': '20261024'},
+                {**TR_BASE, 'fecha_tratamiento': 'hoy'}, {**TR_BASE, 'fecha_tratamiento': ' 2026-10-25 '}, {**TR_BASE, 'fecha_tratamiento': '2024-02-29'},
+                {**TR_BASE, 'fecha_tratamiento': '2025-02-29'}, {**TR_BASE, 'id_tipo_tratamiento': None, 'descripcion_tratamiento': ''},
+                {**TR_BASE, 'descripcion_tratamiento': '', 'fecha_tratamiento': '2027-01-01'}, {**TR_BASE, 'id_tipo_tratamiento': True}]
+ORDEN_SE = ['procedimientos', 'descripcion_procedimiento', 'observaciones', 'proxima_cita', 'insumos']
+SE_BASE = {'procedimientos': [1, 2], 'descripcion_procedimiento': 'Se limpió la pieza 18', 'observaciones': 'Sin complicaciones', 'proxima_cita': '2026-11-02',
+           'insumos': [{'id_insumo': 4, 'cantidad': 2}, {'id_insumo': 5, 'cantidad': '10'}]}
+SESIONES = [SE_BASE, {**SE_BASE, 'insumos': []}, {**SE_BASE, 'insumos': None}, {**SE_BASE, 'observaciones': None}, {**SE_BASE, 'proxima_cita': None}, {**SE_BASE, 'proxima_cita': ''},
+            {**SE_BASE, 'proxima_cita': '2026-10-25'}, {**SE_BASE, 'proxima_cita': '2026-10-24'}, {**SE_BASE, 'proxima_cita': '2026-02-30'}, {**SE_BASE, 'proxima_cita': 'x'},
+            {**SE_BASE, 'procedimientos': []}, {**SE_BASE, 'procedimientos': None}, {**SE_BASE, 'procedimientos': ['x']}, {**SE_BASE, 'procedimientos': [0]},
+            {**SE_BASE, 'procedimientos': [3, 3]}, {**SE_BASE, 'procedimientos': ['2']},
+            {**SE_BASE, 'descripcion_procedimiento': ''}, {**SE_BASE, 'descripcion_procedimiento': '  '}, {**SE_BASE, 'descripcion_procedimiento': 'a' * 1001},
+            {**SE_BASE, 'descripcion_procedimiento': 'a' * 1000}, {**SE_BASE, 'descripcion_procedimiento': 'raro'},
+            {**SE_BASE, 'observaciones': 'b' * 2001}, {**SE_BASE, 'observaciones': 'b' * 2000}, {**SE_BASE, 'observaciones': 'raro'},
+            {**SE_BASE, 'insumos': [{'id_insumo': 4, 'cantidad': 0}]}, {**SE_BASE, 'insumos': [{'id_insumo': 4, 'cantidad': 1000}]},
+            {**SE_BASE, 'insumos': [{'id_insumo': 4, 'cantidad': 999}]}, {**SE_BASE, 'insumos': [{'id_insumo': 4, 'cantidad': 1}]},
+            {**SE_BASE, 'insumos': [{'id_insumo': 4, 'cantidad': 'x'}]}, {**SE_BASE, 'insumos': [{'id_insumo': 4, 'cantidad': ''}]},
+            {**SE_BASE, 'insumos': [{'id_insumo': 4, 'cantidad': None}]}, {**SE_BASE, 'insumos': [{'id_insumo': 4}]}, {**SE_BASE, 'insumos': [{'cantidad': 2}]},
+            {**SE_BASE, 'insumos': [{'id_insumo': 0, 'cantidad': 2}]}, {**SE_BASE, 'insumos': [{'id_insumo': 'x', 'cantidad': 2}]}, {**SE_BASE, 'insumos': ['x']},
+            {**SE_BASE, 'insumos': [{'id_insumo': 4, 'cantidad': 2}, {'id_insumo': '4', 'cantidad': 3}]}, {**SE_BASE, 'insumos': 'x'},
+            {**SE_BASE, 'procedimientos': [], 'descripcion_procedimiento': ''}, {**SE_BASE, 'descripcion_procedimiento': '', 'proxima_cita': '2020-01-01'},
+            {**SE_BASE, 'insumos': [{'id_insumo': 4, 'cantidad': 1000}], 'proxima_cita': 'x'}]
+
+
+def esperado_tr(caso):
+    return validar_tratamiento(caso, HOY)[1] or ''
+
+
+def esperado_se(caso):
+    return validar_sesion(caso, HOY)[1] or ''
+
+
 def esperado_pieza(v):
     return validar_pieza_fdi(v)[1] or ''
 
@@ -89,6 +132,11 @@ var PIEZAS = %(piezas)s;
 var SUPERFICIES = %(superficies)s;
 var DIAGNOSTICOS = %(dx)s;
 var ORDEN_DX = %(orden_dx)s;
+var HOY = %(hoy)s;
+var TRATAMIENTOS = %(tr)s;
+var ORDEN_TR = %(orden_tr)s;
+var SESIONES = %(se)s;
+var ORDEN_SE = %(orden_se)s;
 var out = [];
 for (var i = 0; i < CASOS.length; i++) {
   var errores = V.ficha(CASOS[i]);
@@ -106,6 +154,18 @@ for (var d = 0; d < DIAGNOSTICOS.length; d++) {
   for (var k = 0; k < ORDEN_DX.length && !pri; k++) { if (er[ORDEN_DX[k]]) pri = er[ORDEN_DX[k]]; }
   out.push('dx	' + d + '	' + pri);
 }
+for (var t = 0; t < TRATAMIENTOS.length; t++) {
+  var et = V.tratamiento(TRATAMIENTOS[t], HOY);
+  var prt = '';
+  for (var kt = 0; kt < ORDEN_TR.length && !prt; kt++) { if (et[ORDEN_TR[kt]]) prt = et[ORDEN_TR[kt]]; }
+  out.push('tr	' + t + '	' + prt);
+}
+for (var q = 0; q < SESIONES.length; q++) {
+  var es = V.sesion(SESIONES[q], HOY);
+  var prs = '';
+  for (var ks = 0; ks < ORDEN_SE.length && !prs; ks++) { if (es[ORDEN_SE[ks]]) prs = es[ORDEN_SE[ks]]; }
+  out.push('se	' + q + '	' + prs);
+}
 var so = new ActiveXObject('ADODB.Stream'); so.Type = 2; so.Charset = 'utf-8'; so.Open();
 so.WriteText(out.join('\n')); so.SaveToFile(WScript.Arguments(1), 2); so.Close();
 """
@@ -114,7 +174,8 @@ with tempfile.TemporaryDirectory() as tmp:
     runner = pathlib.Path(tmp) / 'runner.js'
     salida = pathlib.Path(tmp) / 'salida.txt'
     runner.write_text(RUNNER % {'orden': json.dumps(ORDEN), 'casos': json.dumps(CASOS), 'piezas': json.dumps(PIEZAS), 'superficies': json.dumps(SUPERFICIES),
-                                'dx': json.dumps(DIAGNOSTICOS), 'orden_dx': json.dumps(ORDEN_DX)}, encoding='ascii')
+                                'dx': json.dumps(DIAGNOSTICOS), 'orden_dx': json.dumps(ORDEN_DX), 'hoy': json.dumps(HOY), 'tr': json.dumps(TRATAMIENTOS),
+                                'orden_tr': json.dumps(ORDEN_TR), 'se': json.dumps(SESIONES), 'orden_se': json.dumps(ORDEN_SE)}, encoding='ascii')
     proc = subprocess.run(['cscript', '//nologo', '//E:jscript', str(runner), str(RAIZ / 'app' / 'static' / 'js' / 'consultorio-validadores.js'),
                            str(salida)], capture_output=True, text=True)
     if proc.returncode != 0 or not salida.exists():
@@ -137,13 +198,14 @@ for fila in filas:
     else:
         i = int(fila[1])
         js_error = fila[2].rstrip('\r') if len(fila) > 2 else ''
-        py_error = {'pieza': lambda: esperado_pieza(PIEZAS[i]), 'superficie': lambda: esperado_superficie(SUPERFICIES[i]), 'dx': lambda: esperado_dx(DIAGNOSTICOS[i])}[tipo]()
+        py_error = {'pieza': lambda: esperado_pieza(PIEZAS[i]), 'superficie': lambda: esperado_superficie(SUPERFICIES[i]), 'dx': lambda: esperado_dx(DIAGNOSTICOS[i]), 'tr': lambda: esperado_tr(TRATAMIENTOS[i]),
+                    'se': lambda: esperado_se(SESIONES[i])}[tipo]()
         ok = js_error == py_error
-        etiqueta = tipo + ' ' + json.dumps({'pieza': PIEZAS, 'superficie': SUPERFICIES, 'dx': DIAGNOSTICOS}[tipo][i], ensure_ascii=False)[:80]
+        etiqueta = tipo + ' ' + json.dumps({'pieza': PIEZAS, 'superficie': SUPERFICIES, 'dx': DIAGNOSTICOS, 'tr': TRATAMIENTOS, 'se': SESIONES}[tipo][i], ensure_ascii=False)[:80]
         esp = (py_error or 'válido')[:70]
         dif = f'JS={js_error!r} PY={py_error!r}'
     total += 1
     fallos += (not ok)
     print(('OK  ' if ok else 'DIFF'), etiqueta, '->', esp if ok else dif)
 print('DIFERENCIAS:', fallos, 'de', total)
-sys.exit(1 if fallos or total != len(CASOS) + len(PIEZAS) + len(SUPERFICIES) + len(DIAGNOSTICOS) else 0)
+sys.exit(1 if fallos or total != len(CASOS) + len(PIEZAS) + len(SUPERFICIES) + len(DIAGNOSTICOS) + len(TRATAMIENTOS) + len(SESIONES) else 0)

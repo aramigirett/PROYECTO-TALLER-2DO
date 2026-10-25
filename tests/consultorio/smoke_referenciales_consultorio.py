@@ -81,10 +81,9 @@ def usar_sesion_insumo(i):
 
 
 def usar_sesion(i):
-    n = q("SELECT COALESCE(MAX(numero_sesion),0)+1 FROM sesiones_tratamiento WHERE id_tratamiento=%s", (SESION[1],))[0][0]
-    return hijo('sesiones_tratamiento', 'id_sesion',
-                "INSERT INTO sesiones_tratamiento(id_tratamiento, numero_sesion, id_tipo_procedimiento, fecha_sesion, descripcion_procedimiento) "
-                "VALUES (%s,%s,%s,CURRENT_DATE,'ZZ')", (SESION[1], n, i))
+    """Un procedimiento más en una sesión real vigente (sesion_procedimientos)."""
+    return hijo('sesion_procedimientos', 'id_sesion_procedimiento',
+                "INSERT INTO sesion_procedimientos(id_sesion, id_tipo_procedimiento) VALUES (%s,%s)", (SESION[0], i))
 
 
 def usar_receta(i):
@@ -140,7 +139,7 @@ ESPECS = [
     dict(nombre='Tipo Procedimiento Médico', ventana='tipoprocedimientomedico', url='/api/v1/tipos-procedimiento-medico',
          vista='/referenciales/tipo-procedimiento-medico/tipo-procedimiento-medico-index', tabla='tipo_procedimiento_medico',
          pk='id_tipo_procedimiento', clave='descripcion', extras={}, extras2={}, usar=usar_sesion,
-         en_uso_ok=lambda i: anular_hijo('sesiones_tratamiento', 'id_sesion', hijos[-1][2])),
+         en_uso_ok=lambda i: anular_hijo('sesion_procedimientos', 'id_sesion_procedimiento', hijos[-1][2])),
     dict(nombre='Medicamentos', ventana='medicamento', url='/api/v1/medicamentos', vista='/referenciales/medicamento/medicamento-index',
          tabla='medicamentos', pk='id_medicamento', clave='nombre_comercial', extras={'presentacion': 'caja x 20 comprimidos'},
          extras2={'presentacion': None}, usar=usar_receta, en_uso_ok=lambda i: anular_hijo('receta_medicamento', 'id_receta_medicamento', hijos[-1][2])),

@@ -1382,6 +1382,33 @@ Plan aprobado: `plan_etapa3.md` (sin versionar). **Decisiones de negocio confirm
 - Tests: `smoke_consulta_vistas.py` (acceso por rol y por médico, Tabler sin jQuery, qué tarjetas ve cada rol, baja real por HTTP con el id de la vista) y `browser_consulta.py` (Edge headless con
   fetch simulado: listado, filtros, paginación, Nueva Consulta, atención de la consulta en 4 escenarios —médico programada, médico con ficha, Recepción, finalizada— y Fichas).
 
+### Etapa 5 (en curso): Tratamientos y Sesiones (Procedimientos e Insumos Utilizados)
+Plan: `plan_etapa5.md` (sin versionar). **Decisiones confirmadas:** cada sesión se registra DENTRO de una consulta; varios procedimientos por sesión; insumos opcionales (0 o más, sin repetir, cantidad 1–999);
+solo el médico crea, anula y finaliza (Recepción sin acceso, Administrador solo lectura); anulación de tratamiento definitiva; anular una sesión solo la última vigente, desde su consulta abierta, con cascada, y el
+tratamiento vuelve a `pendiente` si queda sin sesiones; fecha del tratamiento propuesta hoy (editable, no futura), fecha de la sesión fijada por el servidor, próxima cita opcional no anterior a hoy.
+- ⚠️ **Cambios del DER (hay que reflejarlos en el diagrama y el análisis):** `sesiones_tratamiento.id_consulta_cab` (INT NOT NULL, FK RESTRICT a `consultas_cab`: la consulta en la que se registró la sesión, del mismo paciente y
+  médico que el tratamiento, puede ser posterior a la que lo creó); **tabla nueva `sesion_procedimientos`** (`id_sesion_procedimiento`, `id_sesion` FK, `id_tipo_procedimiento` FK, `activo`; único parcial por sesión + tipo
+  entre los vigentes; al menos uno por sesión vigente, con trigger diferido); **columna retirada `sesiones_tratamiento.id_tipo_procedimiento`** (los datos se migraron a `sesion_procedimientos`); `sesion_insumos` con único parcial
+  por sesión + insumo y cantidad 1–999; `activo` / `estado` NOT NULL. Triggers `trg_validar_sesion_consulta` (la consulta de la sesión es del mismo paciente y médico que el tratamiento) y `trg_sesion_con_procedimiento`.
+- ⚠️ **El CUS de "Gestionar Procedimientos e Insumos Utilizados" debe reflejar que cada sesión se registra en una consulta** (mismo paciente y médico que el tratamiento; un tratamiento de varias visitas recibe sus sesiones
+  en consultas posteriores), que una sesión tiene uno o más procedimientos y que los insumos son opcionales.
+**Commit 1 (hecho): base y backend**
+- `app/dao/referenciales_consultorio/schema_consultorio_etapa5.sql` (idempotente; `schema_consultorio_base.sql` actualizado). Al migrar, los renglones de insumo repetidos en una misma sesión se fusionaron en uno (suma de cantidades).
+- `TratamientoDao` y `SesionTratamientoDao` reescritos. Bloqueos: consulta `FOR UPDATE` → tratamiento `FOR UPDATE` → tipos `FOR SHARE` en orden de id (tipo de tratamiento, diagnóstico, procedimientos, insumos; los inactivos se rechazan).
+  Alta de tratamiento: médico de la consulta, consulta `programada` / `en_proceso` revalidada, diagnóstico opcional vigente y de la misma consulta. Sesión: consulta abierta y del mismo paciente y médico que el tratamiento, que debe estar
+  `pendiente` o `en_seguimiento` (la 1.ª sesión lo pasa a `en_seguimiento`). Anular tratamiento: sin sesiones vigentes ni venta EMITIDA y con la consulta que lo creó abierta. **Finalizar** (permiso `estado`): solo el médico del
+  tratamiento, desde `en_seguimiento`, sin exigir la consulta abierta. Un tratamiento finalizado no admite sesiones ni anular sus sesiones.
+- APIs `/api/v1/tratamientos` (GET lista con filtros `q`, `estado`, `desde`, `hasta`, `consulta`, `paciente`, `en_curso=1` y paginación; GET `/<id>` con sus sesiones; GET `/consulta/<id>` lookup de Receta y Órdenes con
+  `require_algun_permiso`; POST; DELETE; PUT `/<id>/finalizar`) y `/api/v1/sesiones-tratamiento` (GET `/tratamiento/<id>`, GET `/<id>`, POST, DELETE). Un médico solo lee lo suyo; Recepción sin acceso.
+- Auditoría (`tratamientos` y `sesiones_tratamiento`): ALTA / BAJA con consulta, paciente (con CI) y tipo de tratamiento, y MODIFICACION del estado del tratamiento (finalizar, 1.ª sesión, última sesión anulada); **nunca**
+  descripciones, observaciones, procedimientos ni insumos.
+- `validadores_clinicos.py` + `consultorio-validadores.js`: `validar_tratamiento` / `validar_sesion` y sus espejos (215 casos JS ↔ Python en `comparar_ficha_js_py.py`).
+- `TipoProcedimientoMedicoDao.esta_en_uso` consulta `sesion_procedimientos`; Insumo y Tipo Tratamiento siguen igual (ya hacían el `FOR SHARE` del hijo: el alta toma el bloqueo del referencial).
+- **Facturación (Venta de Tratamiento) intacta:** lee `id_tratamiento`, `id_paciente`, `estado <> 'cancelado'`, `fecha_tratamiento`, `codigo` e `id_tipo_tratamiento`; `smoke_ventas.py` se adaptó para anular los tratamientos como el médico de una
+  consulta abierta (datos ZZ) y pasa completo.
+- Tests: `smoke_tratamiento.py` (79 chequeos, con carreras del tipo y de la consulta que se anulan mientras se guarda) y `smoke_sesion_tratamiento.py` (92, con varias visitas, cascada, base de datos y carreras). Las vistas de esta etapa
+  (todavía las viejas SB Admin 2) se reescriben en el commit 2.
+
 ### Etapa 4 (hecha): Diagnóstico y Odontograma
 Plan: `plan_etapa4.md`. **Decisiones confirmadas:** pieza dental del diagnóstico **opcional** (si se carga, FDI válida); la **fecha del diagnóstico la fija el servidor** (no editable);
 quitar un hallazgo del odontograma = **baja lógica del renglón** (`activo = false`, no borrado físico); un odontograma sin hallazgos se permite; la acción `editar` de la ventana Odontograma se
@@ -1446,8 +1473,7 @@ Tipo Tratamiento, Tipo Insumo Utilizado, Tipo Procedimiento Médico, Medicamento
   `normalizar_descripcion` ganó `campo`/`etiqueta`/`articulo` (Medicamentos usa `nombre_comercial` / "nombre comercial" / "El") y `validar_presentacion`
   (opcional, hasta 100, mismos caracteres); espejo en `facturacion-validadores.js` (`V.presentacion`, y `V.descripcion` con `etiqueta`/`articulo`).
 - **Bajas bloqueadas (409) si están en uso:** Tipo Tratamiento → tratamientos no `cancelado`; Insumo → `sesion_insumos` activos; Procedimiento → sesiones
-  activas; Medicamento → `receta_medicamento` activos; Estudio / Análisis → órdenes no `cancelado`. **Pendiente de las etapas 5 y 6:** que el alta/edición de
-  esos registros hijos tome `FOR SHARE` sobre la fila del referencial (el protocolo del estándar) para que una baja concurrente espere.
+  activas; Medicamento → `receta_medicamento` activos; Estudio / Análisis → órdenes no `cancelado`. **Etapa 5 (hecha):** el alta de tratamientos y sesiones toma `FOR SHARE` sobre tipo de tratamiento, procedimiento e insumo. **Pendiente de la etapa 6:** lo mismo para Medicamento, Tipo Estudio y Tipo Análisis.
 - **Id en las vistas:** cada plantilla declara `const PK = '<clave primaria>'` y arma las URL con `f[PK]`. **Nunca tomar "la primera clave" del JSON:** Flask
   devuelve las claves ordenadas alfabéticamente y la primera es `activo` (la vista pedía `/tipos-tratamiento/true` y todo daba 404: anular, reactivar y editar).
   `smoke_referenciales_consultorio` hace la baja y la reactivación reales por HTTP con el id que arma la vista y comprueba contra `url_map` que todas las filas

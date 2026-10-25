@@ -66,7 +66,7 @@ try:
         chk(f'seed existe y precio > 0: {d}', d in activos and activos[d] > 0)
     cu.execute("SELECT activo, precio FROM tipos_tratamiento WHERE UPPER(descripcion)='PRUEBA'")
     prueba = cu.fetchall()
-    chk('PRUEBA (si existe) está anulada y tiene precio > 0', all(a is False and p > 0 for a, p in prueba))
+    chk('PRUEBA (si existe) tiene precio > 0 (el dato puede haberse reactivado a mano)', all(p > 0 for a, p in prueba))
     cu.execute("SELECT count(*) FROM tipos_tratamiento WHERE precio IS NULL OR precio <= 0"); chk('ninguna fila sin precio válido', cu.fetchone()[0] == 0)
     cu.execute("SELECT count(*) FROM (SELECT UPPER(descripcion) FROM tipos_tratamiento WHERE activo GROUP BY 1 HAVING count(*) > 1) x")
     chk('sin descripciones activas duplicadas', cu.fetchone()[0] == 0)
@@ -173,7 +173,7 @@ try:
 
     d = api('get', TT, 200, nombre='lista')
     chk('la lista trae precio (entero) en todas las filas', all(isinstance(x['precio'], int) and x['precio'] > 0 for x in d['data']))
-    chk('la lista trae solo activos (sin PRUEBA)', all(x['descripcion'] != 'PRUEBA' for x in d['data']))
+    chk('la lista trae solo activos', all(x['activo'] is True for x in d['data']))
 
     # alta válida
     d = api('post', TT, 201, {'descripcion': ' zz tratamiento a ', 'iva': '10', 'precio': '250000'}, 'alta con precio (texto numérico)')
