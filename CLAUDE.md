@@ -1382,7 +1382,7 @@ Plan aprobado: `plan_etapa3.md` (sin versionar). **Decisiones de negocio confirm
 - Tests: `smoke_consulta_vistas.py` (acceso por rol y por médico, Tabler sin jQuery, qué tarjetas ve cada rol, baja real por HTTP con el id de la vista) y `browser_consulta.py` (Edge headless con
   fetch simulado: listado, filtros, paginación, Nueva Consulta, atención de la consulta en 4 escenarios —médico programada, médico con ficha, Recepción, finalizada— y Fichas).
 
-### Etapa 5 (en curso): Tratamientos y Sesiones (Procedimientos e Insumos Utilizados)
+### Etapa 5 (hecha): Tratamientos y Sesiones (Procedimientos e Insumos Utilizados)
 Plan: `plan_etapa5.md` (sin versionar). **Decisiones confirmadas:** cada sesión se registra DENTRO de una consulta; varios procedimientos por sesión; insumos opcionales (0 o más, sin repetir, cantidad 1–999);
 solo el médico crea, anula y finaliza (Recepción sin acceso, Administrador solo lectura); anulación de tratamiento definitiva; anular una sesión solo la última vigente, desde su consulta abierta, con cascada, y el
 tratamiento vuelve a `pendiente` si queda sin sesiones; fecha del tratamiento propuesta hoy (editable, no futura), fecha de la sesión fijada por el servidor, próxima cita opcional no anterior a hoy.
@@ -1408,6 +1408,18 @@ tratamiento vuelve a `pendiente` si queda sin sesiones; fecha del tratamiento pr
   consulta abierta (datos ZZ) y pasa completo.
 - Tests: `smoke_tratamiento.py` (79 chequeos, con carreras del tipo y de la consulta que se anulan mientras se guarda) y `smoke_sesion_tratamiento.py` (92, con varias visitas, cascada, base de datos y carreras). Las vistas de esta etapa
   (todavía las viejas SB Admin 2) se reescriben en el commit 2.
+**Commit 2 (hecho): vistas Tabler**
+- `tratamiento-index.html` (reemplaza las 521 líneas SB Admin 2 + jQuery): **sin `?consulta=`** = listado con filtros (paciente / CI / tipo, estado, fechas) y paginación en el servidor, con `Ver` (modal con el detalle y sus
+  sesiones), `Sesiones`, `Finalizar` y `Anular`; **con `?consulta=<id>`** = tarjeta de la consulta, "Volver a la consulta", los tratamientos de esa consulta, los **tratamientos en curso del paciente creados en otras
+  consultas** (con el botón "Registrar sesión en esta consulta": así se arma un tratamiento de varias visitas) y el modal **Nuevo tratamiento** (tipo, diagnóstico opcional de la consulta, fecha propuesta hoy y no futura,
+  descripción; mismas validaciones que el servidor con `consultorio-validadores.js`). Anular solo se ofrece sin sesiones, sin factura y con la consulta de origen abierta; Finalizar, en seguimiento.
+- `sesion-tratamiento-index.html` (reemplaza las 518 líneas viejas; pantalla contextual `?tratamiento=<id>[&consulta=<id>]`): tarjeta del tratamiento y de la consulta en la que se registra, tabla de sesiones (número, fecha,
+  consulta, procedimientos, insumos × cantidad, próxima cita), `Ver`, `Anular` (solo la última, con la consulta de la sesión abierta y el tratamiento no finalizado), `Finalizar tratamiento` y el modal **Nueva sesión**
+  (procedimientos con buscador y contador, descripción, observaciones, próxima cita no anterior a hoy y filas de insumos con cantidad que se agregan y se quitan). Sin `?consulta=` es solo lectura ("Volver a tratamientos");
+  con una consulta de otro paciente o médico avisa y no ofrece registrar.
+- Las rutas pasan `es_medico`: solo un usuario vinculado a un médico ve los botones de registrar, finalizar y anular (el Administrador, no).
+- Tests: `smoke_trat_vistas.py` (acceso por rol, Tabler sin jQuery, quién ve cada botón, recorrido de un tratamiento de dos visitas y baja real por HTTP con los ids de las vistas) y `browser_tratamiento.py` (Edge headless,
+  11 escenarios: listado, tratamientos de la consulta y en curso del paciente, alta y rechazo del servidor, lectura, sesiones con procedimientos / insumos / validaciones, consulta cerrada, otra consulta, tratamiento finalizado).
 
 ### Etapa 4 (hecha): Diagnóstico y Odontograma
 Plan: `plan_etapa4.md`. **Decisiones confirmadas:** pieza dental del diagnóstico **opcional** (si se carga, FDI válida); la **fecha del diagnóstico la fija el servidor** (no editable);
