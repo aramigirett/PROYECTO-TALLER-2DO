@@ -554,7 +554,7 @@ Además, como en todo endpoint: `@require_permiso(ventana, acción)`, botones en
 | Facturación | Cuenta Bancaria | **Lógico** | Tabler (con `facturacion-listado.js`) | — (cumple los 6 puntos) |
 | Facturación | Caja, Depósito, Cliente | **Lógico** | Tabler (con su propia copia del código de listado) | — (cumplen los 6 puntos); falta migrarlas al helper y unificar `?inactivas` de Caja |
 | Consultorio | Tipo Tratamiento, Tipo Insumo Utilizado, Tipo Procedimiento Médico, Medicamentos, Tipo Estudio, Tipo Análisis | **Lógico** (`activo`, único parcial con `UPPER`) | **Tabler** (etapa 1, `catalogo_api.py` + `CatalogoDao`) | — (cumplen los 6 puntos) |
-| Consultorio | Tipo Diagnóstico, Síntomas | **Físico** (con `estaEnUso()` → 409) | SB Admin 2 | Pasar a lógico (agregar `activo`, único parcial) y puntos 1, 4 y 6 |
+| Consultorio | Tipo Diagnóstico, Síntomas | **Lógico** (`activo`, único parcial con `UPPER`) | **Tabler** (etapa 2, mismo `CatalogoDao` / `catalogo_api.py`) | — (cumplen los 6 puntos) |
 | Agendamiento | Ciudad, Cargo, Consultorio, Disponibilidad Horaria, Especialidad, Día, Turno | **Físico** (con `estaEnUso()` → 409) | SB Admin 2 | Pasar a lógico (agregar `activo`, únicos parciales) y puntos 1, 4 y 6 |
 | Agendamiento | Paciente, Funcionario, Médico (datos maestros, no referenciales) | **Físico** (sin validar uso, salvo Paciente→cliente) | SB Admin 2 | Fuera de este estándar; ver riesgos de CASCADE más arriba |
 
@@ -568,8 +568,8 @@ Además, como en todo endpoint: `@require_permiso(ventana, acción)`, botones en
    a mano en el navegador: volver a probarlas después de migrarlas.
    *(El punto 4 del estándar —Estado, "Mostrar inactivos", Reactivar— ya está aplicado a Forma de Cobro, Marca de
    Tarjeta, Entidad Emisora, Entidad Adherida, Tipo Ítems e Ítems: ver "Módulo Facturación".)*
-2. **Consultorio — Tipo Diagnóstico y Síntomas** (etapa 2): vista Tabler, puntos 4 y 6 y paso de borrado físico a lógico (ya tienen `activo` e índice
-   único parcial en la base; falta el DAO). ✅ Los otros 6 ya están hechos (etapa 1).
+2. ✅ **HECHO — Consultorio**: los 8 referenciales cumplen el estándar completo (etapa 1: 6 con baja lógica; etapa 2: Tipo Diagnóstico y Síntomas, que pasaron
+   de borrado físico a lógico).
 3. **Agendamiento — al migrar a Tabler, pasar de borrado físico a lógico y aplicar el estándar completo** a los
    7 referenciales: agregar `activo`, convertir sus `UNIQUE` en índices únicos parciales (y actualizar las
    `estaEnUso()`/JOIN que los consultan, ver regla 4 de las "Reglas generales aprendidas"), vista Tabler,
@@ -1315,14 +1315,27 @@ Plan completo en `plan_consultorio.md` (sin versionar). Etapas 0 a 7, un commit 
 - Auditoría: las 18 entidades de Consultorio están en `MODULO_POR_ENTIDAD`/`ETIQUETA_ENTIDAD` (módulos "Referenciales Consultorio" y "Módulo Consultorio";
   los 10 movimientos son `ENTIDADES_MOVIMIENTO`). `app/rutas/modulo_consultorio/utils.py` reexporta los helpers de Facturación.
 - Test: `tests/consultorio/smoke_esquema_consultorio.py` (reconstruye las tablas en una base temporal y las compara con la real).
-- **Corrección a la tabla de estado de referenciales de más arriba:** Tipo Diagnóstico y Síntomas YA tienen `activo` e índice único parcial en la base; solo
-  sus DAO siguen con `DELETE` físico (etapa 2).
+- **Corrección a la tabla de estado de referenciales de más arriba:** Tipo Diagnóstico y Síntomas YA tenían `activo` e índice único parcial en la base; solo
+  sus DAO seguían con `DELETE` físico (resuelto en la etapa 2).
 - **Decidido para la etapa 3:** al anular una consulta, la cita vuelve a `Confirmado` (para poder registrar otra) y `consultas_cab.id_cita` pasa a ser
   UNIQUE parcial (`WHERE activo = true`); la anulación se audita. Hoy `uk_consulta_cita` es UNIQUE total y la cita queda `Realizado`.
 - **Pendiente de la migración de Agendamiento:** generar el script base (`CREATE TABLE`) de Agendamiento y de Seguridad (paciente, medico, funcionario,
   consultorio, cita_*, agenda_*, usuarios, roles, permisos, menu, auditoría...) para que la base completa se pueda reconstruir desde el repo.
   `schema_consultorio_base.sql` depende de esas tablas.
 - El DAO de Odontograma vive en `app/dao/referenciales_agendamiento/odontograma/` (ubicación equivocada; se mueve en la etapa 4).
+
+### Etapa 2 (hecha): Tipo Diagnóstico y Síntomas
+- Mismo `CatalogoDao` y `crear_api_catalogo` que la etapa 1 (ahora con `FECHA = False`: estas dos tablas no tienen `fecha_registro`). **Tipo Diagnóstico** lleva
+  descripción (`descripcion_diagnostico`, la clave única entre los activos) y tipo (`tipo_diagnostico`, obligatorio, en MAYÚSCULAS); su API sigue en `/api/v1/diagnosticos`
+  (la consume también Gestión de Diagnósticos para su combo). **Síntomas** solo lleva la descripción (`/api/v1/sintomas`, que alimenta el selector de síntomas del
+  diagnóstico). Ambos en modo ampliado; el `DELETE` físico y las validaciones propias (solo letras) desaparecieron.
+- Baja bloqueada (409): Tipo Diagnóstico → diagnósticos vigentes o tratamientos no `cancelado`; Síntoma → `diagnostico_sintoma` de diagnósticos vigentes. Auditoría
+  como en la etapa 1 (entidades `tipo_diagnostico` y `sintoma`).
+- `schema_consultorio_etapa2.sql` (idempotente): pasa a MAYÚSCULAS lo cargado antes (`prueba` → `PRUEBA`, etc.).
+- **Pendiente de la etapa 4 (Diagnóstico):** el alta de un diagnóstico debe tomar `FOR SHARE` sobre su tipo y sobre cada síntoma elegido (y rechazar los inactivos),
+  y los listados que muestran diagnósticos ya cargados NO deben filtrar por `activo` del tipo (un diagnóstico viejo con un tipo anulado se sigue viendo).
+- `SintomaDao.estaEnUso` / `TipoDiagnosticoDao.estaEnUso` pasaron a `esta_en_uso` (devuelve el motivo o `False`, como el resto).
+- Tests: `smoke_referenciales_consultorio` y `browser_referenciales` ahora cubren los 8.
 
 ### Etapa 1 (hecha): los 6 referenciales con baja lógica en Tabler
 Tipo Tratamiento, Tipo Insumo Utilizado, Tipo Procedimiento Médico, Medicamentos, Tipo Estudio y Tipo Análisis cumplen el Estándar de referenciales (los 6 puntos).
@@ -1344,6 +1357,9 @@ Tipo Tratamiento, Tipo Insumo Utilizado, Tipo Procedimiento Médico, Medicamento
   devuelve las claves ordenadas alfabéticamente y la primera es `activo` (la vista pedía `/tipos-tratamiento/true` y todo daba 404: anular, reactivar y editar).
   `smoke_referenciales_consultorio` hace la baja y la reactivación reales por HTTP con el id que arma la vista y comprueba contra `url_map` que todas las filas
   reales resuelvan sus rutas; `browser_referenciales` usa un mock con las claves ordenadas como el servidor.
+- ⚠️ **Presentación (Insumo y Medicamento) es un campo nuevo para el análisis: hay que agregarlo al DER y a los CUS de "Mantener Tipo Insumo Utilizado" y
+  "Mantener Medicamentos"** (texto opcional, hasta 100 caracteres, en MAYÚSCULAS, p. ej. `CAJA X 20 COMPRIMIDOS`). La columna `presentacion VARCHAR(100)` ya
+  existía en `insumos` y `medicamentos`, pero no figuraba en la documentación. Igual que `precio` e `iva` de Tipo Tratamiento (ver más arriba).
 - **Auditoría** (`auditoria_cambios`, módulo "Referenciales Consultorio"): ALTA, MODIFICACION (solo lo que cambió; sin cambios no audita), BAJA y REACTIVACION.
 - Tests: `tests/consultorio/smoke_referenciales_consultorio.py` (338 chequeos sobre los 6), `tests/consultorio/browser_referenciales.py` (Edge headless, ~230
   chequeos de DOM) y `smoke_tipo_tratamiento.py` actualizado (el test limpia ahora la auditoría que genera).

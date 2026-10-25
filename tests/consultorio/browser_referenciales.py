@@ -12,7 +12,7 @@ EDGE = r'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe'
 STATIC = (RAIZ / 'app' / 'static').as_uri() + '/'
 SALIDA.mkdir(parents=True, exist_ok=True)
 
-# nombre -> (url, clave, extras que aparecen en el formulario)
+# nombre -> (url, clave, extras que aparecen en el formulario; los de texto se piden obligatorios si son 'tipo_diagnostico')
 VISTAS = {
     'tipo-tratamiento': ('/referenciales/tipo-tratamiento/tipo-tratamiento-index', 'descripcion', ['precio', 'iva']),
     'tipo-insumo': ('/referenciales/tipo-insumo/tipo-insumo-index', 'descripcion', ['presentacion']),
@@ -20,6 +20,8 @@ VISTAS = {
     'medicamento': ('/referenciales/medicamento/medicamento-index', 'nombre_comercial', ['presentacion']),
     'tipo-estudio': ('/referenciales/tipo-estudio/tipo-estudio-index', 'descripcion', []),
     'tipo-analisis': ('/referenciales/tipo-analisis/tipo-analisis-index', 'descripcion', []),
+    'tipo-diagnostico': ('/referenciales/tipo-diagnostico/tipo-diagnostico-index', 'descripcion_diagnostico', ['tipo_diagnostico']),
+    'sintoma': ('/referenciales/sintoma/sintoma-index', 'descripcion_sintoma', []),
 }
 
 MOCK = r"""
@@ -29,7 +31,8 @@ window.addEventListener('error', function (e) { window.__errores.push(String(e.m
 window.addEventListener('unhandledrejection', function (e) { window.__errores.push('promesa: ' + String(e.reason)); });
 // Igual que el servidor real: Flask ordena las claves alfabéticamente (la primera es 'activo', NO la clave primaria).
 function fila(id, texto, activo) {
-  var o = {activo: activo, descripcion: texto, nombre_comercial: texto, presentacion: 'CAJA X 10',
+  var o = {activo: activo, descripcion: texto, nombre_comercial: texto, descripcion_diagnostico: texto, descripcion_sintoma: texto,
+           tipo_diagnostico: 'PATOLOGÍA DENTAL', presentacion: 'CAJA X 10',
            precio: 150000, iva: 10, fecha_registro: '2026-10-24 10:00:00'};
   o['__PK__'] = id;
   var ordenado = {}; Object.keys(o).sort().forEach(function (k) { ordenado[k] = o[k]; });
@@ -128,6 +131,13 @@ PRUEBA = r"""
       clave.value = 'abc<>'; enviar(); await esperar(300);
       r.simbolo_invalido_no_envia = envios() === 0 && /solo puede contener/.test(clave.parentElement.querySelector('.invalid-feedback').textContent);
       clave.value = 'amoxicilina/clavulánico 875/125 mg (ñ) 5%';
+      if (EXTRAS.indexOf('tipo_diagnostico') >= 0) {
+        var td = document.getElementById('txt_tipo_diagnostico');
+        td.value = '';
+        enviar(); await esperar(300);
+        r.tipo_obligatorio_no_envia = envios() === 0 && td.classList.contains('is-invalid') && /obligatorio/.test(td.parentElement.querySelector('.invalid-feedback').textContent);
+        td.value = 'patología dental';
+      }
       EXTRAS.forEach(function (k) {
         var el = document.getElementById('txt_' + k); if (el && k === 'precio') el.value = '0';
       });

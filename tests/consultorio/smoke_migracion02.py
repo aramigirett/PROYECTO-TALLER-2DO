@@ -171,7 +171,7 @@ try:
 
     from app.dao.referenciales_consultorio.sintomas.SintomasDao import SintomaDao
     with app.app_context():
-        chk('Síntomas: estaEnUso ve diagnostico_sintoma (no se puede borrar un síntoma usado)', SintomaDao().estaEnUso(SINTOMAS[0]) is True)
+        chk('Síntomas: estaEnUso ve diagnostico_sintoma (no se puede borrar un síntoma usado)', bool(SintomaDao().esta_en_uso(SINTOMAS[0])))
     r = c.delete(f'/api/v1/sintomas/{SINTOMAS[0]}')
     chk('DELETE de un síntoma usado en un diagnóstico -> 409', r.status_code == 409)
 

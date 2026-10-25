@@ -1,5 +1,5 @@
-"""Etapa 1 de la migración de Consultorio a Tabler: los 6 referenciales con baja lógica (Tipo Tratamiento, Tipo Insumo, Tipo
-Procedimiento Médico, Medicamentos, Tipo Estudio, Tipo Análisis) contra el Estándar de referenciales.
+"""Etapas 1 y 2 de la migración de Consultorio a Tabler: los 8 referenciales con baja lógica (Tipo Tratamiento, Tipo Insumo, Tipo
+Procedimiento Médico, Medicamentos, Tipo Estudio, Tipo Análisis, Tipo Diagnóstico y Síntomas) contra el Estándar de referenciales.
 
 Por cada uno: vista Tabler, validaciones (modo ampliado de descripción), alta/modificación/duplicados sin distinguir mayúsculas,
 Estado / "Mostrar inactivos" / Reactivar, baja bloqueada si está en uso (409; los cancelados no cuentan), auditoría estructurada
@@ -58,6 +58,7 @@ SESION = q("SELECT id_sesion, id_tratamiento FROM sesiones_tratamiento WHERE act
 RECETA = q("SELECT id_receta FROM recetas ORDER BY 1 LIMIT 1")[0][0]
 CONSULTA = q("SELECT id_consulta_cab FROM consultas_cab WHERE activo ORDER BY 1 LIMIT 1")[0][0]
 TIPO_TRAT_REAL = q("SELECT id_tipo_tratamiento FROM tipos_tratamiento WHERE activo ORDER BY 1 LIMIT 1")[0][0]
+TIPO_DX_REAL = q("SELECT id_tipo_diagnostico FROM tipo_diagnostico WHERE activo ORDER BY 1 LIMIT 1")[0][0]
 TIPO_PROC_REAL = q("SELECT id_tipo_procedimiento FROM tipo_procedimiento_medico ORDER BY 1 LIMIT 1")[0][0]
 
 hijos = []   # (tabla, columna_pk, id) a borrar al final, en orden inverso
@@ -98,6 +99,26 @@ def usar_orden(tabla, pk, col):
     return f
 
 
+def usar_diagnostico(i):
+    return hijo('diagnosticos', 'id_diagnostico',
+                "INSERT INTO diagnosticos(codigo, id_consulta_cab, id_paciente, id_medico, id_tipo_diagnostico, descripcion_diagnostico, fecha_diagnostico) "
+                "SELECT %s, id_consulta_cab, id_paciente, id_medico, %s, 'ZZ', CURRENT_DATE FROM consultas_cab WHERE id_consulta_cab=%s",
+                (f'ZZ-DX-{len(hijos)}', i, CONSULTA))
+
+
+def usar_diagnostico_sintoma(i):
+    dx = hijo('diagnosticos', 'id_diagnostico',
+              "INSERT INTO diagnosticos(codigo, id_consulta_cab, id_paciente, id_medico, id_tipo_diagnostico, descripcion_diagnostico, fecha_diagnostico) "
+              "SELECT %s, id_consulta_cab, id_paciente, id_medico, %s, 'ZZ', CURRENT_DATE FROM consultas_cab WHERE id_consulta_cab=%s",
+              (f'ZZ-DX-{len(hijos)}', TIPO_DX_REAL, CONSULTA))
+    cu.execute("INSERT INTO diagnostico_sintoma(id_diagnostico, id_sintoma) VALUES (%s,%s)", (dx, i)); cx.commit()
+    return dx
+
+
+def anular_diagnostico_sintoma(i):
+    anular_hijo('diagnosticos', 'id_diagnostico', hijos[-1][2])
+
+
 def cancelar(tabla, pk, i):
     cu.execute(f"UPDATE {tabla} SET estado='cancelado' WHERE {pk}=%s", (i,)); cx.commit()
 
@@ -129,6 +150,13 @@ ESPECS = [
          tabla='tipo_analisis', pk='id_tipo_analisis', clave='descripcion', extras={}, extras2={},
          usar=usar_orden('orden_analisis', 'id_orden_analisis', 'id_tipo_analisis'),
          en_uso_ok=lambda i: cancelar('orden_analisis', 'id_orden_analisis', hijos[-1][2])),
+    dict(nombre='Tipo Diagnóstico', ventana='tipodiagnostico', url='/api/v1/diagnosticos', vista='/referenciales/tipo-diagnostico/tipo-diagnostico-index',
+         tabla='tipo_diagnostico', pk='id_tipo_diagnostico', clave='descripcion_diagnostico', extras={'tipo_diagnostico': 'patología dental'},
+         extras2={'tipo_diagnostico': 'ZZ OTRA CATEGORÍA'}, usar=usar_diagnostico,
+         en_uso_ok=lambda i: anular_hijo('diagnosticos', 'id_diagnostico', hijos[-1][2])),
+    dict(nombre='Síntomas', ventana='sintoma', url='/api/v1/sintomas', vista='/referenciales/sintoma/sintoma-index',
+         tabla='sintoma', pk='id_sintoma', clave='descripcion_sintoma', extras={}, extras2={}, usar=usar_diagnostico_sintoma,
+         en_uso_ok=anular_diagnostico_sintoma),
 ]
 
 creados = {}   # tabla -> ids ZZ (para borrar y limpiar la auditoría)
@@ -164,6 +192,10 @@ try:
         if 'presentacion' in e['extras']:
             api('post', url, 400, {**base, 'presentacion': 'x' * 101}, f'{n}: presentación de 101', campo='presentacion')
             api('post', url, 400, {**base, 'presentacion': 'a<b'}, f'{n}: presentación con símbolo no permitido', campo='presentacion')
+        if 'tipo_diagnostico' in e['extras']:
+            for malo in ('', '   ', None, 'a<b', 'x' * 101):
+                api('post', url, 400, {**base, 'tipo_diagnostico': malo}, f'{n}: tipo de diagnóstico inválido {malo!r:.20}', campo='tipo_diagnostico')
+            api('post', url, 400, {k: v for k, v in base.items() if k != 'tipo_diagnostico'}, f'{n}: sin tipo de diagnóstico', campo='tipo_diagnostico')
         if 'precio' in e['extras']:
             for malo in (None, '', 0, -5, 'abc', 1.5, 10 ** 12):
                 api('post', url, 400, {**base, 'precio': malo}, f'{n}: precio inválido {malo!r}', campo='precio',
@@ -181,7 +213,7 @@ try:
         chk(f'{n}: auditoría ALTA con módulo y valores nuevos (JSON)',
             len(a) == 1 and a[0][0] == 'ALTA' and a[0][1] == 'Referenciales Consultorio' and a[0][2] is None and a[0][3] and a[0][4] == ADMIN and a[0][5])
         d2 = api('get', f'{url}/{i}', 200, nombre=f'{n}: obtener')
-        chk(f'{n}: el registro trae id, texto, activo y fecha', d2['data'][PK] == i and d2['data']['activo'] is True and 'fecha_registro' in d2['data'])
+        chk(f'{n}: el registro trae id, texto, activo y fecha', d2['data'][PK] == i and d2['data']['activo'] is True and ('fecha_registro' in d2['data']) == (T not in ('tipo_diagnostico', 'sintoma')))
 
         # ---- sin cambios / modificación ----
         api('put', f'{url}/{i}', 200, {**base}, f'{n}: sin cambios', contiene='sin cambios')
@@ -284,9 +316,24 @@ try:
     chk('Tipo Tratamiento: IVA 0 (Exenta) y precio 1 se guardan', d['data']['iva'] == 0 and d['data']['precio'] == 1)
     ids_trat = q("SELECT id_tipo_tratamiento, precio, iva FROM tipos_tratamiento WHERE descripcion='ZZ LIMPIEZA DENTAL (PROFILAXIS)'")
     chk('Tipo Tratamiento: el listado devuelve precio entero e iva', all(isinstance(x['precio'], int) and 'iva' in x for x in api('get', '/api/v1/tipos-tratamiento', 200, nombre='Tipo Tratamiento: lista')['data']))
+    # Tipo Diagnóstico también se bloquea por un tratamiento no cancelado que lo use (aparte de los diagnósticos)
+    d = api('post', '/api/v1/diagnosticos', 201, {'descripcion_diagnostico': 'zz dx para tratamiento', 'tipo_diagnostico': 'zz'}, 'Tipo Diagnóstico: alta para el tratamiento')
+    td = d['data']['id_tipo_diagnostico']; creados['tipo_diagnostico'].add(td)
+    tid = hijo('tratamientos', 'id_tratamiento',
+               "INSERT INTO tratamientos(codigo, id_consulta_cab, id_paciente, id_medico, id_tipo_tratamiento, id_tipo_diagnostico, descripcion_tratamiento, "
+               "fecha_tratamiento, estado) VALUES (%s,%s,%s,%s,%s,%s,'ZZ',%s,'pendiente')",
+               (f'ZZ-TD-{len(hijos)}', TRAT[0], TRAT[1], TRAT[2], TIPO_TRAT_REAL, td, TRAT[3]))
+    api('delete', f'/api/v1/diagnosticos/{td}', 409, nombre='Tipo Diagnóstico: baja bloqueada por un tratamiento', contiene='tratamientos')
+    cancelar('tratamientos', 'id_tratamiento', tid)
+    api('delete', f'/api/v1/diagnosticos/{td}', 200, nombre='Tipo Diagnóstico: con el tratamiento cancelado se puede anular')
+    # los registros existentes quedaron en MAYÚSCULAS y los combos de otras pantallas siguen trayendo solo activos
+    chk('Tipo Diagnóstico y Síntomas: todo lo cargado está en MAYÚSCULAS',
+        q("SELECT count(*) FROM tipo_diagnostico WHERE descripcion_diagnostico <> UPPER(descripcion_diagnostico) OR tipo_diagnostico <> UPPER(tipo_diagnostico)")[0][0] == 0
+        and q("SELECT count(*) FROM sintoma WHERE descripcion_sintoma <> UPPER(descripcion_sintoma)")[0][0] == 0)
     # los lookups de otras pantallas conservan sus claves
     lk = {'/api/v1/tipos-insumo': 'id_insumo', '/api/v1/tipos-procedimiento-medico': 'id_tipo_procedimiento', '/api/v1/medicamentos': 'id_medicamento',
-          '/api/v1/tipos-estudio': 'id_tipo_estudio', '/api/v1/tipos-analisis': 'id_tipo_analisis', '/api/v1/tipos-tratamiento': 'id_tipo_tratamiento'}
+          '/api/v1/tipos-estudio': 'id_tipo_estudio', '/api/v1/tipos-analisis': 'id_tipo_analisis', '/api/v1/tipos-tratamiento': 'id_tipo_tratamiento',
+          '/api/v1/diagnosticos': 'id_tipo_diagnostico', '/api/v1/sintomas': 'id_sintoma'}
     for u_, pk_ in lk.items():
         datos = api('get', u_, 200, nombre=f'lookup {u_}')['data']
         chk(f'lookup {u_}: conserva la clave {pk_} y trae solo activos', all(pk_ in x and x['activo'] for x in datos))
@@ -294,9 +341,11 @@ try:
 finally:
     cx.rollback()
     for tabla, pk, i in reversed(hijos):
+        if tabla == 'diagnosticos':
+            cu.execute("DELETE FROM diagnostico_sintoma WHERE id_diagnostico=%s", (i,))
         cu.execute(f"DELETE FROM {tabla} WHERE {pk}=%s", (i,))
     for tabla, ids in creados.items():
-        pk = {'tipos_tratamiento': 'id_tipo_tratamiento', 'insumos': 'id_insumo', 'tipo_procedimiento_medico': 'id_tipo_procedimiento',
+        pk = {'tipo_diagnostico': 'id_tipo_diagnostico', 'sintoma': 'id_sintoma', 'tipos_tratamiento': 'id_tipo_tratamiento', 'insumos': 'id_insumo', 'tipo_procedimiento_medico': 'id_tipo_procedimiento',
               'medicamentos': 'id_medicamento', 'tipo_estudio': 'id_tipo_estudio', 'tipo_analisis': 'id_tipo_analisis'}[tabla]
         cu.execute(f"DELETE FROM {tabla} WHERE {pk} = ANY(%s)", (list(ids),))
         borrar_auditoria(cu, tabla, ids)

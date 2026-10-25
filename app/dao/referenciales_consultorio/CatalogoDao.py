@@ -20,6 +20,7 @@ class CatalogoDao:
         TABLA, PK          tabla y clave primaria
         CLAVE              columna de texto única entre los activos (descripcion / nombre_comercial)
         EXTRAS             otras columnas editables, en el orden en que las recibe guardar()/actualizar()
+        FECHA              True si la tabla tiene `fecha_registro` (Tipo Diagnóstico y Síntomas no la tienen)
         NOMBRE             texto para los registros de log
         _motivo_en_uso()   el motivo (texto para el usuario) si hay registros vigentes que lo usan, o False
 
@@ -29,10 +30,11 @@ class CatalogoDao:
     """
     TABLA = PK = CLAVE = NOMBRE = None
     EXTRAS = ()
+    FECHA = True
 
     # ---- lectura ----
     def _columnas(self):
-        return [self.PK, self.CLAVE, *self.EXTRAS, 'fecha_registro', 'activo']
+        return [self.PK, self.CLAVE, *self.EXTRAS, *(['fecha_registro'] if self.FECHA else []), 'activo']
 
     @staticmethod
     def _valor(v):
@@ -43,7 +45,8 @@ class CatalogoDao:
     def _fila(self, r):
         cols = self._columnas()
         d = {c: self._valor(v) for c, v in zip(cols, r)}
-        d['fecha_registro'] = str(d['fecha_registro']) if d['fecha_registro'] else None
+        if self.FECHA:
+            d['fecha_registro'] = str(d['fecha_registro']) if d['fecha_registro'] else None
         return d
 
     def listar(self, incluir_inactivos=False):

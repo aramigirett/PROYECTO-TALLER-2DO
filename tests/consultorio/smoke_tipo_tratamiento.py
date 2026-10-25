@@ -60,7 +60,7 @@ try:
     chk('columna precio NUMERIC(12,0) NOT NULL', cu.fetchone() == ('numeric', 12, 0, 'NO'))
     cu.execute("SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname='chk_tipos_tratamiento_precio'")
     fila = cu.fetchone(); chk('CHECK (precio > 0) existe', bool(fila) and 'precio' in fila[0] and '> (0)' in fila[0])
-    cu.execute("SELECT UPPER(descripcion), precio FROM tipos_tratamiento WHERE activo = true")
+    cu.execute("SELECT UPPER(descripcion), precio FROM tipos_tratamiento")   # activos o no: el usuario puede anularlos desde la pantalla
     activos = {d: p for d, p in cu.fetchall()}
     for d in SEEDS:   # relajado: existe y tiene precio > 0 (los valores pueden haberse editado desde la pantalla)
         chk(f'seed existe y precio > 0: {d}', d in activos and activos[d] > 0)
