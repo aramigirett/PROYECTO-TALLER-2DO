@@ -1,471 +1,297 @@
-{% extends 'base.html' %}
+{% extends 'base_tabler.html' %}
 
-{% block titulo %}
-Funcionario
-{% endblock %}
+{% block titulo %}Funcionarios{% endblock %}
 
 {% block contenido %}
-<div class="container mt-10">
-  <h3>Listar Funcionarios</h3>
-
-  <!-- Tarjeta -->
-  <div class="card">
-    <div class="card-header">
-      {% if puede('funcionario','nuevo') %}<button type="button" class="btn btn-outline-primary" id="btnAgregar">Agregar</button>{% endif %}
+<div class="page-header d-print-none mb-3">
+  <div class="row align-items-center">
+    <div class="col">
+      <div class="page-pretitle">Agendamiento</div>
+      <h2 class="page-title">Funcionarios</h2>
     </div>
-    <div class="card-body">
-      <div class="table-responsive">
-        <table class="table table-striped" id="tbl">
-          <thead>
-            <tr>
-              <th>Nombre</th>
-              <th>Apellido</th>
-              <th>Cédula</th>
-              <th>Fecha Nacimiento</th>
-              <th>Teléfono</th>
-              <th>Correo</th>
-              <th>Cargo</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
+    {% if puede('funcionario', 'nuevo') %}
+    <div class="col-auto ms-auto">
+      <button type="button" class="btn btn-primary" id="btnAgregar">
+        <i class="fas fa-plus me-2"></i>Agregar
+      </button>
     </div>
-  </div>
-  <!-- /Tarjeta -->
-
-  <!-- Modal formulario -->
-  <div class="modal" id="modalFormulario">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
-      <div class="modal-content">
-        <!-- Modal Header -->
-        <div class="modal-header">
-          <h4 class="modal-title" id="modalTitle"></h4>
-          <button type="button" class="close" data-dismiss="modal">&times;</button>
-        </div>
-
-        <!-- Modal Body -->
-        <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
-          <input type="hidden" id="txtIdFuncionario">
-          <input type="hidden" id="id_cargo">
-
-          <div class="container-fluid">
-            <div class="row">
-              <div class="col-md-6 col-lg-4">
-                <div class="form-group">
-                  <label for="nombre">Nombre:</label>
-                  <input type="text" class="form-control" placeholder="Ingrese el nombre" id="nombre">
-                </div>
-              </div>
-              <div class="col-md-6 col-lg-4">
-                <div class="form-group">
-                  <label for="apellido">Apellido:</label>
-                  <input type="text" class="form-control" placeholder="Ingrese el apellido" id="apellido">
-                </div>
-              </div>
-              <div class="col-md-6 col-lg-4">
-                <div class="form-group">
-                  <label for="cedula">Cédula:</label>
-                  <input type="text" class="form-control" placeholder="Ingrese la cédula" id="cedula">
-                </div>
-              </div>
-              <div class="col-md-6 col-lg-4">
-                <div class="form-group">
-                  <label for="fecha_nacimiento">Fecha Nacimiento:</label>
-                  <input type="date" class="form-control" id="fecha_nacimiento">
-                </div>
-              </div>
-              <div class="col-md-6 col-lg-4">
-                <div class="form-group">
-                  <label for="telefono">Teléfono:</label>
-                  <input type="text" class="form-control" placeholder="Ingrese el teléfono" id="telefono">
-                </div>
-              </div>
-              <div class="col-md-6 col-lg-4">
-                <div class="form-group">
-                  <label for="direccion">Dirección:</label>
-                  <input type="text" class="form-control" placeholder="Ingrese la dirección" id="direccion">
-                </div>
-              </div>
-              <div class="col-md-6 col-lg-4">
-                <div class="form-group">
-                  <label for="correo">Correo:</label>
-                  <input type="email" class="form-control" placeholder="correo@ejemplo.com" id="correo">
-                </div>
-              </div>
-              <div class="col-md-6 col-lg-4">
-                <div class="form-group">
-                  <label for="txtCargo">Cargo:</label>
-                  <input type="text" class="form-control" placeholder="Seleccione el cargo" id="txtCargo" readonly>
-                </div>
-              </div>
-              <div class="col-md-6 col-lg-4">
-                <div class="form-group">
-                  <label for="fecha_registro">Fecha Registro:</label>
-                  <input type="text" class="form-control" id="fecha_registro" readonly>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Modal Footer -->
-        <div class="modal-footer">
-          <button type="button" class="btn btn-primary" id="btnGuardar">Guardar</button>
-          <button type="button" class="btn btn-danger" data-dismiss="modal">Cerrar</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Modal Buscar Cargo -->
-  <div class="modal fade" id="modalBuscarCargo" tabindex="-1" role="dialog">
-    <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h4 class="modal-title">Seleccionar Cargo</h4>
-          <button type="button" class="close" data-dismiss="modal">&times;</button>
-        </div>
-        <div class="modal-body">
-          <div class="table-responsive">
-            <table class="table table-striped table-bordered w-100" id="tblCargo">
-              <thead>
-                <tr>
-                  <th>Cargo</th>
-                  <th>Acciones</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Alert -->
-  <div class="row mt-4 d-none" id="rowAlerta">
-    <div class="col col-md-12">
-      <div class="alert alert-success">
-        <strong>Registro Exitoso!</strong>
-        <div class="row" id="mostrarAlerta"></div>
-      </div>
-    </div>
+    {% endif %}
   </div>
 </div>
 
+<div class="card">
+  <div class="card-header">
+    <label class="form-check form-switch mb-0">
+      <input class="form-check-input" type="checkbox" id="chkInactivos">
+      <span class="form-check-label">Mostrar inactivos</span>
+    </label>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table" id="tbl">
+      <thead>
+        <tr>
+          <th>Nombre y apellido</th>
+          <th>Cédula</th>
+          <th>Cargo</th>
+          <th>Teléfono</th>
+          <th style="width: 120px;">Estado</th>
+          <th class="w-1">Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="tbody">
+        <tr><td colspan="6" class="text-center text-muted py-4">Cargando…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# Modal Alta / Modificar #}
+<div class="modal modal-blur fade" id="modalFormulario" tabindex="-1" aria-labelledby="modalTitle" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalTitle"></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <form id="formulario" novalidate>
+        <div class="modal-body">
+          <input type="hidden" id="txtId">
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label required" for="txtNombre">Nombre</label>
+              <input type="text" class="form-control" id="txtNombre" maxlength="80" style="text-transform: uppercase;" autocomplete="off">
+              <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label required" for="txtApellido">Apellido</label>
+              <input type="text" class="form-control" id="txtApellido" maxlength="80" style="text-transform: uppercase;" autocomplete="off">
+              <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label required" for="txtCedula">Cédula</label>
+              <input type="text" class="form-control" id="txtCedula" maxlength="12" placeholder="Ej.: 1234567 o 80012345-0" autocomplete="off">
+              <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label required" for="txtNacimiento">Fecha de nacimiento</label>
+              <input type="date" class="form-control" id="txtNacimiento" autocomplete="off">
+              <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label required" for="txtTelefono">Teléfono</label>
+              <input type="text" class="form-control" id="txtTelefono" maxlength="20" autocomplete="off">
+              <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label required" for="txtDireccion">Dirección</label>
+              <input type="text" class="form-control" id="txtDireccion" maxlength="150" autocomplete="off">
+              <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label required" for="txtCorreo">Correo</label>
+              <input type="email" class="form-control" id="txtCorreo" maxlength="100" autocomplete="off">
+              <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label required" for="selCargo">Cargo</label>
+              <select class="form-select" id="selCargo"><option value="">Seleccione…</option></select>
+              <div class="invalid-feedback"></div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btnGuardar">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block js %}
+<script src="{{ url_for('static', filename='js/facturacion-validadores.js') }}"></script>
+<script src="{{ url_for('static', filename='js/facturacion-listado.js') }}"></script>
 <script>
+(function () {
+  const API = '/api/v1/funcionarios';
+  const PK = 'id_funcionario';
+  const PUEDE_EDITAR = {{ 'true' if puede('funcionario', 'editar') else 'false' }};
+  const PUEDE_ANULAR = {{ 'true' if puede('funcionario', 'anular') else 'false' }};
 
-// 🔹 Inicializar tabla de funcionarios
-const initDatatable = () => {
-  $('#tbl').DataTable({
-    language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
-    ajax: {
-      url: '/api/v1/funcionarios',
-      dataSrc: 'data'
-    },
-    columns: [
-      { data: 'nombre' },
-      { data: 'apellido' },
-      { data: 'cedula' },
-      { data: 'fecha_nacimiento' },
-      { data: 'telefono' },
-      { data: 'correo' },
-      { data: 'cargo' },
-      { 
-        data: null,
-        render: function (data, type, row) {
-          return `
-            {% if puede('funcionario','editar') %}<button type="button" class="btn btn-info btn-sm btn-editar" data-id="${row.id_funcionario}">
-              <i class="fas fa-edit"></i>
-            </button>{% endif %}
-            {% if puede('funcionario','anular') %}<button type="button" class="btn btn-danger btn-sm btn-eliminar" data-id="${row.id_funcionario}">
-              <i class="fas fa-trash-alt"></i>
-            </button>{% endif %}`;
-        }
+  const tbody = document.getElementById('tbody');
+  const chkInactivos = document.getElementById('chkInactivos');
+  const modalEl = document.getElementById('modalFormulario');
+  const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+  const form = document.getElementById('formulario');
+  const btnGuardar = document.getElementById('btnGuardar');
+  const inpId = document.getElementById('txtId');
+
+  const L = window.FacturacionListado;
+  const V = window.FacturacionValidadores;
+  const { escapar, pedir } = L;
+
+  // Campos del formulario: clave JSON, id del input, regla de validación (espejo de utils.py) y, si es un combo, de dónde sale
+  const obligatorio = (nombre) => (v) => (v ? '' : `El campo ${nombre} es obligatorio.`);
+  const CAMPOS = [
+    { k: 'nombre', id: 'txtNombre', regla: (v) => V.nombre(v, 'nombre', true) },
+    { k: 'apellido', id: 'txtApellido', regla: (v) => V.nombre(v, 'apellido', true) },
+    { k: 'cedula', id: 'txtCedula', regla: (v) => V.ciRuc(v) },
+    { k: 'fecha_nacimiento', id: 'txtNacimiento', regla: (v) => V.fechaNacimiento(v) },
+    { k: 'telefono', id: 'txtTelefono', regla: (v) => V.telefono(v) },
+    { k: 'direccion', id: 'txtDireccion', regla: (v) => V.direccion(v) },
+    { k: 'correo', id: 'txtCorreo', regla: (v) => V.correo(v) },
+    { k: 'id_cargo', id: 'selCargo', regla: obligatorio('cargo'), fuente: '/api/v1/cargos', id_fuente: 'id_cargo', texto_fuente: 'descripcion' },
+  ];
+  const inp = {};
+  CAMPOS.forEach((c) => { inp[c.k] = document.getElementById(c.id); });
+  const limpiarErrores = () => CAMPOS.forEach((c) => V.limpiarCampo(inp[c.k]));
+  const CON_USUARIO = true;
+  const hoy = new Date(); hoy.setMinutes(hoy.getMinutes() - hoy.getTimezoneOffset());
+  inp.fecha_nacimiento.max = hoy.toISOString().slice(0, 10);
+
+  async function llenarCombo(c, seleccionado) {
+    const { data } = await pedir(c.fuente);
+    const lista = (data && data.success) ? data.data : [];
+    inp[c.k].innerHTML = '<option value="">Seleccione…</option>' +
+      lista.map((x) => `<option value="${escapar(x[c.id_fuente])}">${escapar(x[c.texto_fuente])}</option>`).join('');
+    inp[c.k].value = seleccionado || '';
+  }
+
+  async function cargar() {
+    try {
+      const { ok, data } = await pedir(L.urlListado(API, chkInactivos));
+      if (!ok || !data || !data.success) throw new Error();
+      if (!data.data.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">No hay funcionarios registrados.</td></tr>';
+        return;
       }
-    ]
-  });
-};
-
-// 🔹 Inicializar tabla de cargos
-const initDatatableCargo = () => {
-  $('#tblCargo').DataTable({
-    language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
-    ajax: {
-      url: '/api/v1/cargos',
-      dataSrc: 'data'
-    },
-    columns: [
-      { data: 'descripcion' },
-      {
-        data: function (row) {
-          return `<button type="button" name="btn_seleccionar_cargo" class="btn btn-primary"
-                  data-id="${row.id_cargo}" data-cargo="${row.descripcion}">Seleccionar</button>`;
-        }
-      }
-    ]
-  });
-
-  $('#tblCargo').on('click', 'button[name="btn_seleccionar_cargo"]', function () {
-    const idCargo = $(this).data('id');
-    const cargo = $(this).data('cargo');
-    $('#txtCargo').val(cargo);
-    $('#id_cargo').val(idCargo);
-    $('#modalBuscarCargo').modal('hide');
-  });
-};
-
-const buscarCargo = () => {
-  $('#txtCargo').on('click', function () {
-    $('#modalBuscarCargo').modal('show');
-  });
-};
-
-/* ======================
-   CRUD Functions
-   ====================== */
-const agregar = () => {
-  $('#btnAgregar').on('click', function() {
-    $('#modalTitle').text("Agregar Funcionario");
-    $('#txtIdFuncionario').val("");
-    $('#nombre').val("");
-    $('#apellido').val("");
-    $('#cedula').val("");
-    $('#fecha_nacimiento').val("");
-    $('#telefono').val("");
-    $('#direccion').val("");
-    $('#correo').val("");
-    $('#id_cargo').val("");
-    $('#txtCargo').val("");
-    
-    // Fecha y hora actual en formato YYYY-MM-DD HH:MM:SS
-    const now = new Date();
-    const fechaRegistro = now.getFullYear() + '-' + 
-                          String(now.getMonth() + 1).padStart(2, '0') + '-' + 
-                          String(now.getDate()).padStart(2, '0') + ' ' +
-                          String(now.getHours()).padStart(2, '0') + ':' + 
-                          String(now.getMinutes()).padStart(2, '0') + ':' + 
-                          String(now.getSeconds()).padStart(2, '0');
-    $('#fecha_registro').val(fechaRegistro);
-    
-    $('#modalFormulario').modal('show');
-  });
-};
-
-const guardar = () => {
-  $('#btnGuardar').on('click', function() {
-    const id_funcionario = Number($('#txtIdFuncionario').val()) || 0;
-    const nombre = $('#nombre').val().trim();
-    const apellido = $('#apellido').val().trim();
-    const cedula = $('#cedula').val().trim();
-    const fecha_nacimiento = $('#fecha_nacimiento').val();
-    const telefono = $('#telefono').val().trim();
-    const direccion = $('#direccion').val().trim();
-    const correo = $('#correo').val().trim();
-    const id_cargo = $('#id_cargo').val();
-    const fecha_registro = $('#fecha_registro').val();
-    const tabla = $('#tbl').DataTable();
-
-    // Validaciones
-    if (!nombre || !apellido || !cedula || !fecha_nacimiento || !telefono || !direccion || !correo || !id_cargo) {
-      Swal.fire("Error", "Todos los campos son obligatorios.", "error");
-      return;
+      tbody.innerHTML = data.data.map((f) => {
+        const acciones = L.acciones({ activo: f.activo, id: f[PK], descripcion: `${f.nombre} ${f.apellido}`,
+                                      puedeEditar: f.activo ? PUEDE_EDITAR : PUEDE_ANULAR, puedeAnular: PUEDE_ANULAR });
+        return `<tr class="${L.claseFila(f.activo)}">
+          <td>${escapar(f.nombre)} ${escapar(f.apellido)}</td>
+          <td>${escapar(f.cedula)}</td>
+          <td>${escapar(f.cargo)}</td>
+          <td>${escapar(f.telefono)}</td>
+          <td>${L.badgeEstado(f.activo)}</td>
+          <td class="text-nowrap"><div class="btn-list flex-nowrap">${acciones}</div></td>
+        </tr>`;
+      }).join('');
+    } catch (e) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger py-4">No se pudo cargar el listado.</td></tr>';
     }
+  }
 
-    // Validar email
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(correo)) {
-      Swal.fire("Error", "El correo electrónico no es válido.", "error");
-      return;
+  async function abrirModal(titulo, p) {
+    document.getElementById('modalTitle').textContent = titulo;
+    inpId.value = p ? p[PK] : '';
+    for (const c of CAMPOS) {
+      if (c.fuente) await llenarCombo(c, p ? p[c.k] : '');
+      else inp[c.k].value = p ? (p[c.k] || '') : '';
     }
+    limpiarErrores();
+    modal.show();
+  }
 
-    const data = {
-      nombre: nombre,
-      apellido: apellido,
-      cedula: cedula,
-      fecha_nacimiento: fecha_nacimiento,
-      telefono: telefono,
-      direccion: direccion,
-      correo: correo,
-      id_cargo: parseInt(id_cargo),
-      fecha_registro: fecha_registro
-    };
+  const btnAgregar = document.getElementById('btnAgregar');
+  if (btnAgregar) btnAgregar.addEventListener('click', () => abrirModal('Agregar Funcionario'));
 
-    if (id_funcionario > 0) {
-      // Editar. Si la cédula cambia y la persona tiene usuario, el servidor responde
-      // 409 con requiere_confirmacion: se pide confirmar y se reenvía.
-      const enviarEdicion = (confirmado) => {
-        fetch(`/api/v1/funcionarios/${id_funcionario}`, {
-          method: 'PUT',
-          headers: { 
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(confirmado ? { ...data, confirmar_cambio_cedula: true } : data)
-        })
-        .then(resp => resp.json())
-        .then(result => {
-          if (result && result.success) {
-            tabla.ajax.reload(null, false);
-            Swal.fire("Actualizado", "El funcionario ha sido actualizado correctamente.", "success")
-              .then(() => { $('#modalFormulario').modal("hide"); });
-          } else if (result && result.requiere_confirmacion) {
-            Swal.fire({
-              title: 'Esto cambia su inicio de sesión',
-              html: `Este funcionario tiene un usuario de acceso: su cédula es su CI/RUC de login.<br><br>
-                     Cédula anterior: <b>${result.cedula_anterior}</b><br>
-                     Cédula nueva: <b>${result.cedula_nueva}</b><br><br>
-                     Desde ahora deberá ingresar con la cédula nueva.`,
-              icon: 'warning',
-              showCancelButton: true,
-              confirmButtonText: 'Sí, cambiar cédula',
-              cancelButtonText: 'Cancelar'
-            }).then((r) => { if (r.isConfirmed) enviarEdicion(true); });
-          } else {
-            Swal.fire("Error", result.error || "Error al actualizar.", "error");
-          }
-        })
-        .catch((error) => {
-          console.error('Error al actualizar:', error);
-          Swal.fire("Error", "Ocurrió un error al actualizar.", "error");
-        });
-      };
-      enviarEdicion(false);
-    } else {
-      // Agregar
-      fetch(`/api/v1/funcionarios`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(data)
-      })
-      .then(resp => resp.json())
-      .then(result => {
-        if (result && result.success) {
-          tabla.ajax.reload(null, false);
-          Swal.fire("Registrado", "El funcionario ha sido registrado correctamente.", "success")
-            .then(() => { $('#modalFormulario').modal("hide"); });
-        } else {
-          Swal.fire("Error", result.error || "Error al guardar.", "error");
-        }
-      })
-      .catch((error) => {
-        console.error('Error al guardar:', error);
-        Swal.fire("Error", "Ocurrió un error al guardar.", "error");
-      });
-    }
+  CAMPOS.forEach((c) => {
+    inp[c.k].addEventListener('input', () => V.limpiarCampo(inp[c.k]));
+    inp[c.k].addEventListener('change', () => V.limpiarCampo(inp[c.k]));
   });
-};
 
-const editar = () => {
-  $('#tbl tbody').on('click', '.btn-editar', function() {
-    const id_funcionario = $(this).data('id');
-    
-    console.log('Editando ID:', id_funcionario);
+  async function enviar(id, cuerpo) {
+    return pedir(id ? `${API}/${id}` : API, { method: id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo) });
+  }
 
-    fetch(`/api/v1/funcionarios/${id_funcionario}`, { 
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' }
-    })
-      .then(resp => resp.json())
-      .then(result => {
-        console.log('Respuesta del servidor:', result);
-        if (result && result.success) {
-          const f = result.data;
-          $('#txtIdFuncionario').val(f.id_funcionario);
-          $('#nombre').val(f.nombre);
-          $('#apellido').val(f.apellido);
-          $('#cedula').val(f.cedula);
-          $('#fecha_nacimiento').val(f.fecha_nacimiento);
-          $('#telefono').val(f.telefono);
-          $('#direccion').val(f.direccion);
-          $('#correo').val(f.correo);
-          $('#id_cargo').val(f.id_cargo);
-          $('#txtCargo').val(f.cargo);
-          $('#fecha_registro').val(f.fecha_registro);
-          $('#modalTitle').text("Editar Funcionario");
-          $('#modalFormulario').modal('show');
-        } else {
-          Swal.fire("Error", result.error || "No se pudo cargar el funcionario.", "error");
-        }
-      })
-      .catch(error => {
-        console.error('Error:', error);
-        Swal.fire("Error", "Ocurrió un error al obtener los datos.", "error");
-      });
-  });
-};
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    limpiarErrores();
 
-const eliminar = () => {
-  $('#tbl tbody').on('click', '.btn-eliminar', function() {
-    const id_funcionario = $(this).data('id');
-    const tabla = $('#tbl').DataTable();
-    
-    console.log('Eliminando ID:', id_funcionario);
-
-    Swal.fire({
-      title: "¿Deseas eliminar este funcionario?",
-      text: "Esta acción no se puede deshacer",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonColor: '#3085d6',
-      cancelButtonColor: '#d33',
-      confirmButtonText: "Sí, eliminar",
-      cancelButtonText: "Cancelar"
-    }).then((result) => {
-      if (result.isConfirmed) {
-        fetch(`/api/v1/funcionarios/${id_funcionario}`, {
-          method: 'DELETE',
-          headers: { 
-            'Content-Type': 'application/json'
-          }
-        })
-        .then(resp => resp.json())
-        .then(result => {
-          console.log('Respuesta eliminar:', result);
-          if (result && result.success) {
-            tabla.ajax.reload(null, false);
-            Swal.fire("Eliminado", "Funcionario eliminado correctamente.", "success");
-          } else {
-            Swal.fire("Error", result.error || "Error al eliminar.", "error");
-          }
-        })
-        .catch(error => {
-          console.error('Error:', error);
-          Swal.fire("Error", "Ocurrió un error al eliminar.", "error");
-        });
-      }
+    let hayError = false;
+    CAMPOS.forEach((c) => {
+      const msg = c.regla(inp[c.k].value);
+      if (msg) { V.marcarCampo(inp[c.k], msg); hayError = true; }
     });
+    if (hayError) return;
+
+    const id = inpId.value;
+    if (id) {
+      const c = await Swal.fire({
+        title: '¿Guardar los cambios?', text: 'Se modificarán los datos de este funcionario.', icon: 'question',
+        showCancelButton: true, confirmButtonText: 'Sí, guardar', cancelButtonText: 'Cancelar'
+      });
+      if (!c.isConfirmed) return;
+    }
+
+    const cuerpo = {};
+    CAMPOS.forEach((c) => { cuerpo[c.k] = inp[c.k].value.trim(); });
+
+    btnGuardar.disabled = true;
+    try {
+      let { data } = await enviar(id, cuerpo);
+      if (CON_USUARIO && id && data && data.requiere_confirmacion) {
+        // La cédula es el CI/RUC con el que la persona inicia sesión: se pide confirmar el cambio
+        const c = await Swal.fire({
+          title: 'Cambiar la cédula', icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí, cambiar', cancelButtonText: 'Cancelar',
+          html: `La cédula <b>${escapar(data.cedula_anterior)}</b> pasará a <b>${escapar(data.cedula_nueva)}</b>.<br>Es el CI/RUC con el que esta persona inicia sesión.`
+        });
+        if (!c.isConfirmed) { btnGuardar.disabled = false; return; }
+        ({ data } = await enviar(id, { ...cuerpo, confirmar_cambio_cedula: true }));
+      }
+      if (data && data.success) {
+        modal.hide();
+        await cargar();
+        Swal.fire(id ? 'Actualizado' : 'Agregado', data.mensaje, 'success');
+      } else {
+        // El servidor indica el campo con problema (duplicado, formato, referencial anulado); si no, va en el primero
+        V.marcarCampo(inp[data && data.campo && inp[data.campo] ? data.campo : CAMPOS[0].k], (data && data.error) || 'No se pudo guardar este funcionario.');
+      }
+    } catch (e) {
+      V.marcarCampo(inp[CAMPOS[0].k], 'Ocurrió un error de conexión. Intente nuevamente.');
+    } finally {
+      btnGuardar.disabled = false;
+    }
   });
-};
 
-// Validación: Solo números en teléfono y cédula
-$('#telefono, #cedula').on('input', function() {
-  this.value = this.value.replace(/[^0-9]/g, '');
-});
+  tbody.addEventListener('click', async (ev) => {
+    const btn = ev.target.closest('button[data-accion]');
+    if (!btn) return;
+    const id = btn.dataset.id;
 
-/* ======================
-   Inicializar eventos
-   ====================== */
-const addEvents = () => {
-  agregar();
-  guardar();
-  editar();
-  eliminar();
-  buscarCargo();
-};
+    if (btn.dataset.accion === 'editar') {
+      try {
+        const { data } = await pedir(`${API}/${id}`);
+        if (data && data.success) {
+          await abrirModal('Editar Funcionario', data.data);
+        } else {
+          Swal.fire('Error', (data && data.error) || 'No se pudo cargar este funcionario.', 'error');
+          cargar();
+        }
+      } catch (e) {
+        Swal.fire('Error', 'Ocurrió un error de conexión.', 'error');
+      }
+    }
 
-// Inicializar todo cuando el DOM esté listo
-$(function() {
-  initDatatable();
-  initDatatableCargo();
-  addEvents();
-});
+    if (btn.dataset.accion === 'anular') {
+      await L.anular({
+        api: API, id, descripcion: btn.dataset.desc, titulo: '¿Anular este funcionario?', exito: 'Anulado',
+        errorDefault: 'No se pudo anular este funcionario.', recargar: cargar
+      });
+    }
 
+    if (btn.dataset.accion === 'reactivar') {
+      await L.reactivar({
+        api: API, id, descripcion: btn.dataset.desc, titulo: '¿Reactivar este funcionario?', exito: 'Reactivado',
+        errorDefault: 'No se pudo reactivar este funcionario.', recargar: cargar
+      });
+    }
+  });
+
+  chkInactivos.addEventListener('change', cargar);
+  cargar();
+})();
 </script>
 {% endblock %}
