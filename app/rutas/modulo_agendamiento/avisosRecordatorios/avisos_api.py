@@ -200,6 +200,19 @@ def cambiar_estado_aviso(id_aviso):
 
 
 # ---------------- envío ----------------
+@avisoapi.route('/avisos/mensaje-previo', methods=['POST'])
+@require_permiso('avisos', 'nuevo')
+def mensaje_previo():
+    """El mensaje de la plantilla para la cita (o paciente / fecha / hora) elegidos en 'Agregar aviso', antes de guardar. Solo lectura."""
+    v, error = _validar(request.get_json(silent=True))
+    if error:
+        return error
+    datos = dao.datosParaMensaje(v)
+    if datos is None:
+        return respuesta_error('No se pudo armar el mensaje: la cita o el paciente no existe o está anulado.', 404)
+    return jsonify(success=True, mensaje=construir_mensaje(datos), error=None)
+
+
 @avisoapi.route('/avisos/<int:id_aviso>/mensaje-preview', methods=['GET'])
 @require_permiso('avisos', 'ver')
 def preview_mensaje(id_aviso):

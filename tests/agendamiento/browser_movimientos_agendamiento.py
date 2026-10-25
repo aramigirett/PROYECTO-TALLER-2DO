@@ -43,9 +43,10 @@ window.respuesta = function (url, metodo) {
   if (/\/api\/v1\/citas-detalle\/cabecera\/\d+$/.test(u)) return LISTA([{id_cita_detalle: 21, hora_cita: '09:00', hora_inicio: '08:00', hora_fin: '12:00', motivo_consulta: 'CONTROL', id_estado_cita: 1, estado_descripcion: 'Reservado', con_consulta: false}]);
   if (/\/api\/v1\/avisos\/whatsapp\/estado/.test(u)) return LISTA({estado: 'NO_VINCULADO', detalle: 'Escanee el código QR con el celular de la clínica.'});
   if (/\/api\/v1\/avisos\/\d+\/mensaje-preview$/.test(u)) return {success: true, mensaje: 'Hola ANA, recordatorio de su cita.', data: {forma_envio: 'WhatsApp'}, error: null};
+  if (/\/api\/v1\/avisos\/mensaje-previo$/.test(u)) { var b = JSON.parse(window.__ultimoCuerpo || '{}'); return {success: true, mensaje: 'Recordatorio ' + (b.id_cita_detalle ? 'cita ' + b.id_cita_detalle : 'paciente ' + b.id_paciente), error: null}; }
   if (/\/api\/v1\/avisos\/\d+\/enviar$/.test(u)) return {success: true, data: {estado_envio: 'Enviado', canal_enviado: 'WhatsApp'}, mensaje: 'Aviso enviado por WhatsApp.', error: null};
   if (/\/api\/v1\/avisos(\?.*)?$/.test(u) && metodo === 'GET') return LISTA(/inactivos=1/.test(u) ? [AVISO(1, true), AVISO(2, true, 'Error'), AVISO(3, false)] : [AVISO(1, true), AVISO(2, true, 'Error')]);
-  if (/\/api\/v1\/citas-detalle\/pendientes$/.test(u)) return LISTA([{id_cita_detalle: 21, fecha_cita: '2030-05-01', hora_cita: '09:00', paciente_nombre: 'ANA PEREZ', medico_nombre: 'LUIS GOMEZ', tiene_aviso: false}]);
+  if (/\/api\/v1\/citas-detalle\/pendientes$/.test(u)) return LISTA([{id_cita_detalle: 21, fecha_cita: '2030-05-01', hora_cita: '09:00', paciente_nombre: 'ANA PEREZ', medico_nombre: 'LUIS GOMEZ', tiene_aviso: false}, {id_cita_detalle: 22, fecha_cita: '2030-05-02', hora_cita: '10:00', paciente_nombre: 'ANA PEREZ', medico_nombre: 'LUIS GOMEZ', tiene_aviso: false}]);
   if (/\/api\/v1\/historial-medico\/pacientes$/.test(u)) return LISTA([{id_paciente: 5, nombre: 'ANA', apellido: 'PEREZ', cedula_entidad: '1234567', documentos: 2}]);
   if (/\/api\/v1\/historial-medico\/paciente\/5$/.test(u)) return LISTA([
     {id_historial: 31, tipo_documento: 'antecedente', descripcion: 'DIABETES FAMILIAR', fecha_registro: '2030-01-02T10:00:00', tiene_archivo: false},
@@ -64,6 +65,7 @@ window.fetch = function (url, opts) {
   var cuerpo = null;
   if (opts && opts.body) { cuerpo = (typeof opts.body === 'string') ? opts.body : '[FormData]' + Array.from(opts.body.keys()).join(','); }
   window.__calls.push({url: String(url), method: metodo, body: cuerpo});
+  window.__ultimoCuerpo = (typeof (opts && opts.body) === 'string') ? opts.body : null;
   var r = window.respuesta(url, metodo);
   if (window.__falla && window.__falla(url, metodo)) r = {success: false, error: 'Rechazado por el servidor.'};
   return Promise.resolve({ok: true, status: 200, json: function () { return Promise.resolve(r); }});
@@ -195,7 +197,20 @@ ESCENARIOS = {
       r.modal_con_cita_por_defecto = $('modalFormulario').classList.contains('show') && $('bloqueCita').style.display !== 'none' && $('bloquePaciente').style.display === 'none';
       enviar(); await esperar(250);
       r.vacio_no_envia = llamadas('POST', /\/api\/v1\/avisos$/).length === 0 && invalido($('selCita'));
-      cambio($('selCita'), '21'); cambio($('txtMensaje'), '');
+      window.__preguntas = 0; var fireOrig = Swal.fire.bind(Swal); Swal.fire = function (o) { if (o && o.title === 'Reemplazar el mensaje') window.__preguntas++; return fireOrig(o); };
+      cambio($('selCita'), '21'); await esperar(400);
+      r.al_elegir_cita_precarga_el_mensaje = $('txtMensaje').value === 'Recordatorio cita 21' && llamadas('POST', /\/avisos\/mensaje-previo$/).length === 1;
+      cambio($('txtMensaje'), 'Mi texto a mano'); window.__falla = null;
+      cambio($('selCita'), '22'); await esperar(500);
+      r.si_edito_a_mano_pregunta_antes = !!document.querySelector('.swal2-popup') && /editó el mensaje/.test(document.querySelector('.swal2-popup').textContent) && $('txtMensaje').value === 'Mi texto a mano';
+      var no = document.querySelector('.swal2-cancel'); if (no) no.click(); await esperar(500);
+      r.al_conservar_queda_el_suyo = $('txtMensaje').value === 'Mi texto a mano';
+      cambio($('selCita'), '21'); await esperar(500);
+      var si = document.querySelector('.swal2-confirm'); if (si) si.click(); await esperar(1200);
+      r.al_aceptar_se_reemplaza = $('txtMensaje').value === 'Recordatorio cita 21';
+      var antes = window.__preguntas; cambio($('selCita'), '22'); await esperar(700);
+      r.sin_editar_se_actualiza_solo_y_sin_preguntar = $('txtMensaje').value === 'Recordatorio cita 22' && window.__preguntas === antes;
+      cambio($('selCita'), '21'); await esperar(400);
       enviar(); await esperar(600);
       var p = llamadas('POST', /\/api\/v1\/avisos$/)[0];
       r.alta_de_cita_manda_solo_la_cita = !!p && JSON.parse(p.body).id_cita_detalle === 21 && JSON.parse(p.body).id_paciente === undefined && JSON.parse(p.body).forma_envio === 'WhatsApp';
