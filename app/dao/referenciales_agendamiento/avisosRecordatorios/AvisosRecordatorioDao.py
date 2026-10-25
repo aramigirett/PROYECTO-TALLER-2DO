@@ -279,6 +279,44 @@ class AvisoRecordatorioDao:
             cur.close()
             con.close()
 
+    def datosParaMensaje(self, v):
+        """
+        Los datos que arman el mensaje ANTES de que exista el aviso: con cita salen de ella; sin cita, del paciente / fecha / hora / médico / consultorio elegidos.
+        Solo lectura. Devuelve el dict que entiende construir_mensaje() o None si la cita / el paciente no existen o están anulados.
+        """
+        con = Conexion().getConexion()
+        cur = con.cursor()
+        try:
+            if v.get('id_cita_detalle'):
+                cur.execute("""SELECT cc.id_paciente, ac.id_medico, ac.id_consultorio, cd.fecha_cita, cd.hora_cita
+                               FROM cita_detalle cd JOIN cita_cabecera cc ON cc.id_cita_cabecera = cd.id_cita_cabecera
+                               JOIN agenda_cabecera ac ON ac.id_agenda_cabecera = cc.id_agenda_cabecera
+                               WHERE cd.id_cita_detalle = %s AND cc.estado <> 'Inactivo'""", (v['id_cita_detalle'],))
+                c = cur.fetchone()
+                if c is None:
+                    return None
+                id_paciente, id_medico, codigo, fecha, hora = c
+            else:
+                id_paciente, id_medico, codigo, fecha, hora = v.get('id_paciente'), v.get('id_medico'), v.get('codigo'), v.get('fecha_cita'), v.get('hora_cita')
+            cur.execute("SELECT nombre || ' ' || apellido FROM paciente WHERE id_paciente = %s AND activo", (id_paciente,))
+            p = cur.fetchone()
+            if p is None:
+                return None
+            medico = consultorio = None
+            if id_medico:
+                cur.execute("SELECT nombre || ' ' || apellido FROM medico WHERE id_medico = %s AND activo", (id_medico,))
+                m = cur.fetchone(); medico = m[0] if m else None
+            if codigo:
+                cur.execute("SELECT nombre_consultorio FROM consultorio WHERE codigo = %s AND activo", (codigo,))
+                k = cur.fetchone(); consultorio = k[0] if k else None
+            return {'paciente': p[0], 'medico': medico, 'nombre_consultorio': consultorio, 'fecha_cita': fecha, 'hora_cita': hora}
+        except Exception as e:
+            app.logger.error(f"Error al preparar el mensaje del aviso: {str(e)}")
+            return None
+        finally:
+            cur.close()
+            con.close()
+
     def estadisticas(self):
         con = Conexion().getConexion()
         cur = con.cursor()

@@ -3,7 +3,7 @@ from flask import Blueprint, request, jsonify, current_app as app
 from app.dao.modulo_seguridad.PermisoDao import PermisoDao
 from app.dao.modulo_seguridad.RolDao import RolDao
 from app.rutas.modulo_seguridad.decorators import require_admin
-from app.rutas.modulo_seguridad.menu_catalog import CATALOGO_MENU, MODULOS, VENTANAS_SOLO_ADMIN
+from app.rutas.modulo_seguridad import menu_servicio
 from app.rutas.modulo_facturacion.utils import auditar, detalle_cambios
 
 
@@ -14,12 +14,14 @@ def _validar_permiso(id_rol, ventana, accion):
         return None, None, 'El rol seleccionado no existe.'
     if rol['nombre_rol'] == 'Administrador':
         return None, None, 'El Administrador siempre tiene todos los permisos: no se edita.'
-    item = next((i for i in CATALOGO_MENU if i['ventana'] == ventana), None)
+    item = menu_servicio.ventana_para_permisos(ventana)
     if item is None:
-        return None, None, 'La ventana seleccionada no existe.'
-    if accion not in item['acciones']:
-        return None, None, f"La ventana {item['etiqueta']} no tiene la acción \"{accion}\"."
-    return rol, item['etiqueta'], None
+        return None, None, 'La ventana seleccionada no existe o está anulada.'
+    if item['solo_admin']:
+        return None, None, 'Esa ventana es exclusiva del Administrador.'
+    if accion not in menu_servicio.acciones_de(ventana):
+        return None, None, f"La ventana {item['descripcion']} no tiene la acción \"{accion}\"."
+    return rol, item['descripcion'], None
 
 
 def _auditar_permiso(rol, etiqueta, accion, antes, despues):
@@ -53,21 +55,7 @@ def getRolesRestringibles():
 @require_admin
 def getCatalogoPermisos():
     try:
-        por_modulo = {}
-        for item in CATALOGO_MENU:
-            if item.get('solo_admin'):
-                continue   # exclusiva del Administrador: no se delega desde la matriz
-            por_modulo.setdefault(item['modulo'], []).append({
-                'ventana': item['ventana'],
-                'etiqueta': item['etiqueta'],
-                'acciones': item['acciones'],
-            })
-
-        data = [
-            {'modulo': m['modulo'], 'ventanas': por_modulo[m['modulo']]}
-            for m in MODULOS
-            if m['modulo'] in por_modulo
-        ]
+        data = menu_servicio.catalogo_permisos()
         return jsonify({'success': True, 'data': data, 'error': None}), 200
     except Exception as e:
         app.logger.error(f"Error al obtener catálogo de permisos: {str(e)}")
@@ -102,9 +90,6 @@ def otorgarPermiso():
 
     if not id_rol or not ventana or not accion:
         return jsonify({'success': False, 'error': 'Rol, ventana y acción son obligatorios.'}), 400
-    if ventana in VENTANAS_SOLO_ADMIN:
-        return jsonify({'success': False, 'error': 'Esa ventana es exclusiva del Administrador.'}), 400
-
     rol, etiqueta, error = _validar_permiso(id_rol, ventana, accion)
     if error:
         return jsonify({'success': False, 'error': error}), 400

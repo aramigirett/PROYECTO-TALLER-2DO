@@ -237,3 +237,11 @@ Historial Médico → Recepción sin acceso, Médico lee/crea/anula lo de sus pa
 - Seguridad: Usuarios y Roles/Permisos auditan en `auditoria_cambios` (módulo Seguridad); la matriz valida rol, ventana y acción contra el catálogo.
 - Limpieza: `app/templates/agenda/` se movió a la carpeta de su blueprint; las plantillas de Agenda, Cita, Avisos, Historial, Usuarios y Roles/Permisos pasan a Tabler. **Ya no queda ninguna pantalla de funcionalidad en SB Admin 2** (solo las páginas de error y la plantilla `base.html`).
 
+
+
+## Mantener Menú y cierre visual (rama `seguridad-menu`, punto 5 de la tanda de cierre)
+- **Tabla `menu` como fuente única** (`schema_menu_mantener.sql`, idempotente, aplicado tras backup `..._premenu.dump`): módulos (filas sin padre) y ventanas (con clave y ruta), `visible_en_menu`, `solo_admin`, `protegida` y trigger `trg_menu_protegida`. Se siembra desde `menu_catalog.py` (que queda como semilla y como registro de las **acciones** de cada ventana); `usuario` y `auditoria` ya tienen fila, y se agregaron `permiso` y `menu`.
+- **`menu_servicio.py`** (una lectura por request en `g`): `menu_visible()` (sidebar), `buscar()` (buscador), `catalogo_permisos()` (matriz), `ventanas_solo_admin()`. Solo ventanas ACTIVAS con permiso `ver`, ordenadas por módulo y orden. Si la tabla no se puede leer, cae al registro del código para que una página de error nunca encadene otro error. Una ruta que ya no existe en el código se omite del menú.
+- **Pantalla Mantener Menú** (`menu-index.html`, `menu_abm_api.py`, `MenuDao.py`): Tabler, solo Administrador, baja lógica, Reactivar, "Mostrar inactivos", auditoría estructurada (entidad `menu`). Una ventana nueva solo expone `ver` (las demás acciones las define el código). Protegidas: no se anulan, no cambian de módulo ni de ruta, no pierden `solo_admin` (API 409 y trigger en la base).
+- **Páginas 403/404/500 en Tabler** (`errores/error.html`, `_standalone.html`). Se retiró SB Admin 2: `base.html`, `macros.html`, `sb-admin-2*.css/js`, `js/demo`, `scss`, `vendor/bootstrap|datatables|jquery|jquery-easing`, imágenes `undraw_*`, `fondovista.jpg`, `miimagencita.jpg`, `paraellogin.jpg`; y la ruta suelta `/vista` (fallaba por `stats` sin definir; la vista real es el blueprint `vista`).
+- Tests: `tests/seguridad/smoke_menu.py` y `browser_menu.py`.

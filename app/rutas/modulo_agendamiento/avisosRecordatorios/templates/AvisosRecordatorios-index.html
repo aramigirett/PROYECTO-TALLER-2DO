@@ -94,7 +94,8 @@
           </div>
           <div class="mb-3">
             <label class="form-label" for="txtMensaje">Mensaje</label>
-            <textarea class="form-control" id="txtMensaje" rows="3" maxlength="1000" placeholder="Opcional: si lo deja vacío, el mensaje se arma solo con los datos de la cita."></textarea>
+            <textarea class="form-control" id="txtMensaje" rows="3" maxlength="1000" placeholder="Elija la cita o el paciente y el mensaje se arma solo."></textarea>
+            <div class="form-hint">Se arma con paciente, médico, fecha, hora y consultorio; puede retocarlo antes de guardar.</div>
             <div class="invalid-feedback"></div>
           </div>
         </div>
@@ -206,6 +207,37 @@
   document.getElementById('buscaPaciente').addEventListener('input', (e) => dibujarPacientes(e.target.value));
   CAMPOS.forEach((k) => { inp[k].addEventListener('input', () => V.limpiarCampo(inp[k])); inp[k].addEventListener('change', () => V.limpiarCampo(inp[k])); });
 
+  // ---------- mensaje precargado ----------
+  // `mensajeAuto` = el último texto que armó el servidor; si el usuario lo retocó a mano, antes de reemplazarlo se le pregunta.
+  let mensajeAuto = '', pedidoMsg = 0;
+  const datosMensaje = () => (modo() === 'cita'
+    ? (inp.id_cita_detalle.value ? { id_cita_detalle: parseInt(inp.id_cita_detalle.value, 10) } : null)
+    : (inp.id_paciente.value && inp.fecha_cita.value && inp.hora_cita.value
+        ? { id_paciente: parseInt(inp.id_paciente.value, 10), fecha_cita: inp.fecha_cita.value, hora_cita: inp.hora_cita.value, id_medico: inp.id_medico.value || null, codigo: inp.codigo.value || null }
+        : null));
+  async function actualizarMensaje() {
+    const datos = datosMensaje();
+    const n = ++pedidoMsg;
+    if (!datos) return;
+    let texto = null;
+    try {
+      const { data } = await pedir(API + '/mensaje-previo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(datos) });
+      if (data && data.success) texto = data.mensaje;
+    } catch (e) { return; }
+    if (n !== pedidoMsg || texto === null) return;     // llegó una respuesta más nueva, o no se pudo armar
+    const actual = inp.mensaje.value;
+    if (actual === texto) { mensajeAuto = texto; return; }
+    if (actual.trim() !== '' && actual !== mensajeAuto) {
+      const r = await Swal.fire({ title: 'Reemplazar el mensaje', text: 'Usted editó el mensaje a mano. ¿Quiere reemplazarlo por el de la nueva selección?', icon: 'question', showCancelButton: true,
+                                  confirmButtonText: 'Sí, reemplazar', cancelButtonText: 'No, conservar el mío' });
+      if (n !== pedidoMsg) return;
+      if (!r.isConfirmed) return;
+    }
+    inp.mensaje.value = texto; mensajeAuto = texto;
+  }
+  [inp.id_cita_detalle, inp.id_paciente, inp.fecha_cita, inp.hora_cita, inp.id_medico, inp.codigo].forEach((el) => el.addEventListener('change', actualizarMensaje));
+  document.querySelectorAll('input[name="modo"]').forEach((r) => r.addEventListener('change', actualizarMensaje));
+
   async function abrirModal() {
     const [c, p, m, co] = await Promise.all([pedir('/api/v1/citas-detalle/pendientes'), pedir('/api/v1/pacientes'), pedir('/api/v1/medico'), pedir('/api/v1/consultorios')]);
     const citas = (c.data && c.data.success) ? c.data.data : [];
@@ -214,7 +246,7 @@
     document.getElementById('buscaPaciente').value = ''; dibujarPacientes('');
     llenar(inp.id_medico, (m.data && m.data.success) ? m.data.data : [], 'id_medico', (x) => `${x.nombre} ${x.apellido}`, '(opcional)');
     llenar(inp.codigo, (co.data && co.data.success) ? co.data.data : [], 'codigo', (x) => x.nombre_consultorio, '(opcional)');
-    inp.fecha_cita.value = ''; inp.hora_cita.value = ''; inp.mensaje.value = ''; inp.forma_envio.value = 'WhatsApp';
+    inp.fecha_cita.value = ''; inp.hora_cita.value = ''; inp.mensaje.value = ''; mensajeAuto = ''; pedidoMsg++; inp.forma_envio.value = 'WhatsApp';
     CAMPOS.forEach((k) => V.limpiarCampo(inp[k]));
     alternarModo();
     modal.show();

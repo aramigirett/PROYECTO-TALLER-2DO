@@ -15,7 +15,7 @@ app/
 ├── dao/                 → capa de acceso a datos (SQL crudo, patrón DAO)
 ├── rutas/               → capa de rutas/controladores (vistas + APIs)
 ├── Services/            → servicios externos (ej. whatsapp_service.py con Selenium)
-├── templates/           → plantillas Jinja2 (base.html, macros.html, tema SB Admin 2)
+├── templates/           → plantillas Jinja2 (base_tabler.html, tema Tabler; SB Admin 2 retirado)
 └── static/               → CSS/JS/imágenes
 ```
 
@@ -58,7 +58,7 @@ Agrupaciones existentes bajo `app/rutas/`:
 - **El servidor decide**: usuario, estado, importes, IVA, número de documento y fecha salen del servidor o de la sesión; lo que mande el navegador para eso se ignora.
 - **Validadores en espejo**: cada regla de `utils.py` / `validadores_clinicos.py` tiene su par en `facturacion-validadores.js` / `consultorio-validadores.js`; si cambia una, cambian las dos (hay comparadores JS ↔ Python en los tests).
 - **Concurrencia**: verificación y escritura en la misma transacción, con `FOR UPDATE` / `FOR SHARE` bloqueando siempre en el mismo orden (por id) para no generar deadlocks; revalidar el estado dentro de la transacción.
-- **Vistas nuevas en `base_tabler.html`** (Bootstrap 5, `fetch` + JS vanilla, SweetAlert2); no mezclar con SB Admin 2 en una página. Las vistas viejas se migran al final.
+- **Vistas nuevas en `base_tabler.html`** (Bootstrap 5, `fetch` + JS vanilla, SweetAlert2); SB Admin 2 ya no existe en el proyecto.
 - **Todo endpoint con `@require_permiso(ventana, acción)`**, botones en `puede(...)`, entrada en `menu_catalog.py`, fila en `menu` y seed de permisos idempotente.
 - **Auditoría estructurada** (`detalle_cambios()` + `utils.auditar`) en todo módulo; `auditoria_cambios` y `auditoria_acceso` son inmutables. Nunca se guarda la contraseña ni contenido clínico.
 - **Scripts SQL idempotentes**, aplicados con `PGCLIENTENCODING=UTF8` (tienen tildes).
@@ -243,8 +243,8 @@ Reglas comunes (con test), vigentes tras la migración a Tabler:
   catálogo, para que nadie pueda autoconcederse acceso.
 - **Páginas de error propias 403/404/500** (`app/rutas/errores.py`, plantillas en
   `app/templates/errores/`): si la ruta empieza con `/api/` responden JSON; si es
-  una vista, HTML. Con sesión extienden `base.html` (sidebar); sin sesión usan un
-  layout standalone (SB Admin 2). `require_permiso`/`require_admin` hacen
+  una vista, HTML. Con sesión extienden `base_tabler.html` (sidebar); sin sesión usan un
+  layout standalone Tabler. `require_permiso`/`require_admin` hacen
   `abort(403)` en las vistas (ya no redirigen con flash); el 403 muestra qué ventana
   se intentó abrir cuando `require_permiso` la conoce.
 
@@ -292,7 +292,7 @@ Reglas comunes (con test), vigentes tras la migración a Tabler:
 
 
 ## Estado actual de cada módulo (resumen)
-- **Seguridad — COMPLETO** (menos Mantener Menú). Login + 2FA, bloqueo, recuperación, Usuarios, Roles y Permisos (matriz), Tablero de Accesos y Auditoría de Cambios, Copias de Seguridad. Pendiente: **Mantener Menú** (buscador general ya existe; falta control de opciones visibles por permiso; revisar si el borrado físico de `permisos` sigue siendo seguro). Alta/edición/baja de Usuarios y Roles todavía no audita en `auditoria_cambios`.
+- **Seguridad — COMPLETO.** Login + 2FA, bloqueo, recuperación, Usuarios, Roles y Permisos (matriz), Tablero de Accesos, Auditoría de Cambios, Copias de Seguridad y **Mantener Menú** (rama `seguridad-menu`): la tabla `menu` (módulos + ventanas, `solo_admin`, `protegida`) alimenta el sidebar, el buscador y la matriz vía `menu_servicio.py`; `menu_catalog.py` es la semilla y el registro de acciones por ventana. Una ventana NUEVA en el código necesita su entrada en el catálogo + fila en `menu` (se crea desde la pantalla).
 - **Agendamiento — migrado a Tabler (rama `agendamiento-tabler`, plan en `plan_agendamiento.md`; 3 etapas hechas).** Base versionada + 7 referenciales con baja lógica; Paciente / Médico / Funcionario con baja lógica (`PersonaDao` + `crear_api_persona`); Agenda, Cita (cupo transaccional), Avisos con envío por WhatsApp Web (sesión persistente) y respaldo por correo, Historial Médico (acceso por rol), Usuarios y Roles/Permisos en Tabler, con auditoría y rechazo de personas y referenciales anulados. Pendiente: probar a mano el envío real por WhatsApp (los tests usan dobles) y, si se quiere retirar `base.html`, migrar las páginas de error.
 - **Consultorio — COMPLETO y migrado a Tabler** (rama `consultorio-tabler` cerrada): 10 movimientos + 8 referenciales con baja lógica, 24 tablas versionadas, tests por movimiento. Rediseño visual reciente de la Atención de la Consulta y del Odontograma. Detalle en `docs/historial_consultorio.md`.
 - **Facturación — COMPLETO**: 10 referenciales (Forma de Cobro, Marca de Tarjeta, Entidad Emisora, Entidad Adherida, Tipo Ítems, Ítems, Caja, Depósito, Cliente, + Cuenta Bancaria) y los movimientos Apertura/Cierre de Caja, Pedido Cliente, Ventas (ítems y tratamiento), Cobranzas, Nota de Remisión, Notas de Crédito/Débito y Arqueo de Caja. Pendiente: migrar Caja/Depósito/Cliente a `facturacion-listado.js` y unificar `?inactivas` → `?inactivos`; el referencial **Mantener Timbrado** (esperando el CUS); cobrar en el momento de la venta de contado; la fila `#17 "BHDJDGJ"` de `forma_cobro` sin tipo (deja `NOT NULL` de `forma_cobro.tipo` pendiente).

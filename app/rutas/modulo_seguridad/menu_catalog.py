@@ -1,42 +1,25 @@
-# Catálogo único de pantallas del sistema. De acá salen, dinámicamente:
-# el sidebar de base.html, el buscador general (CUS "Mantener Menú") y las
-# filas de la matriz de "Roles y Permisos" (CUS "Mantener Acceso" -
-# Accesibilidad). Agregar una pantalla nueva = una entrada acá.
+# REGISTRO DE VENTANAS DEL CÓDIGO (semilla y acciones soportadas). Desde "Mantener Menú" la tabla `menu` es la fuente del sidebar, del buscador general
+# y de la matriz de Roles y Permisos (módulo, descripción, ruta, ícono, orden, visibilidad, solo Administrador y baja lógica). Este archivo conserva solo lo
+# que depende del código:
+#   - `acciones`: qué acciones consultan los endpoints de cada ventana con @require_permiso (una ventana creada desde la pantalla, sin entrada acá, solo tiene 'ver');
+#   - la semilla con la que `schema_menu_mantener.sql` pobló la tabla (el test de menú comprueba que tabla y registro no se contradigan).
 #
 # Cada entrada:
-#   etiqueta   -> texto visible
-#   endpoint   -> endpoint de Flask (para url_for)
+#   etiqueta   -> texto visible (la tabla `menu` puede cambiarlo)
+#   endpoint   -> endpoint de Flask (se guarda en `menu.ruta`)
 #   icono      -> clase FontAwesome
-#   modulo     -> agrupador visual (debe existir en MODULOS, más abajo)
-#   ventana    -> clave estable usada en la tabla `permisos` (rol+ventana+accion)
-#   en_menu    -> (opcional, default True) False = no se muestra en sidebar ni buscador,
-#                 solo en la matriz de permisos (pantallas contextuales)
-#   solo_admin -> (opcional) True = ventana exclusiva del Administrador: no sale en la matriz de Roles y Permisos y
-#                 puede() devuelve False para cualquier otro rol (hoy: Copias de Seguridad).
-#   acciones   -> subconjunto de ('ver','nuevo','editar','anular','estado','desbloquear') que expone
-#                 esa ventana. 'ver' siempre debe estar. 'editar' solo en las
-#                 ventanas donde el CUS lo contempla explícitamente (hoy:
-#                 Ficha Médica y las referenciales). Los movimientos
-#                 clínicos/de agendamiento son ver+nuevo+anular por defecto.
+#   modulo     -> agrupador (debe existir en MODULOS)
+#   ventana    -> clave estable de la ventana (`menu.clave`; los @require_permiso la usan y no se puede cambiar)
+#   en_menu    -> (opcional, default True) False = pantalla contextual: sin sidebar ni buscador, pero con fila en la matriz (`menu.visible_en_menu`)
+#   solo_admin -> (opcional) True = ventana exclusiva del Administrador: no sale en la matriz de Roles y Permisos y puede() devuelve False para cualquier otro rol
+#   acciones   -> subconjunto de ('ver','nuevo','editar','anular','estado','desbloquear'). 'ver' siempre debe estar.
 #
-# NOTA: "Roles y Permisos" (matriz) NO está en este catálogo a propósito:
-# queda siempre exclusiva de Administrador vía @require_admin, fuera del
-# mecanismo de permisos delegables, para que nadie pueda autoconcederse
-# acceso. Sigue teniendo su link fijo en el sidebar (ver base.html).
+# NOTA: acción 'desbloquear' = levantar el bloqueo de una cuenta (solo la ventana 'usuario'). Acción 'estado' = cambios de estado del flujo (cita, avisos,
+# órdenes, consulta...); 'anular' incluye anular y reactivar. Agenda, Cita, Avisos e Historial no exponen 'editar': su edición de datos queda solo para
+# el Administrador.
 #
-# NOTA 1b: acción 'desbloquear' = levantar el bloqueo de una cuenta por intentos
-# fallidos. Solo la expone la ventana 'usuario'.
-#
-# NOTA 2: acción 'estado' = cambios de estado del flujo (no baja ni edición de
-# datos). Hoy: Cita (estado de cada horario) y Avisos (confirmación y envío por
-# WhatsApp) y, en Consultorio, Duración/Estado de la Consulta, Actualizar Estado
-# de Órdenes de Estudios/Análisis y Finalizar Tratamiento. 'anular' incluye
-# anular/reactivar. En Consultorio solo Ficha Médica expone 'editar'; las
-# demás ediciones de datos (detalle clínico de Consulta, Odontograma) exigen
-# 'editar' sin que exista en su ventana: quedan solo para Administrador.
-# Paciente/Funcionario/Médico tienen 'editar' (datos maestros). Agenda, Cita,
-# Avisos e Historial NO la exponen: su edición de datos (PUT) exige 'editar',
-# que ningún rol no-admin puede tener, o sea queda solo para Administrador.
+# VENTANAS PROTEGIDAS (columna `menu.protegida`, con trigger en la base): Mantener Menú, Gestión de Usuarios, Roles y Permisos y su módulo no se pueden
+# anular, mover ni dejar de ser exclusivas del Administrador, para que nadie quede sin acceso a la administración.
 
 MODULOS = [
     {"modulo": "Agendamiento", "icono": "fa-calendar-check"},
@@ -113,31 +96,13 @@ CATALOGO_MENU = [
     {"etiqueta": "Arqueo de Caja", "endpoint": "arqueo.arqueoIndex", "icono": "fa-calculator", "modulo": "Módulo Facturación", "ventana": "arqueo", "acciones": ["ver", "nuevo", "anular", "estado"]},
 
     # Módulo Seguridad
-    {"etiqueta": "Gestión de Usuarios", "endpoint": "usuario.usuarioIndex", "icono": "fa-users-cog", "modulo": "Módulo Seguridad", "ventana": "usuario", "acciones": ["ver", "nuevo", "editar", "anular", "desbloquear"]},
-    {"etiqueta": "Tablero de Administrador", "endpoint": "auditoria.auditoriaIndex", "icono": "fa-shield-alt", "modulo": "Módulo Seguridad", "ventana": "auditoria", "acciones": ["ver"]},
+    {"etiqueta": "Gestión de Usuarios", "endpoint": "usuario.usuarioIndex", "icono": "fa-users-cog", "modulo": "Módulo Seguridad", "ventana": "usuario", "acciones": ["ver", "nuevo", "editar", "anular", "desbloquear"], "solo_admin": True},
+    {"etiqueta": "Roles y Permisos", "endpoint": "permiso.permisoIndex", "icono": "fa-key", "modulo": "Módulo Seguridad", "ventana": "permiso", "acciones": ["ver"], "solo_admin": True},
+    {"etiqueta": "Mantener Menú", "endpoint": "menu.menuIndex", "icono": "fa-bars", "modulo": "Módulo Seguridad", "ventana": "menu", "acciones": ["ver", "nuevo", "editar", "anular"], "solo_admin": True},
+    {"etiqueta": "Tablero de Administrador", "endpoint": "auditoria.auditoriaIndex", "icono": "fa-shield-alt", "modulo": "Módulo Seguridad", "ventana": "auditoria", "acciones": ["ver"], "solo_admin": True},
     {"etiqueta": "Auditoría de Cambios", "endpoint": "auditoriacambios.auditoriaCambiosIndex", "icono": "fa-history", "modulo": "Módulo Seguridad", "ventana": "auditoriacambios", "acciones": ["ver"], "solo_admin": True},
     {"etiqueta": "Copias de Seguridad", "endpoint": "backup.backupIndex", "icono": "fa-database", "modulo": "Módulo Seguridad", "ventana": "backup", "acciones": ["ver", "nuevo"], "solo_admin": True},
 ]
 
-# Ventanas que solo puede usar el Administrador, aunque alguien intentara otorgarles permisos
+# Ventanas de la semilla que solo puede usar el Administrador (la fuente en ejecución es `menu.solo_admin`, ver menu_servicio.ventanas_solo_admin())
 VENTANAS_SOLO_ADMIN = frozenset(item["ventana"] for item in CATALOGO_MENU if item.get("solo_admin"))
-
-
-def agrupar_por_modulo_visible():
-    """
-    Agrupa CATALOGO_MENU por módulo (respetando el orden de MODULOS),
-    filtrando a las ventanas donde el rol de la sesión actual tiene 'ver'.
-    Usado por el context_processor para armar el sidebar dinámico.
-    """
-    from app.rutas.modulo_seguridad.permisos_contexto import puede
-
-    visibles = [item for item in CATALOGO_MENU if item.get('en_menu', True) and puede(item['ventana'], 'ver')]
-    por_modulo = {}
-    for item in visibles:
-        por_modulo.setdefault(item['modulo'], []).append(item)
-
-    return [
-        {**modulo, "entradas": por_modulo[modulo['modulo']]}
-        for modulo in MODULOS
-        if modulo['modulo'] in por_modulo
-    ]
