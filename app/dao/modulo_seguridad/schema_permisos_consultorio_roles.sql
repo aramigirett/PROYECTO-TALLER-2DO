@@ -1,6 +1,7 @@
 -- Permisos clínicos por rol (etapa 3 de la migración de Consultorio). Idempotente; se corre como postgres (PGCLIENTENCODING=UTF8).
 --
--- Regla de negocio: los movimientos clínicos los carga el MÉDICO (el usuario vinculado a un médico y, además, el médico de esa consulta: eso lo
+-- Regla de negocio: los 8 referenciales clínicos de Consultorio (Tipo Diagnóstico, Síntomas, Tipo Tratamiento, Tipo Insumo, Tipo Procedimiento, Medicamentos, Tipo Estudio,
+-- Tipo Análisis) los gestiona el MÉDICO (ver, nuevo, editar, anular) y el Administrador (bypass); Recepción NO tiene ningún permiso sobre ellos. Los movimientos clínicos los carga el MÉDICO (el usuario vinculado a un médico y, además, el médico de esa consulta: eso lo
 -- valida el servidor). Recepción registra, cancela y anula consultas y solo VE las fichas. Este script define el conjunto COMPLETO de las ventanas
 -- clínicas para los roles Medico y Recepcion (quita lo que sobra e inserta lo que falta) y no toca ningún otro rol ni ventana.
 -- Además pasa al rol Medico a los usuarios vinculados a un médico que tuvieran rol Recepcion. Todo queda auditado en `auditoria_cambios`
@@ -20,6 +21,15 @@ INSERT INTO _perm_objetivo VALUES
     ('Medico', 'ordenestudio', 'ver'), ('Medico', 'ordenestudio', 'nuevo'), ('Medico', 'ordenestudio', 'anular'), ('Medico', 'ordenestudio', 'estado'),
     ('Medico', 'ordenanalisis', 'ver'), ('Medico', 'ordenanalisis', 'nuevo'), ('Medico', 'ordenanalisis', 'anular'), ('Medico', 'ordenanalisis', 'estado'),
     ('Medico', 'justificativomedico', 'ver'), ('Medico', 'justificativomedico', 'nuevo'), ('Medico', 'justificativomedico', 'anular'), ('Medico', 'justificativomedico', 'estado'),
+    -- Referenciales clínicos: el Médico gestiona los 8; Recepción ninguno
+    ('Medico', 'tipodiagnostico', 'ver'), ('Medico', 'tipodiagnostico', 'nuevo'), ('Medico', 'tipodiagnostico', 'editar'), ('Medico', 'tipodiagnostico', 'anular'),
+    ('Medico', 'sintoma', 'ver'), ('Medico', 'sintoma', 'nuevo'), ('Medico', 'sintoma', 'editar'), ('Medico', 'sintoma', 'anular'),
+    ('Medico', 'tipotratamiento', 'ver'), ('Medico', 'tipotratamiento', 'nuevo'), ('Medico', 'tipotratamiento', 'editar'), ('Medico', 'tipotratamiento', 'anular'),
+    ('Medico', 'tipoinsumo', 'ver'), ('Medico', 'tipoinsumo', 'nuevo'), ('Medico', 'tipoinsumo', 'editar'), ('Medico', 'tipoinsumo', 'anular'),
+    ('Medico', 'tipoprocedimientomedico', 'ver'), ('Medico', 'tipoprocedimientomedico', 'nuevo'), ('Medico', 'tipoprocedimientomedico', 'editar'), ('Medico', 'tipoprocedimientomedico', 'anular'),
+    ('Medico', 'medicamento', 'ver'), ('Medico', 'medicamento', 'nuevo'), ('Medico', 'medicamento', 'editar'), ('Medico', 'medicamento', 'anular'),
+    ('Medico', 'tipoestudio', 'ver'), ('Medico', 'tipoestudio', 'nuevo'), ('Medico', 'tipoestudio', 'editar'), ('Medico', 'tipoestudio', 'anular'),
+    ('Medico', 'tipoanalisis', 'ver'), ('Medico', 'tipoanalisis', 'nuevo'), ('Medico', 'tipoanalisis', 'editar'), ('Medico', 'tipoanalisis', 'anular'),
     -- Recepción: registra, cancela (estado) y anula consultas; de lo clínico solo ve las fichas
     ('Recepcion', 'consulta', 'ver'), ('Recepcion', 'consulta', 'nuevo'), ('Recepcion', 'consulta', 'estado'), ('Recepcion', 'consulta', 'anular'),
     ('Recepcion', 'fichamedica', 'ver');
@@ -27,7 +37,8 @@ INSERT INTO _perm_objetivo VALUES
 DO $$
 DECLARE
     v_ventanas TEXT[] := ARRAY['consulta','fichamedica','diagnostico','odontograma','tratamiento','sesiontratamiento','receta',
-                               'ordenestudio','ordenanalisis','justificativomedico'];
+                               'ordenestudio','ordenanalisis','justificativomedico',
+                               'tipodiagnostico','sintoma','tipotratamiento','tipoinsumo','tipoprocedimientomedico','medicamento','tipoestudio','tipoanalisis'];
     r RECORD;
     v_quitados INT;
     v_agregados INT;

@@ -114,7 +114,7 @@ for e in CATALOGO_MENU:
 cu.execute("""SELECT r.nombre_rol, count(*) FROM permisos p JOIN roles r USING(id_rol) GROUP BY 1""")
 conteos = dict(cu.fetchall())
 chk('Medico y Recepcion siguen con permisos (el seed solo toca al Cajero)',
-    conteos.get('Medico', 0) > 100 and conteos.get('Recepcion', 0) > 100)
+    conteos.get('Medico', 0) > 100 and conteos.get('Recepcion', 0) > 50)   # Recepción quedó con 91 tras quitarle los referenciales clínicos
 
 print()
 print('FALLOS:', 'ninguno' if not fallos else fallos)

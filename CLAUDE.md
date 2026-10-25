@@ -1429,8 +1429,9 @@ consulta, también con la consulta finalizada, no con la cancelada ni anulada, a
 - **`smoke_auditoria_consultorio.py`**: barrido estático (las 29 rutas que mutan llaman a `auditar`) y dinámico (35 filas de auditoría de los 9 movimientos con marcadores secretos en todos los campos clínicos: ninguna los contiene).
 - **`smoke_esquema_consultorio.py` ampliado:** ahora compara también la definición completa de cada restricción, **todos** los triggers, los comentarios, las 4 funciones de validación y las **24** tablas (se sumó `sesion_procedimientos`); `schema_consultorio_base.sql` suma los
   `COMMENT ON` que faltaban. En una base con las tablas de Agendamiento y Seguridad reconstruye el módulo idéntico a la real; **una base completamente vacía todavía no se puede armar** (falta versionar los `CREATE TABLE` de Agendamiento y Seguridad).
-- **Hallazgos para decidir (no se tocaron):** Recepción tiene `nuevo` / `editar` / `anular` sobre 6 referenciales clínicos (Tipo Diagnóstico, Síntomas, Tipo Insumo, Tipo Procedimiento, Tipo Estudio, Tipo Análisis) y sobre Medicamentos **sin** `ver`; "Historial Médico" (Agendamiento) sigue en
-  SB Admin 2 y en el menú de Consultorio.
+- **Permisos de los 8 referenciales clínicos (decidido tras el cierre):** los gestionan el **Médico** (`ver`, `nuevo`, `editar`, `anular`) y el Administrador (bypass); **Recepción y Cajero no tienen ningún permiso sobre ellos** (a Recepción se le quitaron 28 filas, incluido Medicamentos que tenía acciones sin `ver`).
+  Seed idempotente `schema_permisos_consultorio_roles.sql` (con backup previo y auditado en `auditoria_cambios`); `smoke_permisos_consultorio` lo verifica. Los combos de otras pantallas siguen leyendo estos catálogos con `require_login`.
+- **Pendiente fuera de Consultorio:** "Historial Médico" (Agendamiento) sigue en SB Admin 2 y en el menú de Consultorio.
 
 ### Etapa 6 (hecha): Recetas, Orden de Estudios y Orden de Análisis (con PDF)
 Plan: `plan_etapa6.md` (sin versionar). **Decisiones confirmadas:** solo el médico de la consulta crea y anula (consulta programada / en proceso revalidada en la transacción; Recepción sin acceso, Administrador solo lectura;

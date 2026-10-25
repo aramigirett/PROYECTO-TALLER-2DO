@@ -2,8 +2,8 @@
 anular, estado y PDF) y el límite "un médico solo ve lo suyo".
 
 Tres partes:
-  1. POLÍTICA de los movimientos clínicos (regla de negocio escrita acá) contra la matriz real de `permisos`: Médico carga lo clínico, Recepción solo registra / cancela /
-     anula consultas y VE las fichas, el Cajero no tiene nada, el Administrador pasa siempre (bypass) y falla si el catálogo tiene una ventana de Consultorio que este test no cubre.
+  1. POLÍTICA de los movimientos clínicos y de los 8 referenciales clínicos (regla de negocio escrita acá) contra la matriz real de `permisos`: Médico carga lo clínico y gestiona los
+     referenciales, Recepción solo registra / cancela / anula consultas y VE las fichas (ningún permiso sobre los referenciales), el Cajero no tiene nada, el Administrador pasa siempre (bypass) y falla si el catálogo tiene una ventana de Consultorio que este test no cubre.
   2. APLICACIÓN: para cada usuario y cada ventana se llama a la vista y a cada endpoint con un cuerpo inválido o un id inexistente: con el permiso responde algo distinto de 403
      (400 / 404 / 409) y sin el permiso responde 403 exacto. Se verifica así que el servidor aplica la matriz en todas las acciones, incluidas las de editar de los referenciales.
   3. PRIVACIDAD y SOLO LECTURA: con un documento clínico real de cada tipo de un médico A, el médico B (y los demás roles) no lo leen ni por detalle, ni por listado, ni por PDF, ni
@@ -63,6 +63,8 @@ REFERENCIALES = {   # ventana -> (base de la API, URL de la vista)
     'tipodiagnostico': '/api/v1/diagnosticos', 'sintoma': '/api/v1/sintomas', 'tipotratamiento': '/api/v1/tipos-tratamiento', 'tipoinsumo': '/api/v1/tipos-insumo',
     'tipoprocedimientomedico': '/api/v1/tipos-procedimiento-medico', 'medicamento': '/api/v1/medicamentos', 'tipoestudio': '/api/v1/tipos-estudio', 'tipoanalisis': '/api/v1/tipos-analisis',
 }
+for _v in REFERENCIALES:   # los 8 referenciales clínicos los gestiona el Médico (ver, nuevo, editar, anular) y el Administrador; Recepción y Cajero no tienen NINGÚN permiso
+    POLITICA[_v] = {'Medico': {'ver', 'nuevo', 'editar', 'anular'}}
 ROLES = ('Medico', 'Recepcion', 'Cajero')
 
 matriz = {}   # (rol, ventana) -> {acciones}
@@ -72,7 +74,7 @@ for rol, ventana, accion in q("SELECT r.nombre_rol, m.clave, p.accion FROM permi
 print('\n=== 1. Política de los movimientos clínicos contra la matriz real')
 catalogo = [e for e in CATALOGO_MENU if e['modulo'] in ('Módulo Consultorio', 'Referenciales Consultorio') and e['ventana'] != 'historial']
 ventanas = {e['ventana']: e for e in catalogo}
-chk('el catálogo de Consultorio tiene las 18 ventanas (10 movimientos + 8 referenciales; "historial" es de Agendamiento)', len(ventanas) == 18 and set(POLITICA) | set(REFERENCIALES) == set(ventanas))
+chk('el catálogo de Consultorio tiene las 18 ventanas (10 movimientos + 8 referenciales; "historial" es de Agendamiento)', len(ventanas) == 18 and set(POLITICA) == set(ventanas))
 for ventana, por_rol in POLITICA.items():
     for rol in ROLES:
         esperado = por_rol.get(rol, set())
@@ -80,15 +82,7 @@ for ventana, por_rol in POLITICA.items():
         chk(f'{ventana}: {rol} tiene {sorted(esperado) or "ninguna acción"}' + ('' if real == esperado else f' (real: {sorted(real)})'), real == esperado)
 chk('toda acción de la matriz existe en el catálogo de su ventana', all(a in ventanas[v]['acciones'] for (r, v), acc in matriz.items() if v in ventanas for a in acc))
 chk('ventana EXCLUSIVA del Administrador sin filas para otros roles: backup y auditoría de cambios no figuran en Consultorio', not any(v in ('backup', 'auditoriacambios') for (_, v) in matriz if v in ventanas))
-for ventana in REFERENCIALES:
-    if matriz.get(('Cajero', ventana)):
-        chk(f'el Cajero no tiene permisos en el referencial {ventana}', False)
-    # Hallazgos (no son fallo): decisiones de la matriz a confirmar con el responsable
-    rec = matriz.get(('Recepcion', ventana), set())
-    if rec and 'ver' not in rec:
-        avisos.append(f'Recepción tiene {sorted(rec)} en el referencial {ventana} pero NO "ver" (no puede abrir la pantalla; las acciones solo llegan por la API).')
-    if rec & {'nuevo', 'editar', 'anular'}:
-        avisos.append(f'Recepción puede {sorted(rec & {"nuevo", "editar", "anular"})} en el referencial clínico {ventana}.')
+chk('Recepción y Cajero no tienen ningún permiso sobre los 8 referenciales clínicos', not any(matriz.get((rol, v)) for v in REFERENCIALES for rol in ('Recepcion', 'Cajero')))
 
 # ---------------------------------------------------------------------------------------------------------------------
 # 2. APLICACIÓN de la matriz en cada vista y endpoint
