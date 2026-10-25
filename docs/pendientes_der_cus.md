@@ -14,6 +14,15 @@ Lista única (Seguridad, Facturación y Consultorio) de lo que la base REAL tien
 - `auditoria_cambios`: `modulo VARCHAR(30)`, `valores_anteriores JSONB`, `valores_nuevos JSONB`, `detalle` de `VARCHAR(255)` a `TEXT`, la acción `EXPORTACION` en el CHECK; tabla `auditoria_umbrales` y vista `v_auditoria_anomalias` (`schema_auditoria_estructurada.sql`); trigger `trg_auditoria_inmutable` (también en `auditoria_acceso`).
 - Roles de base de datos `odontoclinic_app` y `odontoclinic_backup` (no son del DER, pero sí de la documentación de seguridad: `schema_usuario_app.sql`).
 
+**Agendamiento** (migración a Tabler, rama `agendamiento-tabler`; se completa etapa por etapa)
+- **Etapa 1** (`schema_agendamiento_etapa1.sql`): `activo BOOLEAN NOT NULL DEFAULT true` en `ciudades`, `cargo`, `especialidades`, `consultorio`, `dias`, `turnos`, `estado_cita`, `paciente`, `medico`, `funcionario` (en la base real ya existía, sin script que lo creara) y **nuevo en `disponibilidad_horaria`**.
+  Únicos **parciales** (`WHERE activo = true`) por texto con `UPPER` en los 6 referenciales; `consultorio`: se quitó el `UNIQUE` total de `correo` y hay únicos parciales por nombre y por correo; `disponibilidad_horaria`: el `UNIQUE (id_medico, dispo_fecha, dispo_hora_inicio, dispo_hora_fin)` pasó a parcial (`ux_disponibilidad_activo`).
+- **`turnos`: se eliminó el CHECK `chk_turnos`** (los 3 nombres fijos) y `descripcion` quedó NOT NULL; Turno es un referencial con alta, baja y modificación completas. **`dias` conserva `chk_dias`** (los 7 nombres de la semana).
+- **Cambio de FK de CASCADE / SET NULL a RESTRICT** (para que un borrado nunca se lleve datos clínicos ni deje referencias en NULL): `cita_cabecera.id_paciente`, `cita_cabecera.id_agenda_cabecera` y `historial_medico_paciente.id_paciente` (eran `ON DELETE CASCADE`); `medico.id_ciudad` y `avisos_recordatorios.id_medico` (eran `SET NULL`).
+  Siguen en cascada solo las dos relaciones cabecera → detalle: `agenda_detalle → agenda_cabecera` y `cita_detalle → cita_cabecera`. Se verificó antes con un backup y un ensayo sobre una copia restaurada (la base revalida todas las FK al recrearlas).
+- Se versionaron por primera vez los `CREATE TABLE` de las 17 tablas de Agendamiento, de `menu` y de las de Seguridad ya creadas (`roles`, `usuarios`, `token_2fa`, `permisos`): ver "Reconstruir la base desde el repo" en `historial_seguridad_agendamiento.md`.
+- `estado_cita` (6 estados fijos) **no es un referencial editable**: el código compara `'Realizado'` y `'Cancelado'` por texto.
+
 **Facturación**
 - `forma_cobro.tipo` (`'EFECTIVO'`, `'TARJETA'`, `'CHEQUE'`, `'TRANSFERENCIA'`, NOT NULL) y `cobro_det.numero_referencia VARCHAR(30)` (`schema_cobranzas_columnas.sql`).
 - `nota_credito_debito_cab.id_apertura` (INT NOT NULL, FK a `apertura_cierre_caja`) y `monto_reintegro NUMERIC(12,0)` (`schema_notas_columnas.sql`).
@@ -41,6 +50,10 @@ Lo que la documentación (CUS, secuencias, diagramas de clase) debe decir para c
 *Mantener Usuario* (CI y correo salen de la persona vinculada; cambio de cédula con confirmación); *Roles y Permisos* (acciones `ver` / `nuevo` / `editar` / `anular` / `estado` / `desbloquear`; ventanas exclusivas del Administrador); *Auditoría* (consulta, filtros, exportación a PDF y CSV, alertas, inmutabilidad) y *Copias de seguridad*.
 
 **Agendamiento:** *Registrar Agenda*, *Gestionar Cita*, *Avisos* e *Historial* con baja lógica (anular ≠ eliminar); el médico se da de baja de forma lógica con mensaje de "en uso" (pendiente de código).
+
+**Agendamiento (etapa 1):** *Los 7 CUS de referenciales de Agendamiento* (Ciudad, Cargo, Consultorio, Disponibilidad Horaria, Especialidad, Día, Turno): **sin Código** (solo ID interno; el consultorio se identifica por su nombre), descripción en mayúsculas, baja lógica ("Anular") con "Mostrar inactivos" y "Reactivar", baja bloqueada si está en uso (con el motivo), auditoría.
+  *Día*: solo admite uno de los 7 días de la semana y no repetido entre los activos; *Turno*: nombre libre (ya no se limita a Mañana / Tarde / Noche). *Disponibilidad Horaria*: una disponibilidad ya publicada en una agenda vigente no se modifica ni se anula, y no se superpone con otra del mismo médico; la gestiona Recepción (el Médico solo la ve).
+  *Consultorio*: teléfono paraguayo (se guarda como 595…), correo único entre los activos. Permisos: Administrador gestiona; Médico y Recepción solo ven (salvo Disponibilidad, operativa para Recepción).
 
 **Consultorio:**
 - *Los 6 CUS de referenciales de Consultorio* (Tipo Tratamiento, Tipo Insumo, Tipo Procedimiento, Medicamentos, Tipo Estudio, Tipo Análisis): **sin Código** (solo ID interno), descripción en mayúsculas, baja lógica con "Mostrar inactivos" y "Reactivar", baja bloqueada si está en uso, auditoría; Tipo Tratamiento con precio e IVA;

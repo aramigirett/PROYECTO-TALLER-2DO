@@ -200,3 +200,20 @@ Ver la sección **"Modelo de permisos"** (más abajo): reemplaza al antiguo cont
 por rol con `@require_admin` y a la nota de "pendiente de decidir" sobre los
 módulos grandes, que ya quedó resuelta.
 
+## Migración de Agendamiento a Tabler (rama `agendamiento-tabler`)
+Plan completo en `plan_agendamiento.md` (raíz; sin commitear). Decisiones de negocio aprobadas: Día y Turno con ABM completo (Día conserva el CHECK de los 7 nombres; Turno suelta el suyo);
+anular un Médico o Funcionario con usuario activo se bloquea ("anule primero el usuario"); permisos: Ciudad, Cargo, Especialidad, Consultorio, Día, Turno, Médico y Funcionario → Administrador gestiona y el resto solo ve;
+Disponibilidad Horaria → Recepción ver/nuevo/editar/anular y Médico ver; Paciente → Recepción ver/nuevo/editar, Médico ver, anular solo Administrador; Agenda, Cita y Avisos → Recepción todo y Médico ver (+ `estado` en Cita);
+Historial Médico → Recepción sin acceso, Médico lee/crea/anula lo de sus pacientes atendidos, Administrador solo lee; Agenda y Aviso se reactivan (sin conflicto de médico y fecha), una Cita cancelada no; auditoría de datos personales solo con quién, cuándo, nombre y cédula.
+
+### Etapa 1 — base de datos y los 7 referenciales (hecha)
+- **Reconstruir la base desde el repo** (orden; todos idempotentes, con postgres y `PGCLIENTENCODING=UTF8`): `schema_agendamiento_base.sql` → `schema_agendamiento_datos.sql` → `schema_seguridad_base.sql` → `historial/schema_historial_base.sql` → `schema_agendamiento_etapa1.sql`
+  (los de Consultorio y Facturación siguen su propio orden, ver sus historiales; `auditoria_acceso`, `auditoria_cambios` y sus triggers, en sus scripts). Los scripts viejos que crearon o alteraron `roles`, `usuarios`, `token_2fa` y `permisos` quedan como histórico.
+  `tests/agendamiento/smoke_esquema_agendamiento.py` reconstruye esas 22 tablas en una base temporal y las compara con la real (columnas, restricciones, índices, secuencias).
+- Permisos: `schema_permisos_agendamiento_etapa1.sql` (idempotente; define el conjunto completo de las 7 ventanas para Medico y Recepcion).
+- Código: Ciudad, Cargo, Especialidad, Día y Turno reutilizan `CatalogoDao` y `crear_api_catalogo()` (de Consultorio); Consultorio los usa con 3 campos más (`duplicado()` revisa nombre y correo); Disponibilidad Horaria tiene DAO propio (FOR SHARE sobre médico, día y turno y bloqueo asesor por médico contra superposiciones).
+  Validadores de Agendamiento en `app/rutas/modulo_agendamiento/utils.py` con su espejo en `facturacion-validadores.js` (`dia`, `telefonoPy`, `hora`, `horario`, `cupos`). Auditoría: entidades de Agendamiento ya declaradas en `auditoria_detalle.py` (módulos "Referenciales Agendamiento" y "Módulo Agendamiento").
+- `CajaDao` solo acepta un consultorio **activo** (FOR SHARE); el listado de cajas sigue mostrando el nombre de uno anulado. Los tests `smoke_consultorio` y `smoke_caja` se actualizaron al comportamiento nuevo (baja lógica en lugar de borrado físico).
+- Pendiente de las etapas siguientes: los hijos que apuntan a estos referenciales (Paciente, Médico, Funcionario, Agenda) todavía no toman `FOR SHARE` sobre ellos ni rechazan los anulados al guardar (Etapas 2 y 3); hasta entonces solo los combos (que listan activos) lo evitan.
+- Limpieza: se borraron `rutas/referenciales/consultorio/` y `rutas/referenciales/avisosRecordatorios/` (copias muertas) y `ciudad-agregar.html`; se corrigieron los `___init__.py` (tres guiones bajos).
+

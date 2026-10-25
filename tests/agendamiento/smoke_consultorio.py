@@ -4,6 +4,7 @@ import sys
 sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parents[2]))
 from app import app
 from tests._conexion_pruebas import Conexion
+from tests.facturacion._limpieza import borrar_auditoria
 
 c = app.test_client()
 fallos = []
@@ -57,15 +58,14 @@ try:
     api('delete', f'{CO}/999999', 404, nombre='delete inexistente (404)')
 
     cu.execute("INSERT INTO caja(id_consultorio, descripcion) VALUES (%s,'ZZ CAJA REGRESION') RETURNING id_caja", (k1,)); cx.commit()
-    api('delete', f'{CO}/{k1}', 409, nombre='delete con caja activa -> 409 (antes: 200 falso)', exacto='No se puede eliminar, el consultorio tiene cajas asociadas.')
-    cu.execute("SELECT count(*) FROM consultorio WHERE codigo=%s", (k1,)); chk('NO se borró', cu.fetchone()[0] == 1)
+    api('delete', f'{CO}/{k1}', 409, nombre='delete con caja activa -> 409', contiene='No se puede anular, el consultorio tiene 1 caja(s) activa(s)')
+    cu.execute("SELECT activo FROM consultorio WHERE codigo=%s", (k1,)); chk('sigue activo', cu.fetchone()[0] is True)
 
+    # baja lógica: una caja anulada ya no impide anular el consultorio
     cu.execute("UPDATE caja SET activo=false WHERE id_consultorio=%s", (k1,)); cx.commit()
-    api('delete', f'{CO}/{k1}', 409, nombre='delete con caja inactiva -> 409', exacto='No se puede eliminar, el consultorio tiene cajas asociadas.')
-
-    cu.execute("DELETE FROM caja WHERE id_consultorio=%s", (k1,)); cx.commit()
-    api('delete', f'{CO}/{k1}', 200, nombre='delete sin usos -> 200', contiene='eliminado')
-    cu.execute("SELECT count(*) FROM consultorio WHERE codigo=%s", (k1,)); chk('SÍ se borró', cu.fetchone()[0] == 0)
+    api('delete', f'{CO}/{k1}', 200, nombre='delete con caja inactiva -> 200 (anulado)', contiene='anulado')
+    cu.execute("SELECT activo FROM consultorio WHERE codigo=%s", (k1,)); chk('queda inactivo, no se borra', cu.fetchone() == (False,))
+    api('delete', f'{CO}/{k1}', 404, nombre='anular uno ya anulado -> 404')
 
     # rol sin 'anular' -> 403 (el decorador sigue funcionando)
     cu.execute("SELECT id_rol FROM roles WHERE nombre_rol <> 'Administrador' LIMIT 1"); rol = cu.fetchone()[0]
@@ -79,16 +79,14 @@ try:
         if tenia:
             cu.execute("INSERT INTO permisos (id_rol, id_menu, accion) SELECT %s, id_menu, 'anular' FROM menu WHERE clave='consultorio' AND activo = true ON CONFLICT DO NOTHING", (rol,)); cx.commit()
 
-    # motivoEnUso para usos NO relacionados con cajas (sin tocar datos): texto distinto
+    # esta_en_uso de un consultorio inexistente -> sin motivo
     with app.app_context():
         from app.dao.referenciales_agendamiento.consultorio.ConsultorioDao import ConsultorioDao
-        dao = ConsultorioDao()
-        chk('motivoEnUso sin cajas -> texto de avisos/consultas/tratamientos',
-            dao.motivoEnUso(999999) == dao.MSG_EN_USO_OTROS and 'avisos, consultas o tratamientos' in dao.MSG_EN_USO_OTROS)
-        chk('estaEnUso de un consultorio inexistente -> False', dao.estaEnUso(999999) is False)
+        chk('esta_en_uso de un consultorio inexistente -> False', ConsultorioDao().esta_en_uso(999999) is False)
 finally:
     cu.execute("DELETE FROM caja WHERE id_consultorio = ANY(%s)", (list(creados),))
     cu.execute("DELETE FROM consultorio WHERE codigo = ANY(%s)", (list(creados),))
+    borrar_auditoria(cu, 'consultorio', list(creados))
     cx.commit()
     cu.execute("SELECT codigo, nombre_consultorio, direccion, telefono, correo FROM consultorio ORDER BY codigo")
     despues = cu.fetchall()

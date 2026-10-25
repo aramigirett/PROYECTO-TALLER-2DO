@@ -1,352 +1,54 @@
-import re
+# Data Access Object - DAO
 from flask import current_app as app
 from app.conexion.Conexion import Conexion
+from app.dao.referenciales_consultorio.CatalogoDao import CatalogoDao, DUPLICADO, NO_EXISTE, YA_ACTIVO  # noqa: F401
 
-class ConsultorioDao:
+
+class ConsultorioDao(CatalogoDao):
     """
-    DAO para gestionar consultorios con validaciones robustas
+    Referencial `consultorio` (PK `codigo`: borrado lógico, único parcial por nombre y por correo entre los activos, Estado /
+    Reactivar). La baja se bloquea si tiene cajas activas, agendas vigentes, avisos vigentes, consultas o tratamientos en curso.
+    Caja toma FOR SHARE sobre la fila al guardar (CajaDao._consultorio_existe).
     """
-    
-    def _normalizarTelefono(self, telefono):
-        """
-        Normaliza el teléfono al formato internacional paraguayo
-        Ejemplos:
-            "0981234567" → "595981234567"
-            "981234567" → "595981234567"
-            "+595981234567" → "595981234567"
-        """
-        if not telefono:
-            return None
-        
-        # Limpiar espacios y caracteres especiales
-        telefono = telefono.strip().replace(" ", "").replace("-", "")
-        
-        # Quitar el + si lo tiene
-        if telefono.startswith("+"):
-            telefono = telefono[1:]
-        
-        # Si comienza con 0, quitarlo y agregar 595
-        if telefono.startswith("0"):
-            telefono = "595" + telefono[1:]
-        # Si NO comienza con 595, agregarlo
-        elif not telefono.startswith("595"):
-            telefono = "595" + telefono
-        
-        return telefono
-    
-    def _esTelefonoParaguayoValido(self, telefono):
-        """
-        Valida que el teléfono tenga formato paraguayo válido
-        Formato esperado: 595XXXXXXXXX (8 o 9 dígitos después del 595)
-        """
-        if not telefono:
-            return False
-        return bool(re.match(r'^595\d{8,9}$', telefono))
-    
-    def _esCorreoValido(self, correo):
-        """
-        Valida formato básico de correo electrónico
-        """
-        if not correo:
-            return False
-        return bool(re.match(r'^[\w\.-]+@[\w\.-]+\.\w+$', correo))
-    
-    def existeDuplicado(self, nombre_consultorio, correo, codigo_excluir=None):
-        """
-        Verifica si existe un consultorio con el mismo nombre o correo.
-        
-        Args:
-            nombre_consultorio (str): Nombre a verificar
-            correo (str): Correo a verificar
-            codigo_excluir (int, optional): Código a excluir (para edición)
-        
-        Returns:
-            bool: True si existe duplicado, False si no
-        """
-        if codigo_excluir:
-            sql = """
-            SELECT 1 FROM consultorio
-            WHERE (UPPER(nombre_consultorio) = UPPER(%s) OR UPPER(correo) = UPPER(%s))
-            AND codigo != %s
-            """
-            params = (nombre_consultorio, correo, codigo_excluir)
-        else:
-            sql = """
-            SELECT 1 FROM consultorio
-            WHERE UPPER(nombre_consultorio) = UPPER(%s) OR UPPER(correo) = UPPER(%s)
-            """
-            params = (nombre_consultorio, correo)
-        
-        conexion = Conexion()
-        con = conexion.getConexion()
+    TABLA = 'consultorio'
+    PK = 'codigo'
+    CLAVE = 'nombre_consultorio'
+    EXTRAS = ('direccion', 'telefono', 'correo')
+    FECHA = False
+    NOMBRE = 'consultorio'
+
+    def duplicado(self, valores, excluir_id=None):
+        """'nombre' o 'correo' si ya hay un consultorio ACTIVO con ese valor (sin distinguir mayúsculas); si no, None."""
+        if self.existeDuplicado(valores['nombre_consultorio'], excluir_id):
+            return 'nombre'
+        con = Conexion().getConexion()
         cur = con.cursor()
         try:
+            sql = "SELECT 1 FROM consultorio WHERE activo = true AND LOWER(correo) = LOWER(%s)"
+            params = [valores['correo']]
+            if excluir_id:
+                sql += " AND codigo != %s"
+                params.append(excluir_id)
             cur.execute(sql, params)
-            return cur.fetchone() is not None
+            return 'correo' if cur.fetchone() else None
         except Exception as e:
             app.logger.error(f"Error al verificar duplicado de consultorio: {str(e)}")
-            return False
-        finally:
-            cur.close()
-            con.close()
-    
-    def getConsultorios(self):
-        """
-        Obtiene todos los consultorios ordenados por nombre
-        
-        Returns:
-            list: Lista de diccionarios con datos de consultorios
-        """
-        sql = """
-        SELECT codigo, nombre_consultorio, direccion, telefono, correo 
-        FROM consultorio 
-        ORDER BY nombre_consultorio
-        """
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-        try:
-            cur.execute(sql)
-            consultorios = []
-            for row in cur.fetchall():
-                consultorios.append({
-                    'codigo': row[0],
-                    'nombre_consultorio': row[1],
-                    'direccion': row[2],
-                    'telefono': row[3],
-                    'correo': row[4]
-                })
-            return consultorios
-        except Exception as e:
-            app.logger.error(f"Error al obtener consultorios: {str(e)}")
-            raise
-        finally:
-            cur.close()
-            con.close()
-    
-    def getConsultorioById(self, codigo):
-        """
-        Obtiene un consultorio por su código
-        
-        Args:
-            codigo (int): Código del consultorio
-        
-        Returns:
-            dict or None: Datos del consultorio o None si no existe
-        """
-        sql = """
-        SELECT codigo, nombre_consultorio, direccion, telefono, correo 
-        FROM consultorio 
-        WHERE codigo = %s
-        """
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-        try:
-            cur.execute(sql, (codigo,))
-            row = cur.fetchone()
-            if row:
-                return {
-                    'codigo': row[0],
-                    'nombre_consultorio': row[1],
-                    'direccion': row[2],
-                    'telefono': row[3],
-                    'correo': row[4]
-                }
-            return None
-        except Exception as e:
-            app.logger.error(f"Error al obtener consultorio por ID: {str(e)}")
-            raise
-        finally:
-            cur.close()
-            con.close()
-    
-    def guardarConsultorio(self, nombre_consultorio, direccion, telefono, correo):
-        """
-        Guarda un nuevo consultorio con validaciones
-        
-        Args:
-            nombre_consultorio (str): Nombre del consultorio
-            direccion (str): Dirección
-            telefono (str): Teléfono
-            correo (str): Correo electrónico
-        
-        Returns:
-            int: Código del consultorio creado
-        
-        Raises:
-            ValueError: Si hay errores de validación
-        """
-        # Validación de nombre
-        if not nombre_consultorio or len(nombre_consultorio.strip()) < 3:
-            raise ValueError("El nombre del consultorio es obligatorio y debe tener al menos 3 caracteres.")
-        
-        # Validación de dirección
-        if not direccion or len(direccion.strip()) < 5:
-            raise ValueError("La dirección es obligatoria y debe tener al menos 5 caracteres.")
-        
-        # Validación de correo
-        if not correo or not self._esCorreoValido(correo):
-            raise ValueError("El correo electrónico no es válido.")
-        
-        # Normalizar y validar teléfono
-        telefono = self._normalizarTelefono(telefono)
-        if not self._esTelefonoParaguayoValido(telefono):
-            raise ValueError("El número de teléfono no es válido. Debe ser paraguayo (formato: 0981234567).")
-        
-        # Verificar duplicados
-        if self.existeDuplicado(nombre_consultorio, correo):
-            raise ValueError("Ya existe un consultorio con ese nombre o correo.")
-        
-        sql = """
-        INSERT INTO consultorio(nombre_consultorio, direccion, telefono, correo)
-        VALUES (%s, %s, %s, %s) 
-        RETURNING codigo
-        """
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-        try:
-            cur.execute(sql, (nombre_consultorio.strip(), direccion.strip(), telefono, correo.strip()))
-            codigo = cur.fetchone()[0]
-            con.commit()
-            return codigo
-        except Exception as e:
-            app.logger.error(f"Error al insertar consultorio: {str(e)}")
-            con.rollback()
-            raise
-        finally:
-            cur.close()
-            con.close()
-    
-    def updateConsultorio(self, codigo, nombre_consultorio, direccion, telefono, correo):
-        """
-        Actualiza un consultorio existente con validaciones
-        
-        Args:
-            codigo (int): Código del consultorio
-            nombre_consultorio (str): Nombre del consultorio
-            direccion (str): Dirección
-            telefono (str): Teléfono
-            correo (str): Correo electrónico
-        
-        Returns:
-            bool: True si se actualizó correctamente
-        
-        Raises:
-            ValueError: Si hay errores de validación
-        """
-        # Validación de nombre
-        if not nombre_consultorio or len(nombre_consultorio.strip()) < 3:
-            raise ValueError("El nombre del consultorio es obligatorio y debe tener al menos 3 caracteres.")
-        
-        # Validación de dirección
-        if not direccion or len(direccion.strip()) < 5:
-            raise ValueError("La dirección es obligatoria y debe tener al menos 5 caracteres.")
-        
-        # Validación de correo
-        if not correo or not self._esCorreoValido(correo):
-            raise ValueError("El correo electrónico no es válido.")
-        
-        # Normalizar y validar teléfono
-        telefono = self._normalizarTelefono(telefono)
-        if not self._esTelefonoParaguayoValido(telefono):
-            raise ValueError("El número de teléfono no es válido. Debe ser paraguayo (formato: 0981234567).")
-        
-        # Verificar duplicados (excluyendo el registro actual)
-        if self.existeDuplicado(nombre_consultorio, correo, codigo):
-            raise ValueError("Ya existe otro consultorio con ese nombre o correo.")
-        
-        sql = """
-        UPDATE consultorio
-        SET nombre_consultorio = %s,
-            direccion = %s,
-            telefono = %s,
-            correo = %s
-        WHERE codigo = %s
-        """
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-        try:
-            cur.execute(sql, (nombre_consultorio.strip(), direccion.strip(), telefono, correo.strip(), codigo))
-            filas_afectadas = cur.rowcount
-            con.commit()
-            return filas_afectadas > 0
-        except Exception as e:
-            app.logger.error(f"Error al actualizar consultorio: {str(e)}")
-            con.rollback()
-            raise
-        finally:
-            cur.close()
-            con.close()
-    
-    MSG_EN_USO_CAJAS = "No se puede eliminar, el consultorio tiene cajas asociadas."
-    MSG_EN_USO_OTROS = "No se puede eliminar, el consultorio tiene avisos, consultas o tratamientos asociados."
-
-    def _usos(self, codigo):
-        """(en_cajas, en_otros) o None si no se pudo verificar. Las cajas cuentan activas e inactivas
-        (la FK es física: una caja anulada también impide borrar el consultorio)."""
-        sql = """
-        SELECT
-            EXISTS(SELECT 1 FROM caja WHERE id_consultorio = %s) AS en_cajas,
-            EXISTS(SELECT 1 FROM avisos_recordatorios WHERE codigo = %s)
-              OR EXISTS(SELECT 1 FROM consultas_cab WHERE id_consultorio = %s)
-              OR EXISTS(SELECT 1 FROM tratamientos WHERE id_consultorio = %s) AS en_otros
-        """
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-        try:
-            cur.execute(sql, (codigo, codigo, codigo, codigo))
-            en_cajas, en_otros = cur.fetchone()
-            return bool(en_cajas), bool(en_otros)
-        except Exception as e:
-            app.logger.error(f"Error al verificar uso de consultorio: {str(e)}")
             return None
         finally:
             cur.close()
             con.close()
 
-    def estaEnUso(self, codigo):
-        """Indica si el consultorio tiene cajas, avisos, consultas o tratamientos asociados."""
-        usos = self._usos(codigo)
-        if usos is None:
-            return True  # Ante la duda, bloquear el borrado
-        return usos[0] or usos[1]
-
-    def motivoEnUso(self, codigo):
-        """Texto para el usuario con el motivo por el que no se puede eliminar (cajas primero)."""
-        usos = self._usos(codigo)
-        if usos is not None and usos[0]:
-            return self.MSG_EN_USO_CAJAS
-        return self.MSG_EN_USO_OTROS
-
-    def deleteConsultorio(self, codigo):
-        """
-        Elimina un consultorio por su código, validando antes que no esté en uso.
-
-        Returns:
-            bool | str: True si se eliminó, False si no existía, "EN_USO" si está
-            en uso por cajas, avisos, consultas o tratamientos.
-        """
-        if self.estaEnUso(codigo):
-            app.logger.warning(f"No se puede eliminar consultorio {codigo}: está en uso")
-            return "EN_USO"
-
-        sql = "DELETE FROM consultorio WHERE codigo = %s"
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-        try:
-            cur.execute(sql, (codigo,))
-            filas_afectadas = cur.rowcount
-            con.commit()
-            return filas_afectadas > 0
-        except Exception as e:
-            app.logger.error(f"Error al eliminar consultorio: {str(e)}")
-            con.rollback()
-            raise
-        finally:
-            cur.close()
-            con.close()
+    def _motivo_en_uso(self, cur, id_registro):
+        usos = (
+            ("SELECT COUNT(*) FROM caja WHERE id_consultorio = %s AND activo = true", "caja(s) activa(s)"),
+            ("SELECT COUNT(*) FROM agenda_cabecera WHERE id_consultorio = %s AND estado <> 'Inactivo'", "agenda(s) vigente(s)"),
+            ("SELECT COUNT(*) FROM avisos_recordatorios WHERE codigo = %s AND estado <> 'Inactivo'", "aviso(s) vigente(s)"),
+            ("SELECT COUNT(*) FROM consultas_cab WHERE id_consultorio = %s AND activo = true", "consulta(s)"),
+            ("SELECT COUNT(*) FROM tratamientos WHERE id_consultorio = %s AND estado <> 'cancelado'", "tratamiento(s)"),
+        )
+        for sql, texto in usos:
+            cur.execute(sql, (id_registro,))
+            n = cur.fetchone()[0]
+            if n:
+                return f"No se puede anular, el consultorio tiene {n} {texto}."
+        return False

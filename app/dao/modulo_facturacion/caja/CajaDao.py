@@ -12,7 +12,8 @@ YA_ACTIVA = "YA_ACTIVA"
 # Mensaje para cuando exista apertura_cierre_caja (ver esta_en_uso)
 MSG_BAJA_APERTURA_ACTIVA = "No se puede dar de baja, la caja tiene una apertura activa."
 
-# El consultorio no tiene baja lógica (tabla `consultorio`, PK `codigo`): "activo" = "existe".
+# El consultorio tiene baja lógica (tabla `consultorio`, PK `codigo`): una caja nueva o movida solo puede apuntar a uno ACTIVO; el listado
+# de cajas muestra el nombre aunque el consultorio se haya anulado después (JOIN sin filtrar).
 _SELECT = """
 SELECT c.id_caja, c.id_consultorio, k.nombre_consultorio, c.descripcion, c.activo
 FROM caja c
@@ -83,8 +84,8 @@ class CajaDao:
             con.close()
 
     def _consultorio_existe(self, cur, id_consultorio):
-        """Bloquea (FOR SHARE) la fila del consultorio y verifica que exista."""
-        cur.execute("SELECT 1 FROM consultorio WHERE codigo = %s FOR SHARE", (id_consultorio,))
+        """Bloquea (FOR SHARE) la fila del consultorio y verifica que exista y esté activo."""
+        cur.execute("SELECT 1 FROM consultorio WHERE codigo = %s AND activo = true FOR SHARE", (id_consultorio,))
         return cur.fetchone() is not None
 
     def guardarCaja(self, id_consultorio, descripcion):

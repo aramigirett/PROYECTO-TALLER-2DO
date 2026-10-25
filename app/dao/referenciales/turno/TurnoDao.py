@@ -1,167 +1,26 @@
-# Data access object - DAO
-from flask import current_app as app
-from app.conexion.Conexion import Conexion
+# Data Access Object - DAO
+from app.dao.referenciales_consultorio.CatalogoDao import CatalogoDao, DUPLICADO, NO_EXISTE, YA_ACTIVO  # noqa: F401
 
-class TurnoDao:
 
-    def getTurnos(self):
+class TurnoDao(CatalogoDao):
+    """
+    Referencial `turnos` (borrado lógico, único parcial por descripción entre los activos, Estado / Reactivar). La baja se bloquea
+    si lo usa una disponibilidad horaria vigente o un horario de agenda no cancelado.
+    """
+    TABLA = 'turnos'
+    PK = 'id_turno'
+    CLAVE = 'descripcion'
+    FECHA = False
+    NOMBRE = 'turno'
 
-        turnoSQL = """
-        SELECT id_turno, descripcion
-        FROM turnos
-        """
-        # objeto conexion
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-        try:
-            cur.execute(turnoSQL)
-            turnos = cur.fetchall() # trae datos de la bd
-
-            # Transformar los datos en una lista de diccionarios
-            return [{'id_turno': turno[0], 'descripcion': turno[1]} for turno in turnos]
-
-        except Exception as e:
-            app.logger.error(f"Error al obtener todos los turnos: {str(e)}")
-            return []
-
-        finally:
-            cur.close()
-            con.close()
-
-    def getTurnoById(self, id_turno):
-
-        turnoSQL = """
-        SELECT id_turno, descripcion
-        FROM turnos WHERE id_turno=%s
-        """
-        # objeto conexion
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-        try:
-            cur.execute(turnoSQL, (id_turno,))
-            turnoEncontrado = cur.fetchone() # Obtener una sola fila
-            if turnoEncontrado:
-                return {
-                        "id_turno": turnoEncontrado[0],
-                        "descripcion": turnoEncontrado[1]
-                    }  # Retornar los datos de la turno
-            else:
-                return None # Retornar None si no se encuentra la turno
-        except Exception as e:
-            app.logger.error(f"Error al obtener turno: {str(e)}")
-            return None
-
-        finally:
-            cur.close()
-            con.close()
-
-    def guardarTurno(self, descripcion):
-
-        insertTurnoSQL = """
-        INSERT INTO turnos(descripcion) VALUES(%s) RETURNING id_turno
-        """
-
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-
-        # Ejecucion exitosa
-        try:
-            cur.execute(insertTurnoSQL, (descripcion,))
-            turno_id = cur.fetchone()[0]
-            con.commit() # se confirma la insercion
-            return turno_id
-
-        # Si algo fallo entra aqui
-        except Exception as e:
-            app.logger.error(f"Error al insertar turno: {str(e)}")
-            con.rollback() # retroceder si hubo error
-            return False
-
-        # Siempre se va ejecutar
-        finally:
-            cur.close()
-            con.close()
-
-    def updateTurno(self, id_turno, descripcion):
-
-        updateTurnoSQL = """
-        UPDATE turnos
-        SET descripcion=%s
-        WHERE id_turno=%s
-        """
-
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-
-        try:
-            cur.execute(updateTurnoSQL, (descripcion, id_turno,))
-            filas_afectadas = cur.rowcount # Obtener el número de filas afectadas
-            con.commit()
-
-            return filas_afectadas > 0 # Retornar True si se actualizó al menos una fila
-
-        except Exception as e:
-            app.logger.error(f"Error al actualizar turno: {str(e)}")
-            con.rollback()
-            return False
-
-        finally:
-            cur.close()
-            con.close()
-
-    def estaEnUso(self, id_turno):
-        """Indica si el turno está usado en algún horario de agenda o disponibilidad."""
-        sql = """
-        SELECT
-            EXISTS(SELECT 1 FROM agenda_detalle WHERE id_turno = %s) AS en_agenda_detalle,
-            EXISTS(SELECT 1 FROM disponibilidad_horaria WHERE id_turno = %s) AS en_disponibilidad
-        """
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-        try:
-            cur.execute(sql, (id_turno, id_turno))
-            en_agenda_detalle, en_disponibilidad = cur.fetchone()
-            return bool(en_agenda_detalle or en_disponibilidad)
-        except Exception as e:
-            app.logger.error(f"Error al verificar uso de turno: {str(e)}")
-            return True  # Ante la duda, bloquear el borrado
-        finally:
-            cur.close()
-            con.close()
-
-    def deleteTurno(self, id_turno):
-        if self.estaEnUso(id_turno):
-            app.logger.warning(f"No se puede eliminar turno {id_turno}: está en uso")
-            return "EN_USO"
-
-        updateTurnoSQL = """
-        DELETE FROM turnos
-        WHERE id_turno=%s
-        """
-
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-
-        try:
-            cur.execute(updateTurnoSQL, (id_turno,))
-            rows_affected = cur.rowcount
-            con.commit()
-
-            return rows_affected > 0  # Retornar True si se eliminó al menos una fila
-
-        except Exception as e:
-            app.logger.error(f"Error al eliminar turno: {str(e)}")
-            con.rollback()
-            return False
-
-        finally:
-            cur.close()
-            con.close()
-
-            
+    def _motivo_en_uso(self, cur, id_registro):
+        cur.execute("SELECT COUNT(*) FROM disponibilidad_horaria WHERE id_turno = %s AND activo = true", (id_registro,))
+        disponibilidades = cur.fetchone()[0]
+        if disponibilidades:
+            return f"No se puede anular, el turno está en {disponibilidades} disponibilidad(es) horaria(s)."
+        cur.execute("""SELECT COUNT(*) FROM agenda_detalle d JOIN agenda_cabecera c ON c.id_agenda_cabecera = d.id_agenda_cabecera
+                       WHERE d.id_turno = %s AND d.estado_detalle <> 'Cancelado' AND c.estado <> 'Inactivo'""", (id_registro,))
+        horarios = cur.fetchone()[0]
+        if horarios:
+            return f"No se puede anular, el turno está en {horarios} horario(s) de agenda vigente(s)."
+        return False

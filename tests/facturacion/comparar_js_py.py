@@ -2,6 +2,7 @@
 import sys
 sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parents[2]))
 from app.rutas.modulo_facturacion import utils as u
+from app.rutas.modulo_agendamiento import utils as ua
 
 ruta = sys.argv[1]
 filas = [l.split('\t') for l in open(ruta, encoding='utf-8-sig').read().split('\n') if l.strip('\r')]
@@ -23,6 +24,13 @@ def py(tipo, entrada):
     if tipo == 'presentacion': return u.validar_presentacion(entrada)[1] or ''
     if tipo == 'descMed': return u.normalizar_descripcion({'nombre_comercial': entrada}, 200, True, 'nombre_comercial', 'nombre comercial', 'El')[1] or ''
     if tipo == 'ubicacion': return None
+    if tipo == 'dia': return ua.validar_dia({'descripcion': entrada})[1] or ''
+    if tipo == 'telPy': return ua.validar_telefono_py(entrada)[1] or ''
+    if tipo == 'hora': return ua.validar_hora(entrada, 'hora de inicio')[1] or ''
+    if tipo == 'cupos': return ua.validar_cupos(entrada)[1] or ''
+    if tipo == 'horario':
+        i, f = entrada.split('|')
+        return ua.validar_horario(ua.validar_hora(i, 'x')[0], ua.validar_hora(f, 'x')[0]) or ''
 for f in filas:
     tipo, entrada, js = f[0], f[1], (f[2].rstrip('\r') if len(f) > 2 else '')
     esperado = py(tipo, entrada)

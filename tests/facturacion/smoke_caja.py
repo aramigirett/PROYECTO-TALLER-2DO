@@ -65,7 +65,7 @@ try:
     api('post', CA, 400, {**ok, 'descripcion': 'a<b>'}, 'desc simbolos', campo='descripcion')
     api('post', CA, 400, {'descripcion': 'ZZ X'}, 'sin consultorio', campo='id_consultorio')
     api('post', CA, 400, {**ok, 'id_consultorio': 'abc'}, 'consultorio no numerico', campo='id_consultorio')
-    api('post', CA, 400, {**ok, 'id_consultorio': 999999}, 'consultorio inexistente', campo='id_consultorio', exacto='El consultorio seleccionado no existe.')
+    api('post', CA, 400, {**ok, 'id_consultorio': 999999}, 'consultorio inexistente', campo='id_consultorio', exacto='El consultorio seleccionado no existe o está anulado.')
     api('post', CA, 400, {'id_consultorio': c1, 'descripcion': 'caja recepción'}, 'duplicado contra seed (otra capitalizacion)', campo='descripcion', exacto='Ya existe una caja con esa descripción en el consultorio.')
 
     # ---------- alta / duplicados ----------
@@ -155,19 +155,18 @@ try:
         s['id_rol'] = 1; s['nombre_rol'] = 'Administrador'
 
     # ---------- consultorio con cajas no se puede eliminar ----------
-    api('delete', f'/api/v1/consultorios/{cA}', 409, nombre='eliminar consultorio con cajas ACTIVAS',
-        exacto='No se puede eliminar, el consultorio tiene cajas asociadas.')
+    api('delete', f'/api/v1/consultorios/{cA}', 409, nombre='anular consultorio con cajas ACTIVAS', contiene='No se puede anular, el consultorio tiene')
     cu.execute("UPDATE caja SET activo=false WHERE id_consultorio=%s", (cA,)); cx.commit()
-    api('delete', f'/api/v1/consultorios/{cA}', 409, nombre='eliminar consultorio con cajas solo INACTIVAS (FK física)',
-        exacto='No se puede eliminar, el consultorio tiene cajas asociadas.')
-    cu.execute("SELECT count(*) FROM consultorio WHERE codigo = %s", (cA,)); chk('el consultorio sigue existiendo', cu.fetchone()[0] == 1)
+    api('delete', f'/api/v1/consultorios/{cA}', 200, nombre='anular consultorio con cajas solo INACTIVAS (baja lógica)')
+    cu.execute("SELECT activo FROM consultorio WHERE codigo = %s", (cA,)); chk('el consultorio sigue existiendo, inactivo', cu.fetchone() == (False,))
     for real in reales:
-        api('delete', f'/api/v1/consultorios/{real}', 409, nombre=f'consultorio real {real} protegido', exacto='No se puede eliminar, el consultorio tiene cajas asociadas.')
-    cu.execute("SELECT count(*) FROM consultorio WHERE codigo = ANY(%s)", (reales,)); chk('consultorios reales intactos', cu.fetchone()[0] == len(reales))
+        api('delete', f'/api/v1/consultorios/{real}', 409, nombre=f'consultorio real {real} protegido', contiene='No se puede anular, el consultorio tiene')
+    cu.execute("SELECT count(*) FROM consultorio WHERE codigo = ANY(%s) AND activo", (reales,)); chk('consultorios reales intactos', cu.fetchone()[0] == len(reales))
 finally:
     # limpieza acotada a lo creado por este test
     borrar_auditoria(cu, 'caja', list(cajas_creadas))
     cu.execute("DELETE FROM caja WHERE id_consultorio = ANY(%s)", ([cA, cB],))
     cu.execute("DELETE FROM consultorio WHERE codigo = ANY(%s)", ([cA, cB],))
+    borrar_auditoria(cu, 'consultorio', [cA, cB])
     cx.commit(); cu.close(); cx.close()
 print('FALLOS:', fallos or 'ninguno')
