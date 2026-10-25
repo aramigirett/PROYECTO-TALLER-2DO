@@ -1,0 +1,425 @@
+{% extends 'base_tabler.html' %}
+
+{% block titulo %}Gestionar Diagnósticos{% endblock %}
+
+{% block css %}
+<link href="{{ url_for('static', filename='css/facturacion.css') }}" rel="stylesheet">
+{% endblock %}
+
+{% block contenido %}
+<div class="page-header d-print-none mb-3">
+  <div class="row align-items-center">
+    <div class="col">
+      <div class="page-pretitle text-muted">Consultorio &bull; Atención</div>
+      <h2 class="page-title fw-bold">Gestionar Diagnósticos</h2>
+    </div>
+    <div class="col-auto d-flex gap-2">
+      <a href="#" class="btn btn-outline-secondary btn-sm" id="btnVolverConsulta" style="display: none;"><i class="fas fa-arrow-left me-1"></i> Volver a la consulta</a>
+      {% if es_medico and puede('diagnostico', 'nuevo') %}
+      <button type="button" class="btn btn-primary px-3 rounded-pill" id="btnNuevo" style="display: none;"><i class="fas fa-plus me-2"></i>Nuevo diagnóstico</button>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="alert alert-danger" id="errorGeneral" style="display: none;"></div>
+
+{# ── Contexto: la consulta (cuando se llega desde la Atención de la consulta) ── #}
+<div class="card border shadow-sm rounded-3 mb-3" id="tarjetaConsulta" style="display: none;">
+  <div class="card-body py-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
+    <div>
+      <div class="text-muted small text-uppercase fw-semibold">Consulta</div>
+      <div class="fw-bold" id="cNumero"></div>
+      <div class="text-muted small" id="cDetalle"></div>
+    </div>
+    <div class="d-flex align-items-center gap-3">
+      <span id="cBadge"></span>
+      <div class="small text-muted text-end" id="cAviso"></div>
+    </div>
+  </div>
+</div>
+
+{# ── Listado general ── #}
+<div id="seccionGlobal" style="display: none;">
+  <div class="card border shadow-sm rounded-3">
+    <div class="card-header bg-white py-3 border-bottom">
+      <div class="row g-2 align-items-end w-100">
+        <div class="col-12 col-md-6">
+          <label class="form-label small fw-semibold text-muted mb-1" for="filtroQ">Código, paciente o CI</label>
+          <input type="text" class="form-control form-control-sm" id="filtroQ" maxlength="80" placeholder="Ej.: DX-0001, nombre o CI…" autocomplete="off">
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label small fw-semibold text-muted mb-1" for="filtroDesde">Desde</label>
+          <input type="date" class="form-control form-control-sm" id="filtroDesde">
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label small fw-semibold text-muted mb-1" for="filtroHasta">Hasta</label>
+          <input type="date" class="form-control form-control-sm" id="filtroHasta">
+        </div>
+        <div class="col-12 col-md-2">
+          <button type="button" class="btn btn-sm btn-outline-secondary w-100" id="btnLimpiar"><i class="fas fa-eraser me-1"></i> Limpiar</button>
+        </div>
+      </div>
+      <div class="text-danger small mt-2 w-100" id="errFiltros" style="display: none;"></div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-vcenter table-hover card-table mb-0">
+        <thead class="bg-light text-muted small text-uppercase">
+          <tr><th class="ps-3 py-3">Código</th><th class="py-3">Fecha</th><th class="py-3">Paciente</th><th class="py-3">Médico</th><th class="py-3">Consulta</th>
+              <th class="py-3">Tipo</th><th class="py-3 text-center">Pieza</th><th class="pe-3 py-3 text-end w-1">Acciones</th></tr>
+        </thead>
+        <tbody id="tbodyGlobal"><tr><td colspan="8" class="text-center text-muted py-4"><div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>Cargando diagnósticos…</td></tr></tbody>
+      </table>
+    </div>
+    <div class="card-footer bg-white d-flex align-items-center justify-content-between py-2">
+      <div class="text-muted small" id="infoPagina"></div>
+      <div class="btn-group btn-group-sm">
+        <button type="button" class="btn btn-outline-secondary" id="btnAnterior"><i class="fas fa-chevron-left"></i></button>
+        <button type="button" class="btn btn-outline-secondary" id="btnSiguiente"><i class="fas fa-chevron-right"></i></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── Diagnósticos de una consulta ── #}
+<div id="seccionConsulta" style="display: none;">
+  <div class="card border shadow-sm rounded-3">
+    <div class="card-header bg-white py-3 border-bottom d-flex align-items-center gap-2">
+      <i class="fas fa-diagnoses text-primary"></i>
+      <h5 class="card-title mb-0 fw-bold">Diagnósticos de esta consulta</h5>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-vcenter table-hover card-table mb-0">
+        <thead class="bg-light text-muted small text-uppercase">
+          <tr><th class="ps-3 py-3">Código</th><th class="py-3">Fecha</th><th class="py-3">Tipo</th><th class="py-3 text-center">Pieza</th><th class="py-3">Síntomas</th>
+              <th class="pe-3 py-3 text-end w-1">Acciones</th></tr>
+        </thead>
+        <tbody id="tbodyConsulta"><tr><td colspan="6" class="text-center text-muted py-4">Cargando…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{# ── Modal: ver ── #}
+<div class="modal modal-blur fade" id="modalVer" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title" id="verTitulo">Diagnóstico</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+      <div class="modal-body" id="verCuerpo"></div>
+      <div class="modal-footer"><button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cerrar</button></div>
+    </div>
+  </div>
+</div>
+
+{% if es_medico and puede('diagnostico', 'nuevo') %}
+{# ── Modal: nuevo diagnóstico ── #}
+<div class="modal modal-blur fade" id="modalNuevo" tabindex="-1" aria-labelledby="modalNuevoTitulo" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title" id="modalNuevoTitulo">Nuevo diagnóstico</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+      <form id="formDx" novalidate>
+        <div class="modal-body">
+          <p class="text-muted small">El paciente, el médico y la consulta se toman de la consulta; la fecha la fija el sistema (hoy). Una vez registrado, un diagnóstico no se modifica: solo se anula.</p>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label required" for="selTipo">Tipo de diagnóstico</label>
+              <select class="form-select" id="selTipo"><option value="">Seleccione…</option></select>
+              <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="selPieza">Pieza dental (FDI) <span class="text-muted fw-normal">— opcional</span></label>
+              <select class="form-select" id="selPieza"><option value="">Sin pieza (diagnóstico general)</option></select>
+              <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-12">
+              <label class="form-label required" for="txtBuscarSintoma">Síntomas <span class="text-muted fw-normal">— elija al menos uno</span></label>
+              <input type="text" class="form-control form-control-sm mb-2" id="txtBuscarSintoma" placeholder="Buscar síntoma…" autocomplete="off">
+              <div class="border rounded-3 p-2" id="listaSintomas" style="max-height: 170px; overflow-y: auto;"></div>
+              <div class="form-hint"><span id="contadorSintomas">0 elegidos</span></div>
+              <div class="text-danger small mt-1" id="errSintomas" style="display: none;"></div>
+            </div>
+            <div class="col-12">
+              <label class="form-label required" for="txtDescripcion">Descripción del diagnóstico</label>
+              <textarea class="form-control" id="txtDescripcion" rows="3" maxlength="1000"></textarea>
+              <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-12">
+              <label class="form-label" for="txtObservaciones">Observaciones <span class="text-muted fw-normal">— opcional</span></label>
+              <textarea class="form-control" id="txtObservaciones" rows="2" maxlength="2000"></textarea>
+              <div class="invalid-feedback"></div>
+            </div>
+          </div>
+          <div class="alert alert-danger mt-3 mb-0" id="errDx" style="display: none;"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btnGuardar">Registrar diagnóstico</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block js %}
+<script src="{{ url_for('static', filename='js/facturacion-listado.js') }}"></script>
+<script src="{{ url_for('static', filename='js/consultorio-validadores.js') }}"></script>
+<script>
+(function () {
+  const API = '/api/v1/diagnosticos-medicos';
+  const PK = 'id_diagnostico';   // el JSON viene con las claves ordenadas alfabéticamente: nunca se toma la "primera"
+  const URL_CONSULTA = '/referenciales/consulta/consulta-detalle/';
+  const L = window.FacturacionListado;
+  const CV = window.ConsultorioValidadores;
+  const { escapar, pedir } = L;
+  const ES_MEDICO = {{ 'true' if es_medico else 'false' }};
+  const PUEDE_NUEVO = {{ 'true' if (es_medico and puede('diagnostico', 'nuevo')) else 'false' }};
+  const PUEDE_ANULAR = {{ 'true' if (es_medico and puede('diagnostico', 'anular')) else 'false' }};
+  const parametro = new URLSearchParams(window.location.search).get('consulta');
+  const ID_CONSULTA = /^\d+$/.test(parametro || '') ? parametro : null;
+  const POR_PAGINA = 15;
+
+  const $ = (id) => document.getElementById(id);
+  const fecha = (s) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s || ''); return m ? `${m[3]}/${m[2]}/${m[1]}` : '—'; };
+  const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+  const ABIERTAS = ['programada', 'en_proceso'];
+  let estadoConsulta = null;   // { consulta, acciones }
+
+  const badge = (e) => {
+    const m = {
+      programada: ['fc-badge-pendiente', 'yellow', 'Programada'], en_proceso: ['fc-badge-neutral', 'blue', 'En proceso'],
+      finalizada: ['fc-badge-facturado', 'green', 'Finalizada'], cancelada: ['fc-badge-neutral', 'gray', 'Cancelada']
+    }[e] || ['fc-badge-neutral', 'gray', e];
+    return `<span class="fc-badge ${m[0]}"><span class="fc-status-dot fc-status-dot-${m[1]}"></span>${escapar(m[2])}</span>`;
+  };
+
+  function error(msg) { const e = $('errorGeneral'); e.textContent = msg; e.style.display = 'block'; }
+
+  /* ───────── acciones de cada fila ───────── */
+  function acciones(f) {
+    const ver = `<button type="button" class="btn btn-sm btn-outline-primary" data-accion="ver" data-id="${escapar(f[PK])}" title="Ver"><i class="fas fa-eye"></i></button>`;
+    const anular = PUEDE_ANULAR && ABIERTAS.indexOf(f.estado_consulta) >= 0
+      ? `<button type="button" class="btn btn-sm btn-outline-danger" data-accion="anular" data-id="${escapar(f[PK])}" data-desc="${escapar(f.codigo + ' · ' + f.nombre_paciente)}" title="Anular"><i class="fas fa-ban"></i></button>` : '';
+    return `<div class="btn-list flex-nowrap justify-content-end">${ver}${anular}</div>`;
+  }
+
+  /* ───────── listado general ───────── */
+  const filtros = { q: $('filtroQ'), desde: $('filtroDesde'), hasta: $('filtroHasta') };
+  let pagina = 1, total = 0;
+
+  async function cargarGlobal() {
+    $('errFiltros').style.display = 'none';
+    const p = new URLSearchParams();
+    Object.keys(filtros).forEach((k) => { if (filtros[k].value) p.set(k, filtros[k].value.trim()); });
+    p.set('pagina', pagina); p.set('por_pagina', POR_PAGINA);
+    try {
+      const { ok, data } = await pedir(API + '?' + p.toString());
+      if (!ok || !data || !data.success) {
+        if (data && data.error) { $('errFiltros').textContent = data.error; $('errFiltros').style.display = 'block'; }
+        throw new Error();
+      }
+      total = data.total;
+      $('tbodyGlobal').innerHTML = data.data.length ? data.data.map((f) => `<tr>
+        <td class="ps-3 fw-semibold text-nowrap">${escapar(f.codigo)}</td><td class="text-nowrap">${fecha(f.fecha_diagnostico)}</td>
+        <td>${escapar(f.nombre_paciente)}<div class="text-muted small">CI ${escapar(f.cedula_paciente)}</div></td><td>${escapar(f.nombre_medico)}</td>
+        <td><a href="${URL_CONSULTA}${encodeURIComponent(f.id_consulta_cab)}">${escapar(f.numero_consulta)}</a></td>
+        <td>${escapar(f.tipo_diagnostico)}</td><td class="text-center">${f.pieza_dental ? escapar(f.pieza_dental) : '—'}</td>
+        <td class="pe-3 text-end">${acciones(f)}</td></tr>`).join('')
+        : '<tr><td colspan="8" class="text-center text-muted py-4">No hay diagnósticos para los filtros elegidos.</td></tr>';
+      const d = total ? (pagina - 1) * POR_PAGINA + 1 : 0, h = Math.min(total, pagina * POR_PAGINA);
+      $('infoPagina').textContent = total ? `Mostrando ${d}–${h} de ${total}` : '';
+      $('btnAnterior').disabled = pagina <= 1;
+      $('btnSiguiente').disabled = pagina * POR_PAGINA >= total;
+    } catch (e) {
+      $('tbodyGlobal').innerHTML = $('errFiltros').style.display === 'none'
+        ? '<tr><td colspan="8" class="text-center text-danger py-4">No se pudo cargar el listado.</td></tr>'
+        : '<tr><td colspan="8" class="text-center text-muted py-4">Corrija los filtros.</td></tr>';
+    }
+  }
+  const refiltrar = () => { pagina = 1; cargarGlobal(); };
+  Object.keys(filtros).forEach((k) => filtros[k].addEventListener(k === 'q' ? 'input' : 'change', k === 'q' ? debounce(refiltrar, 350) : refiltrar));
+  $('btnLimpiar').addEventListener('click', () => { Object.values(filtros).forEach((f) => { f.value = ''; }); refiltrar(); });
+  $('btnAnterior').addEventListener('click', () => { if (pagina > 1) { pagina--; cargarGlobal(); } });
+  $('btnSiguiente').addEventListener('click', () => { if (pagina * POR_PAGINA < total) { pagina++; cargarGlobal(); } });
+
+  /* ───────── diagnósticos de la consulta ───────── */
+  async function cargarConsulta() {
+    try {
+      const { ok, data } = await pedir(`${API}/consulta/${ID_CONSULTA}`);
+      if (!ok || !data || !data.success) { error((data && data.error) || 'No se pudieron cargar los diagnósticos de la consulta.'); return; }
+      $('tbodyConsulta').innerHTML = data.data.length ? data.data.map((f) => `<tr>
+        <td class="ps-3 fw-semibold text-nowrap">${escapar(f.codigo)}</td><td class="text-nowrap">${fecha(f.fecha_diagnostico)}</td><td>${escapar(f.tipo_diagnostico)}</td>
+        <td class="text-center">${f.pieza_dental ? escapar(f.pieza_dental) : '—'}</td>
+        <td>${(f.sintomas || []).map((s) => `<span class="badge bg-light text-muted border me-1">${escapar(s.descripcion_sintoma)}</span>`).join('')}</td>
+        <td class="pe-3 text-end">${acciones(f)}</td></tr>`).join('')
+        : '<tr><td colspan="6" class="text-center text-muted py-4">Esta consulta todavía no tiene diagnósticos.</td></tr>';
+    } catch (e) { error('Ocurrió un error de conexión. Intente nuevamente.'); }
+  }
+
+  async function iniciarConsulta() {
+    $('seccionConsulta').style.display = 'block';
+    $('btnVolverConsulta').href = URL_CONSULTA + encodeURIComponent(ID_CONSULTA);
+    $('btnVolverConsulta').style.display = '';
+    try {
+      const { ok, data } = await pedir(`/api/v1/consultas/${ID_CONSULTA}/resumen`);
+      if (!ok || !data || !data.success) { error((data && data.error) || 'No se pudo cargar la consulta.'); $('seccionConsulta').style.display = 'none'; return; }
+      estadoConsulta = data.data;
+      const c = estadoConsulta.consulta;
+      $('tarjetaConsulta').style.display = 'block';
+      $('cNumero').textContent = c.numero;
+      $('cDetalle').textContent = `${c.nombre_paciente} · CI ${c.cedula_paciente} · ${c.nombre_medico} · ${fecha(c.fecha_cita)}`;
+      $('cBadge').innerHTML = badge(c.estado);
+      const abierta = ABIERTAS.indexOf(c.estado) >= 0;
+      $('cAviso').textContent = !abierta ? 'La consulta está cerrada: los diagnósticos quedan en solo lectura.'
+        : (estadoConsulta.acciones.cargar_clinico ? '' : 'Solo el médico de la consulta registra y anula sus diagnósticos.');
+      const nuevo = $('btnNuevo');
+      if (nuevo && PUEDE_NUEVO && estadoConsulta.acciones.cargar_clinico) nuevo.style.display = '';
+    } catch (e) { error('Ocurrió un error de conexión. Intente nuevamente.'); return; }
+    await cargarConsulta();
+  }
+
+  /* ───────── ver ───────── */
+  const modalVer = bootstrap.Modal.getOrCreateInstance($('modalVer'));
+  async function ver(id) {
+    const { ok, data } = await pedir(`${API}/${id}`);
+    if (!ok || !data || !data.success) { Swal.fire('No se pudo abrir', (data && data.error) || 'Ocurrió un error.', 'error'); return; }
+    const d = data.data;
+    const fila = (t, v) => `<div class="col-md-6"><div class="text-muted small text-uppercase fw-semibold">${t}</div><div>${v}</div></div>`;
+    $('verTitulo').textContent = `Diagnóstico ${d.codigo}`;
+    $('verCuerpo').innerHTML = `<div class="row g-3">
+      ${fila('Paciente', `${escapar(d.nombre_paciente)} <span class="text-muted">· CI ${escapar(d.cedula_paciente)}</span>`)}
+      ${fila('Médico', escapar(d.nombre_medico))}
+      ${fila('Consulta', `<a href="${URL_CONSULTA}${encodeURIComponent(d.id_consulta_cab)}">${escapar(d.numero_consulta)}</a> ${badge(d.estado_consulta)}`)}
+      ${fila('Fecha del diagnóstico', fecha(d.fecha_diagnostico))}
+      ${fila('Tipo de diagnóstico', `${escapar(d.tipo_diagnostico)} <span class="text-muted small">(${escapar(d.categoria_tipo)})</span>`)}
+      ${fila('Pieza dental (FDI)', d.pieza_dental ? escapar(d.pieza_dental) : '—')}
+      <div class="col-12"><div class="text-muted small text-uppercase fw-semibold">Síntomas</div><div>${(d.sintomas || []).map((s) => `<span class="badge bg-light text-muted border me-1">${escapar(s.descripcion_sintoma)}</span>`).join('') || '—'}</div></div>
+      <div class="col-12"><div class="text-muted small text-uppercase fw-semibold">Descripción</div><div style="white-space: pre-wrap;">${escapar(d.descripcion_diagnostico)}</div></div>
+      <div class="col-12"><div class="text-muted small text-uppercase fw-semibold">Observaciones</div><div style="white-space: pre-wrap;">${d.observaciones ? escapar(d.observaciones) : '—'}</div></div>
+    </div>`;
+    modalVer.show();
+  }
+
+  document.addEventListener('click', async (ev) => {
+    const btn = ev.target.closest('button[data-accion]');
+    if (!btn || !btn.closest('#tbodyGlobal, #tbodyConsulta')) return;
+    if (btn.dataset.accion === 'ver') await ver(btn.dataset.id);
+    if (btn.dataset.accion === 'anular') {
+      await L.anular({
+        api: API, id: btn.dataset.id, descripcion: btn.dataset.desc, titulo: '¿Anular este diagnóstico? Es definitivo.', exito: 'Anulado',
+        errorDefault: 'No se pudo anular el diagnóstico.', recargar: ID_CONSULTA ? cargarConsulta : cargarGlobal
+      });
+    }
+  });
+
+  /* ───────── nuevo diagnóstico ───────── */
+  if (PUEDE_NUEVO) {
+    const modalNuevo = bootstrap.Modal.getOrCreateInstance($('modalNuevo'));
+    const selTipo = $('selTipo'), selPieza = $('selPieza');
+    const CAMPOS = { id_tipo_diagnostico: selTipo, pieza_dental: selPieza, descripcion_diagnostico: $('txtDescripcion'), observaciones: $('txtObservaciones') };
+    let sintomas = [], elegidos = new Set();
+
+    /* Piezas FDI: permanentes 11-18, 21-28, 31-38, 41-48 y temporales 51-55, 61-65, 71-75, 81-85 */
+    const NOMBRES_C = { 1: 'superior derecho', 2: 'superior izquierdo', 3: 'inferior izquierdo', 4: 'inferior derecho',
+                        5: 'temporal superior derecho', 6: 'temporal superior izquierdo', 7: 'temporal inferior izquierdo', 8: 'temporal inferior derecho' };
+    [1, 2, 3, 4, 5, 6, 7, 8].forEach((c) => {
+      const g = document.createElement('optgroup');
+      g.label = `${c <= 4 ? 'Permanentes' : 'Temporales'} · cuadrante ${c} (${NOMBRES_C[c]})`;
+      for (let n = 1; n <= (c <= 4 ? 8 : 5); n++) { const o = document.createElement('option'); o.value = c * 10 + n; o.textContent = c * 10 + n; g.appendChild(o); }
+      selPieza.appendChild(g);
+    });
+
+    const marcar = (campo, msg) => {
+      if (campo === 'sintomas') { $('errSintomas').textContent = msg; $('errSintomas').style.display = 'block'; return $('txtBuscarSintoma'); }
+      const el = CAMPOS[campo];
+      if (!el) { $('errDx').textContent = msg; $('errDx').style.display = 'block'; return null; }
+      el.classList.add('is-invalid'); el.parentElement.querySelector('.invalid-feedback').textContent = msg; return el;
+    };
+    const limpiar = () => {
+      Object.values(CAMPOS).forEach((el) => { el.classList.remove('is-invalid'); const fb = el.parentElement.querySelector('.invalid-feedback'); if (fb) fb.textContent = ''; });
+      $('errSintomas').style.display = 'none'; $('errDx').style.display = 'none';
+    };
+    Object.values(CAMPOS).forEach((el) => { el.addEventListener('input', () => el.classList.remove('is-invalid')); el.addEventListener('change', () => el.classList.remove('is-invalid')); });
+
+    function pintarSintomas() {
+      const q = $('txtBuscarSintoma').value.trim().toLowerCase();
+      const visibles = sintomas.filter((s) => !q || s.descripcion_sintoma.toLowerCase().indexOf(q) >= 0);
+      $('listaSintomas').innerHTML = visibles.length ? visibles.map((s) => `<label class="form-check mb-1"><input class="form-check-input" type="checkbox" data-sintoma="${escapar(s.id_sintoma)}" ${elegidos.has(s.id_sintoma) ? 'checked' : ''}>
+        <span class="form-check-label">${escapar(s.descripcion_sintoma)}</span></label>`).join('') : '<div class="text-muted small">No hay síntomas para esa búsqueda.</div>';
+      $('contadorSintomas').textContent = elegidos.size === 1 ? '1 elegido' : `${elegidos.size} elegidos`;
+    }
+    $('txtBuscarSintoma').addEventListener('input', pintarSintomas);
+    $('listaSintomas').addEventListener('change', (ev) => {
+      const cb = ev.target.closest('input[data-sintoma]');
+      if (!cb) return;
+      const id = parseInt(cb.dataset.sintoma, 10);
+      if (cb.checked) elegidos.add(id); else elegidos.delete(id);
+      $('errSintomas').style.display = 'none';
+      $('contadorSintomas').textContent = elegidos.size === 1 ? '1 elegido' : `${elegidos.size} elegidos`;
+    });
+
+    async function cargarCombos() {
+      const [t, s] = await Promise.all([pedir('/api/v1/diagnosticos'), pedir('/api/v1/sintomas')]);
+      selTipo.innerHTML = '<option value="">Seleccione…</option>' + ((t.data && t.data.data) || []).map((x) => `<option value="${escapar(x.id_tipo_diagnostico)}">${escapar(x.descripcion_diagnostico)} (${escapar(x.tipo_diagnostico)})</option>`).join('');
+      sintomas = (s.data && s.data.data) || [];
+    }
+
+    $('btnNuevo').addEventListener('click', async () => {
+      limpiar();
+      Object.values(CAMPOS).forEach((el) => { el.value = ''; });
+      elegidos = new Set(); $('txtBuscarSintoma').value = '';
+      await cargarCombos();
+      pintarSintomas();
+      modalNuevo.show();
+    });
+
+    $('formDx').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      limpiar();
+      const valores = {
+        id_tipo_diagnostico: selTipo.value, sintomas: Array.from(elegidos), descripcion_diagnostico: $('txtDescripcion').value,
+        pieza_dental: selPieza.value, observaciones: $('txtObservaciones').value
+      };
+      const errores = CV.diagnostico(valores);
+      const claves = Object.keys(errores);
+      if (claves.length) {
+        let primero = null;
+        claves.forEach((k) => { const el = marcar(k, errores[k]); primero = primero || el; });
+        if (primero) primero.focus();
+        return;
+      }
+      const boton = $('btnGuardar');
+      boton.disabled = true;
+      try {
+        const { data } = await pedir(API, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(Object.assign({ id_consulta_cab: parseInt(ID_CONSULTA, 10) }, valores))
+        });
+        if (data && data.success) {
+          modalNuevo.hide();
+          await Swal.fire({ icon: 'success', title: 'Diagnóstico registrado', text: data.mensaje, timer: 2200, showConfirmButton: false });
+          await cargarConsulta();
+          await iniciarConsultaEstado();
+        } else {
+          const el = marcar((data && data.campo) || 'general', (data && data.error) || 'No se pudo registrar el diagnóstico.');
+          if (el) el.focus();
+        }
+      } catch (e) {
+        marcar('general', 'Ocurrió un error de conexión. Intente nuevamente.');
+      } finally { boton.disabled = false; }
+    });
+  }
+
+  async function iniciarConsultaEstado() { /* tras guardar se vuelve a leer el estado de la consulta (pudo cerrarse mientras se cargaba) */
+    try {
+      const { data } = await pedir(`/api/v1/consultas/${ID_CONSULTA}/resumen`);
+      if (data && data.success) { estadoConsulta = data.data; $('cBadge').innerHTML = badge(estadoConsulta.consulta.estado); }
+    } catch (e) { /* no bloquea */ }
+  }
+
+  /* ───────── arranque ───────── */
+  if (ID_CONSULTA) { iniciarConsulta(); } else { $('seccionGlobal').style.display = 'block'; cargarGlobal(); }
+})();
+</script>
+{% endblock %}

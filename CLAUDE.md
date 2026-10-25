@@ -1382,7 +1382,7 @@ Plan aprobado: `plan_etapa3.md` (sin versionar). **Decisiones de negocio confirm
 - Tests: `smoke_consulta_vistas.py` (acceso por rol y por médico, Tabler sin jQuery, qué tarjetas ve cada rol, baja real por HTTP con el id de la vista) y `browser_consulta.py` (Edge headless con
   fetch simulado: listado, filtros, paginación, Nueva Consulta, atención de la consulta en 4 escenarios —médico programada, médico con ficha, Recepción, finalizada— y Fichas).
 
-### Etapa 4 (en curso): Diagnóstico y Odontograma — commit 1 hecho (base + backend)
+### Etapa 4 (hecha): Diagnóstico y Odontograma
 Plan: `plan_etapa4.md`. **Decisiones confirmadas:** pieza dental del diagnóstico **opcional** (si se carga, FDI válida); la **fecha del diagnóstico la fija el servidor** (no editable);
 quitar un hallazgo del odontograma = **baja lógica del renglón** (`activo = false`, no borrado físico); un odontograma sin hallazgos se permite; la acción `editar` de la ventana Odontograma se
 agregó al catálogo y solo la tiene el rol Médico.
@@ -1404,7 +1404,20 @@ agregó al catálogo y solo la tiene el rol Médico.
 - `acceso_consulta()` en `modulo_consultorio/utils.py`: la consulta existe y, si el usuario es médico, es suya (lo usan Ficha, Diagnóstico y Odontograma).
 - Tests: `smoke_diagnostico.py` (117 chequeos, con las carreras del tipo / síntoma / consulta que se anulan mientras se guarda) y `smoke_odontograma.py` (137, con la precarga y los duplicados).
   `smoke_migracion02.py` quedó solo con las secciones de esquema, permisos y consulta (lo demás lo cubren los tests nuevos).
-- ⚠️ Hasta el commit 2 las pantallas `diagnosticos-medicos-index.html` y `odontograma-index.html` siguen siendo las viejas (SB Admin 2) y no funcionan con la API nueva.
+**Commit 2 (hecho): vistas Tabler**
+- `diagnostico-index.html` (reemplaza `diagnosticos-medicos-index.html`, 1.178 líneas SB Admin 2 + jQuery): **sin `?consulta=`** = listado con filtros (código, paciente o CI, fechas) y paginación en el servidor, `Ver` (modal con
+  tipo, síntomas, descripción, pieza y observaciones) y `Anular`; **con `?consulta=<id>`** (desde la Atención de la consulta) = tarjeta de la consulta, "Volver a la consulta", los diagnósticos de esa consulta y el modal
+  **Nuevo diagnóstico** (tipo, selector de síntomas con búsqueda y contador, pieza FDI en un selector de 8 cuadrantes, descripción, observaciones; mismas validaciones que el servidor con `consultorio-validadores.js`).
+  Las rutas pasan `es_medico` al template: solo un usuario vinculado a un médico ve "Nuevo" y "Anular" (el Administrador, no).
+- `odontograma-index.html` (reemplaza las 1.208 líneas viejas): **listado** (sin `?consulta=`) y **odontograma visual** (con `?consulta=<id>`): SVG generado en el navegador con las piezas FDI en dos arcadas y cuatro
+  cuadrantes (+ interruptor de dentición temporal: 32 piezas permanentes, 52 con las temporales), cada pieza con sus 5 superficies (V hacia afuera, M hacia la línea media, O al centro) y un contorno para los hallazgos
+  de pieza completa; **el color de cada superficie / contorno es `estado_dental.color`**, con el símbolo y una leyenda; clic en una superficie (o en el número = pieza completa) abre el panel de la pieza (estados filtrados por
+  `aplica_a`, observación, Agregar y Quitar con confirmación); tabla con todos los hallazgos; "Crear odontograma" (precargado) y "Anular odontograma" (definitivo). **Para pulir el diseño** (Antigravity): el dibujo está en
+  `dibujarPieza()` / `pintarOdontograma()` y las clases `.odo-*` del `<style>` de la plantilla (variables `--odo-*`); la lógica no depende de esas clases.
+- Los destinos que faltan migrar (Tratamientos, Recetas, Órdenes, Justificativo) siguen con `?consulta=` y todavía no tienen "Volver a la consulta" (etapas 5 a 7).
+- Tests: `smoke_diag_odo_vistas.py` (acceso por rol, Tabler sin jQuery, quién ve cada botón, baja real por HTTP con el id de la vista) y `browser_diag_odontograma.py` (Edge headless, 8 escenarios: listados, diagnóstico en la
+  consulta con alta y rechazo del servidor, lectura, odontograma sin crear / editor / solo lectura; verifica las 32 y 52 piezas, la orientación M/D y V/L por cuadrante, el color por estado, el filtrado de estados por pieza o
+  superficie, agregar / quitar y anular).
 
 ### Etapa 2 (hecha): Tipo Diagnóstico y Síntomas
 - Mismo `CatalogoDao` y `crear_api_catalogo` que la etapa 1 (ahora con `FECHA = False`: estas dos tablas no tienen `fecha_registro`). **Tipo Diagnóstico** lleva
