@@ -7,8 +7,7 @@ class TipoProcedimientoMedicoDao:
     DAO para la referencial 'Tipo Procedimiento Médico' (tabla
     `tipo_procedimiento_medico`).
 
-    `estaEnUso()` valida contra `consultas_detalle` y contra
-    `sesiones_tratamiento` (Gestionar Procedimientos e Insumos Utilizados).
+    `estaEnUso()` valida contra `sesiones_tratamiento` (Gestionar Procedimientos e Insumos Utilizados).
     """
 
     def getTiposProcedimientoMedico(self):
@@ -135,18 +134,17 @@ class TipoProcedimientoMedicoDao:
 
     def estaEnUso(self, id_tipo_procedimiento):
         """
-        Indica si el tipo de procedimiento médico está referenciado en algún
-        detalle de consulta o en alguna sesión de tratamiento activa.
+        Indica si el tipo de procedimiento médico está referenciado en alguna
+        sesión de tratamiento activa.
         """
         sql = """
-            SELECT EXISTS(SELECT 1 FROM consultas_detalle WHERE id_tipo_procedimiento = %s)
-                OR EXISTS(SELECT 1 FROM sesiones_tratamiento WHERE id_tipo_procedimiento = %s AND activo = true)
+            SELECT EXISTS(SELECT 1 FROM sesiones_tratamiento WHERE id_tipo_procedimiento = %s AND activo = true)
         """
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(sql, (id_tipo_procedimiento, id_tipo_procedimiento))
+            cur.execute(sql, (id_tipo_procedimiento,))
             return bool(cur.fetchone()[0])
         except Exception as e:
             app.logger.error(f"Error al verificar uso de tipo de procedimiento médico: {str(e)}")
@@ -162,7 +160,7 @@ class TipoProcedimientoMedicoDao:
 
         Returns:
             bool | str: True si se anuló, False si no existía, "EN_USO" si
-            está en uso en algún detalle de consulta.
+            está en uso en alguna sesión de tratamiento.
         """
         if self.estaEnUso(id_tipo_procedimiento):
             app.logger.warning(f"No se puede eliminar tipo de procedimiento médico {id_tipo_procedimiento}: está en uso")

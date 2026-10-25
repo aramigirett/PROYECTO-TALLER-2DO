@@ -129,10 +129,9 @@ class TipoDiagnosticoDao:
             con.close()
 
     def estaEnUso(self, id_tipo_diagnostico):
-        """Indica si el tipo de diagnóstico está referenciado en consultas, diagnósticos o tratamientos."""
+        """Indica si el tipo de diagnóstico está referenciado en diagnósticos o tratamientos."""
         sql = """
         SELECT
-            EXISTS(SELECT 1 FROM consultas_detalle WHERE id_tipo_diagnostico = %s) AS en_consultas,
             EXISTS(SELECT 1 FROM diagnosticos WHERE id_tipo_diagnostico = %s) AS en_diagnosticos,
             EXISTS(SELECT 1 FROM tratamientos WHERE id_tipo_diagnostico = %s) AS en_tratamientos
         """
@@ -140,9 +139,9 @@ class TipoDiagnosticoDao:
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(sql, (id_tipo_diagnostico, id_tipo_diagnostico, id_tipo_diagnostico))
-            en_consultas, en_diagnosticos, en_tratamientos = cur.fetchone()
-            return bool(en_consultas or en_diagnosticos or en_tratamientos)
+            cur.execute(sql, (id_tipo_diagnostico, id_tipo_diagnostico))
+            en_diagnosticos, en_tratamientos = cur.fetchone()
+            return bool(en_diagnosticos or en_tratamientos)
         except Exception as e:
             app.logger.error(f"Error al verificar uso del tipo de diagnóstico: {str(e)}")
             return True  # Ante la duda, bloquear el borrado
@@ -156,7 +155,7 @@ class TipoDiagnosticoDao:
 
         Returns:
             bool | str: True si se eliminó, False si no existía, "EN_USO" si está
-            en uso en consultas, diagnósticos o tratamientos.
+            en uso en diagnósticos o tratamientos.
         """
         if self.estaEnUso(id_diagnostico):
             app.logger.warning(f"No se puede eliminar tipo de diagnóstico {id_diagnostico}: está en uso")

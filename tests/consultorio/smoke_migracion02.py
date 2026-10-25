@@ -229,7 +229,7 @@ try:
     cu.execute("UPDATE consultas_cab SET estado='finalizada' WHERE id_consulta_cab=%s", (id_consulta,)); cx.commit()
     r = c.post('/api/v1/diagnosticos-medicos', json=base)
     chk('consulta finalizada: no admite diagnósticos (409)', r.status_code == 409)
-    cu.execute("UPDATE odontograma SET estado='Inactivo' WHERE id_odontograma=%s", (odontos[-1],)); cx.commit()
+    cu.execute("UPDATE odontograma SET estado='Inactivo', activo=false WHERE id_odontograma=%s", (odontos[-1],)); cx.commit()
     r = c.post('/api/v1/odontogramas', json={'id_consulta_cab': id_consulta})
     chk('consulta finalizada: no admite odontogramas (409)', r.status_code == 409)
 finally:

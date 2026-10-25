@@ -1,0 +1,404 @@
+-- Módulo Consultorio: estructura completa (23 tablas) para reconstruir la base desde cero. Idempotente (CREATE ... IF NOT EXISTS);
+-- se corre como postgres con PGCLIENTENCODING=UTF8. Generada a partir de la base real `odontosisbd` (etapa 0 de la migración a Tabler).
+--
+-- DEPENDE de las tablas de Agendamiento y Seguridad (paciente, medico, funcionario, consultorio, cita_detalle, usuarios), que se
+-- crean antes (sus CREATE TABLE tampoco están versionados todavía). Después de este script: schema_tipo_tratamiento_precio.sql y
+-- schema_tipo_tratamiento_iva.sql (seed de tratamientos), schema_permisos_*.sql y schema_usuario_app.sql (permisos de la app).
+--
+-- Una base que ya existe NO necesita este script: usa schema_consultorio_etapa0.sql. `consultas_detalle` ya no existe (superada por
+-- Diagnóstico, Tratamiento y Sesiones). `odontograma.estado` se retira en la etapa 4 (queda solo `activo`).
+
+CREATE OR REPLACE FUNCTION update_updated_at_column() RETURNS trigger AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TABLE IF NOT EXISTS consultas_cab (
+    id_consulta_cab SERIAL,
+    id_cita integer NOT NULL,
+    id_paciente integer NOT NULL,
+    id_medico integer NOT NULL,
+    id_consultorio integer NOT NULL,
+    id_funcionario integer NOT NULL,
+    fecha_cita date NOT NULL,
+    hora_cita time without time zone NOT NULL,
+    duracion_minutos integer,
+    estado character varying(20) DEFAULT 'programada'::character varying,
+    fecha_registro timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    activo boolean DEFAULT true,
+    CONSTRAINT chk_estado_consulta CHECK (((estado)::text = ANY ((ARRAY['programada'::character varying, 'en_proceso'::character varying, 'finalizada'::character varying, 'cancelada'::character varying])::text[]))),
+    CONSTRAINT consultas_cab_pkey PRIMARY KEY (id_consulta_cab),
+    CONSTRAINT uk_consulta_cita UNIQUE (id_cita),
+    CONSTRAINT fk_consulta_cita FOREIGN KEY (id_cita) REFERENCES cita_detalle(id_cita_detalle) ON UPDATE CASCADE ON DELETE RESTRICT,
+    CONSTRAINT fk_consulta_consultorio FOREIGN KEY (id_consultorio) REFERENCES consultorio(codigo),
+    CONSTRAINT fk_consulta_funcionario FOREIGN KEY (id_funcionario) REFERENCES funcionario(id_funcionario) ON UPDATE CASCADE ON DELETE RESTRICT,
+    CONSTRAINT fk_consulta_medico FOREIGN KEY (id_medico) REFERENCES medico(id_medico),
+    CONSTRAINT fk_consulta_paciente FOREIGN KEY (id_paciente) REFERENCES paciente(id_paciente)
+);
+CREATE INDEX IF NOT EXISTS idx_consulta_fecha ON consultas_cab USING btree (fecha_cita);
+CREATE INDEX IF NOT EXISTS idx_consulta_medico ON consultas_cab USING btree (id_medico);
+CREATE INDEX IF NOT EXISTS idx_consulta_paciente ON consultas_cab USING btree (id_paciente);
+
+CREATE TABLE IF NOT EXISTS estado_dental (
+    id_estado_dental SERIAL,
+    descripcion character varying(100) NOT NULL,
+    color character varying(7) NOT NULL,
+    simbolo character varying(10),
+    activo boolean DEFAULT true NOT NULL,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT estado_dental_pkey PRIMARY KEY (id_estado_dental),
+    CONSTRAINT estado_dental_descripcion_key UNIQUE (descripcion)
+);
+
+CREATE TABLE IF NOT EXISTS insumos (
+    id_insumo SERIAL,
+    descripcion character varying(200) NOT NULL,
+    presentacion character varying(100),
+    fecha_registro timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    activo boolean DEFAULT true,
+    CONSTRAINT insumos_pkey PRIMARY KEY (id_insumo)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_insumos_descripcion ON insumos USING btree (upper((descripcion)::text)) WHERE (activo = true);
+
+CREATE TABLE IF NOT EXISTS medicamentos (
+    id_medicamento integer GENERATED ALWAYS AS IDENTITY,
+    nombre_comercial character varying(200) NOT NULL,
+    presentacion character varying(100),
+    fecha_registro timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    activo boolean DEFAULT true,
+    CONSTRAINT medicamentos_pkey PRIMARY KEY (id_medicamento)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_medicamento_nombre_comercial ON medicamentos USING btree (upper((nombre_comercial)::text)) WHERE (activo = true);
+
+CREATE TABLE IF NOT EXISTS sintoma (
+    id_sintoma SERIAL,
+    descripcion_sintoma character varying(255) NOT NULL,
+    activo boolean DEFAULT true NOT NULL,
+    CONSTRAINT sintoma_pkey PRIMARY KEY (id_sintoma)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_sintoma_descripcion_activo ON sintoma USING btree (upper((descripcion_sintoma)::text)) WHERE (activo = true);
+
+CREATE TABLE IF NOT EXISTS tipo_analisis (
+    id_tipo_analisis integer GENERATED ALWAYS AS IDENTITY,
+    descripcion character varying(200) NOT NULL,
+    fecha_registro timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    activo boolean DEFAULT true,
+    CONSTRAINT tipo_analisis_pkey PRIMARY KEY (id_tipo_analisis)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_tipo_analisis_descripcion ON tipo_analisis USING btree (upper((descripcion)::text)) WHERE (activo = true);
+
+CREATE TABLE IF NOT EXISTS tipo_diagnostico (
+    id_tipo_diagnostico SERIAL,
+    descripcion_diagnostico character varying(150) NOT NULL,
+    tipo_diagnostico character varying(100) NOT NULL,
+    activo boolean DEFAULT true NOT NULL,
+    CONSTRAINT tipo_diagnostico_pkey PRIMARY KEY (id_tipo_diagnostico)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_tipo_diagnostico_descripcion_activo ON tipo_diagnostico USING btree (upper((descripcion_diagnostico)::text)) WHERE (activo = true);
+
+CREATE TABLE IF NOT EXISTS tipo_estudio (
+    id_tipo_estudio integer GENERATED ALWAYS AS IDENTITY,
+    descripcion character varying(200) NOT NULL,
+    fecha_registro timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    activo boolean DEFAULT true,
+    CONSTRAINT tipo_estudio_pkey PRIMARY KEY (id_tipo_estudio)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_tipo_estudio_descripcion ON tipo_estudio USING btree (upper((descripcion)::text)) WHERE (activo = true);
+
+CREATE TABLE IF NOT EXISTS tipo_procedimiento_medico (
+    id_tipo_procedimiento integer GENERATED ALWAYS AS IDENTITY,
+    descripcion character varying(200) NOT NULL,
+    fecha_registro timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    activo boolean DEFAULT true,
+    CONSTRAINT tipo_procedimiento_medico_pkey PRIMARY KEY (id_tipo_procedimiento)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_tipo_proc_descripcion ON tipo_procedimiento_medico USING btree (upper((descripcion)::text)) WHERE (activo = true);
+
+CREATE TABLE IF NOT EXISTS tipos_tratamiento (
+    id_tipo_tratamiento SERIAL,
+    descripcion character varying(200) NOT NULL,
+    fecha_registro timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    activo boolean DEFAULT true,
+    precio numeric(12,0) NOT NULL,
+    iva smallint DEFAULT 10 NOT NULL,
+    CONSTRAINT chk_tipos_tratamiento_iva CHECK ((iva = ANY (ARRAY[0, 5, 10]))),
+    CONSTRAINT chk_tipos_tratamiento_precio CHECK ((precio > (0)::numeric)),
+    CONSTRAINT tipos_tratamiento_pkey PRIMARY KEY (id_tipo_tratamiento)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_tipo_trat_descripcion ON tipos_tratamiento USING btree (upper((descripcion)::text)) WHERE (activo = true);
+
+CREATE TABLE IF NOT EXISTS diagnosticos (
+    id_diagnostico SERIAL,
+    codigo character varying(20),
+    id_paciente integer NOT NULL,
+    id_medico integer NOT NULL,
+    id_tipo_diagnostico integer NOT NULL,
+    descripcion_diagnostico text NOT NULL,
+    pieza_dental character varying(10),
+    fecha_diagnostico date NOT NULL,
+    observaciones text,
+    fecha_registro timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    id_usuario_registro integer,
+    activo boolean DEFAULT true,
+    id_consulta_cab integer NOT NULL,
+    CONSTRAINT diagnosticos_pkey PRIMARY KEY (id_diagnostico),
+    CONSTRAINT diagnosticos_codigo_key UNIQUE (codigo),
+    CONSTRAINT fk_diag_consulta FOREIGN KEY (id_consulta_cab) REFERENCES consultas_cab(id_consulta_cab) ON DELETE RESTRICT,
+    CONSTRAINT fk_diag_medico FOREIGN KEY (id_medico) REFERENCES medico(id_medico),
+    CONSTRAINT fk_diag_paciente FOREIGN KEY (id_paciente) REFERENCES paciente(id_paciente),
+    CONSTRAINT fk_diag_tipo FOREIGN KEY (id_tipo_diagnostico) REFERENCES tipo_diagnostico(id_tipo_diagnostico),
+    CONSTRAINT fk_diag_usuario_registro FOREIGN KEY (id_usuario_registro) REFERENCES usuarios(id_usuario) ON DELETE RESTRICT
+);
+CREATE INDEX IF NOT EXISTS idx_diag_consulta ON diagnosticos USING btree (id_consulta_cab);
+CREATE INDEX IF NOT EXISTS idx_diag_fecha ON diagnosticos USING btree (fecha_diagnostico);
+CREATE INDEX IF NOT EXISTS idx_diag_medico ON diagnosticos USING btree (id_medico);
+CREATE INDEX IF NOT EXISTS idx_diag_paciente ON diagnosticos USING btree (id_paciente);
+CREATE INDEX IF NOT EXISTS idx_diag_tipo ON diagnosticos USING btree (id_tipo_diagnostico);
+
+CREATE TABLE IF NOT EXISTS ficha_medica_consulta (
+    id_ficha_medica SERIAL,
+    id_consulta_cab integer NOT NULL,
+    presion_arterial character varying(20),
+    temperatura numeric(4,2),
+    frecuencia_cardiaca integer,
+    frecuencia_respiratoria integer,
+    peso numeric(5,2),
+    talla numeric(5,2),
+    imc numeric(5,2),
+    examen_fisico_general text,
+    examen_bucal text,
+    observaciones_medico text,
+    fecha_registro timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    activo boolean DEFAULT true,
+    CONSTRAINT ficha_medica_consulta_pkey PRIMARY KEY (id_ficha_medica),
+    CONSTRAINT fk_ficha_consulta FOREIGN KEY (id_consulta_cab) REFERENCES consultas_cab(id_consulta_cab) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_ficha_consulta ON ficha_medica_consulta USING btree (id_consulta_cab);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_ficha_medica_consulta_activa ON ficha_medica_consulta USING btree (id_consulta_cab) WHERE (activo = true);
+
+CREATE TABLE IF NOT EXISTS odontograma (
+    id_odontograma SERIAL,
+    id_paciente integer NOT NULL,
+    id_medico integer NOT NULL,
+    fecha_registro date DEFAULT CURRENT_DATE NOT NULL,
+    observaciones text,
+    estado character varying(20) DEFAULT 'Activo'::character varying NOT NULL,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    id_consulta_cab integer NOT NULL,
+    activo boolean DEFAULT true NOT NULL,
+    CONSTRAINT odontograma_estado_check CHECK (((estado)::text = ANY ((ARRAY['Activo'::character varying, 'Finalizado'::character varying, 'Inactivo'::character varying])::text[]))),
+    CONSTRAINT odontograma_pkey PRIMARY KEY (id_odontograma),
+    CONSTRAINT odontograma_id_consulta_cab_fkey FOREIGN KEY (id_consulta_cab) REFERENCES consultas_cab(id_consulta_cab) ON DELETE RESTRICT,
+    CONSTRAINT odontograma_id_medico_fkey FOREIGN KEY (id_medico) REFERENCES medico(id_medico) ON UPDATE CASCADE ON DELETE RESTRICT,
+    CONSTRAINT odontograma_id_paciente_fkey FOREIGN KEY (id_paciente) REFERENCES paciente(id_paciente) ON UPDATE CASCADE ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_odontograma_consulta ON odontograma USING btree (id_consulta_cab);
+CREATE INDEX IF NOT EXISTS idx_odontograma_estado ON odontograma USING btree (estado);
+CREATE INDEX IF NOT EXISTS idx_odontograma_fecha ON odontograma USING btree (fecha_registro);
+CREATE INDEX IF NOT EXISTS idx_odontograma_medico ON odontograma USING btree (id_medico);
+CREATE INDEX IF NOT EXISTS idx_odontograma_paciente ON odontograma USING btree (id_paciente);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_odontograma_consulta_activo ON odontograma USING btree (id_consulta_cab) WHERE (activo = true);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_odontograma_consulta_vigente ON odontograma USING btree (id_consulta_cab) WHERE ((estado)::text <> 'Inactivo'::text);
+
+CREATE TABLE IF NOT EXISTS diagnostico_sintoma (
+    id_diagnostico integer NOT NULL,
+    id_sintoma integer NOT NULL,
+    CONSTRAINT diagnostico_sintoma_pkey PRIMARY KEY (id_diagnostico, id_sintoma),
+    CONSTRAINT diagnostico_sintoma_id_diagnostico_fkey FOREIGN KEY (id_diagnostico) REFERENCES diagnosticos(id_diagnostico) ON DELETE CASCADE,
+    CONSTRAINT diagnostico_sintoma_id_sintoma_fkey FOREIGN KEY (id_sintoma) REFERENCES sintoma(id_sintoma) ON DELETE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS justificativo_medico (
+    id_justificativo SERIAL,
+    id_consulta_cab integer NOT NULL,
+    id_diagnostico integer,
+    dias_reposo integer NOT NULL,
+    recomendaciones text,
+    fecha_justificativo date DEFAULT CURRENT_DATE NOT NULL,
+    estado character varying(20) DEFAULT 'activo'::character varying NOT NULL,
+    fecha_registro timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT justificativo_medico_dias_reposo_check CHECK ((dias_reposo > 0)),
+    CONSTRAINT justificativo_medico_estado_check CHECK (((estado)::text = ANY ((ARRAY['activo'::character varying, 'anulado'::character varying])::text[]))),
+    CONSTRAINT justificativo_medico_pkey PRIMARY KEY (id_justificativo),
+    CONSTRAINT justificativo_medico_id_consulta_cab_fkey FOREIGN KEY (id_consulta_cab) REFERENCES consultas_cab(id_consulta_cab) ON DELETE RESTRICT,
+    CONSTRAINT justificativo_medico_id_diagnostico_fkey FOREIGN KEY (id_diagnostico) REFERENCES diagnosticos(id_diagnostico) ON DELETE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS odontograma_detalle (
+    id_odontograma_detalle SERIAL,
+    id_odontograma integer NOT NULL,
+    numero_diente integer NOT NULL,
+    id_estado_dental integer NOT NULL,
+    superficie character varying(2) NOT NULL,
+    observacion text,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT odontograma_detalle_pkey PRIMARY KEY (id_odontograma_detalle),
+    CONSTRAINT uk_odontograma_diente_superficie UNIQUE (id_odontograma, numero_diente, superficie, id_estado_dental),
+    CONSTRAINT odontograma_detalle_id_estado_dental_fkey FOREIGN KEY (id_estado_dental) REFERENCES estado_dental(id_estado_dental) ON UPDATE CASCADE ON DELETE RESTRICT,
+    CONSTRAINT odontograma_detalle_id_odontograma_fkey FOREIGN KEY (id_odontograma) REFERENCES odontograma(id_odontograma) ON UPDATE CASCADE ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_detalle_diente ON odontograma_detalle USING btree (numero_diente);
+CREATE INDEX IF NOT EXISTS idx_detalle_odontograma ON odontograma_detalle USING btree (id_odontograma);
+
+CREATE TABLE IF NOT EXISTS tratamientos (
+    id_tratamiento SERIAL,
+    codigo character varying(10),
+    id_consulta_cab integer NOT NULL,
+    id_diagnostico integer,
+    id_paciente integer NOT NULL,
+    id_medico integer NOT NULL,
+    id_consultorio integer,
+    id_funcionario integer,
+    id_tipo_diagnostico integer,
+    id_tipo_tratamiento integer NOT NULL,
+    descripcion_tratamiento text NOT NULL,
+    fecha_tratamiento date NOT NULL,
+    estado character varying(20) DEFAULT 'pendiente'::character varying,
+    fecha_registro timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_estado_trat CHECK (((estado)::text = ANY ((ARRAY['pendiente'::character varying, 'en_seguimiento'::character varying, 'finalizado'::character varying, 'cancelado'::character varying])::text[]))),
+    CONSTRAINT tratamientos_pkey PRIMARY KEY (id_tratamiento),
+    CONSTRAINT tratamientos_codigo_key UNIQUE (codigo),
+    CONSTRAINT fk_trat_consulta FOREIGN KEY (id_consulta_cab) REFERENCES consultas_cab(id_consulta_cab),
+    CONSTRAINT fk_trat_consultorio FOREIGN KEY (id_consultorio) REFERENCES consultorio(codigo),
+    CONSTRAINT fk_trat_diagnostico FOREIGN KEY (id_diagnostico) REFERENCES diagnosticos(id_diagnostico),
+    CONSTRAINT fk_trat_funcionario FOREIGN KEY (id_funcionario) REFERENCES funcionario(id_funcionario) ON UPDATE CASCADE ON DELETE RESTRICT,
+    CONSTRAINT fk_trat_medico FOREIGN KEY (id_medico) REFERENCES medico(id_medico),
+    CONSTRAINT fk_trat_paciente FOREIGN KEY (id_paciente) REFERENCES paciente(id_paciente),
+    CONSTRAINT fk_trat_tipo_diag FOREIGN KEY (id_tipo_diagnostico) REFERENCES tipo_diagnostico(id_tipo_diagnostico),
+    CONSTRAINT fk_trat_tipo_trat FOREIGN KEY (id_tipo_tratamiento) REFERENCES tipos_tratamiento(id_tipo_tratamiento)
+);
+CREATE INDEX IF NOT EXISTS idx_trat_consulta ON tratamientos USING btree (id_consulta_cab);
+CREATE INDEX IF NOT EXISTS idx_trat_diagnostico ON tratamientos USING btree (id_diagnostico);
+CREATE INDEX IF NOT EXISTS idx_trat_fecha ON tratamientos USING btree (fecha_tratamiento);
+CREATE INDEX IF NOT EXISTS idx_trat_medico ON tratamientos USING btree (id_medico);
+CREATE INDEX IF NOT EXISTS idx_trat_paciente ON tratamientos USING btree (id_paciente);
+CREATE INDEX IF NOT EXISTS idx_trat_tipo_trat ON tratamientos USING btree (id_tipo_tratamiento);
+
+CREATE TABLE IF NOT EXISTS orden_analisis (
+    id_orden_analisis SERIAL,
+    id_consulta_cab integer NOT NULL,
+    id_diagnostico integer,
+    id_tratamiento integer,
+    id_tipo_analisis integer NOT NULL,
+    motivo_orden text NOT NULL,
+    indicaciones text,
+    fecha_orden date DEFAULT CURRENT_DATE NOT NULL,
+    estado character varying(20) DEFAULT 'pendiente'::character varying NOT NULL,
+    fecha_registro timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT orden_analisis_estado_check CHECK (((estado)::text = ANY ((ARRAY['pendiente'::character varying, 'enviado'::character varying, 'en_proceso'::character varying, 'completado'::character varying, 'cancelado'::character varying])::text[]))),
+    CONSTRAINT orden_analisis_pkey PRIMARY KEY (id_orden_analisis),
+    CONSTRAINT orden_analisis_id_consulta_cab_fkey FOREIGN KEY (id_consulta_cab) REFERENCES consultas_cab(id_consulta_cab) ON DELETE RESTRICT,
+    CONSTRAINT orden_analisis_id_diagnostico_fkey FOREIGN KEY (id_diagnostico) REFERENCES diagnosticos(id_diagnostico) ON DELETE RESTRICT,
+    CONSTRAINT orden_analisis_id_tipo_analisis_fkey FOREIGN KEY (id_tipo_analisis) REFERENCES tipo_analisis(id_tipo_analisis) ON DELETE RESTRICT,
+    CONSTRAINT orden_analisis_id_tratamiento_fkey FOREIGN KEY (id_tratamiento) REFERENCES tratamientos(id_tratamiento) ON DELETE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS orden_estudios (
+    id_orden_estudio SERIAL,
+    id_consulta_cab integer NOT NULL,
+    id_diagnostico integer,
+    id_tratamiento integer,
+    id_tipo_estudio integer NOT NULL,
+    motivo_orden text NOT NULL,
+    indicaciones text,
+    fecha_orden date DEFAULT CURRENT_DATE NOT NULL,
+    estado character varying(20) DEFAULT 'pendiente'::character varying NOT NULL,
+    fecha_registro timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT orden_estudios_estado_check CHECK (((estado)::text = ANY ((ARRAY['pendiente'::character varying, 'enviado'::character varying, 'en_proceso'::character varying, 'completado'::character varying, 'cancelado'::character varying])::text[]))),
+    CONSTRAINT orden_estudios_pkey PRIMARY KEY (id_orden_estudio),
+    CONSTRAINT orden_estudios_id_consulta_cab_fkey FOREIGN KEY (id_consulta_cab) REFERENCES consultas_cab(id_consulta_cab) ON DELETE RESTRICT,
+    CONSTRAINT orden_estudios_id_diagnostico_fkey FOREIGN KEY (id_diagnostico) REFERENCES diagnosticos(id_diagnostico) ON DELETE RESTRICT,
+    CONSTRAINT orden_estudios_id_tipo_estudio_fkey FOREIGN KEY (id_tipo_estudio) REFERENCES tipo_estudio(id_tipo_estudio) ON DELETE RESTRICT,
+    CONSTRAINT orden_estudios_id_tratamiento_fkey FOREIGN KEY (id_tratamiento) REFERENCES tratamientos(id_tratamiento) ON DELETE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS recetas (
+    id_receta SERIAL,
+    id_consulta_cab integer NOT NULL,
+    id_diagnostico integer,
+    id_tratamiento integer,
+    indicaciones_generales text NOT NULL,
+    fecha_receta date DEFAULT CURRENT_DATE NOT NULL,
+    activo boolean DEFAULT true,
+    fecha_registro timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT recetas_pkey PRIMARY KEY (id_receta),
+    CONSTRAINT recetas_id_consulta_cab_fkey FOREIGN KEY (id_consulta_cab) REFERENCES consultas_cab(id_consulta_cab) ON DELETE RESTRICT,
+    CONSTRAINT recetas_id_diagnostico_fkey FOREIGN KEY (id_diagnostico) REFERENCES diagnosticos(id_diagnostico) ON DELETE RESTRICT,
+    CONSTRAINT recetas_id_tratamiento_fkey FOREIGN KEY (id_tratamiento) REFERENCES tratamientos(id_tratamiento) ON DELETE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS sesiones_tratamiento (
+    id_sesion SERIAL,
+    id_tratamiento integer NOT NULL,
+    numero_sesion integer NOT NULL,
+    id_tipo_procedimiento integer NOT NULL,
+    fecha_sesion date DEFAULT CURRENT_DATE NOT NULL,
+    descripcion_procedimiento text NOT NULL,
+    observaciones text,
+    proxima_cita date,
+    activo boolean DEFAULT true,
+    fecha_registro timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT sesiones_tratamiento_pkey PRIMARY KEY (id_sesion),
+    CONSTRAINT sesiones_tratamiento_id_tipo_procedimiento_fkey FOREIGN KEY (id_tipo_procedimiento) REFERENCES tipo_procedimiento_medico(id_tipo_procedimiento) ON DELETE RESTRICT,
+    CONSTRAINT sesiones_tratamiento_id_tratamiento_fkey FOREIGN KEY (id_tratamiento) REFERENCES tratamientos(id_tratamiento) ON DELETE RESTRICT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_sesion_tratamiento_numero ON sesiones_tratamiento USING btree (id_tratamiento, numero_sesion) WHERE (activo = true);
+
+CREATE TABLE IF NOT EXISTS receta_medicamento (
+    id_receta_medicamento SERIAL,
+    id_receta integer NOT NULL,
+    id_medicamento integer NOT NULL,
+    dosis character varying(100) NOT NULL,
+    frecuencia character varying(100) NOT NULL,
+    duracion character varying(100) NOT NULL,
+    activo boolean DEFAULT true,
+    CONSTRAINT receta_medicamento_pkey PRIMARY KEY (id_receta_medicamento),
+    CONSTRAINT receta_medicamento_id_medicamento_fkey FOREIGN KEY (id_medicamento) REFERENCES medicamentos(id_medicamento) ON DELETE RESTRICT,
+    CONSTRAINT receta_medicamento_id_receta_fkey FOREIGN KEY (id_receta) REFERENCES recetas(id_receta) ON DELETE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS sesion_insumos (
+    id_sesion_insumo SERIAL,
+    id_sesion integer NOT NULL,
+    id_insumo integer NOT NULL,
+    cantidad integer NOT NULL,
+    activo boolean DEFAULT true,
+    CONSTRAINT sesion_insumos_cantidad_check CHECK ((cantidad > 0)),
+    CONSTRAINT sesion_insumos_pkey PRIMARY KEY (id_sesion_insumo),
+    CONSTRAINT sesion_insumos_id_insumo_fkey FOREIGN KEY (id_insumo) REFERENCES insumos(id_insumo) ON DELETE RESTRICT,
+    CONSTRAINT sesion_insumos_id_sesion_fkey FOREIGN KEY (id_sesion) REFERENCES sesiones_tratamiento(id_sesion) ON DELETE RESTRICT
+);
+
+DROP TRIGGER IF EXISTS update_odontograma_updated_at ON odontograma;
+CREATE TRIGGER update_odontograma_updated_at BEFORE UPDATE ON odontograma
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Catálogo fijo de estados dentales del odontograma
+INSERT INTO estado_dental (id_estado_dental, descripcion, color, simbolo, activo) VALUES
+    (1, 'Sano', '#E8F5E9', 'S', true),
+    (2, 'Caries', '#D32F2F', 'Ca', true),
+    (3, 'Obturación', '#757575', 'Ob', true),
+    (4, 'Extracción Indicada', '#FF9800', 'Ei', true),
+    (5, 'Extraído', '#212121', 'Ex', true),
+    (6, 'Endodoncia', '#E91E63', 'En', true),
+    (7, 'Corona', '#FDD835', 'Co', true),
+    (8, 'Puente', '#AB47BC', 'Pu', true),
+    (9, 'Implante', '#26A69A', 'Im', true),
+    (10, 'Prótesis Parcial', '#5C6BC0', 'Pp', true),
+    (11, 'Prótesis Total', '#1976D2', 'Pt', true),
+    (12, 'Incrustación', '#8D6E63', 'In', true),
+    (13, 'Fractura', '#F44336', 'Fr', true),
+    (14, 'Movilidad', '#FF5722', 'Mo', true),
+    (15, 'Bolsa Periodontal', '#9C27B0', 'Bp', true),
+    (16, 'Retracción Gingival', '#EC407A', 'Rg', true),
+    (17, 'Sellador', '#4CAF50', 'Se', true),
+    (18, 'Resina', '#00BCD4', 'Re', true),
+    (19, 'Amalgama', '#607D8B', 'Am', true),
+    (20, 'Diente Incluido', '#795548', 'Di', true),
+    (21, 'Diente Temporal', '#FFEB3B', 'Dt', true),
+    (22, 'Ausente Congénito', '#9E9E9E', 'Ac', true)
+ON CONFLICT (descripcion) DO NOTHING;
+SELECT setval(pg_get_serial_sequence('estado_dental','id_estado_dental'), (SELECT MAX(id_estado_dental) FROM estado_dental));

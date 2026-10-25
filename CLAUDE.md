@@ -1291,6 +1291,37 @@ restaurada del backup (dos corridas), y recién después aplicada a `odontosisbd
   `sesiones_tratamiento`/`sesion_insumos`/`tratamientos`) y dejar un script idempotente que reproduzca esas correcciones en una
   base nueva. Se hace junto con la migración de Consultorio a Tabler.
 
+## Migración de Consultorio a Tabler (en curso, rama `consultorio-tabler`)
+Plan completo en `plan_consultorio.md` (sin versionar). Etapas 0 a 7, un commit por etapa. **Decisiones de negocio confirmadas:**
+- **PDF** de Receta, Orden de Estudios y Orden de Análisis (estilo factura/Justificativo).
+- **Auditoría de Consultorio sin contenido clínico:** solo quién, cuándo, paciente, N.º de documento y cambios de estado (nunca diagnósticos,
+  síntomas, indicaciones, medicamentos, observaciones). Los referenciales sí auditan su descripción.
+- **Anulación definitiva** en todos los movimientos de Consultorio; solo los referenciales se reactivan.
+- **Odontograma: solo Activo y Anulado** (sin "Finalizado"); lo que impide modificarlo es que la consulta esté finalizada.
+- **Movimientos clínicos** (Ficha, Diagnóstico, Odontograma, Tratamiento, Sesiones, Receta, Órdenes, Justificativo): rol Médico/Odontólogo, consulta
+  `programada` o `en_proceso` (se revalida al guardar), no se anulan con la consulta `finalizada`, paciente y médico heredados de la consulta.
+  Diagnóstico: tipo, al menos un síntoma y descripción obligatorios, pieza dental FDI válida, no se anula con tratamiento asociado. Odontograma: sin
+  repetir pieza + superficie + estado. Órdenes: avanzan de estado y no se cancelan si están Completadas o Canceladas.
+- Registrar Consulta: la registra un funcionario desde una cita `Confirmado` sin consulta; bloquea si paciente, médico o consultorio están inactivos; no se
+  anula con Ficha, Diagnóstico o Tratamiento.
+
+### Etapa 0 (hecha): esquema versionado y andamiaje
+- ⚠️ **Cambio del DER: se eliminó la tabla `consultas_detalle`** (vacía, sin FK entrantes ni objetos que dependieran; superada por Diagnóstico, Tratamiento y
+  Sesiones; no figura en la Lista de Archivos de ningún CUS vigente). Se quitaron su DAO, su API (`/consultas-detalle`), las pestañas de detalle clínico de
+  `consulta-index.html` y sus referencias en `estaEnUso()` de Síntomas, Tipo Diagnóstico y Tipo Procedimiento. Además `odontograma` suma `activo`
+  (⚠️ DER) con único parcial `ux_odontograma_consulta_activo WHERE activo`; `estado` se retira en la etapa 4.
+- Scripts en `app/dao/referenciales_consultorio/`: `schema_consultorio_base.sql` (las 23 tablas de Consultorio, generado de la base real, idempotente; es la
+  fuente para reconstruir la base: depende de las tablas de Agendamiento/Seguridad, que todavía no están versionadas) y `schema_consultorio_etapa0.sql`
+  (migración de una base existente, con verificación previa de `consultas_detalle`). Los 6 únicos parciales de los referenciales comparan con `UPPER()`.
+- Auditoría: las 18 entidades de Consultorio están en `MODULO_POR_ENTIDAD`/`ETIQUETA_ENTIDAD` (módulos "Referenciales Consultorio" y "Módulo Consultorio";
+  los 10 movimientos son `ENTIDADES_MOVIMIENTO`). `app/rutas/modulo_consultorio/utils.py` reexporta los helpers de Facturación.
+- Test: `tests/consultorio/smoke_esquema_consultorio.py` (reconstruye las tablas en una base temporal y las compara con la real).
+- **Corrección a la tabla de estado de referenciales de más arriba:** Tipo Diagnóstico y Síntomas YA tienen `activo` e índice único parcial en la base; solo
+  sus DAO siguen con `DELETE` físico (etapa 2).
+- Pendiente detectado para la etapa 3: `consultas_cab.id_cita` es UNIQUE total y anular una consulta no devuelve la cita a `Confirmado`: una cita con
+  consulta anulada no vuelve a poder consultarse (ver pregunta de negocio en el plan de la etapa).
+- El DAO de Odontograma vive en `app/dao/referenciales_agendamiento/odontograma/` (ubicación equivocada; se mueve en la etapa 4).
+
 ## Convenciones de código
 - SQL crudo con psycopg2, sin ORM.
 - Conexión vía `app/conexion/Conexion.py` — reusar esa clase, no crear una nueva.

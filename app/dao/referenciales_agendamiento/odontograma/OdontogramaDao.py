@@ -109,7 +109,7 @@ class OdontogramaDao:
         FROM odontograma o
         JOIN paciente p ON o.id_paciente = p.id_paciente
         JOIN medico m ON o.id_medico = m.id_medico
-        WHERE o.estado <> 'Inactivo'
+        WHERE o.activo = true
         ORDER BY o.fecha_registro DESC, o.id_odontograma DESC
         """
         conexion = Conexion()
@@ -217,7 +217,7 @@ class OdontogramaDao:
         FROM odontograma o
         JOIN paciente p ON o.id_paciente = p.id_paciente
         JOIN medico m ON o.id_medico = m.id_medico
-        WHERE o.id_paciente = %s AND o.estado <> 'Inactivo'
+        WHERE o.id_paciente = %s AND o.activo = true
         ORDER BY o.fecha_registro DESC
         """
         conexion = Conexion()
@@ -282,7 +282,7 @@ class OdontogramaDao:
 
             cur.execute("""
                 SELECT 1 FROM odontograma
-                WHERE id_consulta_cab = %s AND estado <> 'Inactivo'
+                WHERE id_consulta_cab = %s AND activo = true
             """, (id_consulta_cab,))
             if cur.fetchone():
                 con.rollback()
@@ -320,7 +320,7 @@ class OdontogramaDao:
         FROM odontograma o
         JOIN consultas_cab c ON c.id_consulta_cab = o.id_consulta_cab
         WHERE o.id_paciente = %s
-          AND o.estado <> 'Inactivo'
+          AND o.activo = true
           AND (%s::int IS NULL OR o.id_consulta_cab <> %s::int)
         ORDER BY c.fecha_cita DESC, c.hora_cita DESC, o.id_odontograma DESC
         LIMIT 1
@@ -396,12 +396,12 @@ class OdontogramaDao:
         """
         Cambia el estado de un odontograma (Activo/Finalizado/Inactivo)
         """
-        sql = "UPDATE odontograma SET estado = %s WHERE id_odontograma = %s"
+        sql = "UPDATE odontograma SET estado = %s, activo = (%s <> 'Inactivo') WHERE id_odontograma = %s"
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
-            cur.execute(sql, (nuevo_estado, id_odontograma))
+            cur.execute(sql, (nuevo_estado, nuevo_estado, id_odontograma))
             filas = cur.rowcount
             con.commit()
             return filas > 0
@@ -664,7 +664,7 @@ class OdontogramaDao:
         SELECT COUNT(*)
         FROM odontograma
         WHERE id_consulta_cab = %s
-          AND estado <> 'Inactivo'
+          AND activo = true
         """
         params = [id_consulta_cab]
         if excluir_id:

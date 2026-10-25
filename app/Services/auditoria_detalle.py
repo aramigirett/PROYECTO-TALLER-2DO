@@ -18,6 +18,8 @@ from decimal import Decimal
 REFERENCIALES_FACTURACION = 'Referenciales Facturación'
 MODULO_FACTURACION = 'Módulo Facturación'
 MODULO_SEGURIDAD = 'Módulo Seguridad'
+REFERENCIALES_CONSULTORIO = 'Referenciales Consultorio'
+MODULO_CONSULTORIO = 'Módulo Consultorio'
 
 # Entidad (columna `entidad`) -> módulo. Una entidad que no esté acá se guarda con modulo NULL y se muestra como "Otro".
 MODULO_POR_ENTIDAD = {
@@ -30,13 +32,23 @@ MODULO_POR_ENTIDAD = {
     'cobro_cab': MODULO_FACTURACION, 'nota_remision_cab': MODULO_FACTURACION,
     'nota_credito_debito_cab': MODULO_FACTURACION, 'arqueo_caja': MODULO_FACTURACION,
     'recaudacion_depositar': MODULO_FACTURACION,
+    # Consultorio. El detalle de estas filas NUNCA lleva contenido clínico (diagnósticos, síntomas, indicaciones, medicamentos,
+    # observaciones): solo quién, cuándo, paciente, N.º de documento y cambios de estado (decisión de negocio: datos de salud).
+    'tipos_tratamiento': REFERENCIALES_CONSULTORIO, 'insumos': REFERENCIALES_CONSULTORIO,
+    'tipo_procedimiento_medico': REFERENCIALES_CONSULTORIO, 'medicamentos': REFERENCIALES_CONSULTORIO,
+    'tipo_estudio': REFERENCIALES_CONSULTORIO, 'tipo_analisis': REFERENCIALES_CONSULTORIO,
+    'tipo_diagnostico': REFERENCIALES_CONSULTORIO, 'sintoma': REFERENCIALES_CONSULTORIO,
+    'consultas_cab': MODULO_CONSULTORIO, 'ficha_medica_consulta': MODULO_CONSULTORIO, 'diagnosticos': MODULO_CONSULTORIO,
+    'odontograma': MODULO_CONSULTORIO, 'tratamientos': MODULO_CONSULTORIO, 'sesiones_tratamiento': MODULO_CONSULTORIO,
+    'recetas': MODULO_CONSULTORIO, 'orden_estudios': MODULO_CONSULTORIO, 'orden_analisis': MODULO_CONSULTORIO,
+    'justificativo_medico': MODULO_CONSULTORIO,
     'backup': MODULO_SEGURIDAD, 'auditoria_cambios': MODULO_SEGURIDAD, 'auditoria_acceso': MODULO_SEGURIDAD,
 }
 MODULO_DESCONOCIDO = 'Otro'
-MODULOS = (REFERENCIALES_FACTURACION, MODULO_FACTURACION, MODULO_SEGURIDAD)
+MODULOS = (REFERENCIALES_FACTURACION, MODULO_FACTURACION, REFERENCIALES_CONSULTORIO, MODULO_CONSULTORIO, MODULO_SEGURIDAD)
 
 # Entidades que son movimientos: su BAJA es una anulación ("Anulado") y no una baja de catálogo ("Inactivo").
-ENTIDADES_MOVIMIENTO = frozenset(e for e, m in MODULO_POR_ENTIDAD.items() if m == MODULO_FACTURACION)
+ENTIDADES_MOVIMIENTO = frozenset(e for e, m in MODULO_POR_ENTIDAD.items() if m in (MODULO_FACTURACION, MODULO_CONSULTORIO))
 
 ACCIONES = ('ALTA', 'MODIFICACION', 'BAJA', 'REACTIVACION', 'CIERRE', 'EXPORTACION')
 # Decisión de negocio: BAJA se guarda así, pero se muestra como "Baja / Anulación".
@@ -52,6 +64,12 @@ ETIQUETA_ENTIDAD = {
     'cobro_cab': 'Cobro', 'nota_remision_cab': 'Nota de Remisión', 'nota_credito_debito_cab': 'Nota de Crédito/Débito',
     'arqueo_caja': 'Arqueo de Caja', 'recaudacion_depositar': 'Recaudación a Depositar', 'backup': 'Copia de Seguridad',
     'auditoria_cambios': 'Auditoría de Cambios', 'auditoria_acceso': 'Tablero de Accesos',
+    'tipos_tratamiento': 'Tipo de Tratamiento', 'insumos': 'Tipo de Insumo', 'tipo_procedimiento_medico': 'Tipo de Procedimiento Médico',
+    'medicamentos': 'Medicamento', 'tipo_estudio': 'Tipo de Estudio', 'tipo_analisis': 'Tipo de Análisis',
+    'tipo_diagnostico': 'Tipo de Diagnóstico', 'sintoma': 'Síntoma', 'consultas_cab': 'Consulta',
+    'ficha_medica_consulta': 'Ficha Médica', 'diagnosticos': 'Diagnóstico', 'odontograma': 'Odontograma',
+    'tratamientos': 'Tratamiento', 'sesiones_tratamiento': 'Sesión de Tratamiento', 'recetas': 'Receta',
+    'orden_estudios': 'Orden de Estudios', 'orden_analisis': 'Orden de Análisis', 'justificativo_medico': 'Justificativo Médico',
 }
 
 

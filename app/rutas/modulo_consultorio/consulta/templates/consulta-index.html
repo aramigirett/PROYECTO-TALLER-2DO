@@ -310,18 +310,6 @@ Gestión de Consultas Médicas
               <span>Información</span>
             </a>
           </li>
-          <li class="nav-item">
-            <a class="nav-link-medical" id="tab-agregar" data-toggle="tab" href="#contenido-agregar" role="tab">
-              <i class="fas fa-plus-circle mr-2"></i>
-              <span>Agregar Detalle</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link-medical" id="tab-registrados" data-toggle="tab" href="#contenido-registrados" role="tab">
-              <i class="fas fa-list-alt mr-2"></i>
-              <span>Detalles Registrados</span>
-            </a>
-          </li>
         </ul>
 
         <!-- CONTENIDO DE LOS TABS -->
@@ -440,119 +428,6 @@ Gestión de Consultas Médicas
                     </div>{% endif %}
 
                   </div>
-                </div>
-              </div>
-
-            </div>
-          </div>
-
-          <!-- ============================================ -->
-          <!-- TAB 2: AGREGAR DETALLE CLÍNICO -->
-          <!-- ============================================ -->
-          <div class="tab-pane fade" id="contenido-agregar" role="tabpanel">
-            <div class="p-4">
-              
-              <div class="section-medical">
-                <div class="section-header-medical">
-                  <i class="fas fa-notes-medical"></i> Formulario de Detalle Clínico
-                </div>
-                <div class="section-body-medical">
-                  
-                  <div class="row">
-                    <!-- Síntoma -->
-                    <div class="col-md-6 mb-3">
-                      <input type="hidden" id="id_sintoma">
-                      <label class="label-medical">Síntoma <span class="text-danger">*</span></label>
-                      <div class="input-group input-group-medical">
-                        <input type="text" id="txtSintoma" class="form-control form-control-medical" 
-                               placeholder="Click para seleccionar síntoma" readonly required>
-                        <div class="input-group-append">
-                          <span class="input-group-text input-group-text-medical">
-                            <i class="fas fa-search"></i>
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <!-- Pieza Dental -->
-                    <div class="col-md-6 mb-3">
-                      <label class="label-medical">Pieza Dental</label>
-                      <input type="text" id="pieza_dental" class="form-control form-control-medical" 
-                             placeholder="Ej: 18, 21, 4.6">
-                    </div>
-
-                    <!-- Diagnóstico -->
-                    <div class="col-md-12 mb-3">
-                      <label class="label-medical">Diagnóstico General <span class="text-danger">*</span></label>
-                      <textarea id="diagnostico" class="form-control form-control-medical" rows="3" 
-                                placeholder="Ingrese el diagnóstico general del paciente..." required></textarea>
-                    </div>
-
-                    <!-- Tratamiento -->
-                    <div class="col-md-12 mb-3">
-                      <label class="label-medical">Tratamiento Indicado <span class="text-danger">*</span></label>
-                      <textarea id="tratamiento" class="form-control form-control-medical" rows="3" 
-                                placeholder="Ingrese el tratamiento indicado..." required></textarea>
-                    </div>
-
-                    <!-- Procedimiento -->
-                    <div class="col-md-12 mb-3">
-                      <label class="label-medical">Procedimiento Realizado</label>
-                      <textarea id="procedimiento" class="form-control form-control-medical" rows="3" 
-                                placeholder="Describa el procedimiento realizado (opcional)..."></textarea>
-                    </div>
-                  </div>
-
-                  <!-- Botón Guardar -->
-                  <div class="text-right mt-3">
-                    {% if puede('consulta','nuevo') %}<button type="button" class="btn btn-medical-success btn-lg" id="btnAgregarDetalle">
-                      <i class="fas fa-save mr-2"></i> Guardar Detalle Clínico
-                    </button>{% endif %}
-                  </div>
-
-                </div>
-              </div>
-
-            </div>
-          </div>
-
-          <!-- ============================================ -->
-          <!-- TAB 3: DETALLES REGISTRADOS -->
-          <!-- ============================================ -->
-          <div class="tab-pane fade" id="contenido-registrados" role="tabpanel">
-            <div class="p-4">
-              
-              <div class="section-medical">
-                <div class="section-header-medical">
-                  <i class="fas fa-history"></i> Historial de Detalles Clínicos
-                </div>
-                <div class="section-body-medical">
-                  
-                  <div class="table-responsive">
-                    <table class="table table-medical table-hover" id="tblDetalles">
-                      <thead>
-                        <tr>
-                          <th><i class="fas fa-thermometer mr-1"></i> Síntoma</th>
-                          <th><i class="fas fa-tooth mr-1"></i> Pieza Dental</th>
-                          <th><i class="fas fa-diagnoses mr-1"></i> Diagnóstico</th>
-                          <th><i class="fas fa-prescription mr-1"></i> Tratamiento</th>
-                          <th><i class="fas fa-procedures mr-1"></i> Procedimiento</th>
-                          <th><i class="fas fa-cogs mr-1"></i> Acciones</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <!-- Se llena dinámicamente -->
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <!-- Mensaje si no hay detalles -->
-                  <div class="text-center text-muted py-4" id="sinDetallesMsg" style="display: none;">
-                    <i class="fas fa-inbox fa-3x mb-3" style="opacity: 0.3;"></i>
-                    <p>No hay detalles clínicos registrados aún.</p>
-                    <p>Use la pestaña <strong>"Agregar Detalle"</strong> para registrar el primer detalle.</p>
-                  </div>
-
                 </div>
               </div>
 
@@ -743,35 +618,6 @@ Gestión de Consultas Médicas
                 <th>Nombre</th>
                 <th>Apellido</th>
                 <th>Cargo</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Modal Síntoma -->
-<div class="modal fade" id="modalBuscarSintoma" tabindex="-1" role="dialog">
-  <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
-    <div class="modal-content modal-medical">
-      <div class="modal-header modal-header-medical">
-        <h5 class="modal-title font-weight-bold text-white">
-          <i class="fas fa-notes-medical mr-2"></i> Seleccionar Síntoma
-        </h5>
-        <button type="button" class="close text-white" data-dismiss="modal">
-          <span>&times;</span>
-        </button>
-      </div>
-      <div class="modal-body">
-        <div class="table-responsive">
-          <table class="table table-medical table-hover w-100" id="tblSintoma">
-            <thead>
-              <tr>
-                <th>Descripción</th>
                 <th>Acciones</th>
               </tr>
             </thead>
@@ -1505,7 +1351,6 @@ const PUEDE_FICHA_EDITAR = {{ 'true' if puede('fichamedica','editar') else 'fals
 // ============================================
 
 let consultaActualId = null;
-let detalleEditandoId = null;
 
 // ============================================
 // FUNCIONES AUXILIARES
@@ -1728,44 +1573,6 @@ function initDatatableFuncionario() {
 }
 
 // ============================================
-// DATATABLE: SÍNTOMAS
-// ============================================
-function initDatatableSintoma() {
-  if ($.fn.DataTable.isDataTable('#tblSintoma')) {
-    $('#tblSintoma').DataTable().destroy();
-  }
-
-  $('#tblSintoma').DataTable({
-    language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
-    ajax: { 
-      url: '/api/v1/sintomas',
-      dataSrc: 'data'
-    },
-    columns: [
-      { data: 'descripcion_sintoma' },
-      { 
-        data: null,
-        render: row => `
-          <button class="btn btn-primary btn-sm" name="btn_seleccionar_sintoma"
-                  data-id="${row.id_sintoma}"
-                  data-descripcion="${row.descripcion_sintoma}">
-            Seleccionar
-          </button>
-        `
-      }
-    ]
-  });
-
-  // Evento seleccionar síntoma
-  $('#tblSintoma').on('click', 'button[name="btn_seleccionar_sintoma"]', function() {
-    const btn = $(this);
-    $('#id_sintoma').val(btn.data('id'));
-    $('#txtSintoma').val(btn.data('descripcion'));
-    $('#modalBuscarSintoma').modal('hide');
-  });
-}
-
-// ============================================
 // ABRIR MODALES DE SELECCIÓN
 // ============================================
 $('#txtCita').click(() => {
@@ -1775,7 +1582,6 @@ $('#txtCita').click(() => {
   }
 });
 // El funcionario (consultas_cab.id_funcionario) lo define el servidor con el usuario de la sesión: no se elige.
-$('#txtSintoma').click(() => $('#modalBuscarSintoma').modal('show'));
 
 // ============================================
 // LIMPIAR FORMULARIO
@@ -2012,211 +1818,7 @@ $('#tblConsultas').on('click', 'button[name="btn_detalles"]', function() {
       $('#infoConsulta').html('<span class="text-danger">Error al cargar información</span>');
     });
 
-  // Cargar detalles clínicos
-  cargarDetallesConsulta(id);
-  
-  // Limpiar formulario de detalle
-  limpiarModalDetalle();
-  
   $('#modalDetalles').modal('show');
-});
-
-// ============================================
-// CARGAR DETALLES CLÍNICOS
-// ============================================
-function cargarDetallesConsulta(idConsulta) {
-  fetch(`/api/v1/consultas-detalle/consulta/${idConsulta}`)
-    .then(r => r.json())
-    .then(d => {
-      const tbody = $('#tblDetalles tbody');
-      tbody.empty();
-
-      if (d.success && d.data.length > 0) {
-        d.data.forEach(det => {
-          tbody.append(`
-            <tr>
-              <td>${det.descripcion_sintoma || 'N/A'}</td>
-              <td>${det.pieza_dental || '-'}</td>
-              <td>${det.diagnostico || '-'}</td>
-              <td>${det.tratamiento || '-'}</td>
-              <td>${det.procedimiento || '-'}</td>
-              <td>
-                {% if puede('consulta','editar') %}<button class="btn btn-info btn-sm" name="btn_editar_detalle" 
-                        data-id="${det.id_consulta_detalle}"
-                        data-id_sintoma="${det.id_sintoma}"
-                        data-descripcion_sintoma="${det.descripcion_sintoma || ''}"
-                        data-pieza_dental="${det.pieza_dental || ''}"
-                        data-diagnostico="${det.diagnostico || ''}"
-                        data-tratamiento="${det.tratamiento || ''}"
-                        data-procedimiento="${det.procedimiento || ''}"
-                        title="Editar">
-                  <i class="fas fa-edit"></i>
-                </button>{% endif %}
-                {% if puede('consulta','anular') %}<button class="btn btn-danger btn-sm" name="btn_eliminar_detalle" 
-                        data-id="${det.id_consulta_detalle}"
-                        title="Eliminar">
-                  <i class="fas fa-trash-alt"></i>
-                </button>{% endif %}
-              </td>
-            </tr>
-          `);
-        });
-      } else {
-        tbody.append(`
-          <tr>
-            <td colspan="6" class="text-center text-muted">No hay detalles registrados</td>
-          </tr>
-        `);
-      }
-    })
-    .catch(err => {
-      console.error('Error al cargar detalles:', err);
-      $('#tblDetalles tbody').html(`
-        <tr>
-          <td colspan="6" class="text-center text-danger">Error al cargar los detalles</td>
-        </tr>
-      `);
-    });
-}
-
-// ============================================
-// LIMPIAR FORMULARIO DETALLE
-// ============================================
-function limpiarModalDetalle() {
-  $('#id_sintoma').val('');
-  $('#txtSintoma').val('');
-  $('#pieza_dental').val('');
-  $('#diagnostico').val('');
-  $('#tratamiento').val('');
-  $('#procedimiento').val('');
-  $('.text-danger.small').hide();
-  detalleEditandoId = null;
-  $('#btnAgregarDetalle').html('<i class="fas fa-plus"></i> Agregar Detalle');
-}
-// Limpiar formulario de detalle
-$('#btnLimpiarDetalle').on('click', function() {
-  limpiarModalDetalle();
-  Swal.fire({
-    icon: 'success',
-    title: 'Formulario limpiado',
-    text: 'Puede agregar un nuevo detalle clínico',
-    timer: 1500,
-    showConfirmButton: false
-  });
-});
-// ============================================
-// AGREGAR DETALLE CLÍNICO
-// ============================================
-$('#btnAgregarDetalle').on('click', function() {
-  const payload = {
-    id_consulta_cab: consultaActualId,
-    id_sintoma: parseInt($('#id_sintoma').val()),
-    pieza_dental: $('#pieza_dental').val() || null,
-    diagnostico: $('#diagnostico').val(),
-    tratamiento: $('#tratamiento').val(),
-    procedimiento: $('#procedimiento').val() || null
-  };
-
-  // Validaciones
-  let valido = true;
-  $('.text-danger.small').hide();
-  
-  if (!payload.id_sintoma) { $('#error_txtSintoma').show(); valido = false; }
-  if (!payload.diagnostico) { $('#error_diagnostico').show(); valido = false; }
-  if (!payload.tratamiento) { $('#error_tratamiento').show(); valido = false; }
-
-  if (!valido) {
-    Swal.fire('Campos incompletos', 'Complete todos los campos obligatorios', 'warning');
-    return;
-  }
-
-  // Determinar URL y método
-  const url = detalleEditandoId 
-    ? `/api/v1/consultas-detalle/${detalleEditandoId}` 
-    : '/api/v1/consultas-detalle';
-  const method = detalleEditandoId ? 'PUT' : 'POST';
-  const mensajeExito = detalleEditandoId ? 'actualizado' : 'agregado';
-
-  // Enviar petición
-  fetch(url, {
-    method: method,
-    headers: { 
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(payload)
-  })
-  .then(r => r.json())
-  .then(d => {
-    if (d.success) {
-      limpiarModalDetalle();
-      cargarDetallesConsulta(consultaActualId);
-      Swal.fire('Éxito', `Detalle ${mensajeExito} correctamente`, 'success');
-    } else {
-      Swal.fire('Error', d.error || `No se pudo ${mensajeExito}`, 'error');
-    }
-  })
-  .catch(err => {
-    console.error('Error:', err);
-    Swal.fire('Error', 'No se pudo guardar el detalle', 'error');
-  });
-});
-
-// ============================================
-// EDITAR DETALLE CLÍNICO
-// ============================================
-$('#tblDetalles').on('click', 'button[name="btn_editar_detalle"]', function() {
-  const btn = $(this);
-  detalleEditandoId = btn.data('id');
-  
-  $('#id_sintoma').val(btn.data('id_sintoma'));
-  $('#txtSintoma').val(btn.data('descripcion_sintoma'));
-  $('#pieza_dental').val(btn.data('pieza_dental'));
-  $('#diagnostico').val(btn.data('diagnostico'));
-  $('#tratamiento').val(btn.data('tratamiento'));
-  $('#procedimiento').val(btn.data('procedimiento'));
-  
-  $('#btnAgregarDetalle').html('<i class="fas fa-save"></i> Actualizar Detalle');
-  
-  // Scroll al formulario
-  $('html, body').animate({
-    scrollTop: $('#txtSintoma').offset().top - 100
-  }, 500);
-});
-
-// ============================================
-// ELIMINAR DETALLE CLÍNICO
-// ============================================
-$('#tblDetalles').on('click', 'button[name="btn_eliminar_detalle"]', function() {
-  const idDetalle = $(this).data('id');
-  
-  Swal.fire({
-    title: '¿Eliminar detalle?',
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonColor: '#d33',
-    cancelButtonColor: '#3085d6',
-    confirmButtonText: 'Sí, eliminar',
-    cancelButtonText: 'Cancelar'
-  }).then((result) => {
-    if (result.isConfirmed) {
-      fetch(`/api/v1/consultas-detalle/${idDetalle}`, {
-        method: 'DELETE'
-      })
-      .then(r => r.json())
-      .then(d => {
-        if (d.success) {
-          cargarDetallesConsulta(consultaActualId);
-          Swal.fire('Eliminado', 'Detalle eliminado correctamente', 'success');
-        } else {
-          Swal.fire('Error', d.error, 'error');
-        }
-      })
-      .catch(err => {
-        console.error('Error:', err);
-        Swal.fire('Error', 'No se pudo eliminar el detalle', 'error');
-      });
-    }
-  });
 });
 
 // ============================================
@@ -2531,7 +2133,6 @@ $(document).ready(function() {
   initDatatableConsultas();
   initDatatableCitaConfirmada();
   initDatatableFuncionario();
-  initDatatableSintoma();
   
   // Actualizar estadísticas
   actualizarEstadisticas();

@@ -341,7 +341,6 @@ from app.rutas.modulo_consultorio.consulta.consulta_routes import consultamod
 
 # APIs (Endpoints REST)
 from app.rutas.modulo_consultorio.consulta.consulta_api import consultaapi
-from app.rutas.modulo_consultorio.consulta.consulta_detalle_api import consultadetalleapi
 from app.rutas.modulo_consultorio.consulta.ficha_medica_api import fichamedicaapi
 # ============================================
 # MÓDULO CONSULTORIO - ROUTES
@@ -353,7 +352,6 @@ app.register_blueprint(consultamod, url_prefix=f'{modulo0}/consulta')
 # ============================================
 version1 = '/api/v1'
 app.register_blueprint(consultaapi, url_prefix=version1)
-app.register_blueprint(consultadetalleapi, url_prefix=version1)
 app.register_blueprint(fichamedicaapi, url_prefix=version1)
 
 # ============================================
