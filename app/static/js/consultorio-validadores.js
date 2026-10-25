@@ -106,8 +106,53 @@
     return errores;
   }
 
+  /* ───────── Etapa 4: Diagnóstico y Odontograma (espejo de validar_pieza_fdi / validar_superficie / validar_diagnostico) ───────── */
+  var MSG_PIEZA = 'La pieza dental debe ser un número FDI válido (permanentes 11–18, 21–28, 31–38, 41–48; temporales 51–55, 61–65, 71–75, 81–85).';
+  var SUPERFICIES = ['O', 'V', 'L', 'M', 'D', 'T'];
+  var MAX_DESCRIPCION_DX = 1000, MAX_OBSERVACIONES_DX = 2000;
+
+  function piezaValida(n) {
+    var cuadrante = Math.floor(n / 10), diente = n % 10;
+    if (cuadrante >= 1 && cuadrante <= 4) return diente >= 1 && diente <= 8;
+    if (cuadrante >= 5 && cuadrante <= 8) return diente >= 1 && diente <= 5;
+    return false;
+  }
+
+  /* '' si es válida (o vacía y no obligatoria) o el mensaje */
+  function piezaFdi(v, obligatoria) {
+    if (vacio(v)) return obligatoria ? MSG_PIEZA : '';
+    var t = recortar(v);
+    if (!RE_ENTERO.test(t)) return MSG_PIEZA;
+    return piezaValida(parseInt(t, 10)) ? '' : MSG_PIEZA;
+  }
+
+  function superficie(v) {
+    var t = (typeof v === 'string') ? recortar(v).toUpperCase() : '';
+    for (var i = 0; i < SUPERFICIES.length; i++) { if (SUPERFICIES[i] === t) return ''; }
+    return 'La superficie debe ser O (oclusal / incisal), V (vestibular), L (lingual / palatina), M (mesial), D (distal) o T (pieza completa).';
+  }
+
+  /* Valida el diagnóstico completo: { campo: mensaje } con el primer error por campo. `d.sintomas` es una lista de ids. */
+  function diagnostico(d) {
+    var errores = {};
+    if (vacio(d.id_tipo_diagnostico)) errores.id_tipo_diagnostico = 'El tipo de diagnóstico es obligatorio.';
+    else if (!RE_ENTERO.test(recortar(d.id_tipo_diagnostico)) || parseInt(recortar(d.id_tipo_diagnostico), 10) <= 0) errores.id_tipo_diagnostico = 'El tipo de diagnóstico no es válido.';
+    if (!d.sintomas || !d.sintomas.length) errores.sintomas = 'Debe elegir al menos un síntoma.';
+    if (vacio(d.descripcion_diagnostico) || typeof d.descripcion_diagnostico !== 'string') errores.descripcion_diagnostico = 'La descripción del diagnóstico es obligatoria.';
+    else if (recortar(d.descripcion_diagnostico).length > MAX_DESCRIPCION_DX) errores.descripcion_diagnostico = 'La descripción no puede superar los ' + MAX_DESCRIPCION_DX + ' caracteres.';
+    else if (RE_CONTROL.test(recortar(d.descripcion_diagnostico))) errores.descripcion_diagnostico = 'La descripción contiene caracteres no permitidos.';
+    var pieza = piezaFdi(d.pieza_dental, false);
+    if (pieza) errores.pieza_dental = pieza;
+    if (!vacio(d.observaciones)) {
+      if (recortar(d.observaciones).length > MAX_OBSERVACIONES_DX) errores.observaciones = 'Las observaciones no pueden superar los ' + MAX_OBSERVACIONES_DX + ' caracteres.';
+      else if (RE_CONTROL.test(recortar(d.observaciones))) errores.observaciones = 'Las observaciones contienen caracteres no permitidos.';
+    }
+    return errores;
+  }
+
   global.ConsultorioValidadores = {
     presion: presion, temperatura: temperatura, frecuenciaCardiaca: frecuenciaCardiaca,
-    frecuenciaRespiratoria: frecuenciaRespiratoria, peso: peso, talla: talla, textoClinico: textoClinico, imc: imc, ficha: ficha
+    frecuenciaRespiratoria: frecuenciaRespiratoria, peso: peso, talla: talla, textoClinico: textoClinico, imc: imc, ficha: ficha,
+    piezaFdi: piezaFdi, piezaValida: piezaValida, superficie: superficie, diagnostico: diagnostico
   };
 })(window);

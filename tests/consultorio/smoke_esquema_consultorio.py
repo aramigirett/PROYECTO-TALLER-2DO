@@ -48,7 +48,14 @@ chk('odontograma.activo BOOLEAN NOT NULL DEFAULT true',
     == [('boolean', 'NO', 'true')])
 chk('único parcial ux_odontograma_consulta_activo (id_consulta_cab) WHERE activo',
     'WHERE (activo = true)' in q("SELECT indexdef FROM pg_indexes WHERE indexname='ux_odontograma_consulta_activo'")[0][0])
-chk('ningún odontograma inactivo con activo = true', q("SELECT count(*) FROM odontograma WHERE estado='Inactivo' AND activo")[0][0] == 0)
+chk('odontograma ya no tiene la columna estado (etapa 4) ni sus índices',
+    q("SELECT count(*) FROM information_schema.columns WHERE table_name='odontograma' AND column_name='estado'")[0][0] == 0
+    and q("SELECT count(*) FROM pg_indexes WHERE indexname IN ('ux_odontograma_consulta_vigente','idx_odontograma_estado')")[0][0] == 0)
+chk('estado_dental.aplica_a: 7 de superficie y el resto de pieza completa',
+    q("SELECT COUNT(*) FILTER (WHERE aplica_a='SUPERFICIE'), COUNT(*) FILTER (WHERE aplica_a='PIEZA') FROM estado_dental")[0] == (7, 15))
+chk('hallazgos con baja lógica: activo + único parcial pieza/superficie/estado',
+    'WHERE (activo = true)' in q("SELECT indexdef FROM pg_indexes WHERE indexname='uk_odontograma_detalle_activo'")[0][0])
+chk('trigger diferido: un diagnóstico vigente exige al menos un síntoma', q("SELECT tgdeferrable AND tginitdeferred FROM pg_trigger WHERE tgname='trg_diagnostico_con_sintoma'") == [(True,)])
 for idx in ('uk_tipo_trat_descripcion', 'uk_insumos_descripcion', 'uk_tipo_proc_descripcion', 'uk_medicamento_nombre_comercial',
             'uk_tipo_analisis_descripcion', 'uk_tipo_estudio_descripcion'):
     d = q("SELECT indexdef FROM pg_indexes WHERE indexname=%s", (idx,))
@@ -109,7 +116,7 @@ try:
     chk('la 2.ª corrida no duplica los estados dentales', firma(cu)[-1] == firma(tc)[-1])
     tc.execute((DAO / 'schema_consultorio_etapa0.sql').read_text(encoding='utf-8')); t.commit()
     chk('schema_consultorio_etapa0.sql sobre una base ya al día es un no-op', firma(cu) == firma(tc))
-    for etapa in ('schema_consultorio_etapa2.sql', 'schema_consultorio_etapa3.sql'):
+    for etapa in ('schema_consultorio_etapa2.sql', 'schema_consultorio_etapa3.sql', 'schema_consultorio_etapa4.sql'):
         tc.execute((DAO / etapa).read_text(encoding='utf-8')); t.commit()
         chk(f'{etapa} sobre una base ya al día es un no-op', firma(cu) == firma(tc))
     t.close()

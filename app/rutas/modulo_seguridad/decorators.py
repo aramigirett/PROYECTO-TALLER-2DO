@@ -74,3 +74,29 @@ def require_permiso(ventana, accion):
             return view_func(*args, **kwargs)
         return wrapper
     return decorador
+
+
+def require_algun_permiso(*pares):
+    """
+    Como require_permiso, pero basta con tener CUALQUIERA de los pares (ventana, acción). Sirve para los lookups que varias ventanas
+    comparten (ej. los diagnósticos de una consulta, que usan Tratamiento, Receta, Órdenes y Justificativo): no basta con tener sesión.
+    """
+    def decorador(view_func):
+        @wraps(view_func)
+        def wrapper(*args, **kwargs):
+            es_api = request.path.startswith('/api/')
+
+            if not session.get('id_usuario'):
+                if es_api:
+                    return jsonify({'success': False, 'error': 'No autenticado.'}), 401
+                return redirect(url_for('seguridad.login'))
+
+            if not any(puede(ventana, accion) for ventana, accion in pares):
+                if es_api:
+                    return jsonify({'success': False, 'error': 'No tiene permiso para realizar esta acción.'}), 403
+                g.ventana_denegada = pares[0][0]
+                abort(403)
+
+            return view_func(*args, **kwargs)
+        return wrapper
+    return decorador

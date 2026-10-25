@@ -49,6 +49,8 @@ CREATE TABLE IF NOT EXISTS estado_dental (
     simbolo character varying(10),
     activo boolean DEFAULT true NOT NULL,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    aplica_a character varying(10) DEFAULT 'PIEZA' NOT NULL,
+    CONSTRAINT chk_estado_dental_aplica_a CHECK (aplica_a IN ('PIEZA', 'SUPERFICIE')),
     CONSTRAINT estado_dental_pkey PRIMARY KEY (id_estado_dental),
     CONSTRAINT estado_dental_descripcion_key UNIQUE (descripcion)
 );
@@ -145,6 +147,9 @@ CREATE TABLE IF NOT EXISTS diagnosticos (
     activo boolean DEFAULT true,
     id_consulta_cab integer NOT NULL,
     CONSTRAINT diagnosticos_pkey PRIMARY KEY (id_diagnostico),
+    CONSTRAINT chk_diagnostico_pieza_fdi CHECK (
+        pieza_dental IS NULL OR pieza_dental ~ '^(1[1-8]|2[1-8]|3[1-8]|4[1-8]|5[1-5]|6[1-5]|7[1-5]|8[1-5])$'),
+    CONSTRAINT chk_diagnostico_descripcion CHECK (btrim(descripcion_diagnostico) <> ''),
     CONSTRAINT diagnosticos_codigo_key UNIQUE (codigo),
     CONSTRAINT fk_diag_consulta FOREIGN KEY (id_consulta_cab) REFERENCES consultas_cab(id_consulta_cab) ON DELETE RESTRICT,
     CONSTRAINT fk_diag_medico FOREIGN KEY (id_medico) REFERENCES medico(id_medico),
@@ -202,24 +207,20 @@ CREATE TABLE IF NOT EXISTS odontograma (
     id_medico integer NOT NULL,
     fecha_registro date DEFAULT CURRENT_DATE NOT NULL,
     observaciones text,
-    estado character varying(20) DEFAULT 'Activo'::character varying NOT NULL,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     id_consulta_cab integer NOT NULL,
     activo boolean DEFAULT true NOT NULL,
-    CONSTRAINT odontograma_estado_check CHECK (((estado)::text = ANY ((ARRAY['Activo'::character varying, 'Finalizado'::character varying, 'Inactivo'::character varying])::text[]))),
     CONSTRAINT odontograma_pkey PRIMARY KEY (id_odontograma),
     CONSTRAINT odontograma_id_consulta_cab_fkey FOREIGN KEY (id_consulta_cab) REFERENCES consultas_cab(id_consulta_cab) ON DELETE RESTRICT,
     CONSTRAINT odontograma_id_medico_fkey FOREIGN KEY (id_medico) REFERENCES medico(id_medico) ON UPDATE CASCADE ON DELETE RESTRICT,
-    CONSTRAINT odontograma_id_paciente_fkey FOREIGN KEY (id_paciente) REFERENCES paciente(id_paciente) ON UPDATE CASCADE ON DELETE CASCADE
+    CONSTRAINT odontograma_id_paciente_fkey FOREIGN KEY (id_paciente) REFERENCES paciente(id_paciente) ON UPDATE CASCADE ON DELETE RESTRICT
 );
 CREATE INDEX IF NOT EXISTS idx_odontograma_consulta ON odontograma USING btree (id_consulta_cab);
-CREATE INDEX IF NOT EXISTS idx_odontograma_estado ON odontograma USING btree (estado);
 CREATE INDEX IF NOT EXISTS idx_odontograma_fecha ON odontograma USING btree (fecha_registro);
 CREATE INDEX IF NOT EXISTS idx_odontograma_medico ON odontograma USING btree (id_medico);
 CREATE INDEX IF NOT EXISTS idx_odontograma_paciente ON odontograma USING btree (id_paciente);
 CREATE UNIQUE INDEX IF NOT EXISTS ux_odontograma_consulta_activo ON odontograma USING btree (id_consulta_cab) WHERE (activo = true);
-CREATE UNIQUE INDEX IF NOT EXISTS ux_odontograma_consulta_vigente ON odontograma USING btree (id_consulta_cab) WHERE ((estado)::text <> 'Inactivo'::text);
 
 CREATE TABLE IF NOT EXISTS diagnostico_sintoma (
     id_diagnostico integer NOT NULL,
@@ -253,13 +254,20 @@ CREATE TABLE IF NOT EXISTS odontograma_detalle (
     superficie character varying(2) NOT NULL,
     observacion text,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    activo boolean DEFAULT true NOT NULL,
     CONSTRAINT odontograma_detalle_pkey PRIMARY KEY (id_odontograma_detalle),
-    CONSTRAINT uk_odontograma_diente_superficie UNIQUE (id_odontograma, numero_diente, superficie, id_estado_dental),
+    CONSTRAINT chk_detalle_superficie CHECK (superficie IN ('O', 'V', 'L', 'M', 'D', 'T')),
+    -- FDI: permanentes 11-18, 21-28, 31-38, 41-48; temporales 51-55, 61-65, 71-75, 81-85
+    CONSTRAINT chk_detalle_pieza_fdi CHECK (
+        numero_diente BETWEEN 11 AND 18 OR numero_diente BETWEEN 21 AND 28 OR numero_diente BETWEEN 31 AND 38
+        OR numero_diente BETWEEN 41 AND 48 OR numero_diente BETWEEN 51 AND 55 OR numero_diente BETWEEN 61 AND 65
+        OR numero_diente BETWEEN 71 AND 75 OR numero_diente BETWEEN 81 AND 85),
     CONSTRAINT odontograma_detalle_id_estado_dental_fkey FOREIGN KEY (id_estado_dental) REFERENCES estado_dental(id_estado_dental) ON UPDATE CASCADE ON DELETE RESTRICT,
-    CONSTRAINT odontograma_detalle_id_odontograma_fkey FOREIGN KEY (id_odontograma) REFERENCES odontograma(id_odontograma) ON UPDATE CASCADE ON DELETE CASCADE
+    CONSTRAINT odontograma_detalle_id_odontograma_fkey FOREIGN KEY (id_odontograma) REFERENCES odontograma(id_odontograma) ON UPDATE CASCADE ON DELETE RESTRICT
 );
 CREATE INDEX IF NOT EXISTS idx_detalle_diente ON odontograma_detalle USING btree (numero_diente);
 CREATE INDEX IF NOT EXISTS idx_detalle_odontograma ON odontograma_detalle USING btree (id_odontograma);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_odontograma_detalle_activo ON odontograma_detalle USING btree (id_odontograma, numero_diente, superficie, id_estado_dental) WHERE (activo = true);
 
 CREATE TABLE IF NOT EXISTS tratamientos (
     id_tratamiento SERIAL,
@@ -390,33 +398,50 @@ CREATE TABLE IF NOT EXISTS sesion_insumos (
     CONSTRAINT sesion_insumos_id_sesion_fkey FOREIGN KEY (id_sesion) REFERENCES sesiones_tratamiento(id_sesion) ON DELETE RESTRICT
 );
 
+CREATE OR REPLACE FUNCTION fn_validar_diagnostico_sintoma() RETURNS trigger AS $$
+-- Un diagnóstico vigente tiene al menos un síntoma. Se verifica al CONFIRMAR la transacción (el diagnóstico y sus síntomas se insertan juntos).
+BEGIN
+    IF NEW.activo AND NOT EXISTS (SELECT 1 FROM diagnostico_sintoma WHERE id_diagnostico = NEW.id_diagnostico) THEN
+        RAISE EXCEPTION 'El diagnóstico % debe tener al menos un síntoma.', NEW.codigo USING ERRCODE = 'check_violation';
+    END IF;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+COMMENT ON FUNCTION fn_validar_diagnostico_sintoma() IS 'Trigger diferido: todo diagnóstico vigente tiene al menos un síntoma (diagnostico_sintoma).';
+
+DROP TRIGGER IF EXISTS trg_diagnostico_con_sintoma ON diagnosticos;
+CREATE CONSTRAINT TRIGGER trg_diagnostico_con_sintoma
+    AFTER INSERT OR UPDATE OF activo ON diagnosticos
+    DEFERRABLE INITIALLY DEFERRED
+    FOR EACH ROW EXECUTE FUNCTION fn_validar_diagnostico_sintoma();
+
 DROP TRIGGER IF EXISTS update_odontograma_updated_at ON odontograma;
 CREATE TRIGGER update_odontograma_updated_at BEFORE UPDATE ON odontograma
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Catálogo fijo de estados dentales del odontograma
-INSERT INTO estado_dental (id_estado_dental, descripcion, color, simbolo, activo) VALUES
-    (1, 'Sano', '#E8F5E9', 'S', true),
-    (2, 'Caries', '#D32F2F', 'Ca', true),
-    (3, 'Obturación', '#757575', 'Ob', true),
-    (4, 'Extracción Indicada', '#FF9800', 'Ei', true),
-    (5, 'Extraído', '#212121', 'Ex', true),
-    (6, 'Endodoncia', '#E91E63', 'En', true),
-    (7, 'Corona', '#FDD835', 'Co', true),
-    (8, 'Puente', '#AB47BC', 'Pu', true),
-    (9, 'Implante', '#26A69A', 'Im', true),
-    (10, 'Prótesis Parcial', '#5C6BC0', 'Pp', true),
-    (11, 'Prótesis Total', '#1976D2', 'Pt', true),
-    (12, 'Incrustación', '#8D6E63', 'In', true),
-    (13, 'Fractura', '#F44336', 'Fr', true),
-    (14, 'Movilidad', '#FF5722', 'Mo', true),
-    (15, 'Bolsa Periodontal', '#9C27B0', 'Bp', true),
-    (16, 'Retracción Gingival', '#EC407A', 'Rg', true),
-    (17, 'Sellador', '#4CAF50', 'Se', true),
-    (18, 'Resina', '#00BCD4', 'Re', true),
-    (19, 'Amalgama', '#607D8B', 'Am', true),
-    (20, 'Diente Incluido', '#795548', 'Di', true),
-    (21, 'Diente Temporal', '#FFEB3B', 'Dt', true),
-    (22, 'Ausente Congénito', '#9E9E9E', 'Ac', true)
+INSERT INTO estado_dental (id_estado_dental, descripcion, color, simbolo, activo, aplica_a) VALUES
+    (1, 'Sano', '#E8F5E9', 'S', true, 'PIEZA'),
+    (2, 'Caries', '#D32F2F', 'Ca', true, 'SUPERFICIE'),
+    (3, 'Obturación', '#757575', 'Ob', true, 'SUPERFICIE'),
+    (4, 'Extracción Indicada', '#FF9800', 'Ei', true, 'PIEZA'),
+    (5, 'Extraído', '#212121', 'Ex', true, 'PIEZA'),
+    (6, 'Endodoncia', '#E91E63', 'En', true, 'PIEZA'),
+    (7, 'Corona', '#FDD835', 'Co', true, 'PIEZA'),
+    (8, 'Puente', '#AB47BC', 'Pu', true, 'PIEZA'),
+    (9, 'Implante', '#26A69A', 'Im', true, 'PIEZA'),
+    (10, 'Prótesis Parcial', '#5C6BC0', 'Pp', true, 'PIEZA'),
+    (11, 'Prótesis Total', '#1976D2', 'Pt', true, 'PIEZA'),
+    (12, 'Incrustación', '#8D6E63', 'In', true, 'SUPERFICIE'),
+    (13, 'Fractura', '#F44336', 'Fr', true, 'SUPERFICIE'),
+    (14, 'Movilidad', '#FF5722', 'Mo', true, 'PIEZA'),
+    (15, 'Bolsa Periodontal', '#9C27B0', 'Bp', true, 'PIEZA'),
+    (16, 'Retracción Gingival', '#EC407A', 'Rg', true, 'PIEZA'),
+    (17, 'Sellador', '#4CAF50', 'Se', true, 'SUPERFICIE'),
+    (18, 'Resina', '#00BCD4', 'Re', true, 'SUPERFICIE'),
+    (19, 'Amalgama', '#607D8B', 'Am', true, 'SUPERFICIE'),
+    (20, 'Diente Incluido', '#795548', 'Di', true, 'PIEZA'),
+    (21, 'Diente Temporal', '#FFEB3B', 'Dt', true, 'PIEZA'),
+    (22, 'Ausente Congénito', '#9E9E9E', 'Ac', true, 'PIEZA')
 ON CONFLICT (descripcion) DO NOTHING;
 SELECT setval(pg_get_serial_sequence('estado_dental','id_estado_dental'), (SELECT MAX(id_estado_dental) FROM estado_dental));

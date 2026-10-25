@@ -149,3 +149,92 @@ def validar_ficha(data):
         return None, 'La ficha debe tener al menos un dato.', 'ficha'
     v['imc'] = calcular_imc(v['peso'], v['talla'])
     return v, None, None
+
+
+# ====================================================================================================================================
+# Etapa 4: Diagnóstico y Odontograma
+# ====================================================================================================================================
+# Nomenclatura FDI: permanentes 11-18, 21-28, 31-38, 41-48; temporales 51-55, 61-65, 71-75, 81-85 (también en chk_detalle_pieza_fdi y
+# chk_diagnostico_pieza_fdi de la base y en consultorio-validadores.js).
+FDI_PERMANENTES = [c * 10 + n for c in (1, 2, 3, 4) for n in range(1, 9)]
+FDI_TEMPORALES = [c * 10 + n for c in (5, 6, 7, 8) for n in range(1, 6)]
+FDI_VALIDAS = frozenset(FDI_PERMANENTES + FDI_TEMPORALES)
+MSG_PIEZA = ('La pieza dental debe ser un número FDI válido (permanentes 11–18, 21–28, 31–38, 41–48; '
+             'temporales 51–55, 61–65, 71–75, 81–85).')
+SUPERFICIES = ('O', 'V', 'L', 'M', 'D', 'T')   # T = pieza completa
+NOMBRE_SUPERFICIE = {'O': 'oclusal / incisal', 'V': 'vestibular', 'L': 'lingual / palatina', 'M': 'mesial', 'D': 'distal', 'T': 'pieza completa'}
+MAX_DESCRIPCION_DX = 1000
+MAX_OBSERVACIONES_DX = 2000
+
+
+def validar_pieza_fdi(valor, obligatoria=False):
+    """(número FDI como int|None, error). Acepta un entero o un texto numérico ("18")."""
+    if _vacio(valor):
+        return (None, MSG_PIEZA) if obligatoria else (None, None)
+    if isinstance(valor, bool) or (isinstance(valor, float) and valor != int(valor)):
+        return None, MSG_PIEZA
+    texto = str(int(valor)) if isinstance(valor, float) else str(valor).strip()
+    if not _RE_ENTERO.match(texto) or int(texto) not in FDI_VALIDAS:
+        return None, MSG_PIEZA
+    return int(texto), None
+
+
+def validar_superficie(valor):
+    """(letra|None, error)."""
+    if not isinstance(valor, str) or valor.strip().upper() not in SUPERFICIES:
+        return None, 'La superficie debe ser O (oclusal / incisal), V (vestibular), L (lingual / palatina), M (mesial), D (distal) o T (pieza completa).'
+    return valor.strip().upper(), None
+
+
+def validar_diagnostico(data):
+    """
+    Valida los datos de un diagnóstico (lo que el navegador puede definir). Devuelve (valores, None, None) o (None, mensaje, campo).
+    id_tipo_diagnostico: entero positivo. sintomas: lista de ids, AL MENOS UNO, sin repetidos. descripción: obligatoria (hasta 1.000).
+    pieza dental: opcional, FDI válida. observaciones: opcionales (hasta 2.000). Paciente, médico, consulta y fecha NO se toman del navegador.
+    """
+    if not isinstance(data, dict):
+        return None, 'Los datos enviados no son válidos.', None
+    v = {}
+    tipo = data.get('id_tipo_diagnostico')
+    if _vacio(tipo):
+        return None, 'El tipo de diagnóstico es obligatorio.', 'id_tipo_diagnostico'
+    if isinstance(tipo, bool) or not _RE_ENTERO.match(str(tipo).strip()) or int(str(tipo).strip()) <= 0:
+        return None, 'El tipo de diagnóstico no es válido.', 'id_tipo_diagnostico'
+    v['id_tipo_diagnostico'] = int(str(tipo).strip())
+
+    sintomas = data.get('sintomas')
+    if not isinstance(sintomas, list) or not sintomas:
+        return None, 'Debe elegir al menos un síntoma.', 'sintomas'
+    ids = []
+    for s in sintomas:
+        if isinstance(s, bool) or not _RE_ENTERO.match(str(s).strip()) or int(str(s).strip()) <= 0:
+            return None, 'Los síntomas deben enviarse como una lista de IDs.', 'sintomas'
+        ids.append(int(str(s).strip()))
+    v['sintomas'] = sorted(set(ids))
+
+    descripcion = data.get('descripcion_diagnostico')
+    if _vacio(descripcion) or not isinstance(descripcion, str):
+        return None, 'La descripción del diagnóstico es obligatoria.', 'descripcion_diagnostico'
+    descripcion = descripcion.strip()
+    if len(descripcion) > MAX_DESCRIPCION_DX:
+        return None, f'La descripción no puede superar los {MAX_DESCRIPCION_DX} caracteres.', 'descripcion_diagnostico'
+    if _RE_CONTROL.search(descripcion):
+        return None, 'La descripción contiene caracteres no permitidos.', 'descripcion_diagnostico'
+    v['descripcion_diagnostico'] = descripcion
+
+    v['pieza_dental'], e = validar_pieza_fdi(data.get('pieza_dental'))
+    if e:
+        return None, e, 'pieza_dental'
+    observaciones = data.get('observaciones')
+    if _vacio(observaciones):
+        v['observaciones'] = None
+    else:
+        if not isinstance(observaciones, str):
+            return None, 'Las observaciones deben ser un texto.', 'observaciones'
+        observaciones = observaciones.strip()
+        if len(observaciones) > MAX_OBSERVACIONES_DX:
+            return None, f'Las observaciones no pueden superar los {MAX_OBSERVACIONES_DX} caracteres.', 'observaciones'
+        if _RE_CONTROL.search(observaciones):
+            return None, 'Las observaciones contienen caracteres no permitidos.', 'observaciones'
+        v['observaciones'] = observaciones
+    return v, None, None

@@ -13,7 +13,7 @@ import datetime
 from flask import Blueprint, request, jsonify, current_app as app
 from app.dao.referenciales_consultorio.consulta.ConsultaDao import ConsultaDao, numero_consulta
 from app.dao.referenciales_consultorio.consulta.FichaMedicaDao import FichaMedicaDao
-from app.rutas.modulo_consultorio.utils import auditar as _auditar, error_interno, respuesta_error
+from app.rutas.modulo_consultorio.utils import acceso_consulta, auditar as _auditar, error_interno, respuesta_error
 from app.rutas.modulo_consultorio.validadores_clinicos import validar_ficha
 from app.rutas.modulo_seguridad.decorators import require_permiso
 from app.rutas.modulo_seguridad.permisos_contexto import id_medico_sesion
@@ -56,14 +56,8 @@ def _error(r, anulando=False):
 
 def _puede_leer_consulta(id_consulta):
     """Un médico solo lee las fichas de SUS consultas; Recepción y Administrador (con fichamedica ver) leen todas.
-    Devuelve (None, None) si puede, o (respuesta de error, status)."""
-    consulta = ConsultaDao().getConsultaById(id_consulta)
-    if not consulta or not consulta['activo']:
-        return respuesta_error('No se encontró la consulta con el ID proporcionado.', 404)
-    id_medico = id_medico_sesion()
-    if id_medico and consulta['id_medico'] != id_medico:
-        return respuesta_error('Esta consulta pertenece a otro médico.', 403)
-    return None
+    Devuelve None si puede, o la respuesta de error."""
+    return acceso_consulta(id_consulta)[1]
 
 
 def _fecha_param(nombre):

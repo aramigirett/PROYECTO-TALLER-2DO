@@ -1,560 +1,251 @@
-from flask import Blueprint, request, jsonify, current_app as app
-from app.dao.referenciales_agendamiento.odontograma.OdontogramaDao import OdontogramaDao
-from datetime import date
-from app.conexion.Conexion import Conexion
-from app.rutas.modulo_seguridad.decorators import require_permiso, require_login
+"""
+=====================================================
+API: Odontograma (/api/v1/odontogramas)
+Uno por consulta, precargado con el último del paciente. Lo crea, lo modifica (agrega / quita hallazgos) y lo anula SOLO el médico de la consulta, con la
+consulta programada o en proceso (revalidado en la transacción). Un médico solo lee lo de SUS consultas.
 
-# Crear Blueprint para la API de Odontogramas
+Auditoría (`auditoria_cambios`, entidad `odontograma`): ALTA (con la consulta de la que se precargó), MODIFICACION ("odontograma modificado", una por cambio)
+y BAJA, con el N.º de consulta, el paciente (con CI) y quién; NUNCA con piezas, superficies ni estados (datos de salud).
+=====================================================
+"""
+import datetime
+
+from flask import Blueprint, request, jsonify, current_app as app
+from app.dao.referenciales_consultorio.consulta.ConsultaDao import numero_consulta
+from app.dao.referenciales_consultorio.odontograma.OdontogramaDao import OdontogramaDao
+from app.rutas.modulo_consultorio.utils import acceso_consulta, auditar as _auditar, error_interno, respuesta_error
+from app.rutas.modulo_consultorio.validadores_clinicos import validar_pieza_fdi, validar_superficie, NOMBRE_SUPERFICIE
+from app.rutas.modulo_seguridad.decorators import require_login, require_permiso
+from app.rutas.modulo_seguridad.permisos_contexto import id_medico_sesion
+from app.Services.auditoria_detalle import DetalleAuditoria
+
 odontogramaapi = Blueprint('odontogramaapi', __name__)
 
-# ========================================
-# API - ESTADOS DENTALES
-# ========================================
+ENTIDAD = 'odontograma'
 
-@odontogramaapi.route('/estados-dentales', methods=['GET'])
-@require_login  # lookup: lo consumen otras pantallas
-def getEstadosDentales():
-    odontograma_dao = OdontogramaDao()
+ERRORES = {
+    'CONSULTA_NO_ENCONTRADA': (404, 'No se encontró la consulta con el ID proporcionado.'),
+    'ODONTOGRAMA_NO_ENCONTRADO': (404, 'No se encontró el odontograma con el ID proporcionado.'),
+    'HALLAZGO_NO_ENCONTRADO': (404, 'No se encontró el hallazgo con el ID proporcionado.'),
+    'NO_ES_SU_MEDICO': (403, 'Solo el médico de la consulta puede crear, modificar o anular su odontograma.'),
+    'YA_EXISTE': (409, 'Esta consulta ya tiene un odontograma. Hay uno solo por consulta: ábralo para modificarlo.'),
+    'ESTADO_NO_EXISTE': (400, 'El estado dental seleccionado no existe.'),
+}
+CAMPO = {'ESTADO_NO_EXISTE': 'id_estado_dental', 'ESTADO_INACTIVO': 'id_estado_dental', 'ESTADO_DE_PIEZA': 'superficie',
+         'ESTADO_DE_SUPERFICIE': 'superficie', 'DUPLICADO': 'id_estado_dental'}
+
+
+def _error(r):
+    codigo = r.get('error')
+    if codigo == 'CONSULTA_NO_ABIERTA':
+        return respuesta_error(f"La consulta está {r.get('estado')}: ya no admite cambios en su odontograma.", 409)
+    if codigo == 'ESTADO_INACTIVO':
+        return respuesta_error(f"El estado dental «{r['detalle']}» está inactivo.", 409, CAMPO[codigo])
+    if codigo == 'ESTADO_DE_PIEZA':
+        return respuesta_error(f"«{r['detalle']}» es un hallazgo de la pieza completa: use la superficie T (pieza completa).", 400, CAMPO[codigo])
+    if codigo == 'ESTADO_DE_SUPERFICIE':
+        return respuesta_error(f"«{r['detalle']}» es un hallazgo de una superficie: elija O, V, L, M o D.", 400, CAMPO[codigo])
+    if codigo == 'DUPLICADO':
+        return respuesta_error('Ese hallazgo ya está registrado en el odontograma (misma pieza, superficie y estado).', 409, CAMPO[codigo])
+    if codigo in ERRORES:
+        status, mensaje = ERRORES[codigo]
+        return respuesta_error(mensaje, status, CAMPO.get(codigo))
+    return error_interno()
+
+
+def _paciente(ctx):
+    return f"{ctx['paciente']} (CI {ctx['cedula']})"
+
+
+def _fecha(nombre):
+    valor = request.args.get(nombre, '').strip()
+    if not valor:
+        return None, None
     try:
-        estados = odontograma_dao.getEstadosDentales()
-        app.logger.info(f"✅ Devolviendo {len(estados)} estados dentales")  # ✅ Log
-        return jsonify({
-            'success': True,
-            'data': estados,
-            'error': None
-        }), 200
+        return datetime.date.fromisoformat(valor), None
+    except ValueError:
+        return None, f'El filtro "{nombre}" debe tener el formato AAAA-MM-DD.'
+
+
+# -------------------------
+# Catálogo de estados dentales (color, símbolo y si aplica a la pieza completa o a una superficie): lo usa el dibujo del odontograma
+# -------------------------
+@odontogramaapi.route('/estados-dentales', methods=['GET'])
+@require_login
+def getEstadosDentales():
+    try:
+        return jsonify({'success': True, 'data': OdontogramaDao().getEstadosDentales(), 'error': None}), 200
     except Exception as e:
-        app.logger.error(f"❌ Error al obtener estados dentales: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': 'Ocurrió un error al consultar los estados dentales.'
-        }), 500
+        app.logger.error(f"Error al obtener los estados dentales: {str(e)}")
+        return error_interno()
 
-# ========================================
-# API - ODONTOGRAMA CABECERA
-# ========================================
 
+# -------------------------
+# Lecturas (un médico solo ve lo de SUS consultas)
+# -------------------------
 @odontogramaapi.route('/odontogramas', methods=['GET'])
 @require_permiso('odontograma', 'ver')
 def getOdontogramas():
-    """
-    Obtiene todos los odontogramas
-    Endpoint: GET /api/v1/odontogramas
-    """
-    odontograma_dao = OdontogramaDao()
+    desde, e1 = _fecha('desde')
+    hasta, e2 = _fecha('hasta')
+    if e1 or e2:
+        return respuesta_error(e1 or e2, 400)
+    if desde and hasta and desde > hasta:
+        return respuesta_error('La fecha "desde" no puede ser posterior a "hasta".', 400)
     try:
-        odontogramas = odontograma_dao.getOdontogramas()
-        return jsonify({
-            'success': True,
-            'data': odontogramas,
-            'error': None
-        }), 200
+        pagina, por_pagina = int(request.args.get('pagina', 1)), int(request.args.get('por_pagina', 25))
+    except ValueError:
+        return respuesta_error('La paginación debe ser numérica.', 400)
+    try:
+        filas, total = OdontogramaDao().listar(request.args.get('q', '').strip()[:80] or None, desde, hasta, id_medico_sesion(),
+                                               pagina=pagina, por_pagina=por_pagina)
+        return jsonify({'success': True, 'data': filas, 'total': total, 'pagina': max(1, pagina), 'por_pagina': por_pagina, 'error': None}), 200
     except Exception as e:
-        app.logger.error(f"Error al obtener odontogramas: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': 'Ocurrió un error al consultar los odontogramas.'
-        }), 500
+        app.logger.error(f"Error al listar odontogramas: {str(e)}")
+        return error_interno()
+
+
+@odontogramaapi.route('/odontogramas/consulta/<int:id_consulta_cab>', methods=['GET'])
+@require_permiso('odontograma', 'ver')
+def getOdontogramaDeConsulta(id_consulta_cab):
+    """El odontograma vigente de la consulta (con sus hallazgos) o data = None si todavía no se creó."""
+    try:
+        _, prohibido = acceso_consulta(id_consulta_cab)
+        if prohibido:
+            return prohibido
+        return jsonify({'success': True, 'data': OdontogramaDao().getOdontogramaByConsulta(id_consulta_cab), 'error': None}), 200
+    except Exception as e:
+        app.logger.error(f"Error al obtener el odontograma de la consulta: {str(e)}")
+        return error_interno()
+
 
 @odontogramaapi.route('/odontogramas/<int:id_odontograma>', methods=['GET'])
 @require_permiso('odontograma', 'ver')
-def getOdontogramaById(id_odontograma):
-    """
-    Obtiene un odontograma específico por ID con sus detalles
-    Endpoint: GET /api/v1/odontogramas/{id}
-    """
-    odontograma_dao = OdontogramaDao()
+def getOdontograma(id_odontograma):
     try:
-        # Obtener cabecera
-        odontograma = odontograma_dao.getOdontogramaById(id_odontograma)
-        
-        if not odontograma:
-            return jsonify({
-                'success': False,
-                'error': 'No se encontró el odontograma indicado.'
-            }), 404
-
-        # Obtener detalles
-        detalles = odontograma_dao.getDetallesPorOdontograma(id_odontograma)
-        odontograma['detalles'] = detalles
-        
-        return jsonify({
-            'success': True,
-            'data': odontograma,
-            'error': None
-        }), 200
+        odo = OdontogramaDao().getOdontogramaById(id_odontograma)
+        if not odo:
+            return respuesta_error('No se encontró el odontograma con el ID proporcionado.', 404)
+        _, prohibido = acceso_consulta(odo['id_consulta_cab'])
+        if prohibido:
+            return prohibido
+        return jsonify({'success': True, 'data': odo, 'error': None}), 200
     except Exception as e:
-        app.logger.error(f"Error al obtener odontograma {id_odontograma}: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': 'Ocurrió un error al consultar el odontograma.'
-        }), 500
+        app.logger.error(f"Error al obtener el odontograma: {str(e)}")
+        return error_interno()
+
 
 @odontogramaapi.route('/odontogramas/paciente/<int:id_paciente>', methods=['GET'])
 @require_permiso('odontograma', 'ver')
-def getOdontogramasByPaciente(id_paciente):
-    """
-    Obtiene todos los odontogramas de un paciente específico
-    Endpoint: GET /api/v1/odontogramas/paciente/{id_paciente}
-    """
-    odontograma_dao = OdontogramaDao()
+def getOdontogramasPaciente(id_paciente):
     try:
-        odontogramas = odontograma_dao.getOdontogramasByPaciente(id_paciente)
-        
-        # Agregar detalles a cada odontograma
-        for o in odontogramas:
-            detalles = odontograma_dao.getDetallesPorOdontograma(o['id_odontograma'])
-            o['detalles'] = detalles
-        
-        return jsonify({
-            'success': True,
-            'data': odontogramas,
-            'error': None
-        }), 200
+        filas, total = OdontogramaDao().listar(id_medico=id_medico_sesion(), id_paciente=id_paciente, por_pagina=100)
+        return jsonify({'success': True, 'data': filas, 'total': total, 'error': None}), 200
     except Exception as e:
-        app.logger.error(f"Error al obtener odontogramas del paciente {id_paciente}: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': 'Ocurrió un error al consultar los odontogramas del paciente.'
-        }), 500
+        app.logger.error(f"Error al obtener los odontogramas del paciente: {str(e)}")
+        return error_interno()
 
+
+# -------------------------
+# Alta (con la precarga hecha por el servidor)
+# -------------------------
 @odontogramaapi.route('/odontogramas', methods=['POST'])
 @require_permiso('odontograma', 'nuevo')
 def addOdontograma():
-    """
-    Crea un nuevo odontograma
-    Endpoint: POST /api/v1/odontogramas
-    Body: {
-        "id_consulta_cab": int,
-        "fecha_registro": "YYYY-MM-DD" (opcional),
-        "observaciones": string (opcional),
-        "estado": "Activo" (opcional),
-        "detalles": [
-            {
-                "diente": int o "numero_diente": int,
-                "estado": int o "id_estado_dental": int,
-                "superficie": string,
-                "observacion": string (opcional)
-            }
-        ]
-    }
-    """
-    data = request.get_json()
-    app.logger.info(f"📌 Datos recibidos en addOdontograma: {data}")
-    
-    odontograma_dao = OdontogramaDao()
-    
-    # Validar campos obligatorios: el odontograma cuelga de una Consulta (paciente y
-    # médico se derivan de ella; lo que mande el navegador para eso se ignora)
-    data = data or {}
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or data.get('id_consulta_cab') in (None, ''):
+        return respuesta_error('El campo id_consulta_cab es obligatorio.', 400, 'id_consulta_cab')
     try:
-        id_consulta_cab = int(data.get('id_consulta_cab'))
-    except (TypeError, ValueError):
-        return jsonify({
-            'success': False,
-            'error': 'El campo id_consulta_cab es obligatorio: el odontograma se registra desde una Consulta.'
-        }), 400
-
-    ERRORES = {
-        'CONSULTA_NO_ENCONTRADA': (404, 'No se encontró la consulta seleccionada.'),
-        'CONSULTA_FINALIZADA': (409, 'No se puede registrar: la consulta ya está finalizada.'),
-        'YA_EXISTE': (409, 'Esta consulta ya tiene un odontograma. Puede editarlo o anularlo antes de crear uno nuevo.'),
-        'ERROR_INTERNO': (500, 'No se pudo crear el odontograma.'),
-    }
-
+        id_consulta = int(data['id_consulta_cab'])
+    except (ValueError, TypeError):
+        return respuesta_error('El campo id_consulta_cab no es válido.', 400, 'id_consulta_cab')
     try:
-        resultado = odontograma_dao.guardarOdontograma(
-            id_consulta_cab=id_consulta_cab,
-            fecha_registro=data.get('fecha_registro') or str(date.today()),
-            observaciones=data.get('observaciones', ''),
-            estado=data.get('estado', 'Activo')
-        )
-
-        if 'id_odontograma' not in resultado:
-            codigo, mensaje = ERRORES.get(resultado.get('error'), ERRORES['ERROR_INTERNO'])
-            return jsonify({'success': False, 'error': mensaje}), codigo
-        id_odontograma = resultado['id_odontograma']
-
-        # Guardar detalles si vienen en la petición
-        detalles_insertados = []
-        if 'detalles' in data and isinstance(data['detalles'], list) and len(data['detalles']) > 0:
-            detalles_insertados = odontograma_dao.guardarDetallesMultiples(
-                id_odontograma,
-                data['detalles']
-            )
-
-        return jsonify({
-            'success': True,
-            'data': {
-                'id_odontograma': id_odontograma,
-                'id_consulta_cab': id_consulta_cab,
-                'fecha_registro': data.get('fecha_registro', str(date.today())),
-                'observaciones': data.get('observaciones', ''),
-                'estado': data.get('estado', 'Activo'),
-                'detalles_insertados': len(detalles_insertados)
-            },
-            'error': None
-        }), 201
-
+        r = OdontogramaDao().crearOdontograma(id_consulta, id_medico_sesion())
+        if 'id_odontograma' in r:
+            numero = numero_consulta(id_consulta)
+            origen = r['precargado_de']
+            nuevos = {'Consulta': numero, 'Paciente': _paciente(r['contexto'])}
+            if origen:
+                nuevos['Precargado desde'] = origen['numero_consulta']
+            _auditar(ENTIDAD, r['id_odontograma'], 'ALTA', DetalleAuditoria('; '.join(f'{k}: {v}' for k, v in nuevos.items()), {}, nuevos))
+            msg = f'Odontograma de la consulta {numero} creado correctamente.'
+            if origen:
+                msg += f" Se precargó con el estado de la consulta {origen['numero_consulta']}."
+            return jsonify({'success': True, 'data': {'id_odontograma': r['id_odontograma'], 'precargado_de': origen}, 'mensaje': msg, 'error': None}), 201
+        return _error(r)
     except Exception as e:
-        app.logger.error(f"Error al crear odontograma: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': f'Ocurrió un error interno: {str(e)}'
-        }), 500
+        app.logger.error(f"Error al crear el odontograma: {str(e)}")
+        return error_interno()
 
-@odontogramaapi.route('/odontogramas/<int:id_odontograma>', methods=['PUT'])
+
+# -------------------------
+# Hallazgos: agregar y quitar (modificar el odontograma)
+# -------------------------
+@odontogramaapi.route('/odontogramas/<int:id_odontograma>/hallazgos', methods=['POST'])
 @require_permiso('odontograma', 'editar')
-def updateOdontograma(id_odontograma):
-    """
-    Actualiza un odontograma existente
-    Endpoint: PUT /api/v1/odontogramas/{id}
-    Body: {
-        "fecha_registro": "YYYY-MM-DD",
-        "observaciones": string,
-        "estado": "Activo|Finalizado|Inactivo",
-        "detalles": [
-            {
-                "diente": int,
-                "estado": int,
-                "superficie": string,
-                "observacion": string
-            }
-        ]
-    }
-    """
-    data = request.get_json()
-    app.logger.info(f"📌 Datos recibidos en updateOdontograma: {data}")
-    
-    odontograma_dao = OdontogramaDao()
-    
+def addHallazgo(id_odontograma):
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return respuesta_error('Los datos enviados no son válidos.', 400)
+    pieza, e = validar_pieza_fdi(data.get('numero_diente'), obligatoria=True)
+    if e:
+        return respuesta_error(e, 400, 'numero_diente')
+    superficie, e = validar_superficie(data.get('superficie'))
+    if e:
+        return respuesta_error(e, 400, 'superficie')
+    estado = data.get('id_estado_dental')
+    if isinstance(estado, bool) or estado in (None, '') or not str(estado).strip().isdigit() or int(str(estado).strip()) <= 0:
+        return respuesta_error('Debe elegir el estado dental del hallazgo.', 400, 'id_estado_dental')
+    observacion = data.get('observacion')
+    if observacion in (None, ''):
+        observacion = None
+    elif not isinstance(observacion, str) or len(observacion.strip()) > 500:
+        return respuesta_error('La observación debe ser un texto de hasta 500 caracteres.', 400, 'observacion')
+    else:
+        observacion = observacion.strip() or None
     try:
-        # Actualizar cabecera
-        updated = odontograma_dao.updateOdontograma(
-            id_odontograma=id_odontograma,
-            fecha_registro=data.get('fecha_registro', str(date.today())),
-            observaciones=data.get('observaciones', ''),
-            estado=data.get('estado', 'Activo')
-        )
-
-        if not updated:
-            return jsonify({
-                'success': False,
-                'error': 'Odontograma no encontrado.'
-            }), 404
-
-        # Manejar los detalles (si vienen)
-        if 'detalles' in data and isinstance(data['detalles'], list):
-            # 1. Eliminar detalles anteriores
-            odontograma_dao.deleteDetallesPorOdontograma(id_odontograma)
-
-            # 2. Insertar los nuevos detalles
-            detalles_insertados = odontograma_dao.guardarDetallesMultiples(
-                id_odontograma,
-                data['detalles']
-            )
-            
-            app.logger.info(f"✅ {len(detalles_insertados)} detalles actualizados")
-
-        return jsonify({
-            'success': True,
-            'message': 'Odontograma actualizado correctamente',
-            'error': None
-        }), 200
-
+        r = OdontogramaDao().agregarHallazgo(id_odontograma, pieza, superficie, int(str(estado).strip()), observacion, id_medico_sesion())
+        if 'id_odontograma_detalle' in r:
+            numero = numero_consulta(r['id_consulta_cab'])
+            _auditar(ENTIDAD, id_odontograma, 'MODIFICACION',
+                     DetalleAuditoria(f"Odontograma de la consulta {numero} de {_paciente(r['contexto'])}; odontograma modificado", {}, {}))
+            return jsonify({'success': True, 'data': {'id_odontograma_detalle': r['id_odontograma_detalle']},
+                            'mensaje': f'Hallazgo registrado en la pieza {pieza} ({NOMBRE_SUPERFICIE[superficie]}).', 'error': None}), 201
+        return _error(r)
     except Exception as e:
-        app.logger.error(f"Error al actualizar odontograma {id_odontograma}: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': f'Ocurrió un error interno: {str(e)}'
-        }), 500
+        app.logger.error(f"Error al agregar el hallazgo: {str(e)}")
+        return error_interno()
 
+
+@odontogramaapi.route('/odontogramas/hallazgos/<int:id_detalle>', methods=['DELETE'])
+@require_permiso('odontograma', 'editar')
+def deleteHallazgo(id_detalle):
+    try:
+        r = OdontogramaDao().quitarHallazgo(id_detalle, id_medico_sesion())
+        if r.get('ok'):
+            numero = numero_consulta(r['id_consulta_cab'])
+            _auditar(ENTIDAD, r['id_odontograma'], 'MODIFICACION',
+                     DetalleAuditoria(f"Odontograma de la consulta {numero} de {_paciente(r['contexto'])}; odontograma modificado", {}, {}))
+            return jsonify({'success': True, 'mensaje': 'Hallazgo quitado del odontograma.', 'error': None}), 200
+        return _error(r)
+    except Exception as e:
+        app.logger.error(f"Error al quitar el hallazgo: {str(e)}")
+        return error_interno()
+
+
+# -------------------------
+# Anulación (definitiva)
+# -------------------------
 @odontogramaapi.route('/odontogramas/<int:id_odontograma>', methods=['DELETE'])
 @require_permiso('odontograma', 'anular')
 def deleteOdontograma(id_odontograma):
-    """
-    Elimina un odontograma y sus detalles
-    Endpoint: DELETE /api/v1/odontogramas/{id}
-    """
-    odontograma_dao = OdontogramaDao()
     try:
-        deleted = odontograma_dao.deleteOdontograma(id_odontograma)
-        
-        if deleted:
-            return jsonify({
-                'success': True,
-                'message': f'Odontograma {id_odontograma} eliminado correctamente',
-                'error': None
-            }), 200
-        else:
-            return jsonify({
-                'success': False,
-                'error': 'Odontograma no encontrado.'
-            }), 404
+        r = OdontogramaDao().anularOdontograma(id_odontograma, id_medico_sesion())
+        if r.get('ok'):
+            numero = numero_consulta(r['id_consulta_cab'])
+            _auditar(ENTIDAD, id_odontograma, 'BAJA', f"Odontograma de la consulta {numero}; Paciente: {_paciente(r['contexto'])}")
+            return jsonify({'success': True, 'mensaje': f'Odontograma de la consulta {numero} anulado correctamente.', 'error': None}), 200
+        return _error(r)
     except Exception as e:
-        app.logger.error(f"Error al eliminar odontograma {id_odontograma}: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': 'Ocurrió un error al eliminar el odontograma.'
-        }), 500
-
-@odontogramaapi.route('/odontogramas/<int:id_odontograma>/estado', methods=['PATCH'])
-@require_permiso('odontograma', 'anular')
-def cambiarEstadoOdontograma(id_odontograma):
-    """
-    Cambia el estado de un odontograma
-    Endpoint: PATCH /api/v1/odontogramas/{id}/estado
-    Body: {
-        "estado": "Activo|Finalizado|Inactivo"
-    }
-    """
-    data = request.get_json()
-    odontograma_dao = OdontogramaDao()
-
-    if 'estado' not in data or data['estado'] not in ['Activo', 'Finalizado', 'Inactivo']:
-        return jsonify({
-            'success': False,
-            'error': 'El campo estado debe ser "Activo", "Finalizado" o "Inactivo".'
-        }), 400
-
-    try:
-        if odontograma_dao.cambiarEstadoOdontograma(id_odontograma, data['estado']):
-            return jsonify({
-                'success': True,
-                'message': f'Estado actualizado a {data["estado"]}.',
-                'error': None
-            }), 200
-        else:
-            return jsonify({
-                'success': False,
-                'error': 'No se encontró el odontograma indicado.'
-            }), 404
-    except Exception as e:
-        app.logger.error(f"Error al cambiar estado: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': 'Ocurrió un error al cambiar el estado.'
-        }), 500
-
-# ========================================
-# API - ODONTOGRAMA DETALLES
-# ========================================
-
-@odontogramaapi.route('/odontogramas/<int:id_odontograma>/detalles', methods=['GET'])
-@require_permiso('odontograma', 'ver')
-def getDetalles(id_odontograma):
-    """
-    Obtiene todos los detalles de un odontograma
-    Endpoint: GET /api/v1/odontogramas/{id}/detalles
-    """
-    odontograma_dao = OdontogramaDao()
-    try:
-        detalles = odontograma_dao.getDetallesPorOdontograma(id_odontograma)
-        return jsonify({
-            'success': True,
-            'data': detalles,
-            'error': None
-        }), 200
-    except Exception as e:
-        app.logger.error(f"Error al obtener detalles: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': 'Ocurrió un error al consultar los detalles.'
-        }), 500
-
-@odontogramaapi.route('/odontogramas/<int:id_odontograma>/detalles', methods=['POST'])
-@require_permiso('odontograma', 'nuevo')
-def addDetalle(id_odontograma):
-    """
-    Agrega un detalle a un odontograma
-    Endpoint: POST /api/v1/odontogramas/{id}/detalles
-    Body: {
-        "diente": int o "numero_diente": int,
-        "estado": int o "id_estado_dental": int,
-        "superficie": string,
-        "observacion": string (opcional)
-    }
-    """
-    data = request.get_json()
-    odontograma_dao = OdontogramaDao()
-    
-    try:
-        # Obtener valores con flexibilidad en nombres
-        numero_diente = data.get('diente') or data.get('numero_diente')
-        id_estado_dental = data.get('estado') or data.get('id_estado_dental')
-        superficie = data.get('superficie', 'C')
-        observacion = data.get('observacion')
-        
-        if not numero_diente or not id_estado_dental:
-            return jsonify({
-                'success': False,
-                'error': 'Los campos diente y estado son obligatorios.'
-            }), 400
-        
-        id_detalle = odontograma_dao.guardarDetalle(
-            id_odontograma=id_odontograma,
-            numero_diente=numero_diente,
-            id_estado_dental=id_estado_dental,
-            superficie=superficie,
-            observacion=observacion
-        )
-        
-        if id_detalle:
-            return jsonify({
-                'success': True,
-                'data': {
-                    'id_odontograma_detalle': id_detalle,
-                    'numero_diente': numero_diente,
-                    'id_estado_dental': id_estado_dental,
-                    'superficie': superficie
-                },
-                'error': None
-            }), 201
-        else:
-            return jsonify({
-                'success': False,
-                'error': 'No se pudo crear el detalle. Puede ser un registro duplicado.'
-            }), 500
-    except Exception as e:
-        app.logger.error(f"Error al agregar detalle: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': f'Ocurrió un error interno: {str(e)}'
-        }), 500
-
-@odontogramaapi.route('/detalles/<int:id_detalle>', methods=['PUT'])
-@require_permiso('odontograma', 'editar')
-def updateDetalle(id_detalle):
-    """
-    Actualiza un detalle específico
-    Endpoint: PUT /api/v1/detalles/{id}
-    Body: {
-        "estado": int o "id_estado_dental": int,
-        "superficie": string,
-        "observacion": string
-    }
-    """
-    data = request.get_json()
-    odontograma_dao = OdontogramaDao()
-    
-    try:
-        id_estado_dental = data.get('estado') or data.get('id_estado_dental')
-        
-        if not id_estado_dental:
-            return jsonify({
-                'success': False,
-                'error': 'El campo estado es obligatorio.'
-            }), 400
-        
-        updated = odontograma_dao.updateDetalle(
-            id_odontograma_detalle=id_detalle,
-            id_estado_dental=id_estado_dental,
-            superficie=data.get('superficie', 'C'),
-            observacion=data.get('observacion')
-        )
-        
-        if updated:
-            return jsonify({
-                'success': True,
-                'message': 'Detalle actualizado correctamente',
-                'error': None
-            }), 200
-        else:
-            return jsonify({
-                'success': False,
-                'error': 'Detalle no encontrado.'
-            }), 404
-    except Exception as e:
-        app.logger.error(f"Error al actualizar detalle: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': 'Ocurrió un error interno.'
-        }), 500
-
-@odontogramaapi.route('/detalles/<int:id_detalle>', methods=['DELETE'])
-@require_permiso('odontograma', 'editar')
-def deleteDetalle(id_detalle):
-    """
-    Elimina un detalle específico
-    Endpoint: DELETE /api/v1/detalles/{id}
-    """
-    odontograma_dao = OdontogramaDao()
-    try:
-        deleted = odontograma_dao.deleteDetalle(id_detalle)
-        
-        if deleted:
-            return jsonify({
-                'success': True,
-                'message': 'Detalle eliminado correctamente',
-                'error': None
-            }), 200
-        else:
-            return jsonify({
-                'success': False,
-                'error': 'Detalle no encontrado.'
-            }), 404
-    except Exception as e:
-        app.logger.error(f"Error al eliminar detalle: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': 'Ocurrió un error interno.'
-        }), 500
-
-# ========================================
-# API - UTILIDADES
-# ========================================
-
-@odontogramaapi.route('/odontogramas/validar-consulta/<int:id_consulta_cab>', methods=['GET'])
-@require_permiso('odontograma', 'ver')
-def validarConsulta(id_consulta_cab):
-    """
-    Verifica si una consulta ya tiene un odontograma vigente (uno por consulta)
-    Endpoint: GET /api/v1/odontogramas/validar-consulta/{id_consulta_cab}
-    """
-    odontograma_dao = OdontogramaDao()
-    try:
-        existe = odontograma_dao.existeOdontogramaConsulta(id_consulta_cab)
-        return jsonify({
-            'success': True,
-            'data': {
-                'existe_odontograma': existe
-            },
-            'error': None
-        }), 200
-    except Exception as e:
-        app.logger.error(f"Error al validar consulta: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': 'Ocurrió un error al validar.'
-        }), 500
-
-
-@odontogramaapi.route('/odontogramas/precarga/<int:id_consulta_cab>', methods=['GET'])
-@require_permiso('odontograma', 'nuevo')
-def getPrecarga(id_consulta_cab):
-    """
-    Estado del odontograma vigente del paciente de la consulta (el de su última
-    consulta anterior), para precargar el odontograma nuevo.
-    Endpoint: GET /api/v1/odontogramas/precarga/{id_consulta_cab}
-    data = {'detalles': [...], 'fecha_registro': ...} o {'detalles': []} si no hay previo.
-    """
-    odontograma_dao = OdontogramaDao()
-    try:
-        con = Conexion().getConexion()
-        cur = con.cursor()
-        try:
-            cur.execute("SELECT id_paciente FROM consultas_cab WHERE id_consulta_cab = %s AND activo = true",
-                        (id_consulta_cab,))
-            fila = cur.fetchone()
-        finally:
-            cur.close()
-            con.close()
-        if not fila:
-            return jsonify({'success': False, 'error': 'No se encontró la consulta seleccionada.'}), 404
-        previo = odontograma_dao.getOdontogramaVigentePaciente(fila[0], excluir_consulta=id_consulta_cab)
-        data = ({'detalles': previo['detalles'], 'fecha_registro': previo['fecha_registro']}
-                if previo else {'detalles': []})
-        return jsonify({'success': True, 'data': data, 'error': None}), 200
-    except Exception as e:
-        app.logger.error(f"Error al obtener la precarga del odontograma: {str(e)}")
-        return jsonify({'success': False, 'error': 'Ocurrió un error al consultar el odontograma previo.'}), 500
+        app.logger.error(f"Error al anular el odontograma: {str(e)}")
+        return error_interno()

@@ -93,6 +93,25 @@ class Fixtures:
                               "INSERT INTO consultorio(nombre_consultorio, direccion, correo, activo) VALUES (%s,'ZZ DIRECCION',%s,%s)",
                               (f'ZZ CONSULTORIO {s[-4:]}', f'zz{s}@test.invalid', activo))
 
+    def tipo_diagnostico(self, activo=True):
+        """Un tipo de diagnóstico ZZ (referencial). Devuelve su id."""
+        s = self._sufijo()
+        return self._insertar('tipo_diagnostico', 'id_tipo_diagnostico',
+                              "INSERT INTO tipo_diagnostico(descripcion_diagnostico, tipo_diagnostico, activo) VALUES (%s,'ZZ',%s)",
+                              (f'ZZ TIPO DX {s[-6:]}', activo))
+
+    def sintoma(self, activo=True):
+        """Un síntoma ZZ (referencial). Devuelve su id."""
+        s = self._sufijo()
+        return self._insertar('sintoma', 'id_sintoma', "INSERT INTO sintoma(descripcion_sintoma, activo) VALUES (%s,%s)", (f'ZZ SINTOMA {s[-6:]}', activo))
+
+    def estado_dental(self, aplica_a='SUPERFICIE', activo=True):
+        """Un estado dental ZZ. Devuelve su id."""
+        s = self._sufijo()
+        return self._insertar('estado_dental', 'id_estado_dental',
+                              "INSERT INTO estado_dental(descripcion, color, simbolo, activo, aplica_a) VALUES (%s,'#123456','Z',%s,%s)",
+                              (f'ZZ ESTADO {s[-6:]}', activo, aplica_a))
+
     def desactivar(self, tabla, pk, i):
         self.cu.execute(f"UPDATE {tabla} SET activo = false WHERE {pk} = %s", (i,))
         self.cx.commit()
@@ -161,9 +180,12 @@ class Fixtures:
         modelos = {
             'ficha': ('ficha_medica_consulta', 'id_ficha_medica',
                       "INSERT INTO ficha_medica_consulta(id_consulta_cab, temperatura) VALUES (%s, 36.5)", (id_consulta,)),
+            # un diagnóstico vigente exige al menos un síntoma (trigger diferido): se inserta todo antes de confirmar
             'diagnostico': ('diagnosticos', 'id_diagnostico',
-                            "INSERT INTO diagnosticos(codigo, id_consulta_cab, id_paciente, id_medico, id_tipo_diagnostico, descripcion_diagnostico, fecha_diagnostico) "
-                            "VALUES (%s,%s,%s,%s,%s,'ZZ',CURRENT_DATE)", (f'ZD{s[-8:]}', id_consulta, pac, med, tipo_dx)),
+                            "WITH dx AS (INSERT INTO diagnosticos(codigo, id_consulta_cab, id_paciente, id_medico, id_tipo_diagnostico, descripcion_diagnostico, fecha_diagnostico) "
+                            "VALUES (%s,%s,%s,%s,%s,'ZZ',CURRENT_DATE) RETURNING id_diagnostico), "
+                            "sx AS (INSERT INTO diagnostico_sintoma(id_diagnostico, id_sintoma) SELECT id_diagnostico, %s FROM dx) "
+                            "SELECT id_diagnostico FROM dx", (f'ZD{s[-8:]}', id_consulta, pac, med, tipo_dx, self._uno("SELECT id_sintoma FROM sintoma WHERE activo ORDER BY 1 LIMIT 1"))),
             'odontograma': ('odontograma', 'id_odontograma',
                             "INSERT INTO odontograma(id_paciente, id_medico, id_consulta_cab, fecha_registro) VALUES (%s,%s,%s,NOW())", (pac, med, id_consulta)),
             'tratamiento': ('tratamientos', 'id_tratamiento',
@@ -181,6 +203,12 @@ class Fixtures:
                               "INSERT INTO justificativo_medico(id_consulta_cab, dias_reposo, fecha_justificativo, estado) VALUES (%s,1,CURRENT_DATE,'activo')", (id_consulta,)),
         }
         tabla, pk, sql, p = modelos[tipo]
+        if tipo == 'diagnostico':   # la consulta WITH ya devuelve el id: _insertar le agregaría RETURNING
+            self.cu.execute(sql, p)
+            i = self.cu.fetchone()[0]
+            self.cx.commit()
+            self._borrar.append((tabla, pk, i))
+            return tabla, pk, i
         return tabla, pk, self._insertar(tabla, pk, sql, p)
 
     def dejar_sin_vigencia(self, tabla, pk, i):
@@ -190,7 +218,7 @@ class Fixtures:
         elif tabla == 'justificativo_medico':
             self.cu.execute(f"UPDATE {tabla} SET estado = 'anulado' WHERE {pk} = %s", (i,))
         elif tabla == 'odontograma':
-            self.cu.execute(f"UPDATE {tabla} SET activo = false, estado = 'Inactivo' WHERE {pk} = %s", (i,))
+            self.cu.execute(f"UPDATE {tabla} SET activo = false WHERE {pk} = %s", (i,))
         else:
             self.cu.execute(f"UPDATE {tabla} SET activo = false WHERE {pk} = %s", (i,))
         self.cx.commit()

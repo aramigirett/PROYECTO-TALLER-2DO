@@ -28,7 +28,13 @@ BEGIN
 END $$;
 
 ALTER TABLE odontograma ADD COLUMN IF NOT EXISTS activo BOOLEAN NOT NULL DEFAULT true;
-UPDATE odontograma SET activo = false WHERE estado = 'Inactivo' AND activo = true;
+-- (la columna `estado` se retira en la etapa 4: en una base ya al día este paso no hace nada)
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'odontograma' AND column_name = 'estado') THEN
+        EXECUTE 'UPDATE odontograma SET activo = false WHERE estado = ''Inactivo'' AND activo = true';
+    END IF;
+END $$;
 CREATE UNIQUE INDEX IF NOT EXISTS ux_odontograma_consulta_activo ON odontograma (id_consulta_cab) WHERE activo = true;
 COMMENT ON COLUMN odontograma.activo IS 'Baja lógica (estándar). false = anulado. Reemplaza a estado = ''Inactivo''.';
 

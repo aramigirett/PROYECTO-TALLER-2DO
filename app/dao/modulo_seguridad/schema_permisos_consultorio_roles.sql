@@ -13,7 +13,7 @@ INSERT INTO _perm_objetivo VALUES
     ('Medico', 'consulta', 'ver'), ('Medico', 'consulta', 'estado'),
     ('Medico', 'fichamedica', 'ver'), ('Medico', 'fichamedica', 'nuevo'), ('Medico', 'fichamedica', 'editar'), ('Medico', 'fichamedica', 'anular'),
     ('Medico', 'diagnostico', 'ver'), ('Medico', 'diagnostico', 'nuevo'), ('Medico', 'diagnostico', 'anular'),
-    ('Medico', 'odontograma', 'ver'), ('Medico', 'odontograma', 'nuevo'), ('Medico', 'odontograma', 'anular'),
+    ('Medico', 'odontograma', 'ver'), ('Medico', 'odontograma', 'nuevo'), ('Medico', 'odontograma', 'editar'), ('Medico', 'odontograma', 'anular'),
     ('Medico', 'tratamiento', 'ver'), ('Medico', 'tratamiento', 'nuevo'), ('Medico', 'tratamiento', 'anular'), ('Medico', 'tratamiento', 'estado'),
     ('Medico', 'sesiontratamiento', 'ver'), ('Medico', 'sesiontratamiento', 'nuevo'), ('Medico', 'sesiontratamiento', 'anular'),
     ('Medico', 'receta', 'ver'), ('Medico', 'receta', 'nuevo'), ('Medico', 'receta', 'anular'),

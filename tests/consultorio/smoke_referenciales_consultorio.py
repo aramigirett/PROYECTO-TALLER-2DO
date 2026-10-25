@@ -99,20 +99,22 @@ def usar_orden(tabla, pk, col):
     return f
 
 
+def _crear_dx(id_tipo, id_sintoma):
+    """Un diagnóstico vigente exige al menos un síntoma (trigger diferido): se inserta todo antes de confirmar."""
+    cu.execute("WITH dx AS (INSERT INTO diagnosticos(codigo, id_consulta_cab, id_paciente, id_medico, id_tipo_diagnostico, descripcion_diagnostico, fecha_diagnostico) "
+               "SELECT %s, id_consulta_cab, id_paciente, id_medico, %s, 'ZZ', CURRENT_DATE FROM consultas_cab WHERE id_consulta_cab=%s RETURNING id_diagnostico), "
+               "sx AS (INSERT INTO diagnostico_sintoma(id_diagnostico, id_sintoma) SELECT id_diagnostico, %s FROM dx) SELECT id_diagnostico FROM dx",
+               (f'ZZ-DX-{len(hijos)}', id_tipo, CONSULTA, id_sintoma))
+    i = cu.fetchone()[0]; cx.commit(); hijos.append(('diagnosticos', 'id_diagnostico', i))
+    return i
+
+
 def usar_diagnostico(i):
-    return hijo('diagnosticos', 'id_diagnostico',
-                "INSERT INTO diagnosticos(codigo, id_consulta_cab, id_paciente, id_medico, id_tipo_diagnostico, descripcion_diagnostico, fecha_diagnostico) "
-                "SELECT %s, id_consulta_cab, id_paciente, id_medico, %s, 'ZZ', CURRENT_DATE FROM consultas_cab WHERE id_consulta_cab=%s",
-                (f'ZZ-DX-{len(hijos)}', i, CONSULTA))
+    return _crear_dx(i, q("SELECT id_sintoma FROM sintoma WHERE activo ORDER BY 1 LIMIT 1")[0][0])
 
 
 def usar_diagnostico_sintoma(i):
-    dx = hijo('diagnosticos', 'id_diagnostico',
-              "INSERT INTO diagnosticos(codigo, id_consulta_cab, id_paciente, id_medico, id_tipo_diagnostico, descripcion_diagnostico, fecha_diagnostico) "
-              "SELECT %s, id_consulta_cab, id_paciente, id_medico, %s, 'ZZ', CURRENT_DATE FROM consultas_cab WHERE id_consulta_cab=%s",
-              (f'ZZ-DX-{len(hijos)}', TIPO_DX_REAL, CONSULTA))
-    cu.execute("INSERT INTO diagnostico_sintoma(id_diagnostico, id_sintoma) VALUES (%s,%s)", (dx, i)); cx.commit()
-    return dx
+    return _crear_dx(TIPO_DX_REAL, i)
 
 
 def anular_diagnostico_sintoma(i):

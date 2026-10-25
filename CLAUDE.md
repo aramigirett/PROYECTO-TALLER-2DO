@@ -1382,6 +1382,30 @@ Plan aprobado: `plan_etapa3.md` (sin versionar). **Decisiones de negocio confirm
 - Tests: `smoke_consulta_vistas.py` (acceso por rol y por médico, Tabler sin jQuery, qué tarjetas ve cada rol, baja real por HTTP con el id de la vista) y `browser_consulta.py` (Edge headless con
   fetch simulado: listado, filtros, paginación, Nueva Consulta, atención de la consulta en 4 escenarios —médico programada, médico con ficha, Recepción, finalizada— y Fichas).
 
+### Etapa 4 (en curso): Diagnóstico y Odontograma — commit 1 hecho (base + backend)
+Plan: `plan_etapa4.md`. **Decisiones confirmadas:** pieza dental del diagnóstico **opcional** (si se carga, FDI válida); la **fecha del diagnóstico la fija el servidor** (no editable);
+quitar un hallazgo del odontograma = **baja lógica del renglón** (`activo = false`, no borrado físico); un odontograma sin hallazgos se permite; la acción `editar` de la ventana Odontograma se
+agregó al catálogo y solo la tiene el rol Médico.
+- ⚠️ **Cambios del DER (hay que reflejarlos en el diagrama y el análisis):** `estado_dental.aplica_a` (`PIEZA` | `SUPERFICIE`: Caries, Obturación, Incrustación, Sellador, Resina, Amalgama y
+  Fractura son de superficie; los otros 15, de pieza completa); `odontograma` **sin la columna `estado`** (queda `activo`); `odontograma_detalle.activo` (baja lógica por renglón) con único parcial
+  `(odontograma, pieza, superficie, estado) WHERE activo`; superficie `O V L M D` o `T` (pieza completa) con CHECK; pieza FDI con CHECK en `odontograma_detalle.numero_diente` y en
+  `diagnosticos.pieza_dental`; FKs de `odontograma.id_paciente` y `odontograma_detalle.id_odontograma` a `RESTRICT`; **trigger diferido** `trg_diagnostico_con_sintoma` (todo diagnóstico vigente tiene
+  al menos un síntoma). Script `schema_consultorio_etapa4.sql` (idempotente; `schema_consultorio_base.sql` actualizado).
+- **Diagnóstico** (`DiagnosticoDao`, `diagnostico_api.py`): crea y anula solo el médico de la consulta, con la consulta `programada` / `en_proceso` revalidada con la consulta bloqueada (`FOR UPDATE`);
+  tipo ACTIVO y **al menos un síntoma, todos ACTIVOS** (bloqueados `FOR SHARE`, en orden); descripción obligatoria; pieza FDI opcional (permanentes 11–18, 21–28, 31–38, 41–48; temporales 51–55, 61–65,
+  71–75, 81–85); anular (definitiva) sin tratamiento **vigente** asociado. Los diagnósticos ya cargados se siguen mostrando aunque su tipo o sus síntomas se hayan anulado. Un médico solo lee lo de SUS
+  consultas. El lookup `GET /diagnosticos-medicos/consulta/<id>` (lo usan Tratamiento, Receta, Órdenes y Justificativo) pasó de `@require_login` a `@require_algun_permiso` (nuevo decorador). Auditoría
+  (`diagnosticos`): ALTA / BAJA con código DX, N.º de consulta y paciente; sin tipo, síntomas ni descripción.
+- **Odontograma** (`OdontogramaDao`, ahora en `app/dao/referenciales_consultorio/odontograma/`; `odontograma_api.py`): uno por consulta; **la precarga la hace el servidor** en la misma transacción
+  (copia los hallazgos ACTIVOS del último odontograma vigente del paciente de una consulta ANTERIOR no cancelada); hallazgos con pieza FDI + superficie + estado, un estado de pieza completa solo con `T` y uno de
+  superficie solo con `O V L M D`, **un registro idéntico activo se rechaza** (409); agregar / quitar hallazgos con la acción `editar`, solo el médico de la consulta con la consulta abierta. Se eliminaron
+  `PUT`, `PATCH …/estado`, `validar-consulta` y `precarga`. Auditoría (`odontograma`): ALTA (con "Precargado desde CON-…"), MODIFICACION ("odontograma modificado", sin piezas ni estados) y BAJA.
+- `validadores_clinicos.py` + `consultorio-validadores.js`: `validar_pieza_fdi`, `validar_superficie`, `validar_diagnostico` y sus espejos (142 casos JS ↔ Python en `comparar_ficha_js_py.py`).
+- `acceso_consulta()` en `modulo_consultorio/utils.py`: la consulta existe y, si el usuario es médico, es suya (lo usan Ficha, Diagnóstico y Odontograma).
+- Tests: `smoke_diagnostico.py` (117 chequeos, con las carreras del tipo / síntoma / consulta que se anulan mientras se guarda) y `smoke_odontograma.py` (137, con la precarga y los duplicados).
+  `smoke_migracion02.py` quedó solo con las secciones de esquema, permisos y consulta (lo demás lo cubren los tests nuevos).
+- ⚠️ Hasta el commit 2 las pantallas `diagnosticos-medicos-index.html` y `odontograma-index.html` siguen siendo las viejas (SB Admin 2) y no funcionan con la API nueva.
+
 ### Etapa 2 (hecha): Tipo Diagnóstico y Síntomas
 - Mismo `CatalogoDao` y `crear_api_catalogo` que la etapa 1 (ahora con `FECHA = False`: estas dos tablas no tienen `fecha_registro`). **Tipo Diagnóstico** lleva
   descripción (`descripcion_diagnostico`, la clave única entre los activos) y tipo (`tipo_diagnostico`, obligatorio, en MAYÚSCULAS); su API sigue en `/api/v1/diagnosticos`

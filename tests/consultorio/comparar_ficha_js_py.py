@@ -11,7 +11,7 @@ import tempfile
 
 RAIZ = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(RAIZ))
-from app.rutas.modulo_consultorio.validadores_clinicos import validar_ficha
+from app.rutas.modulo_consultorio.validadores_clinicos import validar_diagnostico, validar_ficha, validar_pieza_fdi, validar_superficie
 
 ORDEN = ['presion_arterial', 'temperatura', 'frecuencia_cardiaca', 'frecuencia_respiratoria', 'peso', 'talla',
          'examen_fisico_general', 'examen_bucal', 'observaciones_medico']
@@ -42,6 +42,32 @@ CASOS = [
 ]
 
 
+# ---- Etapa 4: pieza FDI, superficie y diagnóstico ----
+PIEZAS = ['18', 18, '11', '28', '48', '55', '65', '75', '85', '19', '10', '29', '49', '56', '66', '76', '86', '9', '0', '99', 'x', '', None, ' ', '1 8', '018', 1.5, True, '-18', '18.0']
+SUPERFICIES = ['O', 'V', 'L', 'M', 'D', 'T', 'o', 't', 'OO', 'X', '', None, 5, ' O ']
+ORDEN_DX = ['id_tipo_diagnostico', 'sintomas', 'descripcion_diagnostico', 'pieza_dental', 'observaciones']
+DX_BASE = {'id_tipo_diagnostico': 3, 'sintomas': [1, 2], 'descripcion_diagnostico': 'Caries profunda', 'pieza_dental': '18', 'observaciones': 'Control'}
+DIAGNOSTICOS = [DX_BASE, {**DX_BASE, 'pieza_dental': None}, {**DX_BASE, 'pieza_dental': ''}, {**DX_BASE, 'observaciones': None}, {**DX_BASE, 'pieza_dental': '19'},
+                {**DX_BASE, 'pieza_dental': 55}, {**DX_BASE, 'id_tipo_diagnostico': None}, {**DX_BASE, 'id_tipo_diagnostico': ''}, {**DX_BASE, 'id_tipo_diagnostico': 'x'},
+                {**DX_BASE, 'id_tipo_diagnostico': 0}, {**DX_BASE, 'id_tipo_diagnostico': '4'}, {**DX_BASE, 'sintomas': []}, {**DX_BASE, 'sintomas': None},
+                {**DX_BASE, 'descripcion_diagnostico': ''}, {**DX_BASE, 'descripcion_diagnostico': '   '}, {**DX_BASE, 'descripcion_diagnostico': 'a' * 1001},
+                {**DX_BASE, 'descripcion_diagnostico': 'a' * 1000}, {**DX_BASE, 'descripcion_diagnostico': 'raro'}, {**DX_BASE, 'observaciones': 'b' * 2001},
+                {**DX_BASE, 'observaciones': 'b' * 2000}, {**DX_BASE, 'observaciones': 'raro'}, {**DX_BASE, 'id_tipo_diagnostico': None, 'sintomas': []},
+                {**DX_BASE, 'sintomas': [], 'pieza_dental': '99'}, {**DX_BASE, 'pieza_dental': '99', 'descripcion_diagnostico': ''}]
+
+
+def esperado_pieza(v):
+    return validar_pieza_fdi(v)[1] or ''
+
+
+def esperado_superficie(v):
+    return validar_superficie(v)[1] or ''
+
+
+def esperado_dx(caso):
+    return validar_diagnostico(caso)[1] or ''
+
+
 def esperado(caso):
     valores, error, campo = validar_ficha(caso)
     if error:
@@ -59,6 +85,10 @@ eval(codigo);
 var V = window.ConsultorioValidadores;
 var ORDEN = %(orden)s;
 var CASOS = %(casos)s;
+var PIEZAS = %(piezas)s;
+var SUPERFICIES = %(superficies)s;
+var DIAGNOSTICOS = %(dx)s;
+var ORDEN_DX = %(orden_dx)s;
 var out = [];
 for (var i = 0; i < CASOS.length; i++) {
   var errores = V.ficha(CASOS[i]);
@@ -68,6 +98,14 @@ for (var i = 0; i < CASOS.length; i++) {
   var imc = primero ? '' : V.imc(CASOS[i].peso, CASOS[i].talla);
   out.push(i + '\t' + primero + '\t' + imc);
 }
+for (var p = 0; p < PIEZAS.length; p++) out.push('pieza	' + p + '	' + V.piezaFdi(PIEZAS[p], false));
+for (var u = 0; u < SUPERFICIES.length; u++) out.push('superficie	' + u + '	' + V.superficie(SUPERFICIES[u]));
+for (var d = 0; d < DIAGNOSTICOS.length; d++) {
+  var er = V.diagnostico(DIAGNOSTICOS[d]);
+  var pri = '';
+  for (var k = 0; k < ORDEN_DX.length && !pri; k++) { if (er[ORDEN_DX[k]]) pri = er[ORDEN_DX[k]]; }
+  out.push('dx	' + d + '	' + pri);
+}
 var so = new ActiveXObject('ADODB.Stream'); so.Type = 2; so.Charset = 'utf-8'; so.Open();
 so.WriteText(out.join('\n')); so.SaveToFile(WScript.Arguments(1), 2); so.Close();
 """
@@ -75,7 +113,8 @@ so.WriteText(out.join('\n')); so.SaveToFile(WScript.Arguments(1), 2); so.Close()
 with tempfile.TemporaryDirectory() as tmp:
     runner = pathlib.Path(tmp) / 'runner.js'
     salida = pathlib.Path(tmp) / 'salida.txt'
-    runner.write_text(RUNNER % {'orden': json.dumps(ORDEN), 'casos': json.dumps(CASOS)}, encoding='ascii')
+    runner.write_text(RUNNER % {'orden': json.dumps(ORDEN), 'casos': json.dumps(CASOS), 'piezas': json.dumps(PIEZAS), 'superficies': json.dumps(SUPERFICIES),
+                                'dx': json.dumps(DIAGNOSTICOS), 'orden_dx': json.dumps(ORDEN_DX)}, encoding='ascii')
     proc = subprocess.run(['cscript', '//nologo', '//E:jscript', str(runner), str(RAIZ / 'app' / 'static' / 'js' / 'consultorio-validadores.js'),
                            str(salida)], capture_output=True, text=True)
     if proc.returncode != 0 or not salida.exists():
@@ -84,13 +123,27 @@ with tempfile.TemporaryDirectory() as tmp:
     filas = [l.split('\t') for l in salida.read_text(encoding='utf-8-sig').split('\n') if l.strip('\r')]
 
 fallos = 0
+total = 0
 for fila in filas:
-    i = int(fila[0])
-    js_error, js_imc = fila[1], (fila[2].rstrip('\r') if len(fila) > 2 else '')
-    py_error, py_imc = esperado(CASOS[i])
-    ok = (js_error, js_imc) == (py_error, py_imc)
+    tipo = fila[0] if not fila[0].isdigit() else 'ficha'
+    if tipo == 'ficha':
+        i = int(fila[0])
+        js_error, js_imc = fila[1], (fila[2].rstrip('\r') if len(fila) > 2 else '')
+        py_error, py_imc = esperado(CASOS[i])
+        ok = (js_error, js_imc) == (py_error, py_imc)
+        etiqueta = json.dumps(CASOS[i], ensure_ascii=False)[:90]
+        esp = (py_error or f'IMC {py_imc or "-"}')[:70]
+        dif = f'JS=({js_error!r}, {js_imc!r}) PY=({py_error!r}, {py_imc!r})'
+    else:
+        i = int(fila[1])
+        js_error = fila[2].rstrip('\r') if len(fila) > 2 else ''
+        py_error = {'pieza': lambda: esperado_pieza(PIEZAS[i]), 'superficie': lambda: esperado_superficie(SUPERFICIES[i]), 'dx': lambda: esperado_dx(DIAGNOSTICOS[i])}[tipo]()
+        ok = js_error == py_error
+        etiqueta = tipo + ' ' + json.dumps({'pieza': PIEZAS, 'superficie': SUPERFICIES, 'dx': DIAGNOSTICOS}[tipo][i], ensure_ascii=False)[:80]
+        esp = (py_error or 'válido')[:70]
+        dif = f'JS={js_error!r} PY={py_error!r}'
+    total += 1
     fallos += (not ok)
-    print(('OK  ' if ok else 'DIFF'), json.dumps(CASOS[i], ensure_ascii=False)[:90], '->',
-          (py_error or f'IMC {py_imc or "-"}')[:70] if ok else f'JS=({js_error!r}, {js_imc!r}) PY=({py_error!r}, {py_imc!r})')
-print('DIFERENCIAS:', fallos, 'de', len(CASOS))
-sys.exit(1 if fallos or len(filas) != len(CASOS) else 0)
+    print(('OK  ' if ok else 'DIFF'), etiqueta, '->', esp if ok else dif)
+print('DIFERENCIAS:', fallos, 'de', total)
+sys.exit(1 if fallos or total != len(CASOS) + len(PIEZAS) + len(SUPERFICIES) + len(DIAGNOSTICOS) else 0)

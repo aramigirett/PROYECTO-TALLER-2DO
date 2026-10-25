@@ -81,7 +81,7 @@ CATALOGO_MENU = [
     {"etiqueta": "Gestión Fichas Médicas", "endpoint": "fichamedica.fichaMedicaIndex", "icono": "fa-file-medical-alt", "modulo": "Módulo Consultorio", "ventana": "fichamedica", "acciones": ["ver", "nuevo", "editar", "anular"]},
     {"etiqueta": "Gestión Diagnósticos", "endpoint": "diagnostico_medico.diagnosticoIndex", "icono": "fa-diagnoses", "modulo": "Módulo Consultorio", "ventana": "diagnostico", "acciones": ["ver", "nuevo", "anular"]},
     {"etiqueta": "Historial Médico", "endpoint": "historial.historialIndex", "icono": "fa-history", "modulo": "Módulo Consultorio", "ventana": "historial", "acciones": ["ver", "nuevo", "anular"]},
-    {"etiqueta": "Registrar Odontograma", "endpoint": "odontograma.odontogramaIndex", "icono": "fa-teeth", "modulo": "Módulo Consultorio", "ventana": "odontograma", "acciones": ["ver", "nuevo", "anular"]},
+    {"etiqueta": "Registrar Odontograma", "endpoint": "odontograma.odontogramaIndex", "icono": "fa-teeth", "modulo": "Módulo Consultorio", "ventana": "odontograma", "acciones": ["ver", "nuevo", "editar", "anular"]},
     {"etiqueta": "Gestionar Tratamientos", "endpoint": "tratamiento.tratamientoIndex", "icono": "fa-prescription-bottle-alt", "modulo": "Módulo Consultorio", "ventana": "tratamiento", "acciones": ["ver", "nuevo", "anular", "estado"]},
     {"etiqueta": "Generar Recetas e Indicaciones", "endpoint": "receta.recetaIndex", "icono": "fa-prescription", "modulo": "Módulo Consultorio", "ventana": "receta", "acciones": ["ver", "nuevo", "anular"]},
     # Sin entrada en el sidebar ni en el buscador (en_menu False): se llega siempre desde
