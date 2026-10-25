@@ -1,6 +1,6 @@
 /* ==========================================================================
-   OdontoClinic - Módulo Facturación (CSS Compartido)
-   Patrón de diseño para movimientos de facturación
+   OdontoClinic - Sistema de Diseño Compartido (Facturación y Consultorio)
+   Patrón visual para movimientos financieros y atención clínica
    Color primario: #0e7c86
    ========================================================================== */
 
@@ -71,11 +71,19 @@
   border-radius: 12px;
   background: var(--fc-card-bg);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-  transition: box-shadow 0.2s ease;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .fc-hero-card-open {
   border-left: 4px solid var(--fc-primary);
+}
+
+.fc-hero-card-pending {
+  border-left: 4px solid #f59f00;
+}
+
+.fc-hero-card-done {
+  border-left: 4px solid #2fb344;
 }
 
 .fc-hero-card-closed {
@@ -86,8 +94,13 @@
   background: #f8fafc;
   border: 1px solid var(--fc-border);
   border-radius: 8px;
-  padding: 0.6rem 0.85rem;
+  padding: 0.65rem 0.85rem;
   height: 100%;
+  transition: border-color 0.15s ease;
+}
+
+.fc-chip:hover {
+  border-color: #cbd5e1;
 }
 
 .fc-chip-label {
@@ -96,24 +109,24 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--fc-text-muted);
-  margin-bottom: 0.2rem;
+  margin-bottom: 0.22rem;
   display: flex;
   align-items: center;
   gap: 0.35rem;
 }
 
 .fc-chip-value {
-  font-size: 0.95rem;
+  font-size: 0.96rem;
   font-weight: 700;
   color: var(--fc-text-main);
   font-variant-numeric: tabular-nums;
 }
 
-/* ── Badges semánticos para tablas ────────────────────────────────── */
+/* ── Badges semánticos para tablas y cabeceras ────────────────────── */
 .fc-badge {
   display: inline-flex;
   align-items: center;
-  padding: 0.28rem 0.65rem;
+  padding: 0.28rem 0.7rem;
   border-radius: 9999px;
   font-size: 0.76rem;
   font-weight: 600;
@@ -128,7 +141,8 @@
 }
 
 .fc-badge-closed,
-.fc-badge-cerrada {
+.fc-badge-cerrada,
+.fc-badge-proceso {
   background-color: #eff6ff;
   color: #1e40af;
   border: 1px solid #bfdbfe;
@@ -152,6 +166,147 @@
   background-color: #f1f5f9;
   color: #475569;
   border: 1px solid #e2e8f0;
+}
+
+/* ── Banner de Solo Lectura Clínico ───────────────────────────────── */
+.fc-readonly-banner {
+  background-color: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-left: 4px solid #64748b;
+  color: #334155;
+  border-radius: 8px;
+  padding: 0.65rem 1rem 0.65rem 2.35rem;
+  position: relative;
+  font-weight: 500;
+}
+
+.fc-readonly-banner::before {
+  content: "\f023";
+  font-family: "Font Awesome 5 Free";
+  font-weight: 900;
+  position: absolute;
+  left: 0.85rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+/* ── Indicadores de Signos Vitales (Ficha Médica) ─────────────────── */
+.fc-vital-card {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  border: 1px solid var(--fc-border);
+  border-radius: 10px;
+  padding: 0.75rem 0.9rem;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.fc-vital-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+}
+
+.fc-vital-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 9px;
+  background: var(--fc-primary-light);
+  color: var(--fc-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.fc-vital-value {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--fc-text-main);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.fc-vital-unit {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--fc-text-muted);
+  margin-left: 0.15rem;
+}
+
+/* ── Bloques de Notas Clínicas ────────────────────────────────────── */
+.fc-clinical-note {
+  background: #f8fafc;
+  border: 1px solid var(--fc-border);
+  border-left: 3px solid var(--fc-primary);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+}
+
+.fc-clinical-note-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--fc-primary);
+  margin-bottom: 0.3rem;
+}
+
+.fc-clinical-note-body {
+  font-size: 0.92rem;
+  color: var(--fc-text-main);
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+/* ── Tarjetas de los 7 Registros Clínicos ─────────────────────────── */
+.fc-record-card {
+  border: 1px solid var(--fc-border) !important;
+  border-radius: 12px !important;
+  background: #ffffff;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.fc-record-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px -4px rgba(14, 124, 134, 0.12);
+  border-color: rgba(14, 124, 134, 0.45) !important;
+}
+
+.fc-record-card.has-items {
+  border-top: 3px solid var(--fc-primary) !important;
+}
+
+.fc-record-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--fc-primary-light);
+  color: var(--fc-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.fc-record-counter {
+  background: #f8fafc;
+  border: 1px solid var(--fc-border);
+  border-radius: 8px;
+  padding: 0.25rem 0.65rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.fc-record-card.has-items .fc-record-counter {
+  background: var(--fc-primary-light);
+  border-color: rgba(14, 124, 134, 0.25);
+  color: var(--fc-primary);
 }
 
 /* ── Badges de Stock ──────────────────────────────────────────────── */

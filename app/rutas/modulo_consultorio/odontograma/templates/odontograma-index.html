@@ -5,29 +5,215 @@
 {% block css %}
 <link href="{{ url_for('static', filename='css/facturacion.css') }}" rel="stylesheet">
 <style>
-  /* ═══════════════ Odontograma visual (base para pulir el diseño) ═══════════════
+  /* ═══════════════ Odontograma Clínico FDI (capa visual independiente) ═══════════════
      Todo el dibujo sale de las funciones dibujarPieza() / pintarOdontograma() del script de esta página; la lógica no depende de estas clases.
      Clases: .odo-lienzo (contenedor) · .odo-pieza[data-pieza] (una pieza) · .odo-superficie[data-superficie] (O V L M D) · .odo-contorno (hallazgo de
      pieza completa) · .odo-numero (número FDI) · .odo-simbolo (símbolos de los hallazgos de pieza) · .seleccionada / .con-hallazgos (estados).
      El color de cada superficie / contorno lo pone el script con el color del estado dental (estado_dental.color). */
-  .odo-lienzo { --odo-vacia: #ffffff; --odo-trazo: #94a3b8; --odo-seleccion: #0e7c86; --odo-texto: #334155; overflow-x: auto; }
-  .odo-lienzo svg { width: 100%; min-width: 640px; max-width: 1100px; margin: 0 auto; height: auto; display: block; }
-  .odo-pieza { cursor: pointer; }
-  .odo-superficie { fill: var(--odo-vacia); stroke: var(--odo-trazo); stroke-width: 1; transition: fill .15s ease, stroke .15s ease; }
-  .odo-pieza:hover .odo-superficie { stroke: var(--odo-seleccion); }
-  .odo-contorno { fill: none; stroke: transparent; stroke-width: 3; pointer-events: none; }
-  .odo-pieza.con-hallazgos .odo-numero { font-weight: 700; }
-  .odo-pieza.seleccionada .odo-marco { stroke: var(--odo-seleccion); stroke-width: 2; fill: rgba(14, 124, 134, .06); }
-  .odo-marco { fill: transparent; stroke: transparent; }
-  .odo-superficie.elegida { stroke: var(--odo-seleccion); stroke-width: 2.5; }
-  .odo-numero { font: 11px system-ui, sans-serif; fill: var(--odo-texto); text-anchor: middle; }
-  .odo-simbolo { font: 600 9px system-ui, sans-serif; fill: var(--odo-texto); text-anchor: middle; }
-  .odo-mitad { stroke: #cbd5e1; stroke-dasharray: 4 4; }
-  .odo-rotulo { font: 10px system-ui, sans-serif; fill: #94a3b8; text-anchor: middle; }
-  .odo-estado { display: flex; align-items: center; gap: .5rem; width: 100%; text-align: left; border: 1px solid #e2e8f0; background: #fff; border-radius: .5rem; padding: .3rem .5rem; font-size: .8rem; }
-  .odo-estado:hover { border-color: var(--tblr-primary); }
-  .odo-estado.activo { border-color: var(--tblr-primary); box-shadow: 0 0 0 2px rgba(14, 124, 134, .2); background: #f0fafa; }
-  .odo-muestra { display: inline-block; width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(0, 0, 0, .25); flex: 0 0 auto; }
+  .odo-lienzo {
+    --odo-vacia: #ffffff;
+    --odo-trazo: #64748b;
+    --odo-trazo-hover: #0e7c86;
+    --odo-seleccion: #0e7c86;
+    --odo-texto: #1e293b;
+    overflow-x: auto;
+    background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+    border: 1px solid #e2e8f0;
+    border-radius: 0.75rem;
+    padding: 0.85rem 0.75rem 0.65rem;
+    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.03);
+    -webkit-overflow-scrolling: touch;
+  }
+  .odo-lienzo svg {
+    width: 100%;
+    min-width: 680px;
+    max-width: 1080px;
+    margin: 0 auto;
+    height: auto;
+    display: block;
+    user-select: none;
+  }
+  .odo-pieza {
+    cursor: pointer;
+  }
+  .odo-marco {
+    fill: #ffffff;
+    stroke: #e2e8f0;
+    stroke-width: 1;
+    transition: fill 0.15s ease, stroke 0.15s ease;
+    filter: drop-shadow(0 1px 1.5px rgba(15, 23, 42, 0.06));
+  }
+  .odo-pieza:hover .odo-marco {
+    stroke: rgba(14, 124, 134, 0.45);
+    fill: #f0fdfa;
+  }
+  .odo-pieza.con-hallazgos .odo-marco {
+    stroke: #94a3b8;
+    background: #ffffff;
+  }
+  .odo-pieza.seleccionada .odo-marco {
+    stroke: var(--odo-seleccion);
+    stroke-width: 2.25;
+    fill: rgba(14, 124, 134, 0.09);
+    filter: drop-shadow(0 2px 5px rgba(14, 124, 134, 0.22));
+  }
+  .odo-superficie {
+    fill: var(--odo-vacia);
+    stroke: var(--odo-trazo);
+    stroke-width: 1.15;
+    stroke-linejoin: round;
+    transition: fill 0.15s ease, stroke 0.15s ease, stroke-width 0.12s ease;
+  }
+  .odo-pieza:hover .odo-superficie {
+    stroke: #334155;
+  }
+  .odo-superficie:hover {
+    stroke: var(--odo-trazo-hover) !important;
+    stroke-width: 1.85;
+  }
+  .odo-superficie.elegida {
+    stroke: var(--odo-seleccion) !important;
+    stroke-width: 2.6;
+  }
+  .odo-contorno {
+    fill: none;
+    stroke: transparent;
+    stroke-width: 3.2;
+    pointer-events: none;
+    stroke-linejoin: round;
+  }
+  .odo-numero {
+    font: 600 11px system-ui, -apple-system, sans-serif;
+    fill: #475569;
+    text-anchor: middle;
+    transition: fill 0.15s ease;
+  }
+  .odo-pieza:hover .odo-numero {
+    fill: var(--odo-seleccion);
+  }
+  .odo-pieza.con-hallazgos .odo-numero {
+    font-weight: 800;
+    fill: #0f172a;
+  }
+  .odo-pieza.seleccionada .odo-numero {
+    font-weight: 800;
+    fill: var(--odo-seleccion);
+  }
+  .odo-simbolo {
+    font: 800 9.5px system-ui, -apple-system, sans-serif;
+    fill: #0f172a;
+    stroke: #ffffff;
+    stroke-width: 2.5px;
+    paint-order: stroke fill;
+    text-anchor: middle;
+    pointer-events: none;
+  }
+  .odo-mitad {
+    stroke: #94a3b8;
+    stroke-width: 1.25;
+    stroke-dasharray: 4 3;
+  }
+  .odo-arcada-sep {
+    stroke: #cbd5e1;
+    stroke-width: 1;
+    stroke-dasharray: 3 3;
+  }
+  .odo-rotulo {
+    font: 700 10.5px system-ui, -apple-system, sans-serif;
+    fill: #0e7c86;
+    text-anchor: middle;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .odo-cuadrante {
+    font: 600 9.5px system-ui, -apple-system, sans-serif;
+    fill: #64748b;
+    letter-spacing: 0.02em;
+  }
+
+  /* ═══════════════ Controles del panel lateral y leyenda ═══════════════ */
+  .odo-pieza-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2.25rem;
+    height: 1.85rem;
+    padding: 0 0.55rem;
+    border-radius: 0.45rem;
+    background: rgba(14, 124, 134, 0.12);
+    color: #0e7c86;
+    font-weight: 800;
+    font-size: 0.95rem;
+  }
+  .odo-sup-group .btn {
+    font-weight: 700;
+    padding: 0.42rem 0.35rem;
+  }
+  .odo-estado {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    width: 100%;
+    text-align: left;
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    border-radius: 0.5rem;
+    padding: 0.42rem 0.65rem;
+    font-size: 0.82rem;
+    color: #1e293b;
+    transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .odo-estado:hover {
+    border-color: #0e7c86;
+    background: #f8fafc;
+  }
+  .odo-estado.activo {
+    border-color: #0e7c86;
+    box-shadow: 0 0 0 2px rgba(14, 124, 134, 0.2);
+    background: #f0fdfa;
+    font-weight: 600;
+  }
+  .odo-muestra {
+    display: inline-block;
+    width: 15px;
+    height: 15px;
+    border-radius: 4px;
+    border: 1px solid rgba(15, 23, 42, 0.28);
+    box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.35);
+    flex: 0 0 auto;
+  }
+  .odo-simbolo-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.65rem;
+    padding: 0.05rem 0.35rem;
+    border-radius: 0.3rem;
+    background: #f1f5f9;
+    color: #334155;
+    font-size: 0.72rem;
+    font-weight: 700;
+    border: 1px solid #e2e8f0;
+  }
+  .odo-leyenda-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.6rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    background: #f8fafc;
+    font-size: 0.8rem;
+  }
+  .odo-hallazgo-item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    background: #f8fafc;
+    padding: 0.45rem 0.65rem;
+  }
 </style>
 {% endblock %}
 
@@ -35,10 +221,10 @@
 <div class="page-header d-print-none mb-3">
   <div class="row align-items-center">
     <div class="col">
-      <div class="page-pretitle text-muted">Consultorio &bull; Atención</div>
-      <h2 class="page-title fw-bold">Gestionar Odontograma</h2>
+      <div class="page-pretitle text-muted">Consultorio &bull; Atención Clínica</div>
+      <h2 class="page-title fw-bold mb-0"><i class="fas fa-teeth text-primary me-2"></i>Gestionar Odontograma</h2>
     </div>
-    <div class="col-auto d-flex gap-2">
+    <div class="col-auto d-flex flex-wrap gap-2">
       <a href="#" class="btn btn-outline-secondary btn-sm" id="btnVolverConsulta" style="display: none;"><i class="fas fa-arrow-left me-1"></i> Volver a la consulta</a>
       {% if es_medico and puede('odontograma', 'anular') %}
       <button type="button" class="btn btn-outline-danger btn-sm" id="btnAnularOdo" style="display: none;"><i class="fas fa-ban me-1"></i> Anular odontograma</button>
@@ -49,16 +235,20 @@
 
 <div class="alert alert-danger" id="errorGeneral" style="display: none;"></div>
 
-<div class="card border shadow-sm rounded-3 mb-3" id="tarjetaConsulta" style="display: none;">
-  <div class="card-body py-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
-    <div>
-      <div class="text-muted small text-uppercase fw-semibold">Consulta</div>
-      <div class="fw-bold" id="cNumero"></div>
-      <div class="text-muted small" id="cDetalle"></div>
-    </div>
+{# ── Cabecera contextual de la consulta ── #}
+<div class="card fc-hero-card fc-hero-card-open shadow-sm rounded-3 mb-3" id="tarjetaConsulta" style="display: none;">
+  <div class="card-body py-3 d-flex flex-wrap align-items-center justify-content-between gap-3">
     <div class="d-flex align-items-center gap-3">
+      <div class="fc-vital-icon" style="width:2.5rem;height:2.5rem;font-size:1.1rem;"><i class="fas fa-notes-medical"></i></div>
+      <div>
+        <div class="text-muted small text-uppercase fw-bold" style="font-size:0.68rem;letter-spacing:0.05em;">Contexto de Consulta</div>
+        <div class="fw-bold h4 mb-0" id="cNumero"></div>
+        <div class="text-muted small mt-1" id="cDetalle"></div>
+      </div>
+    </div>
+    <div class="d-flex flex-column flex-sm-row align-items-sm-center gap-2 ms-auto">
       <span id="cBadge"></span>
-      <div class="small text-muted text-end" id="cAviso"></div>
+      <div class="small text-muted text-sm-end fw-medium" id="cAviso"></div>
     </div>
   </div>
 </div>
@@ -70,7 +260,10 @@
       <div class="row g-2 align-items-end w-100">
         <div class="col-12 col-md-6">
           <label class="form-label small fw-semibold text-muted mb-1" for="filtroQ">Paciente o CI</label>
-          <input type="text" class="form-control form-control-sm" id="filtroQ" maxlength="80" placeholder="Buscar por nombre o CI…" autocomplete="off">
+          <div class="input-icon">
+            <span class="input-icon-addon"><i class="fas fa-search text-muted"></i></span>
+            <input type="text" class="form-control form-control-sm" id="filtroQ" maxlength="80" placeholder="Buscar por nombre o CI…" autocomplete="off">
+          </div>
         </div>
         <div class="col-6 col-md-2"><label class="form-label small fw-semibold text-muted mb-1" for="filtroDesde">Consulta desde</label><input type="date" class="form-control form-control-sm" id="filtroDesde"></div>
         <div class="col-6 col-md-2"><label class="form-label small fw-semibold text-muted mb-1" for="filtroHasta">Hasta</label><input type="date" class="form-control form-control-sm" id="filtroHasta"></div>
@@ -80,9 +273,9 @@
     </div>
     <div class="table-responsive">
       <table class="table table-vcenter table-hover card-table mb-0">
-        <thead class="bg-light text-muted small text-uppercase">
+        <thead class="fc-table-head">
           <tr><th class="ps-3 py-3">Consulta</th><th class="py-3">Fecha</th><th class="py-3">Paciente</th><th class="py-3">Médico</th><th class="py-3 text-center">Hallazgos</th>
-              <th class="py-3 text-center" style="width: 130px;">Estado de la consulta</th><th class="pe-3 py-3 text-end w-1">Acciones</th></tr>
+              <th class="py-3 text-center" style="width: 140px;">Estado de la consulta</th><th class="pe-3 py-3 text-end w-1">Acciones</th></tr>
         </thead>
         <tbody id="tbodyGlobal"><tr><td colspan="7" class="text-center text-muted py-4"><div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>Cargando odontogramas…</td></tr></tbody>
       </table>
@@ -90,8 +283,8 @@
     <div class="card-footer bg-white d-flex align-items-center justify-content-between py-2">
       <div class="text-muted small" id="infoPagina"></div>
       <div class="btn-group btn-group-sm">
-        <button type="button" class="btn btn-outline-secondary" id="btnAnterior"><i class="fas fa-chevron-left"></i></button>
-        <button type="button" class="btn btn-outline-secondary" id="btnSiguiente"><i class="fas fa-chevron-right"></i></button>
+        <button type="button" class="btn btn-outline-secondary" id="btnAnterior" title="Página anterior"><i class="fas fa-chevron-left"></i></button>
+        <button type="button" class="btn btn-outline-secondary" id="btnSiguiente" title="Página siguiente"><i class="fas fa-chevron-right"></i></button>
       </div>
     </div>
   </div>
@@ -100,10 +293,12 @@
 {# ── Odontograma de una consulta ── #}
 <div id="seccionEditor" style="display: none;">
   <div class="card border shadow-sm rounded-3 mb-3" id="tarjetaSinOdo" style="display: none;">
-    <div class="card-body text-center py-5">
-      <i class="fas fa-teeth fa-3x text-muted mb-3"></i>
-      <h5 class="fw-bold">Esta consulta todavía no tiene odontograma</h5>
-      <p class="text-muted mb-3" id="textoSinOdo"></p>
+    <div class="card-body fc-empty-state py-5">
+      <div class="fc-empty-icon-circle">
+        <i class="fas fa-teeth"></i>
+      </div>
+      <h5 class="fw-bold mb-1">Esta consulta todavía no tiene odontograma</h5>
+      <p class="text-muted mb-3 mx-auto" style="max-width: 520px;" id="textoSinOdo"></p>
       {% if es_medico and puede('odontograma', 'nuevo') %}
       <button type="button" class="btn btn-primary" id="btnCrearOdo" style="display: none;"><i class="fas fa-plus me-1"></i> Crear odontograma</button>
       {% endif %}
@@ -111,26 +306,46 @@
   </div>
 
   <div class="row g-3" id="filaOdo" style="display: none;">
+    {# ── Lienzo SVG FDI ── #}
     <div class="col-12">
       <div class="card border shadow-sm rounded-3">
         <div class="card-header bg-white py-3 border-bottom d-flex flex-wrap align-items-center justify-content-between gap-2">
-          <div class="d-flex align-items-center gap-2"><i class="fas fa-teeth text-primary"></i><h5 class="card-title mb-0 fw-bold">Odontograma</h5>
-            <span class="text-muted small" id="resumenOdo"></span></div>
-          <label class="form-check form-switch mb-0"><input class="form-check-input" type="checkbox" id="chkTemporal"><span class="form-check-label small">Mostrar dentición temporal</span></label>
+          <div class="d-flex align-items-center gap-2">
+            <span class="fc-vital-icon" style="width:2rem;height:2rem;font-size:.9rem;"><i class="fas fa-teeth"></i></span>
+            <div>
+              <div class="d-flex align-items-center gap-2">
+                <h5 class="card-title mb-0 fw-bold">Carta Dental FDI</h5>
+                <span class="badge bg-azure-lt text-azure fw-semibold" id="resumenOdo"></span>
+              </div>
+              <div class="text-muted small">5 superficies anatómicas por pieza (O · V · L · M · D) y hallazgos de pieza completa (T)</div>
+            </div>
+          </div>
+          <label class="form-check form-switch mb-0 bg-light border rounded-2 px-3 py-1">
+            <input class="form-check-input" type="checkbox" id="chkTemporal">
+            <span class="form-check-label small fw-semibold">Mostrar dentición temporal (niños)</span>
+          </label>
         </div>
         <div class="card-body p-2 p-md-3">
           <div class="odo-lienzo" id="odoLienzo" aria-label="Odontograma por piezas FDI"></div>
-          <div class="text-muted small mt-2">Tocá una superficie para elegirla (o el número para la pieza completa). Cada color es un estado dental; la leyenda está más abajo.</div>
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 text-muted small mt-2 px-1">
+            <div><i class="fas fa-hand-pointer text-primary me-1"></i>Tocá una <strong>superficie</strong> del diente para elegirla, o tocá el <strong>número FDI</strong> para seleccionar la pieza completa.</div>
+            <div class="d-none d-md-block"><span class="badge bg-light text-muted border">O: Oclusal/Incisal</span> <span class="badge bg-light text-muted border">V: Vestibular</span> <span class="badge bg-light text-muted border">L: Lingual/Palatina</span> <span class="badge bg-light text-muted border">M: Mesial</span> <span class="badge bg-light text-muted border">D: Distal</span></div>
+          </div>
         </div>
       </div>
     </div>
+
+    {# ── Panel lateral izquierdo: Pieza seleccionada y carga de hallazgo ── #}
     <div class="col-lg-5">
       <div class="card border shadow-sm rounded-3 h-100">
-        <div class="card-header bg-white py-3 border-bottom"><h5 class="card-title mb-0 fw-bold">Pieza seleccionada: <span id="selPieza">—</span></h5></div>
+        <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between">
+          <h5 class="card-title mb-0 fw-bold"><i class="fas fa-tooth text-primary me-2"></i>Pieza seleccionada</h5>
+          <span class="odo-pieza-badge" id="selPieza">—</span>
+        </div>
         <div class="card-body">
           <div id="panelEditar">
-            <label class="form-label small fw-semibold text-muted mb-1">Superficie</label>
-            <div class="btn-group w-100 mb-3" role="group" id="grupoSuperficie">
+            <label class="form-label small fw-semibold text-muted mb-1">1. Superficie o pieza</label>
+            <div class="btn-group w-100 mb-3 odo-sup-group" role="group" id="grupoSuperficie">
               <button type="button" class="btn btn-sm btn-outline-primary" data-superficie="O" title="Oclusal / incisal">O</button>
               <button type="button" class="btn btn-sm btn-outline-primary" data-superficie="V" title="Vestibular">V</button>
               <button type="button" class="btn btn-sm btn-outline-primary" data-superficie="L" title="Lingual / palatina">L</button>
@@ -138,31 +353,41 @@
               <button type="button" class="btn btn-sm btn-outline-primary" data-superficie="D" title="Distal">D</button>
               <button type="button" class="btn btn-sm btn-outline-primary" data-superficie="T" title="Pieza completa">T</button>
             </div>
-            <label class="form-label small fw-semibold text-muted mb-1">Estado <span id="textoAplica" class="fw-normal"></span></label>
-            <div class="d-grid gap-1 mb-3" id="listaEstados" style="max-height: 230px; overflow-y: auto;"></div>
-            <label class="form-label small fw-semibold text-muted mb-1" for="txtObservacion">Observación (opcional)</label>
-            <input type="text" class="form-control form-control-sm mb-2" id="txtObservacion" maxlength="500" autocomplete="off">
-            <button type="button" class="btn btn-primary w-100" id="btnAgregar" disabled><i class="fas fa-plus me-1"></i> Agregar hallazgo</button>
+            <label class="form-label small fw-semibold text-muted mb-1">2. Estado dental <span id="textoAplica" class="fw-normal text-primary"></span></label>
+            <div class="d-grid gap-1 mb-3 pe-1" id="listaEstados" style="max-height: 230px; overflow-y: auto;"></div>
+            <label class="form-label small fw-semibold text-muted mb-1" for="txtObservacion">3. Observación clínica (opcional)</label>
+            <input type="text" class="form-control form-control-sm mb-2" id="txtObservacion" maxlength="500" placeholder="Ej.: sensibilidad al frío, filtración marginal…" autocomplete="off">
+            <button type="button" class="btn btn-primary w-100 fw-semibold" id="btnAgregar" disabled><i class="fas fa-plus me-1"></i> Agregar hallazgo</button>
             <div class="alert alert-danger small mt-2 mb-0" id="errHallazgo" style="display: none;"></div>
-            <hr>
+            <hr class="my-3">
           </div>
-          <div class="small fw-semibold text-muted mb-1">Hallazgos de la pieza</div>
-          <div id="hallazgosPieza" class="d-grid gap-1"><div class="text-muted small">Elija una pieza del odontograma.</div></div>
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <div class="small fw-bold text-uppercase text-muted" style="font-size:0.7rem;letter-spacing:0.04em;">Hallazgos de la pieza</div>
+          </div>
+          <div id="hallazgosPieza" class="d-grid gap-2"><div class="text-muted small">Elija una pieza del odontograma.</div></div>
         </div>
       </div>
     </div>
-    <div class="col-lg-7">
-      <div class="card border shadow-sm rounded-3 h-100">
-        <div class="card-header bg-white py-3 border-bottom"><h5 class="card-title mb-0 fw-bold">Leyenda de estados</h5></div>
-        <div class="card-body"><div class="row g-2" id="leyenda"></div></div>
-      </div>
-    </div>
-    <div class="col-12">
+
+    {# ── Panel derecho: Leyenda de estados y tabla de hallazgos ── #}
+    <div class="col-lg-7 d-flex flex-column gap-3">
       <div class="card border shadow-sm rounded-3">
-        <div class="card-header bg-white py-3 border-bottom"><h5 class="card-title mb-0 fw-bold">Todos los hallazgos <span class="text-muted small fw-normal" id="cantidadTotal"></span></h5></div>
+        <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between">
+          <h5 class="card-title mb-0 fw-bold"><i class="fas fa-palette text-primary me-2"></i>Leyenda de estados dentales</h5>
+          <span class="text-muted small">Colores y símbolos clínicos</span>
+        </div>
+        <div class="card-body py-3">
+          <div class="row g-2" id="leyenda"></div>
+        </div>
+      </div>
+
+      <div class="card border shadow-sm rounded-3 flex-fill">
+        <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between">
+          <h5 class="card-title mb-0 fw-bold"><i class="fas fa-clipboard-list text-primary me-2"></i>Todos los hallazgos <span class="text-muted small fw-normal" id="cantidadTotal"></span></h5>
+        </div>
         <div class="table-responsive">
-          <table class="table table-sm table-vcenter card-table mb-0">
-            <thead class="bg-light text-muted small text-uppercase"><tr><th class="ps-3">Pieza</th><th>Superficie</th><th>Estado</th><th>Observación</th></tr></thead>
+          <table class="table table-sm table-vcenter table-hover card-table mb-0">
+            <thead class="fc-table-head"><tr><th class="ps-3 py-2">Pieza</th><th class="py-2">Superficie</th><th class="py-2">Estado</th><th class="pe-3 py-2">Observación</th></tr></thead>
             <tbody id="tbodyTodos"><tr><td colspan="4" class="text-center text-muted py-3">Sin hallazgos.</td></tr></tbody>
           </table>
         </div>
@@ -196,7 +421,7 @@
   const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
   const badge = (e) => {
     const m = {
-      programada: ['fc-badge-pendiente', 'yellow', 'Programada'], en_proceso: ['fc-badge-neutral', 'blue', 'En proceso'],
+      programada: ['fc-badge-pendiente', 'yellow', 'Programada'], en_proceso: ['fc-badge-proceso', 'blue', 'En proceso'],
       finalizada: ['fc-badge-facturado', 'green', 'Finalizada'], cancelada: ['fc-badge-neutral', 'gray', 'Cancelada']
     }[e] || ['fc-badge-neutral', 'gray', e];
     return `<span class="fc-badge ${m[0]}"><span class="fc-status-dot fc-status-dot-${m[1]}"></span>${escapar(m[2])}</span>`;
@@ -223,8 +448,8 @@
         const anular = PUEDE_ANULAR && ABIERTAS.indexOf(f.estado_consulta) >= 0
           ? `<button type="button" class="btn btn-sm btn-outline-danger" data-accion="anular" data-id="${escapar(f[PK])}" data-desc="${escapar(f.numero_consulta + ' · ' + f.nombre_paciente)}" title="Anular"><i class="fas fa-ban"></i></button>` : '';
         return `<tr><td class="ps-3 fw-semibold text-nowrap">${escapar(f.numero_consulta)}</td><td class="text-nowrap">${fecha(f.fecha_consulta)}</td>
-          <td>${escapar(f.nombre_paciente)}<div class="text-muted small">CI ${escapar(f.cedula_paciente)}</div></td><td>${escapar(f.nombre_medico)}</td>
-          <td class="text-center">${escapar(f.cantidad_hallazgos)}</td><td class="text-center">${badge(f.estado_consulta)}</td>
+          <td><div class="fw-medium">${escapar(f.nombre_paciente)}</div><div class="text-muted small">CI ${escapar(f.cedula_paciente)}</div></td><td>${escapar(f.nombre_medico)}</td>
+          <td class="text-center"><span class="badge bg-azure-lt text-azure fw-bold">${escapar(f.cantidad_hallazgos)}</span></td><td class="text-center">${badge(f.estado_consulta)}</td>
           <td class="pe-3 text-end"><div class="btn-list flex-nowrap justify-content-end">
             <a class="btn btn-sm btn-outline-primary" href="${URL_ESTA_PAGINA}?consulta=${encodeURIComponent(f.id_consulta_cab)}" title="Abrir el odontograma"><i class="fas fa-teeth me-1"></i>Abrir</a>${anular}</div></td></tr>`;
       }).join('') : '<tr><td colspan="7" class="text-center text-muted py-4">No hay odontogramas para los filtros elegidos.</td></tr>';
@@ -292,11 +517,11 @@
       ${colorDe(sup) ? `style="fill:${escapar(colorDe(sup))}"` : ''}><title>${pieza} · ${NOMBRES_SUPERFICIE[sup]}${detalle(sup) ? ': ' + escapar(detalle(sup)) : ''}</title></polygon>`;
     const centro = `<rect class="odo-superficie${sel && seleccion.superficie === 'O' ? ' elegida' : ''}" data-pieza="${pieza}" data-superficie="O" x="8" y="8" width="18" height="18"
       ${colorDe('O') ? `style="fill:${escapar(colorDe('O'))}"` : ''}><title>${pieza} · ${NOMBRES_SUPERFICIE.O}${detalle('O') ? ': ' + escapar(detalle('O')) : ''}</title></rect>`;
-    const yNumero = lados.superior ? -5 : TAM + 12;
-    const ySimbolo = lados.superior ? TAM + 11 : -4;
+    const yNumero = lados.superior ? -7 : TAM + 15;
+    const ySimbolo = lados.superior ? TAM + 13 : -5;
     const simbolos = piezas.map((i) => i.estado_simbolo || '').filter(Boolean).join(' ');
     return `<g class="odo-pieza${sel ? ' seleccionada' : ''}${hs.length ? ' con-hallazgos' : ''}" data-pieza="${pieza}" transform="translate(${x},${y})">
-      <rect class="odo-marco" x="-3" y="-3" width="${TAM + 6}" height="${TAM + 6}" rx="3"></rect>
+      <rect class="odo-marco" x="-3" y="-3" width="${TAM + 6}" height="${TAM + 6}" rx="4"></rect>
       ${poli('arriba', lados.arriba)}${poli('abajo', lados.abajo)}${poli('izquierda', lados.izquierda)}${poli('derecha', lados.derecha)}${centro}
       <rect class="odo-contorno" x="-2" y="-2" width="${TAM + 4}" height="${TAM + 4}" rx="3" ${contorno ? `style="stroke:${escapar(contorno)}"` : ''}></rect>
       <text class="odo-numero" data-pieza="${pieza}" data-superficie="T" x="${TAM / 2}" y="${yNumero}"><title>${pieza} · ${NOMBRES_SUPERFICIE.T}${piezas.length ? ': ' + escapar(piezas.map((i) => i.estado_descripcion).join(', ')) : ''}</title>${pieza}</text>
@@ -317,19 +542,26 @@
   function pintarOdontograma() {
     const permanente = ARCADAS.permanente;
     const anchoPerm = 16 * PASO + SEP;
-    let svg = '', y = 46;
-    const bloque = (arcada, titulo, anchoBloque) => {
+    let svg = '', y = 52;
+    const bloque = (arcada, titulo, anchoBloque, cuads) => {
       const xIni = (anchoPerm - anchoBloque) / 2 + 10;
-      svg += `<text class="odo-rotulo" x="${anchoPerm / 2 + 10}" y="${y - 32}">${titulo}</text>`;
+      const xFin = xIni + anchoBloque - 8;
+      svg += `<text class="odo-rotulo" x="${anchoPerm / 2 + 10}" y="${y - 34}">${titulo}</text>`;
+      svg += `<text class="odo-cuadrante" x="${xIni}" y="${y - 22}" text-anchor="start">Cuadrante ${cuads[0]} · Sup. Der.</text>`;
+      svg += `<text class="odo-cuadrante" x="${xFin}" y="${y - 22}" text-anchor="end">Cuadrante ${cuads[1]} · Sup. Izq.</text>`;
       svg += dibujarFila(arcada.superior, y, xIni);
       const medio = xIni + arcada.superior[0].length * PASO + SEP / 2 - 4;   // la línea media, entre las dos mitades
-      svg += `<line class="odo-mitad" x1="${medio}" y1="${y - 8}" x2="${medio}" y2="${y + 2 * TAM + 60}"></line>`;
-      svg += dibujarFila(arcada.inferior, y + TAM + 46, xIni);
-      y += 2 * TAM + 110;
+      const yMitadArcada = y + TAM + 24;
+      svg += `<line class="odo-arcada-sep" x1="${xIni - 4}" y1="${yMitadArcada}" x2="${xFin + 4}" y2="${yMitadArcada}"></line>`;
+      svg += `<line class="odo-mitad" x1="${medio}" y1="${y - 14}" x2="${medio}" y2="${y + 2 * TAM + 68}"></line>`;
+      svg += dibujarFila(arcada.inferior, y + TAM + 48, xIni);
+      svg += `<text class="odo-cuadrante" x="${xIni}" y="${y + 2 * TAM + 76}" text-anchor="start">Cuadrante ${cuads[2]} · Inf. Der.</text>`;
+      svg += `<text class="odo-cuadrante" x="${xFin}" y="${y + 2 * TAM + 76}" text-anchor="end">Cuadrante ${cuads[3]} · Inf. Izq.</text>`;
+      y += 2 * TAM + 124;
     };
-    bloque(permanente, 'Dentición permanente', 16 * PASO + SEP);
-    if (mostrarTemporal) bloque(ARCADAS.temporal, 'Dentición temporal', 10 * PASO + SEP);
-    $('odoLienzo').innerHTML = `<svg viewBox="0 0 ${anchoPerm + 20} ${y - 30}" role="img" id="odontogramaSVG" xmlns="http://www.w3.org/2000/svg">${svg}</svg>`;
+    bloque(permanente, 'Dentición permanente', 16 * PASO + SEP, [1, 2, 4, 3]);
+    if (mostrarTemporal) bloque(ARCADAS.temporal, 'Dentición temporal', 10 * PASO + SEP, [5, 6, 8, 7]);
+    $('odoLienzo').innerHTML = `<svg viewBox="0 0 ${anchoPerm + 20} ${y - 32}" role="img" id="odontogramaSVG" xmlns="http://www.w3.org/2000/svg">${svg}</svg>`;
   }
 
   /* ───────── panel lateral, leyenda y tabla ───────── */
@@ -344,30 +576,30 @@
     $('textoAplica').textContent = !seleccion.superficie ? '' : (deSuperficie ? '(de superficie)' : '(de pieza completa)');
     const lista = !seleccion.superficie ? [] : estados.filter((e) => (e.aplica_a === 'SUPERFICIE') === deSuperficie);
     $('listaEstados').innerHTML = lista.length ? lista.map((e) => `<button type="button" class="odo-estado${seleccion.estado === e.id_estado_dental ? ' activo' : ''}" data-estado="${escapar(e.id_estado_dental)}">
-      <span class="odo-muestra" style="background:${escapar(e.color)}"></span><span class="fw-semibold">${escapar(e.simbolo || '')}</span><span>${escapar(e.descripcion)}</span></button>`).join('')
-      : '<div class="text-muted small">Elija primero una pieza y una superficie.</div>';
+      <span class="odo-muestra" style="background:${escapar(e.color)}"></span>${e.simbolo ? `<span class="odo-simbolo-pill">${escapar(e.simbolo)}</span>` : ''}<span class="flex-fill">${escapar(e.descripcion)}</span></button>`).join('')
+      : '<div class="text-muted small py-2">Elija primero una pieza y una superficie.</div>';
     $('btnAgregar').disabled = !(seleccion.pieza && seleccion.superficie && seleccion.estado);
 
     const hs = seleccion.pieza ? hallazgosDe(seleccion.pieza) : [];
     $('hallazgosPieza').innerHTML = !seleccion.pieza ? '<div class="text-muted small">Elija una pieza del odontograma.</div>'
-      : (hs.length ? hs.map((h) => `<div class="d-flex align-items-center gap-2 border rounded-2 px-2 py-1">
+      : (hs.length ? hs.map((h) => `<div class="odo-hallazgo-item">
           <span class="odo-muestra" style="background:${escapar(h.estado_color)}"></span>
-          <div class="flex-fill small"><span class="fw-semibold">${escapar(h.estado_descripcion)}</span> · ${escapar(NOMBRES_SUPERFICIE[h.superficie] || h.superficie)}${h.observacion ? `<div class="text-muted">${escapar(h.observacion)}</div>` : ''}</div>
+          <div class="flex-fill small"><span class="fw-semibold">${escapar(h.estado_descripcion)}</span> · <span class="text-muted">${escapar(NOMBRES_SUPERFICIE[h.superficie] || h.superficie)}</span>${h.observacion ? `<div class="text-muted mt-1">${escapar(h.observacion)}</div>` : ''}</div>
           ${editar ? `<button type="button" class="btn btn-sm btn-outline-danger" data-quitar="${escapar(h[PK_HALLAZGO])}" title="Quitar el hallazgo"><i class="fas fa-times"></i></button>` : ''}</div>`).join('')
         : '<div class="text-muted small">Esta pieza no tiene hallazgos.</div>');
   }
 
   function pintarLeyenda() {
-    $('leyenda').innerHTML = estados.map((e) => `<div class="col-12 col-sm-6 d-flex align-items-center gap-2 small"><span class="odo-muestra" style="background:${escapar(e.color)}"></span>
-      <span class="fw-semibold">${escapar(e.simbolo || '')}</span><span>${escapar(e.descripcion)}</span><span class="text-muted">· ${e.aplica_a === 'SUPERFICIE' ? 'superficie' : 'pieza'}</span></div>`).join('');
+    $('leyenda').innerHTML = estados.map((e) => `<div class="col-12 col-sm-6"><div class="odo-leyenda-item"><span class="odo-muestra" style="background:${escapar(e.color)}"></span>
+      ${e.simbolo ? `<span class="odo-simbolo-pill">${escapar(e.simbolo)}</span>` : ''}<span class="fw-medium flex-fill">${escapar(e.descripcion)}</span><span class="text-muted small">${e.aplica_a === 'SUPERFICIE' ? 'superficie' : 'pieza'}</span></div></div>`).join('');
   }
 
   function pintarTabla() {
     const hs = odontograma ? odontograma.hallazgos : [];
     $('cantidadTotal').textContent = hs.length ? `(${hs.length})` : '';
     $('resumenOdo').textContent = hs.length === 1 ? '· 1 hallazgo' : `· ${hs.length} hallazgos`;
-    $('tbodyTodos').innerHTML = hs.length ? hs.map((h) => `<tr><td class="ps-3 fw-semibold">${escapar(h.numero_diente)}</td><td>${escapar(NOMBRES_SUPERFICIE[h.superficie] || h.superficie)}</td>
-      <td><span class="odo-muestra me-1" style="background:${escapar(h.estado_color)}"></span>${escapar(h.estado_descripcion)}</td><td class="text-muted">${h.observacion ? escapar(h.observacion) : ''}</td></tr>`).join('')
+    $('tbodyTodos').innerHTML = hs.length ? hs.map((h) => `<tr><td class="ps-3 fw-bold">${escapar(h.numero_diente)}</td><td>${escapar(NOMBRES_SUPERFICIE[h.superficie] || h.superficie)}</td>
+      <td><div class="d-inline-flex align-items-center gap-2"><span class="odo-muestra" style="background:${escapar(h.estado_color)}"></span><span class="fw-medium">${escapar(h.estado_descripcion)}</span></div></td><td class="pe-3 text-muted">${h.observacion ? escapar(h.observacion) : ''}</td></tr>`).join('')
       : '<tr><td colspan="4" class="text-center text-muted py-3">Sin hallazgos.</td></tr>';
   }
 
