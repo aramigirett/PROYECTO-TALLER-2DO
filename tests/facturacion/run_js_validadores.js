@@ -39,6 +39,11 @@ var uds = ['1234', '0000', '123', '12345', 'abcd', '', ' 1234 ', '12 4'];
 for (var a3 = 0; a3 < uds.length; a3++) out.push('ultDig\t' + uds[a3] + '\t' + V.ultimosDigitos(uds[a3]));
 var ncs = ['1020304050', '12345', '1234', '123-456-78', '-12345', 'abc12345', '12 345', '', '   ', '12345678901234567890123456789', '123456789012345678901234567890', '1234567890123456789012345678901'];
 for (var a4 = 0; a4 < ncs.length; a4++) out.push('nroCuenta\t' + ncs[a4] + '\t' + V.numeroCuenta(ncs[a4]));
+var largo101 = ''; for (var z2 = 0; z2 < 101; z2++) largo101 += 'a';
+var prs = ['', '   ', 'Caja x 20 comprimidos', 'FRASCO 100 ML (SUSPENSION)', 'tubo 5 g', 'a<b', largo101, largo101.substring(0, 100), '10%  sol.'];
+for (var a5 = 0; a5 < prs.length; a5++) out.push('presentacion\t' + prs[a5] + '\t' + V.presentacion(prs[a5]));
+var meds = ['', 'ibuprofeno 400 mg', 'AMOXICILINA/CLAVULANICO 875/125 MG', 'amoxicilina/clavulánico 875/125 mg', 'a<b', '(x)', 'x'];
+for (var a6 = 0; a6 < meds.length; a6++) out.push('descMed\t' + meds[a6] + '\t' + V.descripcion(meds[a6], { max: 200, ampliada: true, etiqueta: 'nombre comercial', articulo: 'El' }));
 out.push('ubicacion\tPLANTA\t' + V.ubicacion('PLANTA') + '|' + V.ubicacion('') );
 // salida en UTF-8 sin BOM vía ADODB
 var so = new ActiveXObject('ADODB.Stream'); so.Type = 2; so.Charset = 'utf-8'; so.Open();

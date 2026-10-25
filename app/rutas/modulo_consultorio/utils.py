@@ -10,5 +10,5 @@ Las entidades auditadas se declaran en app/Services/auditoria_detalle.py (MODULO
 """
 from app.rutas.modulo_facturacion.utils import (  # noqa: F401  (se reexportan para las APIs de Consultorio)
     auditar, detalle_cambios, entero_id, error_interno, normalizar_descripcion, respuesta_error,
-    validar_booleano, validar_observacion, validar_precio, validar_iva, validar_texto,
+    validar_booleano, validar_observacion, validar_presentacion, validar_precio, validar_iva, validar_texto,
 )
