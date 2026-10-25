@@ -1,7 +1,7 @@
 """Esquema versionado de Agendamiento y Seguridad (etapa 1 de la migración a Tabler).
 
 En una base TEMPORAL que crea y borra: aplica en orden schema_agendamiento_base.sql, schema_agendamiento_datos.sql,
-schema_seguridad_base.sql, historial/schema_historial_base.sql, schema_agendamiento_etapa1.sql y schema_agendamiento_etapa2.sql, y compara con la base real las 22 tablas
+schema_seguridad_base.sql, historial/schema_historial_base.sql, schema_agendamiento_etapa1.sql, schema_agendamiento_etapa2.sql y schema_agendamiento_etapa3.sql, y compara con la base real las 22 tablas
 (columnas, tipos, NOT NULL, valores por defecto, restricciones y índices). También verifica que cada script se pueda volver a correr
 (idempotente) y, en la base real, los cambios de la etapa 1 (activo, únicos parciales, FK en RESTRICT, Turno sin CHECK, Día con CHECK).
 No modifica la base real.
@@ -34,7 +34,8 @@ TABLAS = ['ciudades', 'cargo', 'especialidades', 'consultorio', 'dias', 'turnos'
           'historial_medico_paciente', 'roles', 'menu', 'usuarios', 'token_2fa', 'permisos']
 ORDEN = ['app/dao/referenciales_agendamiento/schema_agendamiento_base.sql', 'app/dao/referenciales_agendamiento/schema_agendamiento_datos.sql',
          'app/dao/modulo_seguridad/schema_seguridad_base.sql', 'app/dao/referenciales_agendamiento/historial/schema_historial_base.sql',
-         'app/dao/referenciales_agendamiento/schema_agendamiento_etapa1.sql', 'app/dao/referenciales_agendamiento/schema_agendamiento_etapa2.sql']
+         'app/dao/referenciales_agendamiento/schema_agendamiento_etapa1.sql', 'app/dao/referenciales_agendamiento/schema_agendamiento_etapa2.sql',
+         'app/dao/referenciales_agendamiento/schema_agendamiento_etapa3.sql']
 
 host, port, user, pwd, real = env['DB_HOST'], env['DB_PORT'], env['TEST_DB_USER'], env['TEST_DB_PASSWORD'], env['DB_NAME']
 BIN = pathlib.Path(env.get('PG_BIN_DIR', r'C:\Program Files\PostgreSQL\14\bin'))
@@ -134,6 +135,12 @@ for c_ in ('paciente_cedula_entidad_key', 'medico_cedula_key', 'funcionario_cedu
 chk('medico.fecha_registro tiene DEFAULT CURRENT_DATE y especialidad y ciudad son NOT NULL',
     q("SELECT column_default FROM information_schema.columns WHERE table_name='medico' AND column_name='fecha_registro'") == [('CURRENT_DATE',)]
     and q("SELECT is_nullable FROM information_schema.columns WHERE table_name='medico' AND column_name IN ('id_especialidad','id_ciudad')") == [('NO',), ('NO',)])
+for col in ('id_cita_detalle', 'canal_enviado', 'motivo_error', 'fecha_envio'):
+    chk(f'avisos_recordatorios.{col} existe', bool(q("SELECT 1 FROM information_schema.columns WHERE table_name='avisos_recordatorios' AND column_name=%s", (col,))))
+d = q("SELECT indexdef FROM pg_indexes WHERE indexname='ux_aviso_cita_vigente'")
+chk('ux_aviso_cita_vigente: único parcial, un aviso vigente por cita', bool(d) and 'UNIQUE' in d[0][0] and 'Inactivo' in d[0][0])
+chk('avisos: FK a la cita en RESTRICT y CHECK de canal y de estado', q("SELECT confdeltype FROM pg_constraint WHERE conname='fk_aviso_cita'") == [('r',)]
+    and q("SELECT COUNT(*) FROM pg_constraint WHERE conname IN ('chk_aviso_canal','chk_aviso_estado')")[0][0] == 2)
 chk('Turno sin CHECK; Día conserva el suyo', q("SELECT COUNT(*) FROM pg_constraint WHERE conname='chk_turnos'")[0][0] == 0
     and q("SELECT COUNT(*) FROM pg_constraint WHERE conname='chk_dias'")[0][0] == 1)
 for tabla, nombre in (('cita_cabecera', 'cita_cabecera_id_paciente_fkey'), ('cita_cabecera', 'cita_cabecera_id_agenda_cabecera_fkey'),

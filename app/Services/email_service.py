@@ -172,3 +172,34 @@ def enviar_codigo_recuperacion(destinatario, codigo, minutos):
         _enviar_correo(destinatario, "Recuperación de contraseña - OdontoClinic", cuerpo)
 
     _en_segundo_plano(enviar)
+
+
+def enviar_recordatorio_correo(destinatario, asunto, cuerpo):
+    """
+    Envía por correo el recordatorio de una cita (respaldo cuando WhatsApp no está vinculado o falla). Devuelve (True, None) o (False, motivo
+    corto para el usuario). Usa el mismo Gmail SMTP del 2FA. Nunca devuelve ni registra la contraseña.
+    """
+    if not destinatario:
+        return False, 'el paciente no tiene correo registrado'
+    if not MAIL_USERNAME or not MAIL_PASSWORD:
+        app.logger.error("No se pudo enviar el recordatorio: faltan las variables de entorno MAIL_USERNAME/MAIL_PASSWORD.")
+        return False, 'el correo del sistema no está configurado'
+    mensaje = MIMEText(cuerpo, "plain", "utf-8")
+    mensaje["Subject"] = asunto
+    mensaje["From"] = MAIL_DEFAULT_SENDER
+    mensaje["To"] = destinatario
+    try:
+        with smtplib.SMTP(MAIL_SERVER, MAIL_PORT, timeout=15) as servidor:
+            if MAIL_USE_TLS:
+                servidor.starttls()
+            servidor.login(MAIL_USERNAME, MAIL_PASSWORD)
+            servidor.sendmail(MAIL_DEFAULT_SENDER, [destinatario], mensaje.as_string())
+        return True, None
+    except smtplib.SMTPRecipientsRefused:
+        return False, 'la dirección de correo del paciente fue rechazada'
+    except smtplib.SMTPAuthenticationError:
+        return False, 'el servidor de correo rechazó las credenciales del sistema'
+    except Exception as e:
+        app.logger.error(f"Error al enviar el recordatorio por correo: {str(e)}")
+        return False, 'no se pudo conectar con el servidor de correo'
+

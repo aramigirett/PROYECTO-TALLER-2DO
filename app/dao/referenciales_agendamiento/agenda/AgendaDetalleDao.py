@@ -1,52 +1,37 @@
+import psycopg2.errors
 from flask import current_app as app
 from app.conexion.Conexion import Conexion
 
-class AgendaDetalleDao:
+EN_USO = "EN_USO"        # ("EN_USO", motivo)
 
-    def getDetallesPorCabecera(self, id_agenda_cabecera):
-        """Obtiene todos los detalles de una cabecera específica"""
-        sql = """
-        SELECT 
-            ad.id_agenda_detalle,
-            ad.id_agenda_cabecera,
-            ad.id_disponibilidad_horaria,
-            ad.id_dia,
-            dia.descripcion AS des_dia,
-            ad.id_turno,
-            t.descripcion AS des_turno,
-            ad.hora_inicio,
-            ad.hora_fin,
-            ad.cupos_disponibles,
-            ad.cupos_maximos,
-            ad.estado_detalle
-        FROM agenda_detalle ad
-        JOIN dias dia ON ad.id_dia = dia.id_dia
-        JOIN turnos t ON ad.id_turno = t.id_turno
-        WHERE ad.id_agenda_cabecera = %s AND ad.estado_detalle <> 'Cancelado'
-        ORDER BY ad.hora_inicio
-        """
-        conexion = Conexion()
-        con = conexion.getConexion()
+_SELECT = """
+SELECT d.id_agenda_detalle, d.id_agenda_cabecera, d.id_disponibilidad_horaria, d.id_dia, dia.descripcion, d.id_turno, t.descripcion,
+       d.hora_inicio, d.hora_fin, d.cupos_disponibles, d.cupos_maximos, d.estado_detalle
+FROM agenda_detalle d
+JOIN dias dia ON dia.id_dia = d.id_dia
+JOIN turnos t ON t.id_turno = d.id_turno
+"""
+
+
+def _fila(r):
+    return {'id_agenda_detalle': r[0], 'id_agenda_cabecera': r[1], 'id_disponibilidad_horaria': r[2], 'id_dia': r[3], 'dia': r[4],
+            'id_turno': r[5], 'turno': r[6], 'hora_inicio': str(r[7])[:5], 'hora_fin': str(r[8])[:5], 'cupos_disponibles': r[9],
+            'cupos_maximos': r[10], 'estado_detalle': r[11]}
+
+
+class AgendaDetalleDao:
+    """
+    Horarios (detalles) de una agenda: se publican copiando una disponibilidad horaria del mismo médico y fecha. Estado derivado de los cupos
+    (Disponible / Agotado); Cancelado = anulado. No se anula un horario con citas que ocupan cupo.
+    """
+
+    def getDetallesPorCabecera(self, id_agenda_cabecera, incluir_cancelados=False):
+        sql = _SELECT + " WHERE d.id_agenda_cabecera = %s" + ("" if incluir_cancelados else " AND d.estado_detalle <> 'Cancelado'") + " ORDER BY d.hora_inicio, d.id_agenda_detalle"
+        con = Conexion().getConexion()
         cur = con.cursor()
         try:
             cur.execute(sql, (id_agenda_cabecera,))
-            rows = cur.fetchall()
-            return [
-                {
-                    'id_agenda_detalle': r[0],
-                    'id_agenda_cabecera': r[1],
-                    'id_disponibilidad_horaria': r[2],
-                    'id_dia': r[3],
-                    'des_dia': r[4],
-                    'id_turno': r[5],
-                    'des_turno': r[6],
-                    'hora_inicio': str(r[7]),
-                    'hora_fin': str(r[8]),
-                    'cupos_disponibles': r[9],
-                    'cupos_maximos': r[10],
-                    'estado_detalle': r[11]
-                } for r in rows
-            ]
+            return [_fila(r) for r in cur.fetchall()]
         except Exception as e:
             app.logger.error(f"Error al obtener detalles: {str(e)}")
             return []
@@ -55,48 +40,12 @@ class AgendaDetalleDao:
             con.close()
 
     def getDetalleById(self, id_agenda_detalle):
-        """Obtiene un detalle específico por ID"""
-        sql = """
-        SELECT 
-            ad.id_agenda_detalle,
-            ad.id_agenda_cabecera,
-            ad.id_disponibilidad_horaria,
-            ad.id_dia,
-            dia.descripcion AS des_dia,
-            ad.id_turno,
-            t.descripcion AS des_turno,
-            ad.hora_inicio,
-            ad.hora_fin,
-            ad.cupos_disponibles,
-            ad.cupos_maximos,
-            ad.estado_detalle
-        FROM agenda_detalle ad
-        JOIN dias dia ON ad.id_dia = dia.id_dia
-        JOIN turnos t ON ad.id_turno = t.id_turno
-        WHERE ad.id_agenda_detalle = %s AND ad.estado_detalle <> 'Cancelado'
-        """
-        conexion = Conexion()
-        con = conexion.getConexion()
+        con = Conexion().getConexion()
         cur = con.cursor()
         try:
-            cur.execute(sql, (id_agenda_detalle,))
+            cur.execute(_SELECT + " WHERE d.id_agenda_detalle = %s", (id_agenda_detalle,))
             r = cur.fetchone()
-            if r:
-                return {
-                    'id_agenda_detalle': r[0],
-                    'id_agenda_cabecera': r[1],
-                    'id_disponibilidad_horaria': r[2],
-                    'id_dia': r[3],
-                    'des_dia': r[4],
-                    'id_turno': r[5],
-                    'des_turno': r[6],
-                    'hora_inicio': str(r[7]),
-                    'hora_fin': str(r[8]),
-                    'cupos_disponibles': r[9],
-                    'cupos_maximos': r[10],
-                    'estado_detalle': r[11]
-                }
-            return None
+            return _fila(r) if r else None
         except Exception as e:
             app.logger.error(f"Error al obtener detalle: {str(e)}")
             return None
@@ -104,141 +53,70 @@ class AgendaDetalleDao:
             cur.close()
             con.close()
 
-    def existeDetalle(self, id_agenda_cabecera, id_disponibilidad_horaria):
-        """Valida si ya existe un detalle con esa disponibilidad en la cabecera"""
-        sql = """
-        SELECT id_agenda_detalle
-        FROM agenda_detalle
-        WHERE id_agenda_cabecera = %s AND id_disponibilidad_horaria = %s
-              AND estado_detalle <> 'Cancelado'
+    def publicarDisponibilidades(self, id_agenda_cabecera, ids_disponibilidad):
         """
-        conexion = Conexion()
-        con = conexion.getConexion()
+        Publica disponibilidades como horarios de la agenda, en una transacción con la agenda bloqueada (FOR SHARE) y cada disponibilidad
+        bloqueada (FOR SHARE, en orden de id). Cada una tiene que estar activa y ser del mismo médico y de la misma fecha de la agenda.
+        Returns: (ids_creados, errores[str]); ("INVALIDO", mensaje) si la agenda no existe o está anulada.
+        """
+        con = Conexion().getConexion()
         cur = con.cursor()
+        creados, errores = [], []
         try:
-            cur.execute(sql, (id_agenda_cabecera, id_disponibilidad_horaria))
-            return cur.fetchone() is not None
-        except Exception as e:
-            app.logger.error(f"Error en existeDetalle: {str(e)}")
-            return False
-        finally:
-            cur.close()
-            con.close()
-
-    def guardarDetalle(self, id_agenda_cabecera, disponibilidad):
-        """
-        Crea un detalle copiando los datos de una disponibilidad.
-        disponibilidad es un dict con los datos de DisponibilidadDao.getDisponibilidadById()
-        """
-        # Validar que no esté duplicado
-        if self.existeDetalle(id_agenda_cabecera, disponibilidad['id_disponibilidad']):
-            app.logger.warning(f"Detalle duplicado: cabecera {id_agenda_cabecera}, disponibilidad {disponibilidad['id_disponibilidad']}")
-            return False
-
-        sql = """
-        INSERT INTO agenda_detalle(
-            id_agenda_cabecera,
-            id_disponibilidad_horaria,
-            id_dia,
-            id_turno,
-            hora_inicio,
-            hora_fin,
-            cupos_disponibles,
-            cupos_maximos,
-            estado_detalle
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-        RETURNING id_agenda_detalle
-        """
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-        try:
-            cupos = disponibilidad['dispo_cupos']
-            
-            cur.execute(sql, (
-                id_agenda_cabecera,
-                disponibilidad['id_disponibilidad'],
-                disponibilidad['id_dia'],
-                disponibilidad['id_turno'],
-                disponibilidad['dispo_hora_inicio'],
-                disponibilidad['dispo_hora_fin'],
-                cupos,  # cupos_disponibles
-                cupos,  # cupos_maximos
-                'Disponible'  # estado inicial
-            ))
-            new_id = cur.fetchone()[0]
+            cur.execute("SELECT id_medico, fecha_agenda, estado FROM agenda_cabecera WHERE id_agenda_cabecera = %s FOR SHARE", (id_agenda_cabecera,))
+            cab = cur.fetchone()
+            if cab is None or cab[2] == 'Inactivo':
+                con.rollback()
+                return ("INVALIDO", 'La agenda no existe o está anulada.')
+            for id_disp in sorted(set(ids_disponibilidad)):
+                cur.execute("""SELECT id_medico, dispo_fecha, id_dia, id_turno, dispo_hora_inicio, dispo_hora_fin, dispo_cupos, activo
+                               FROM disponibilidad_horaria WHERE id_disponibilidad = %s FOR SHARE""", (id_disp,))
+                d = cur.fetchone()
+                if d is None or not d[7]:
+                    errores.append(f'La disponibilidad {id_disp} no existe o está anulada.')
+                    continue
+                if d[0] != cab[0] or d[1] != cab[1]:
+                    errores.append(f'La disponibilidad de {str(d[4])[:5]} a {str(d[5])[:5]} no es de este médico y esta fecha.')
+                    continue
+                cur.execute("SAVEPOINT p")
+                try:
+                    cur.execute("""INSERT INTO agenda_detalle(id_agenda_cabecera, id_disponibilidad_horaria, id_dia, id_turno, hora_inicio, hora_fin,
+                                                              cupos_disponibles, cupos_maximos, estado_detalle)
+                                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,'Disponible') RETURNING id_agenda_detalle""",
+                                (id_agenda_cabecera, id_disp, d[2], d[3], d[4], d[5], d[6], d[6]))
+                    creados.append(cur.fetchone()[0])
+                    cur.execute("RELEASE SAVEPOINT p")
+                except psycopg2.errors.UniqueViolation:
+                    cur.execute("ROLLBACK TO SAVEPOINT p")
+                    errores.append(f'El horario de {str(d[4])[:5]} a {str(d[5])[:5]} ya está publicado en esta agenda.')
             con.commit()
-            return new_id
+            return creados, errores
         except Exception as e:
-            app.logger.error(f"Error al insertar detalle: {str(e)}")
+            app.logger.error(f"Error al publicar disponibilidades: {str(e)}")
             con.rollback()
-            return False
-        finally:
-            cur.close()
-            con.close()
-
-    def guardarDetallesMultiples(self, id_agenda_cabecera, lista_disponibilidades):
-        """
-        Guarda múltiples detalles a la vez.
-        lista_disponibilidades es una lista de dicts de disponibilidades.
-        Retorna lista de IDs creados o False si hubo error.
-        """
-        ids_creados = []
-        for disponibilidad in lista_disponibilidades:
-            detalle_id = self.guardarDetalle(id_agenda_cabecera, disponibilidad)
-            if detalle_id:
-                ids_creados.append(detalle_id)
-            else:
-                # Si uno falla, podrías hacer rollback de todos
-                # Por ahora continúa con los demás
-                app.logger.warning(f"No se pudo guardar detalle para disponibilidad {disponibilidad.get('id_disponibilidad')}")
-        
-        return ids_creados if ids_creados else False
-
-    def tieneCitasActivas(self, id_agenda_detalle):
-        """
-        Indica si el detalle tiene cita_detalle en un estado que ocupa cupo
-        (Reservado/Confirmado/Realizado). Se usa para bloquear la anulación
-        de un horario que ya tiene pacientes agendados.
-        """
-        sql = """
-        SELECT 1
-        FROM cita_detalle cd
-        JOIN estado_cita ec ON cd.id_estado_cita = ec.id_estado_cita
-        WHERE cd.id_agenda_detalle = %s AND ec.ocupa_cupo = TRUE
-        LIMIT 1
-        """
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-        try:
-            cur.execute(sql, (id_agenda_detalle,))
-            return cur.fetchone() is not None
-        except Exception as e:
-            app.logger.error(f"Error al verificar citas activas del detalle: {str(e)}")
-            return True  # Ante la duda, bloquear la anulación
+            return [], ['Ocurrió un error interno al publicar los horarios.']
         finally:
             cur.close()
             con.close()
 
     def deleteDetalle(self, id_agenda_detalle):
-        """
-        Anula (baja lógica) un detalle específico, salvo que tenga citas
-        activas asociadas, en cuyo caso se bloquea la anulación.
-        """
-        if self.tieneCitasActivas(id_agenda_detalle):
-            app.logger.warning(f"No se puede anular detalle {id_agenda_detalle}: tiene citas activas")
-            return "TIENE_CITAS_ACTIVAS"
-
-        sql = "UPDATE agenda_detalle SET estado_detalle='Cancelado' WHERE id_agenda_detalle=%s"
-        conexion = Conexion()
-        con = conexion.getConexion()
+        """Cancela un horario. Returns: True; False (no existía o ya estaba cancelado); ("EN_USO", motivo) si tiene citas que ocupan cupo."""
+        con = Conexion().getConexion()
         cur = con.cursor()
         try:
-            cur.execute(sql, (id_agenda_detalle,))
-            filas = cur.rowcount
+            cur.execute("SELECT 1 FROM agenda_detalle WHERE id_agenda_detalle = %s AND estado_detalle <> 'Cancelado' FOR UPDATE", (id_agenda_detalle,))
+            if cur.fetchone() is None:
+                con.rollback()
+                return False
+            cur.execute("""SELECT COUNT(*) FROM cita_detalle cd JOIN estado_cita ec ON ec.id_estado_cita = cd.id_estado_cita
+                           WHERE cd.id_agenda_detalle = %s AND ec.ocupa_cupo = TRUE""", (id_agenda_detalle,))
+            n = cur.fetchone()[0]
+            if n:
+                con.rollback()
+                return (EN_USO, f'No se puede anular el horario: tiene {n} cita(s). Cancele primero las citas.')
+            cur.execute("UPDATE agenda_detalle SET estado_detalle = 'Cancelado' WHERE id_agenda_detalle = %s", (id_agenda_detalle,))
             con.commit()
-            return filas > 0
+            return True
         except Exception as e:
             app.logger.error(f"Error al anular detalle: {str(e)}")
             con.rollback()
@@ -247,74 +125,28 @@ class AgendaDetalleDao:
             cur.close()
             con.close()
 
-    def cancelarDetallesPorCabecera(self, id_agenda_cabecera):
-        """
-        Marca como 'Cancelado' todos los detalles activos de una cabecera.
-        Uso interno: cascada al anular la cabecera completa (no aplica el
-        bloqueo por citas activas de deleteDetalle, ya que anular el día
-        entero es una decisión ya tomada a nivel cabecera).
-        """
-        sql = """
-        UPDATE agenda_detalle
-        SET estado_detalle = 'Cancelado'
-        WHERE id_agenda_cabecera = %s AND estado_detalle <> 'Cancelado'
-        """
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-        try:
-            cur.execute(sql, (id_agenda_cabecera,))
-            filas = cur.rowcount
-            con.commit()
-            return filas
-        except Exception as e:
-            app.logger.error(f"Error al anular detalles de la cabecera {id_agenda_cabecera}: {str(e)}")
-            con.rollback()
-            return 0
-        finally:
-            cur.close()
-            con.close()
-
     def actualizarCuposDisponibles(self, id_agenda_detalle, nuevos_cupos):
-        """Actualiza los cupos disponibles (cuando se reserva una cita)"""
-        sql = """
-        UPDATE agenda_detalle
-        SET cupos_disponibles = %s,
-            estado_detalle = CASE 
-                WHEN %s = 0 THEN 'Agotado'
-                ELSE 'Disponible'
-            END
-        WHERE id_agenda_detalle = %s
         """
-        conexion = Conexion()
-        con = conexion.getConexion()
+        Fija los cupos disponibles de un horario (solo Administrador: permiso 'editar'). Entre 0 y los máximos, y no menos que... (las citas
+        que ocupan cupo ya descontaron los suyos). Returns: True; False (no existe / cancelado); ("EN_USO", mensaje) si excede el máximo.
+        """
+        con = Conexion().getConexion()
         cur = con.cursor()
         try:
-            cur.execute(sql, (nuevos_cupos, nuevos_cupos, id_agenda_detalle))
-            filas = cur.rowcount
+            cur.execute("SELECT cupos_maximos FROM agenda_detalle WHERE id_agenda_detalle = %s AND estado_detalle <> 'Cancelado' FOR UPDATE", (id_agenda_detalle,))
+            f = cur.fetchone()
+            if f is None:
+                con.rollback()
+                return False
+            if nuevos_cupos > f[0]:
+                con.rollback()
+                return (EN_USO, f'Los cupos disponibles no pueden superar los cupos máximos ({f[0]}).')
+            cur.execute("""UPDATE agenda_detalle SET cupos_disponibles = %s, estado_detalle = CASE WHEN %s = 0 THEN 'Agotado' ELSE 'Disponible' END
+                           WHERE id_agenda_detalle = %s""", (nuevos_cupos, nuevos_cupos, id_agenda_detalle))
             con.commit()
-            return filas > 0
+            return True
         except Exception as e:
             app.logger.error(f"Error al actualizar cupos: {str(e)}")
-            con.rollback()
-            return False
-        finally:
-            cur.close()
-            con.close()
-
-    def cambiarEstadoDetalle(self, id_agenda_detalle, nuevo_estado):
-        """Cambia el estado de un detalle (Disponible/Agotado/Cancelado)"""
-        sql = "UPDATE agenda_detalle SET estado_detalle=%s WHERE id_agenda_detalle=%s"
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-        try:
-            cur.execute(sql, (nuevo_estado, id_agenda_detalle))
-            filas = cur.rowcount
-            con.commit()
-            return filas > 0
-        except Exception as e:
-            app.logger.error(f"Error al cambiar estado detalle: {str(e)}")
             con.rollback()
             return False
         finally:

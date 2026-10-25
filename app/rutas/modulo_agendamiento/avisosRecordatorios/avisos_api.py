@@ -1,312 +1,275 @@
-from flask import Blueprint, jsonify, request, current_app as app
-from app.dao.referenciales_agendamiento.avisosRecordatorios.AvisosRecordatorioDao import AvisoRecordatorioDao
-from app.Services.whatsapp_service import AvisoRecordatorioService, WhatsAppService
+"""API de Avisos y Recordatorios. Se elige el paciente o la cita, se presiona "Enviar" y el mensaje sale solo de una plantilla (editable antes de enviar, no
+obligatorio). WhatsApp Web con sesión persistente (el QR se escanea una vez) y, si no está vinculado o falla, el mismo recordatorio por correo. Cada aviso
+queda ENVIADO o ERROR con el canal por el que salió y el motivo; la auditoría NO guarda el texto del mensaje.
+
+    GET    /avisos[?inactivos=1&estado_envio=&desde=&hasta=] · /avisos/<id> · /avisos/<id>/mensaje-preview · /avisos/estadisticas      ('ver')
+    POST   /avisos ('nuevo')   PUT /avisos/<id> ('editar': solo Administrador)   DELETE /avisos/<id> ('anular')   PATCH /avisos/<id>/reactivar ('anular')
+    PATCH  /avisos/<id>/estado ('estado': confirmación del paciente)   POST /avisos/<id>/enviar ('estado': envío)
+    GET    /avisos/whatsapp/estado ('ver')   POST /avisos/whatsapp/vincular ('estado')
+"""
 import threading
+from flask import Blueprint, current_app as app, jsonify, request
+
+from app.dao.referenciales_agendamiento.avisosRecordatorios.AvisosRecordatorioDao import (
+    AvisoRecordatorioDao, DUPLICADO, EN_USO, INVALIDO, NO_EXISTE, YA_ACTIVO, sin_contacto)
+from app.Services.whatsapp_service import construir_mensaje, enviar_recordatorio, sesion_whatsapp
+from app.rutas.modulo_agendamiento.utils import auditar, detalle_cambios, entero_id, error_interno, respuesta_error, validar_fecha, validar_hora
 from app.rutas.modulo_seguridad.decorators import require_permiso
+from app.rutas.modulo_seguridad.permisos_contexto import id_funcionario_sesion, puede
 
 avisoapi = Blueprint('avisoapi', __name__, url_prefix='/api/v1')
 
 dao = AvisoRecordatorioDao()
+FORMAS = ('WhatsApp', 'Gmail')
+ETIQ = {'paciente': 'Paciente', 'medico': 'Médico', 'nombre_consultorio': 'Consultorio', 'fecha_cita': 'Fecha de la cita', 'hora_cita': 'Hora', 'forma_envio': 'Forma de envío'}
+ETIQ_ENVIO = {'estado_envio': 'Estado del envío', 'canal_enviado': 'Canal', 'motivo_error': 'Motivo'}
+_enviando = set()
+_candado = threading.Lock()
 
-# ==========================================
-#  ENDPOINTS CRUD BÁSICOS
-# ==========================================
+
+def _auditado(a):
+    return {k: a.get(k) for k in ETIQ}
+
+
+def _quien(a):
+    return f"{a['paciente']}, {a['fecha_cita']} {a['hora_cita']}"
+
+
+def _conflicto(r):
+    return respuesta_error(r[-1], 409 if r[0] in (DUPLICADO, EN_USO) else 400, r[1] if len(r) == 3 else None)
+
+
+def _validar(data):
+    """Valida el cuerpo del alta / modificación. Con cita, paciente / médico / consultorio / fecha / hora salen de la cita (se ignoran los del navegador)."""
+    if not isinstance(data, dict):
+        return None, respuesta_error('Los datos enviados no son válidos.', 400)
+    v = {'forma_envio': data.get('forma_envio') or 'WhatsApp'}
+    if v['forma_envio'] not in FORMAS:
+        return None, respuesta_error('La forma de envío debe ser WhatsApp o Gmail.', 400, 'forma_envio')
+    msg = data.get('mensaje')
+    if msg is not None and not isinstance(msg, str):
+        return None, respuesta_error('El mensaje debe ser un texto.', 400, 'mensaje')
+    msg = (msg or '').strip()
+    if len(msg) > 1000:
+        return None, respuesta_error('El mensaje no puede superar los 1000 caracteres.', 400, 'mensaje')
+    v['mensaje'] = msg or None
+    cita = data.get('id_cita_detalle')
+    if cita not in (None, ''):
+        v['id_cita_detalle'] = entero_id(cita)
+        if v['id_cita_detalle'] is None:
+            return None, respuesta_error('La cita seleccionada no es válida.', 400, 'id_cita_detalle')
+        v.update({'id_paciente': None, 'fecha_cita': None, 'hora_cita': None})
+        return v, None
+    v['id_paciente'] = entero_id(data.get('id_paciente'))
+    if v['id_paciente'] is None:
+        return None, respuesta_error('Debe seleccionar el paciente o la cita.', 400, 'id_paciente')
+    v['fecha_cita'], error = validar_fecha(data.get('fecha_cita'), 'fecha de la cita')
+    if error:
+        return None, respuesta_error(error, 400, 'fecha_cita')
+    v['hora_cita'], error = validar_hora(data.get('hora_cita'), 'hora de la cita')
+    if error:
+        return None, respuesta_error(error, 400, 'hora_cita')
+    for campo in ('id_medico', 'codigo'):
+        v[campo] = entero_id(data.get(campo)) if data.get(campo) not in (None, '') else None
+        if data.get(campo) not in (None, '') and v[campo] is None:
+            return None, respuesta_error('El médico o el consultorio seleccionado no es válido.', 400, campo)
+    return v, None
+
 
 @avisoapi.route('/avisos', methods=['GET'])
 @require_permiso('avisos', 'ver')
 def listar_avisos():
-    """Lista todos los avisos y recordatorios"""
+    a = request.args
     try:
-        avisos = dao.getAvisos()
-        return jsonify(success=True, data=avisos)
+        datos = dao.getAvisos(a.get('inactivos', '').lower() in ('1', 'true'), a.get('estado_envio') or None, a.get('desde') or None, a.get('hasta') or None)
+        return jsonify(success=True, data=[sin_contacto(x) for x in datos], error=None)
     except Exception as e:
         app.logger.error(f"Error en listar_avisos: {e}")
-        return jsonify(success=False, error=str(e)), 500
+        return error_interno()
 
 
 @avisoapi.route('/avisos/<int:id_aviso>', methods=['GET'])
 @require_permiso('avisos', 'ver')
 def get_aviso(id_aviso):
-    """Obtiene un aviso específico por ID"""
-    try:
-        aviso = dao.getAvisoById(id_aviso)
-        if aviso:
-            return jsonify(success=True, data=aviso)
-        return jsonify(success=False, error="Aviso no encontrado"), 404
-    except Exception as e:
-        app.logger.error(f"Error en get_aviso: {e}")
-        return jsonify(success=False, error=str(e)), 500
+    a = dao.getAvisoById(id_aviso, incluir_inactivos=True)
+    if a:
+        return jsonify(success=True, data=sin_contacto(a), error=None)
+    return respuesta_error('No se encontró el aviso con el ID proporcionado.', 404)
 
 
 @avisoapi.route('/avisos', methods=['POST'])
 @require_permiso('avisos', 'nuevo')
 def crear_aviso():
-    """Crea un nuevo aviso/recordatorio"""
-    data = request.get_json()
+    v, error = _validar(request.get_json(silent=True))
+    if error:
+        return error
+    id_f = id_funcionario_sesion()
+    if not id_f:
+        return respuesta_error('Su usuario no está vinculado a un funcionario: no puede registrar avisos.', 403)
     try:
-        id_aviso = dao.addAviso(data)
-        if id_aviso:
-            return jsonify(success=True, mensaje="Aviso creado exitosamente", id=id_aviso), 201
-        return jsonify(success=False, error="No se pudo crear el aviso"), 500
+        r = dao.addAviso(v, id_f)
+        if isinstance(r, tuple):
+            return _conflicto(r)
+        if r:
+            a = dao.getAvisoById(r)
+            auditar('avisos_recordatorios', r, 'ALTA', detalle_cambios({}, _auditado(a), ETIQ))
+            return jsonify(success=True, data={'id_aviso': r}, mensaje=f'Aviso para {_quien(a)} registrado correctamente.', error=None), 201
+        return respuesta_error('No se pudo guardar el aviso. Consulte con el administrador.', 500)
     except Exception as e:
         app.logger.error(f"Error en crear_aviso: {e}")
-        return jsonify(success=False, error=str(e)), 500
+        return error_interno()
 
 
 @avisoapi.route('/avisos/<int:id_aviso>', methods=['PUT'])
 @require_permiso('avisos', 'editar')
 def actualizar_aviso(id_aviso):
-    """Edita los DATOS de un aviso (acción 'editar'). Los estados del flujo
-    (confirmación / envío) no se tocan acá: ver PATCH .../estado."""
-    data = request.get_json() or {}
-    data.pop('estado_confirmacion', None)
-    data.pop('estado_envio', None)
+    v, error = _validar(request.get_json(silent=True))
+    if error:
+        return error
     try:
-        if dao.updateAviso(id_aviso, data):
-            return jsonify(success=True, mensaje="Aviso actualizado exitosamente")
-        return jsonify(success=False, error="No se pudo actualizar el aviso"), 500
+        antes = dao.getAvisoById(id_aviso)
+        if not antes:
+            return respuesta_error('No se encontró el aviso con el ID proporcionado.', 404)
+        r = dao.updateAviso(id_aviso, v)
+        if isinstance(r, tuple):
+            return _conflicto(r)
+        if r:
+            nuevo = dao.getAvisoById(id_aviso)
+            detalle = detalle_cambios(_auditado(antes), _auditado(nuevo), ETIQ)
+            if detalle:
+                auditar('avisos_recordatorios', id_aviso, 'MODIFICACION', detalle)
+            return jsonify(success=True, data={'id_aviso': id_aviso}, mensaje=f'Aviso para {_quien(nuevo)} actualizado correctamente.', error=None)
+        return respuesta_error('No se pudo actualizar el aviso.', 404)
     except Exception as e:
         app.logger.error(f"Error en actualizar_aviso: {e}")
-        return jsonify(success=False, error=str(e)), 500
+        return error_interno()
 
 
 @avisoapi.route('/avisos/<int:id_aviso>', methods=['DELETE'])
 @require_permiso('avisos', 'anular')
 def eliminar_aviso(id_aviso):
-    """Elimina un aviso"""
     try:
-        if dao.deleteAviso(id_aviso):
-            return jsonify(success=True, mensaje="Aviso eliminado exitosamente")
-        return jsonify(success=False, error="No se pudo eliminar el aviso"), 500
+        a = dao.getAvisoById(id_aviso)
+        if a and dao.deleteAviso(id_aviso):
+            auditar('avisos_recordatorios', id_aviso, 'BAJA', detalle_cambios({}, _auditado(a), ETIQ))
+            return jsonify(success=True, mensaje=f'Aviso para {_quien(a)} anulado correctamente.', error=None)
+        return respuesta_error('No se encontró el aviso con el ID proporcionado.', 404)
     except Exception as e:
         app.logger.error(f"Error en eliminar_aviso: {e}")
-        return jsonify(success=False, error=str(e)), 500
+        return error_interno()
 
 
-# ==========================================
-#  ENDPOINTS PARA WHATSAPP
-# ==========================================
+@avisoapi.route('/avisos/<int:id_aviso>/reactivar', methods=['PATCH'])
+@require_permiso('avisos', 'anular')
+def reactivar_aviso(id_aviso):
+    try:
+        r = dao.reactivarAviso(id_aviso)
+        if r == NO_EXISTE:
+            return respuesta_error('No se encontró el aviso con el ID proporcionado.', 404)
+        if r == YA_ACTIVO:
+            return respuesta_error('El aviso ya está activo.', 409)
+        if isinstance(r, tuple):
+            return respuesta_error('No se puede reactivar: ' + r[-1][0].lower() + r[-1][1:], 409, r[1])
+        if r:
+            a = dao.getAvisoById(id_aviso)
+            auditar('avisos_recordatorios', id_aviso, 'REACTIVACION', detalle_cambios({}, _auditado(a), ETIQ))
+            return jsonify(success=True, data=sin_contacto(a), mensaje=f'Aviso para {_quien(a)} reactivado correctamente.', error=None)
+        return respuesta_error('No se pudo reactivar el aviso. Consulte con el administrador.', 500)
+    except Exception as e:
+        app.logger.error(f"Error en reactivar_aviso: {e}")
+        return error_interno()
+
 
 @avisoapi.route('/avisos/<int:id_aviso>/estado', methods=['PATCH'])
 @require_permiso('avisos', 'estado')
 def cambiar_estado_aviso(id_aviso):
-    """Cambia el estado de confirmación del aviso (acción 'estado')."""
-    data = request.get_json() or {}
-    nuevo = data.get('estado_confirmacion')
+    """Confirmación del paciente (acción 'estado')."""
+    nuevo = (request.get_json(silent=True) or {}).get('estado_confirmacion')
     if nuevo not in ('Pendiente', 'Confirmado', 'Cancelado'):
-        return jsonify(success=False, error="estado_confirmacion debe ser Pendiente, Confirmado o Cancelado"), 400
+        return respuesta_error('La confirmación debe ser Pendiente, Confirmado o Cancelado.', 400, 'estado_confirmacion')
     try:
-        if not dao.getAvisoById(id_aviso):
-            return jsonify(success=False, error="Aviso no encontrado"), 404
-        if dao.updateAviso(id_aviso, {'estado_confirmacion': nuevo}):
-            return jsonify(success=True, mensaje="Estado actualizado", data={'estado_confirmacion': nuevo})
-        return jsonify(success=False, error="No se pudo cambiar el estado"), 500
+        a = dao.getAvisoById(id_aviso)
+        if not a:
+            return respuesta_error('No se encontró el aviso con el ID proporcionado.', 404)
+        if a['estado_confirmacion'] != nuevo and dao.cambiarConfirmacion(id_aviso, nuevo):
+            auditar('avisos_recordatorios', id_aviso, 'MODIFICACION', detalle_cambios({'c': a['estado_confirmacion']}, {'c': nuevo}, {'c': 'Confirmación del paciente'}))
+        return jsonify(success=True, data={'estado_confirmacion': nuevo}, mensaje=f'Aviso para {_quien(a)}: {nuevo}.', error=None)
     except Exception as e:
         app.logger.error(f"Error en cambiar_estado_aviso: {e}")
-        return jsonify(success=False, error=str(e)), 500
+        return error_interno()
 
 
-@avisoapi.route('/avisos/enviar-whatsapp', methods=['POST'])
+# ---------------- envío ----------------
+@avisoapi.route('/avisos/<int:id_aviso>/mensaje-preview', methods=['GET'])
+@require_permiso('avisos', 'ver')
+def preview_mensaje(id_aviso):
+    """El mensaje que saldría (plantilla con los datos actuales de la cita), para editarlo antes de enviar."""
+    a = dao.getAvisoById(id_aviso)
+    if not a:
+        return respuesta_error('No se encontró el aviso con el ID proporcionado.', 404)
+    texto = a['mensaje'] if (a['mensaje'] and a['estado_envio'] == 'Pendiente') else construir_mensaje(a)
+    return jsonify(success=True, mensaje=texto, data={'forma_envio': a['forma_envio']}, error=None)
+
+
+@avisoapi.route('/avisos/<int:id_aviso>/enviar', methods=['POST'])
 @require_permiso('avisos', 'estado')
-def enviar_avisos_whatsapp():
-    """Envía todos los avisos pendientes de WhatsApp"""
+def enviar_aviso(id_aviso):
+    """Envía el aviso: WhatsApp (si está vinculado) y, si no, el mismo recordatorio por correo. Síncrono: tarda unos segundos."""
+    data = request.get_json(silent=True) or {}
+    texto = data.get('mensaje')
+    if texto is not None and (not isinstance(texto, str) or len(texto) > 1000):
+        return respuesta_error('El mensaje debe ser un texto de hasta 1000 caracteres.', 400, 'mensaje')
+    a = dao.getAvisoById(id_aviso)
+    if not a:
+        return respuesta_error('No se encontró el aviso con el ID proporcionado.', 404)
+    if a['estado_envio'] == 'Enviado':
+        return respuesta_error(f"El aviso para {_quien(a)} ya fue enviado por {a['canal_enviado'] or 'WhatsApp'}.", 409)
+    with _candado:
+        if id_aviso in _enviando:
+            return respuesta_error('Este aviso se está enviando en este momento.', 409)
+        _enviando.add(id_aviso)
     try:
-        with app.app_context():
-            servicio = AvisoRecordatorioService()
-            servicio.procesar_avisos_pendientes()
-        return jsonify(success=True, mensaje="Proceso de envío completado")
+        if not texto and a['mensaje'] and a['estado_envio'] == 'Pendiente':
+            texto = a['mensaje']                      # el texto personalizado que se cargó al crear el aviso
+        r = enviar_recordatorio(a, texto)
+        estado = 'Enviado' if r['ok'] else 'Error'
+        dao.registrarEnvio(id_aviso, estado, r['canal'], r['motivo'], r['mensaje'])
+        detalle = detalle_cambios({'estado_envio': a['estado_envio'], 'canal_enviado': a['canal_enviado'], 'motivo_error': a['motivo_error']},
+                                  {'estado_envio': estado, 'canal_enviado': r['canal'], 'motivo_error': r['motivo']}, ETIQ_ENVIO)
+        if detalle:
+            auditar('avisos_recordatorios', id_aviso, 'MODIFICACION', detalle)   # nunca el texto del mensaje
+        if r['ok']:
+            extra = f" (WhatsApp no salió: {r['motivo']})" if r['canal'] == 'Correo' and r['motivo'] else ''
+            return jsonify(success=True, data={'estado_envio': estado, 'canal_enviado': r['canal'], 'motivo_error': r['motivo']},
+                           mensaje=f"Aviso para {_quien(a)} enviado por {r['canal']}{extra}.", error=None)
+        return respuesta_error(f"No se pudo enviar el aviso para {_quien(a)}. {r['motivo']}", 502)
     except Exception as e:
-        app.logger.error(f"Error en enviar_avisos_whatsapp: {e}")
-        return jsonify(success=False, error=str(e)), 500
+        app.logger.error(f"Error en enviar_aviso: {e}")
+        dao.registrarEnvio(id_aviso, 'Error', None, 'Error interno del sistema al enviar.', a['mensaje'])
+        return error_interno()
+    finally:
+        with _candado:
+            _enviando.discard(id_aviso)
 
 
-@avisoapi.route('/avisos/<int:id_aviso>/enviar-whatsapp', methods=['POST'])
+@avisoapi.route('/avisos/whatsapp/estado', methods=['GET'])
+@require_permiso('avisos', 'ver')
+def whatsapp_estado():
+    """Estado de la sesión de WhatsApp. `?verificar=1` abre el navegador para comprobarlo (requiere 'estado')."""
+    verificar = request.args.get('verificar', '').lower() in ('1', 'true')
+    if verificar and not puede('avisos', 'estado'):
+        return respuesta_error('No tiene permiso para verificar la sesión de WhatsApp.', 403)
+    return jsonify(success=True, data=sesion_whatsapp().estado(abrir=verificar), error=None)
+
+
+@avisoapi.route('/avisos/whatsapp/vincular', methods=['POST'])
 @require_permiso('avisos', 'estado')
-def enviar_aviso_individual(id_aviso):
-    """Envía un aviso individual por WhatsApp de forma asíncrona"""
-    try:
-        aviso = dao.getAvisoById(id_aviso)
-        if not aviso:
-            return jsonify(success=False, error="Aviso no encontrado"), 404
-        
-        if aviso.get('forma_envio') != 'WhatsApp':
-            return jsonify(success=False, error="Este aviso no es de WhatsApp"), 400
-        
-        servicio = AvisoRecordatorioService()
-        telefono = servicio.obtener_telefono_paciente(aviso['id_paciente'])
-        
-        if not telefono:
-            return jsonify(success=False, error="Paciente sin teléfono registrado"), 400
-        
-        # ✅ OBTENER LA APLICACIÓN AQUÍ ANTES DEL THREAD
-        current_app = app._get_current_object()
-        
-        # Función para ejecutar en segundo plano
-        def enviar_en_segundo_plano():
-            ws = None
-            try:
-                # ✅ USAR LA APLICACIÓN PASADA AL THREAD
-                with current_app.app_context():
-                    ws = WhatsAppService()
-                    print(f"\n{'='*60}")
-                    print(f"Iniciando envío de aviso #{id_aviso}")
-                    print(f"{'='*60}\n")
-                    
-                    if ws.inicializar_navegador():
-                        if ws.esperar_carga(timeout=240):
-                            # PASO 1: Generar el mensaje automático
-                            print(f"📝 Generando mensaje automático...")
-                            mensaje_generado = servicio.formatear_mensaje(aviso)
-                            print(f"✅ Mensaje generado ({len(mensaje_generado)} caracteres)")
-                            print(f"Primeros 150 chars: {mensaje_generado[:150]}...")
-                            
-                            # PASO 2: Enviar por WhatsApp
-                            if ws.enviar_mensaje(telefono, mensaje_generado):
-                                print(f"✅ Mensaje enviado por WhatsApp")
-                                
-                                # PASO 3: GUARDAR el mensaje generado en la BD
-                                print(f"💾 Guardando mensaje generado en BD...")
-                                datos_actualizacion = {
-                                    'id_paciente': aviso['id_paciente'],
-                                    'id_funcionario': aviso['id_funcionario'],
-                                    'id_medico': aviso.get('id_medico'),
-                                    'codigo': aviso.get('codigo'),
-                                    'fecha_cita': aviso['fecha_cita'],
-                                    'hora_cita': aviso['hora_cita'],
-                                    'forma_envio': aviso['forma_envio'],
-                                    'mensaje': mensaje_generado,
-                                    'estado_envio': 'Enviado',
-                                    'estado_confirmacion': aviso.get('estado_confirmacion', 'Pendiente')
-                                }
-                                
-                                resultado = dao.updateAviso(id_aviso, datos_actualizacion)
-                                
-                                if resultado:
-                                    print(f"✅ Mensaje guardado en BD correctamente")
-                                    print(f"   Longitud guardada: {len(mensaje_generado)} caracteres")
-                                else:
-                                    print(f"❌ Error al guardar en BD")
-                                
-                                print(f"\n{'='*60}")
-                                print(f"✅ Proceso completado:")
-                                print(f"   - Mensaje enviado por WhatsApp")
-                                print(f"   - Mensaje guardado en BD")
-                                print(f"   - Ventana mantenida abierta")
-                                print(f"{'='*60}\n")
-                                
-                            else:
-                                print(f"❌ Error al enviar mensaje")
-                                dao.updateAviso(id_aviso, {
-                                    **aviso,
-                                    'estado_envio': 'Error'
-                                })
-                                if ws:
-                                    ws.cerrar()
-                        else:
-                            print(f"❌ No se pudo conectar a WhatsApp Web")
-                            dao.updateAviso(id_aviso, {
-                                **aviso,
-                                'estado_envio': 'Error'
-                            })
-                            if ws:
-                                ws.cerrar()
-                    else:
-                        print(f"❌ No se pudo inicializar el navegador")
-                        dao.updateAviso(id_aviso, {
-                            **aviso,
-                            'estado_envio': 'Error'
-                        })
-                    
-            except Exception as e:
-                print(f"\n❌ Error en proceso de segundo plano: {e}")
-                import traceback
-                traceback.print_exc()
-                try:
-                    with current_app.app_context():
-                        dao.updateAviso(id_aviso, {
-                            **aviso,
-                            'estado_envio': 'Error'
-                        })
-                except:
-                    pass
-                if ws:
-                    ws.cerrar()
-        
-        # Iniciar el thread en segundo plano
-        thread = threading.Thread(target=enviar_en_segundo_plano)
-        thread.daemon = False
-        thread.start()
-        
-        # Responder inmediatamente al frontend
-        return jsonify(
-            success=True, 
-            mensaje="Proceso iniciado. WhatsApp Web se abrirá en una ventana nueva."
-        )
-            
-    except Exception as e:
-        app.logger.error(f"Error en enviar_aviso_individual: {e}")
-        return jsonify(success=False, error=str(e)), 500
+def whatsapp_vincular():
+    """Abre WhatsApp Web para escanear el QR (una sola vez: la sesión queda en el perfil del navegador)."""
+    return jsonify(success=True, data=sesion_whatsapp().vincular(), error=None)
 
 
 @avisoapi.route('/avisos/estadisticas', methods=['GET'])
 @require_permiso('avisos', 'ver')
 def estadisticas_avisos():
-    """Obtiene estadísticas de los avisos"""
-    try:
-        avisos = dao.getAvisos()
-        
-        total = len(avisos)
-        pendientes = len([a for a in avisos if a.get('estado_envio') == 'Pendiente'])
-        enviados = len([a for a in avisos if a.get('estado_envio') == 'Enviado'])
-        errores = len([a for a in avisos if a.get('estado_envio') == 'Error'])
-        
-        whatsapp = len([a for a in avisos if a.get('forma_envio') == 'WhatsApp'])
-        gmail = len([a for a in avisos if a.get('forma_envio') == 'Gmail'])
-        sms = len([a for a in avisos if a.get('forma_envio') == 'SMS'])
-        
-        confirmados = len([a for a in avisos if a.get('estado_confirmacion') == 'Confirmado'])
-        pendientes_conf = len([a for a in avisos if a.get('estado_confirmacion') == 'Pendiente'])
-        cancelados = len([a for a in avisos if a.get('estado_confirmacion') == 'Cancelado'])
-        
-        return jsonify(
-            success=True,
-            data={
-                'total': total,
-                'por_estado': {
-                    'pendientes': pendientes,
-                    'enviados': enviados,
-                    'errores': errores
-                },
-                'por_forma_envio': {
-                    'whatsapp': whatsapp,
-                    'gmail': gmail,
-                    'sms': sms
-                },
-                'por_confirmacion': {
-                    'confirmados': confirmados,
-                    'pendientes': pendientes_conf,
-                    'cancelados': cancelados
-                }
-            }
-        )
-    except Exception as e:
-        app.logger.error(f"Error en estadisticas_avisos: {e}")
-        return jsonify(success=False, error=str(e)), 500
-
-
-@avisoapi.route('/avisos/<int:id_aviso>/mensaje-preview', methods=['GET'])
-@require_permiso('avisos', 'ver')
-def preview_mensaje(id_aviso):
-    """Genera el preview del mensaje automático sin enviarlo"""
-    try:
-        aviso = dao.getAvisoById(id_aviso)
-        if not aviso:
-            return jsonify(success=False, error="Aviso no encontrado"), 404
-        
-        servicio = AvisoRecordatorioService()
-        mensaje = servicio.formatear_mensaje(aviso)
-        
-        return jsonify(success=True, mensaje=mensaje)
-    except Exception as e:
-        app.logger.error(f"Error en preview_mensaje: {e}")
-        return jsonify(success=False, error=str(e)), 500
+    return jsonify(success=True, data=dao.estadisticas(), error=None)

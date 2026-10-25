@@ -226,3 +226,14 @@ Historial Médico → Recepción sin acceso, Médico lee/crea/anula lo de sus pa
 - Validadores nuevos con espejo JS: `fecha de nacimiento` (real, no futura, desde 1900) y `validar_persona()`.
 - Falta (etapa 3): Cita, Agenda y Avisos todavía no rechazan un paciente, médico o funcionario anulado al guardar.
 
+### Etapa 3 — Agenda, Cita, Avisos, Historial, Usuarios y Roles/Permisos (hecha)
+- Scripts: `schema_agendamiento_etapa3.sql` (después de la etapa 2) y `schema_permisos_agendamiento_etapa3.sql` (idempotente: Recepción opera Agenda, Cita y Avisos; el Médico ve y, en Cita, cambia el estado; Historial solo Médico; Agenda no tiene acción `estado`).
+- **Cupo**: `CitaDao` hace cada alta / cambio de estado / cancelación en UNA transacción con el horario bloqueado (`FOR UPDATE`) y descuenta o devuelve el cupo ahí mismo; 12 reservas simultáneas sobre 3 cupos dejan exactamente 3 citas. Antes cada paso usaba su propia conexión y la cita usaba un funcionario fijo (`obtener_id_funcionario_actual() == 3`).
+  La cancelación de Consultorio (`ConsultaDao`) sigue devolviendo el cupo por su cuenta con la misma regla (`LEAST(cupos_maximos, +1)`).
+- **Avisos**: `app/Services/whatsapp_service.py` (`WhatsAppSesion`, `construir_mensaje`, `enviar_recordatorio`) y `email_service.enviar_recordatorio_correo`. El perfil de Chrome vive en `whatsapp_session/` (gitignore `whatsapp_session*`; el viejo `whatsapp_session_persistente/` se puede borrar: con Chrome 155 quedaba corrupto y el navegador se caía).
+  Primera vez: en Avisos, "Vincular WhatsApp" abre WhatsApp Web, se escanea el QR y la sesión queda guardada; después "Verificar" (o el primer envío) la reutiliza. Si el navegador no abre porque quedó otra ventana de Chrome con el mismo perfil, el aviso lo dice. Se necesita Chrome (o `WHATSAPP_BROWSER=edge`) y la dependencia `selenium` (ya en `paquetes.txt`).
+  Los tests usan navegador y correo falsos: **el envío real a un celular solo se prueba a mano**. Se verificó con Chrome real que WhatsApp Web carga y que se detecta la pantalla del QR.
+- **Historial**: `uploads/` salía en git (había PDF subidos versionados): se sacó del índice y se agregó a `.gitignore`; los archivos viejos siguen en el historial de git.
+- Seguridad: Usuarios y Roles/Permisos auditan en `auditoria_cambios` (módulo Seguridad); la matriz valida rol, ventana y acción contra el catálogo.
+- Limpieza: `app/templates/agenda/` se movió a la carpeta de su blueprint; las plantillas de Agenda, Cita, Avisos, Historial, Usuarios y Roles/Permisos pasan a Tabler. **Ya no queda ninguna pantalla de funcionalidad en SB Admin 2** (solo las páginas de error y la plantilla `base.html`).
+

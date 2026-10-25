@@ -266,3 +266,6 @@ whatsapp_session*
 # Base GeoIP descargada (DB-IP Lite, se baja aparte)
 geoip/
 backups/
+
+# Adjuntos del historial médico (datos de salud: nunca al repositorio)
+uploads/

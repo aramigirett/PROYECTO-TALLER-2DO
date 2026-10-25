@@ -7,12 +7,24 @@ from app.dao.modulo_seguridad.AuditoriaDao import AuditoriaDao
 from app.dao.modulo_seguridad.RolDao import RolDao
 from app.rutas.modulo_seguridad.decorators import require_permiso
 from app.rutas.modulo_seguridad.password_policy import validar_password_compleja
+from app.rutas.modulo_facturacion.utils import auditar, detalle_cambios
 
 usuarioapi = Blueprint('usuarioapi', __name__)
 
 EMAIL_REGEX = r'^[^\s@]+@[^\s@]+\.[^\s@]+$'
 
 NOTA_FUENTE = "Se edita en Funcionario/Médico."
+
+# Auditoría de Usuarios: persona, CI/RUC (su login) y rol. NUNCA la contraseña ni el código 2FA: un cambio de contraseña solo deja "modificada".
+ETIQ_USUARIO = {'nombre_completo': 'Persona', 'ci_ruc': 'CI/RUC', 'nombre_rol': 'Rol', 'password': 'Contraseña'}
+
+
+def _auditado(u):
+    return {k: u.get(k) for k in ('nombre_completo', 'ci_ruc', 'nombre_rol')}
+
+
+def _nombre(u):
+    return f"{u['nombre_completo']} ({u['ci_ruc']})"
 
 
 def _validar_persona(id_funcionario, id_medico):
@@ -152,7 +164,9 @@ def addUsuario():
         if isinstance(id_usuario, tuple):  # ("PERSONA_INACTIVA", mensaje)
             return jsonify({'success': False, 'error': id_usuario[1]}), 400
         if id_usuario:
-            return jsonify({'success': True, 'data': {'id_usuario': id_usuario}, 'error': None}), 201
+            nuevo = usuariodao.getUsuarioById(id_usuario)
+            auditar('usuarios', id_usuario, 'ALTA', detalle_cambios({}, _auditado(nuevo), ETIQ_USUARIO))
+            return jsonify({'success': True, 'data': {'id_usuario': id_usuario}, 'mensaje': f'Usuario de {_nombre(nuevo)} agregado correctamente.', 'error': None}), 201
         return jsonify({'success': False, 'error': 'No se pudo guardar el usuario. Consulte con el administrador.'}), 500
     except Exception as e:
         app.logger.error(f"Error al agregar usuario: {str(e)}")
@@ -206,7 +220,13 @@ def updateUsuario(id_usuario):
         if isinstance(actualizado, tuple):  # ("PERSONA_INACTIVA", mensaje)
             return jsonify({'success': False, 'error': actualizado[1]}), 400
         if actualizado:
-            return jsonify({'success': True, 'data': {'id_usuario': id_usuario}, 'error': None}), 200
+            nuevo = usuariodao.getUsuarioById(id_usuario)
+            ant, nue = _auditado(actual), _auditado(nuevo)
+            ant['password'], nue['password'] = ('anterior', 'modificada') if password else ('sin cambios', 'sin cambios')
+            detalle = detalle_cambios(ant, nue, ETIQ_USUARIO)
+            if detalle:
+                auditar('usuarios', id_usuario, 'MODIFICACION', detalle)
+            return jsonify({'success': True, 'data': {'id_usuario': id_usuario}, 'mensaje': f'Usuario de {_nombre(nuevo)} actualizado correctamente.', 'error': None}), 200
         return jsonify({'success': False, 'error': 'No se pudo actualizar el usuario.'}), 500
     except Exception as e:
         app.logger.error(f"Error al actualizar usuario: {str(e)}")
@@ -220,9 +240,18 @@ def updateUsuario(id_usuario):
 @require_permiso('usuario', 'anular')
 def bajaUsuario(id_usuario):
     try:
-        if UsuarioDao().cambiarEstado(id_usuario, False):
-            return jsonify({'success': True, 'mensaje': 'Usuario dado de baja correctamente.', 'error': None}), 200
-        return jsonify({'success': False, 'error': 'No se encontró el usuario con el ID proporcionado o no se pudo dar de baja.'}), 404
+        dao = UsuarioDao()
+        u = dao.getUsuarioById(id_usuario)
+        if not u:
+            return jsonify({'success': False, 'error': 'No se encontró el usuario con el ID proporcionado.'}), 404
+        if id_usuario == session.get('id_usuario'):
+            return jsonify({'success': False, 'error': 'No puede anular su propio usuario.'}), 409
+        if u['nombre_rol'] == 'Administrador' and u['activo'] and dao.contarAdministradoresActivos() <= 1:
+            return jsonify({'success': False, 'error': 'No se puede anular el único Administrador activo: el sistema quedaría sin acceso de administración.'}), 409
+        if dao.cambiarEstado(id_usuario, False):
+            auditar('usuarios', id_usuario, 'BAJA', detalle_cambios({}, _auditado(u), ETIQ_USUARIO))
+            return jsonify({'success': True, 'mensaje': f'Usuario de {_nombre(u)} dado de baja correctamente.', 'error': None}), 200
+        return jsonify({'success': False, 'error': 'No se pudo dar de baja el usuario.'}), 404
     except Exception as e:
         app.logger.error(f"Error al dar de baja usuario: {str(e)}")
         return jsonify({'success': False, 'error': 'Ocurrió un error interno. Consulte con el administrador.'}), 500
@@ -245,6 +274,7 @@ def desbloquearUsuario(id_usuario):
 
         AuditoriaDao().registrar(id_usuario, usuario['ci_ruc'], 'DESBLOQUEADO', request.remote_addr, 'DESBLOQUEO_ADMIN',
                                   id_usuario_actor=session.get('id_usuario'))
+        auditar('usuarios', id_usuario, 'MODIFICACION', detalle_cambios({'c': 'bloqueada'}, {'c': 'desbloqueada'}, {'c': f'Cuenta de {_nombre(usuario)}'}))
         app.logger.info(f"Usuario {usuario['ci_ruc']} desbloqueado por {session.get('ci_ruc')}")
         return jsonify({'success': True, 'mensaje': 'Usuario desbloqueado correctamente.', 'error': None}), 200
     except Exception as e:
@@ -259,11 +289,14 @@ def desbloquearUsuario(id_usuario):
 @require_permiso('usuario', 'anular')
 def reactivarUsuario(id_usuario):
     try:
-        resultado = UsuarioDao().cambiarEstado(id_usuario, True)
+        dao = UsuarioDao()
+        u = dao.getUsuarioById(id_usuario)
+        resultado = dao.cambiarEstado(id_usuario, True)
         if isinstance(resultado, tuple):  # ("PERSONA_INACTIVA", mensaje)
             return jsonify({'success': False, 'error': 'No se puede reactivar el usuario: ' + resultado[1][0].lower() + resultado[1][1:]}), 409
         if resultado:
-            return jsonify({'success': True, 'mensaje': 'Usuario reactivado correctamente.', 'error': None}), 200
+            auditar('usuarios', id_usuario, 'REACTIVACION', detalle_cambios({}, _auditado(u), ETIQ_USUARIO))
+            return jsonify({'success': True, 'mensaje': f'Usuario de {_nombre(u)} reactivado correctamente.', 'error': None}), 200
         return jsonify({'success': False, 'error': 'No se encontró el usuario con el ID proporcionado o no se pudo reactivar.'}), 404
     except Exception as e:
         app.logger.error(f"Error al reactivar usuario: {str(e)}")

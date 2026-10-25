@@ -50,7 +50,7 @@ MODULO_POR_ENTIDAD = {
     'consultorio': REFERENCIALES_AGENDAMIENTO, 'dias': REFERENCIALES_AGENDAMIENTO, 'turnos': REFERENCIALES_AGENDAMIENTO,
     'disponibilidad_horaria': REFERENCIALES_AGENDAMIENTO,
     'paciente': MODULO_AGENDAMIENTO, 'medico': MODULO_AGENDAMIENTO, 'funcionario': MODULO_AGENDAMIENTO,
-    'agenda_cabecera': MODULO_AGENDAMIENTO, 'cita_cabecera': MODULO_AGENDAMIENTO, 'cita_detalle': MODULO_AGENDAMIENTO,
+    'agenda_cabecera': MODULO_AGENDAMIENTO, 'agenda_detalle': MODULO_AGENDAMIENTO, 'cita_cabecera': MODULO_AGENDAMIENTO, 'cita_detalle': MODULO_AGENDAMIENTO,
     'avisos_recordatorios': MODULO_AGENDAMIENTO, 'historial_medico_paciente': MODULO_AGENDAMIENTO,
     'backup': MODULO_SEGURIDAD, 'usuarios': MODULO_SEGURIDAD, 'permisos': MODULO_SEGURIDAD, 'auditoria_cambios': MODULO_SEGURIDAD, 'auditoria_acceso': MODULO_SEGURIDAD,
 }
@@ -60,7 +60,7 @@ MODULOS = (REFERENCIALES_FACTURACION, MODULO_FACTURACION, REFERENCIALES_CONSULTO
 
 # Entidades que son movimientos: su BAJA es una anulación ("Anulado") y no una baja de catálogo ("Inactivo").
 ENTIDADES_MOVIMIENTO = frozenset(e for e, m in MODULO_POR_ENTIDAD.items() if m in (MODULO_FACTURACION, MODULO_CONSULTORIO)) | frozenset(
-    {'agenda_cabecera', 'cita_cabecera', 'cita_detalle', 'avisos_recordatorios', 'historial_medico_paciente'})
+    {'agenda_cabecera', 'agenda_detalle', 'cita_cabecera', 'cita_detalle', 'avisos_recordatorios', 'historial_medico_paciente'})
 
 ACCIONES = ('ALTA', 'MODIFICACION', 'BAJA', 'REACTIVACION', 'CIERRE', 'EXPORTACION')
 # Decisión de negocio: BAJA se guarda así, pero se muestra como "Baja / Anulación".
@@ -84,7 +84,7 @@ ETIQUETA_ENTIDAD = {
     'orden_estudios': 'Orden de Estudios', 'orden_analisis': 'Orden de Análisis', 'justificativo_medico': 'Justificativo Médico',
     'ciudades': 'Ciudad', 'cargo': 'Cargo', 'especialidades': 'Especialidad', 'consultorio': 'Consultorio', 'dias': 'Día', 'turnos': 'Turno',
     'disponibilidad_horaria': 'Disponibilidad Horaria', 'paciente': 'Paciente', 'medico': 'Médico', 'funcionario': 'Funcionario',
-    'agenda_cabecera': 'Agenda', 'cita_cabecera': 'Cita', 'cita_detalle': 'Horario de una Cita', 'avisos_recordatorios': 'Aviso / Recordatorio',
+    'agenda_cabecera': 'Agenda', 'agenda_detalle': 'Horario de una Agenda', 'cita_cabecera': 'Cita', 'cita_detalle': 'Horario de una Cita', 'avisos_recordatorios': 'Aviso / Recordatorio',
     'historial_medico_paciente': 'Historial Médico',
 }
 

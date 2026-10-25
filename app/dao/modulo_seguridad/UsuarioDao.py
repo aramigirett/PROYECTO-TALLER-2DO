@@ -585,3 +585,18 @@ class UsuarioDao:
         finally:
             cur.close()
             con.close()
+
+    def contarAdministradoresActivos(self):
+        """Cantidad de usuarios activos con rol Administrador (para no dejar el sistema sin quien lo administre)."""
+        con = Conexion().getConexion()
+        cur = con.cursor()
+        try:
+            cur.execute("SELECT COUNT(*) FROM usuarios u JOIN roles r ON r.id_rol = u.id_rol WHERE r.nombre_rol = 'Administrador' AND u.activo = true")
+            return cur.fetchone()[0]
+        except Exception as e:
+            app.logger.error(f"Error al contar administradores: {str(e)}")
+            return 0
+        finally:
+            cur.close()
+            con.close()
+
