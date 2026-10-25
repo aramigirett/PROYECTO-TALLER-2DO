@@ -236,7 +236,7 @@ class Fixtures:
                                "INSERT INTO orden_analisis(id_consulta_cab, id_tipo_analisis, motivo_orden, fecha_orden, estado) VALUES (%s,%s,'ZZ',CURRENT_DATE,'pendiente')",
                                (id_consulta, tipo_ana)),
             'justificativo': ('justificativo_medico', 'id_justificativo',
-                              "INSERT INTO justificativo_medico(id_consulta_cab, dias_reposo, fecha_justificativo, estado) VALUES (%s,1,CURRENT_DATE,'activo')", (id_consulta,)),
+                              "INSERT INTO justificativo_medico(id_consulta_cab, dias_reposo, fecha_justificativo, estado) VALUES (%s,1,CURRENT_DATE,'emitido')", (id_consulta,)),
         }
         tabla, pk, sql, p = modelos[tipo]
         if tipo in ('diagnostico', 'receta'):   # la consulta WITH ya devuelve el id: _insertar le agregaría RETURNING

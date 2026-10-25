@@ -1382,6 +1382,24 @@ Plan aprobado: `plan_etapa3.md` (sin versionar). **Decisiones de negocio confirm
 - Tests: `smoke_consulta_vistas.py` (acceso por rol y por médico, Tabler sin jQuery, qué tarjetas ve cada rol, baja real por HTTP con el id de la vista) y `browser_consulta.py` (Edge headless con
   fetch simulado: listado, filtros, paginación, Nueva Consulta, atención de la consulta en 4 escenarios —médico programada, médico con ficha, Recepción, finalizada— y Fichas).
 
+### Etapa 7 (en curso): Justificativo Médico y cierre del módulo
+Plan: `plan_etapa7.md` (sin versionar). **Decisiones confirmadas (Justificativo):** estados **`pendiente` → `emitido` | `anulado`** (el CUS): se registra `pendiente`; la acción "Generar Justificativo" (permiso `estado`, solo el médico de la
+consulta, también con la consulta finalizada, no con la cancelada ni anulada, auditada como MODIFICACION de estado) lo pasa a `emitido` y recién ahí es el documento oficial; "Anular" (definitivo) lo pasa a `anulado` desde `pendiente` o
+`emitido`, **no con la consulta finalizada**. Solo el médico de la consulta crea y anula (consulta programada / en proceso revalidada en la transacción); Recepción sin acceso, Administrador solo lectura; un médico solo ve lo suyo. Días de reposo
+1 a 365; recomendaciones opcionales; vínculo opcional solo con un diagnóstico vigente de la misma consulta; fecha fijada por el servidor; N.º `JUS-0000012` derivado del id.
+- ⚠️ **Cambio del DER:** `justificativo_medico.estado` pasa de `activo` / `anulado` a **`pendiente` / `emitido` / `anulado`** (CHECK; por defecto `pendiente`; lo que estaba `activo` pasó a `emitido`) y `dias_reposo` tiene CHECK de 1 a 365.
+  El CUS "Generar Justificativo Médico" debe describir los tres estados y la acción "Generar" como la que emite el documento.
+**Commit 1 (hecho): base, backend y PDF**
+- `schema_consultorio_etapa7.sql` (idempotente; `schema_consultorio_base.sql` actualizado). El rol Médico recibe `justificativomedico: estado` (`schema_permisos_consultorio_roles.sql`; el catálogo suma la acción `estado` a la ventana).
+- `JustificativoMedicoDao` y `justificativo_medico_api.py` reescritos sobre `documento_clinico.py` (`/api/v1/justificativos`: GET lista con filtros y paginación, GET `/<id>`, POST, `PUT /<id>/emitir`, `DELETE /<id>`, `GET /<id>/pdf`; un médico solo lee lo
+  suyo). Bloqueos: consulta `FOR UPDATE` → diagnóstico `FOR SHARE`; emitir: consulta `FOR SHARE` → justificativo `FOR UPDATE`.
+- Auditoría (`justificativo_medico`): ALTA (Estado Pendiente), MODIFICACION (Pendiente → Emitido), BAJA (Pendiente o Emitido → Anulado; `estructura_auditoria` respeta el estado anterior que informa la API) y **EXPORTACION en cada descarga del PDF**, con
+  N.º, consulta y paciente con CI; nunca los días de reposo ni las recomendaciones.
+- **PDF** en el servicio común (`documento_clinico_pdf_service.py`, tipo `justificativo`): "se indica reposo por N día(s) a partir del dd/mm/aaaa" + recomendaciones; **pendiente = marca BORRADOR, emitido = sin marca, anulado = marca ANULADO**.
+  `justificativo_pdf_service.py` se eliminó.
+- `validar_justificativo` + espejo JS (324 casos JS ↔ Python en el comparador). Test: `smoke_justificativo.py` (esquema, permisos, validaciones, ciclo pendiente → emitido → anulado, consulta finalizada / cancelada / anulada, privacidad, PDF con sus tres marcas y
+  la auditoría de cada descarga, auditoría sin contenido y carreras).
+
 ### Etapa 6 (hecha): Recetas, Orden de Estudios y Orden de Análisis (con PDF)
 Plan: `plan_etapa6.md` (sin versionar). **Decisiones confirmadas:** solo el médico de la consulta crea y anula (consulta programada / en proceso revalidada en la transacción; Recepción sin acceso, Administrador solo lectura;
 no se anula con la consulta finalizada); **avanza el estado de una orden solo el médico de la orden, también con la consulta FINALIZADA** (el paciente trae el resultado días después) y no con la cancelada ni anulada;

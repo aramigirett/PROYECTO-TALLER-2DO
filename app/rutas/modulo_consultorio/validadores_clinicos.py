@@ -488,3 +488,40 @@ def validar_orden_estudio(data):
 def validar_orden_analisis(data):
     """Orden de análisis: tipo de análisis y motivo obligatorios, indicaciones y vínculos (diagnóstico, tratamiento) opcionales."""
     return _validar_orden(data, 'id_tipo_analisis', 'tipo de análisis')
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Etapa 7: Justificativo Médico (espejo en consultorio-validadores.js: justificativo)
+# ---------------------------------------------------------------------------------------------------------------------
+DIAS_REPOSO = (1, 365)
+MAX_RECOMENDACIONES = 2000
+
+
+def validar_justificativo(data):
+    """
+    Valida los datos de un justificativo (lo que el navegador puede definir). Devuelve (valores, None, None) o (None, mensaje, campo).
+    dias_reposo: entero de 1 a 365, obligatorio. recomendaciones: opcionales (hasta 2.000). id_diagnostico: opcional. Paciente, médico, consulta, estado y fecha NO se toman del navegador.
+    """
+    if not isinstance(data, dict):
+        return None, 'Los datos enviados no son válidos.', None
+    v = {}
+    dias = data.get('dias_reposo')
+    if _vacio(dias):
+        return None, 'Los días de reposo son obligatorios.', 'dias_reposo'
+    n = _id_positivo(dias)
+    if n is None or n > DIAS_REPOSO[1]:
+        return None, f'Los días de reposo deben ser un número entero de {DIAS_REPOSO[0]} a {DIAS_REPOSO[1]}.', 'dias_reposo'
+    v['dias_reposo'] = n
+    texto, e = _texto_largo(data.get('recomendaciones'), MAX_RECOMENDACIONES, False, 'Las recomendaciones deben ser un texto.',
+                            f'Las recomendaciones no pueden superar los {MAX_RECOMENDACIONES} caracteres.', 'Las recomendaciones contienen caracteres no permitidos.')
+    if e:
+        return None, e, 'recomendaciones'
+    v['recomendaciones'] = texto
+    diagnostico = data.get('id_diagnostico')
+    if _vacio(diagnostico):
+        v['id_diagnostico'] = None
+    else:
+        v['id_diagnostico'] = _id_positivo(diagnostico)
+        if v['id_diagnostico'] is None:
+            return None, 'El diagnóstico no es válido.', 'id_diagnostico'
+    return v, None, None

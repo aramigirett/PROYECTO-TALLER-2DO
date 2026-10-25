@@ -16,6 +16,7 @@ ESTADOS_ABIERTOS = ('programada', 'en_proceso')
 PREFIJO_RECETA = 'RCT'
 PREFIJO_ORDEN_ESTUDIO = 'OES'
 PREFIJO_ORDEN_ANALISIS = 'OAN'
+PREFIJO_JUSTIFICATIVO = 'JUS'
 
 
 def numero_documento(prefijo, id_documento):

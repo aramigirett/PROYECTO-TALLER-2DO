@@ -12,7 +12,8 @@ import tempfile
 RAIZ = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(RAIZ))
 from app.rutas.modulo_consultorio.validadores_clinicos import (validar_diagnostico, validar_ficha, validar_pieza_fdi, validar_sesion, validar_superficie,
-                                                               validar_tratamiento, validar_receta, validar_orden_estudio, validar_orden_analisis)
+                                                               validar_tratamiento, validar_receta, validar_orden_estudio, validar_orden_analisis,
+                                                               validar_justificativo)
 
 ORDEN = ['presion_arterial', 'temperatura', 'frecuencia_cardiaca', 'frecuencia_respiratoria', 'peso', 'talla',
          'examen_fisico_general', 'examen_bucal', 'observaciones_medico']
@@ -131,6 +132,21 @@ def esperado_oa(caso):
     return validar_orden_analisis(_con_tipo(caso, 'id_tipo_analisis'))[1] or ''
 
 
+# ---- Etapa 7: justificativo ----
+ORDEN_JU = ['dias_reposo', 'recomendaciones', 'id_diagnostico']
+JU_BASE = {'dias_reposo': 3, 'recomendaciones': 'Reposo relativo', 'id_diagnostico': 7}
+JUSTIFICATIVOS = [JU_BASE, {**JU_BASE, 'dias_reposo': '3'}, {**JU_BASE, 'dias_reposo': 1}, {**JU_BASE, 'dias_reposo': 365}, {**JU_BASE, 'dias_reposo': '365'}, {**JU_BASE, 'dias_reposo': 366},
+                  {**JU_BASE, 'dias_reposo': 0}, {**JU_BASE, 'dias_reposo': -1}, {**JU_BASE, 'dias_reposo': None}, {**JU_BASE, 'dias_reposo': ''}, {**JU_BASE, 'dias_reposo': 'x'},
+                  {**JU_BASE, 'dias_reposo': '2.5'}, {**JU_BASE, 'dias_reposo': True}, {**JU_BASE, 'dias_reposo': ' 4 '}, {**JU_BASE, 'recomendaciones': None}, {**JU_BASE, 'recomendaciones': ''},
+                  {**JU_BASE, 'recomendaciones': 'a' * 2001}, {**JU_BASE, 'recomendaciones': 'a' * 2000}, {**JU_BASE, 'recomendaciones': 'raro'}, {**JU_BASE, 'recomendaciones': 5},
+                  {**JU_BASE, 'id_diagnostico': None}, {**JU_BASE, 'id_diagnostico': ''}, {**JU_BASE, 'id_diagnostico': 'x'}, {**JU_BASE, 'id_diagnostico': 0},
+                  {**JU_BASE, 'dias_reposo': 0, 'recomendaciones': 'raro'}, {**JU_BASE, 'recomendaciones': 'raro', 'id_diagnostico': 'x'}]
+
+
+def esperado_ju(caso):
+    return validar_justificativo(caso)[1] or ''
+
+
 def esperado_tr(caso):
     return validar_tratamiento(caso, HOY)[1] or ''
 
@@ -181,6 +197,8 @@ var RECETAS = %(re)s;
 var ORDEN_RE = %(orden_re)s;
 var ORDENES = %(ord)s;
 var ORDEN_OR = %(orden_or)s;
+var JUSTIFICATIVOS = %(ju)s;
+var ORDEN_JU = %(orden_ju)s;
 var out = [];
 for (var i = 0; i < CASOS.length; i++) {
   var errores = V.ficha(CASOS[i]);
@@ -228,6 +246,12 @@ for (var b = 0; b < ORDENES.length; b++) {
   out.push('oe	' + b + '	' + pe);
   out.push('oa	' + b + '	' + pa);
 }
+for (var jj = 0; jj < JUSTIFICATIVOS.length; jj++) {
+  var ej = V.justificativo(JUSTIFICATIVOS[jj]);
+  var pj = '';
+  for (var kj = 0; kj < ORDEN_JU.length && !pj; kj++) { if (ej[ORDEN_JU[kj]]) pj = ej[ORDEN_JU[kj]]; }
+  out.push('ju	' + jj + '	' + pj);
+}
 var so = new ActiveXObject('ADODB.Stream'); so.Type = 2; so.Charset = 'utf-8'; so.Open();
 so.WriteText(out.join('\n')); so.SaveToFile(WScript.Arguments(1), 2); so.Close();
 """
@@ -238,7 +262,8 @@ with tempfile.TemporaryDirectory() as tmp:
     runner.write_text(RUNNER % {'orden': json.dumps(ORDEN), 'casos': json.dumps(CASOS), 'piezas': json.dumps(PIEZAS), 'superficies': json.dumps(SUPERFICIES),
                                 'dx': json.dumps(DIAGNOSTICOS), 'orden_dx': json.dumps(ORDEN_DX), 'hoy': json.dumps(HOY), 'tr': json.dumps(TRATAMIENTOS),
                                 'orden_tr': json.dumps(ORDEN_TR), 'se': json.dumps(SESIONES), 'orden_se': json.dumps(ORDEN_SE),
-                                're': json.dumps(RECETAS), 'orden_re': json.dumps(ORDEN_RE), 'ord': json.dumps(ORDENES), 'orden_or': json.dumps(ORDEN_OR)}, encoding='ascii')
+                                're': json.dumps(RECETAS), 'orden_re': json.dumps(ORDEN_RE), 'ord': json.dumps(ORDENES), 'orden_or': json.dumps(ORDEN_OR),
+                                'ju': json.dumps(JUSTIFICATIVOS), 'orden_ju': json.dumps(ORDEN_JU)}, encoding='ascii')
     proc = subprocess.run(['cscript', '//nologo', '//E:jscript', str(runner), str(RAIZ / 'app' / 'static' / 'js' / 'consultorio-validadores.js'),
                            str(salida)], capture_output=True, text=True)
     if proc.returncode != 0 or not salida.exists():
@@ -263,13 +288,13 @@ for fila in filas:
         js_error = fila[2].rstrip('\r') if len(fila) > 2 else ''
         py_error = {'pieza': lambda: esperado_pieza(PIEZAS[i]), 'superficie': lambda: esperado_superficie(SUPERFICIES[i]), 'dx': lambda: esperado_dx(DIAGNOSTICOS[i]), 'tr': lambda: esperado_tr(TRATAMIENTOS[i]),
                     'se': lambda: esperado_se(SESIONES[i]), 're': lambda: esperado_re(RECETAS[i]),
-                    'oe': lambda: esperado_oe(ORDENES[i]), 'oa': lambda: esperado_oa(ORDENES[i])}[tipo]()
+                    'oe': lambda: esperado_oe(ORDENES[i]), 'oa': lambda: esperado_oa(ORDENES[i]), 'ju': lambda: esperado_ju(JUSTIFICATIVOS[i])}[tipo]()
         ok = js_error == py_error
-        etiqueta = tipo + ' ' + json.dumps({'pieza': PIEZAS, 'superficie': SUPERFICIES, 'dx': DIAGNOSTICOS, 'tr': TRATAMIENTOS, 'se': SESIONES, 're': RECETAS, 'oe': ORDENES, 'oa': ORDENES}[tipo][i], ensure_ascii=False)[:80]
+        etiqueta = tipo + ' ' + json.dumps({'pieza': PIEZAS, 'superficie': SUPERFICIES, 'dx': DIAGNOSTICOS, 'tr': TRATAMIENTOS, 'se': SESIONES, 're': RECETAS, 'oe': ORDENES, 'oa': ORDENES, 'ju': JUSTIFICATIVOS}[tipo][i], ensure_ascii=False)[:80]
         esp = (py_error or 'válido')[:70]
         dif = f'JS={js_error!r} PY={py_error!r}'
     total += 1
     fallos += (not ok)
     print(('OK  ' if ok else 'DIFF'), etiqueta, '->', esp if ok else dif)
 print('DIFERENCIAS:', fallos, 'de', total)
-sys.exit(1 if fallos or total != len(CASOS) + len(PIEZAS) + len(SUPERFICIES) + len(DIAGNOSTICOS) + len(TRATAMIENTOS) + len(SESIONES) + len(RECETAS) + 2 * len(ORDENES) else 0)
+sys.exit(1 if fallos or total != len(CASOS) + len(PIEZAS) + len(SUPERFICIES) + len(DIAGNOSTICOS) + len(TRATAMIENTOS) + len(SESIONES) + len(RECETAS) + 2 * len(ORDENES) + len(JUSTIFICATIVOS) else 0)

@@ -391,6 +391,8 @@ def estructura_auditoria(entidad, accion, detalle):
         pueda separar parsear_detalle() (y si no puede, None: queda solo el texto).
       - BAJA / REACTIVACION / CIERRE: el estado.
     """
+    if accion == 'BAJA' and isinstance(detalle, DetalleAuditoria) and 'Estado' in (detalle.nuevos or {}):
+        return (detalle.anteriores or None), detalle.nuevos      # la API sabe de qué estado pasa a Anulado (p. ej. Pendiente / Emitido -> Anulado)
     anteriores, nuevos = estado_de_accion(accion, entidad)
     if nuevos is not None:
         return anteriores, nuevos

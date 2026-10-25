@@ -19,7 +19,7 @@ INSERT INTO _perm_objetivo VALUES
     ('Medico', 'receta', 'ver'), ('Medico', 'receta', 'nuevo'), ('Medico', 'receta', 'anular'),
     ('Medico', 'ordenestudio', 'ver'), ('Medico', 'ordenestudio', 'nuevo'), ('Medico', 'ordenestudio', 'anular'), ('Medico', 'ordenestudio', 'estado'),
     ('Medico', 'ordenanalisis', 'ver'), ('Medico', 'ordenanalisis', 'nuevo'), ('Medico', 'ordenanalisis', 'anular'), ('Medico', 'ordenanalisis', 'estado'),
-    ('Medico', 'justificativomedico', 'ver'), ('Medico', 'justificativomedico', 'nuevo'), ('Medico', 'justificativomedico', 'anular'),
+    ('Medico', 'justificativomedico', 'ver'), ('Medico', 'justificativomedico', 'nuevo'), ('Medico', 'justificativomedico', 'anular'), ('Medico', 'justificativomedico', 'estado'),
     -- Recepción: registra, cancela (estado) y anula consultas; de lo clínico solo ve las fichas
     ('Recepcion', 'consulta', 'ver'), ('Recepcion', 'consulta', 'nuevo'), ('Recepcion', 'consulta', 'estado'), ('Recepcion', 'consulta', 'anular'),
     ('Recepcion', 'fichamedica', 'ver');

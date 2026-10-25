@@ -89,7 +89,7 @@ CATALOGO_MENU = [
     {"etiqueta": "Procedimientos e Insumos (Sesiones)", "endpoint": "sesiontratamiento.sesionTratamientoIndex", "icono": "fa-notes-medical", "modulo": "Módulo Consultorio", "ventana": "sesiontratamiento", "acciones": ["ver", "nuevo", "anular"], "en_menu": False},
     {"etiqueta": "Generar Orden de Estudios", "endpoint": "ordenestudio.ordenEstudioIndex", "icono": "fa-vial", "modulo": "Módulo Consultorio", "ventana": "ordenestudio", "acciones": ["ver", "nuevo", "anular", "estado"]},
     {"etiqueta": "Generar Orden de Análisis", "endpoint": "ordenanalisis.ordenAnalisisIndex", "icono": "fa-flask", "modulo": "Módulo Consultorio", "ventana": "ordenanalisis", "acciones": ["ver", "nuevo", "anular", "estado"]},
-    {"etiqueta": "Generar Justificativo Médico", "endpoint": "justificativomedico.justificativoMedicoIndex", "icono": "fa-file-signature", "modulo": "Módulo Consultorio", "ventana": "justificativomedico", "acciones": ["ver", "nuevo", "anular"]},
+    {"etiqueta": "Generar Justificativo Médico", "endpoint": "justificativomedico.justificativoMedicoIndex", "icono": "fa-file-signature", "modulo": "Módulo Consultorio", "ventana": "justificativomedico", "acciones": ["ver", "nuevo", "anular", "estado"]},
 
     # Referenciales Facturación
     {"etiqueta": "Forma de Cobro", "endpoint": "formacobro.formaCobroIndex", "icono": "fa-money-bill-wave", "modulo": "Referenciales Facturación", "ventana": "formacobro", "acciones": ["ver", "nuevo", "editar", "anular"]},

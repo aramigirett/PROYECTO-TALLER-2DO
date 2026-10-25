@@ -237,14 +237,17 @@ CREATE TABLE IF NOT EXISTS justificativo_medico (
     dias_reposo integer NOT NULL,
     recomendaciones text,
     fecha_justificativo date DEFAULT CURRENT_DATE NOT NULL,
-    estado character varying(20) DEFAULT 'activo'::character varying NOT NULL,
+    estado character varying(20) DEFAULT 'pendiente'::character varying NOT NULL,
     fecha_registro timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_justificativo_dias CHECK (dias_reposo BETWEEN 1 AND 365),
     CONSTRAINT justificativo_medico_dias_reposo_check CHECK ((dias_reposo > 0)),
-    CONSTRAINT justificativo_medico_estado_check CHECK (((estado)::text = ANY ((ARRAY['activo'::character varying, 'anulado'::character varying])::text[]))),
+    CONSTRAINT justificativo_medico_estado_check CHECK (estado IN ('pendiente', 'emitido', 'anulado')),
     CONSTRAINT justificativo_medico_pkey PRIMARY KEY (id_justificativo),
     CONSTRAINT justificativo_medico_id_consulta_cab_fkey FOREIGN KEY (id_consulta_cab) REFERENCES consultas_cab(id_consulta_cab) ON DELETE RESTRICT,
     CONSTRAINT justificativo_medico_id_diagnostico_fkey FOREIGN KEY (id_diagnostico) REFERENCES diagnosticos(id_diagnostico) ON DELETE RESTRICT
 );
+CREATE INDEX IF NOT EXISTS idx_justificativo_consulta ON justificativo_medico (id_consulta_cab);
+COMMENT ON COLUMN justificativo_medico.estado IS 'pendiente (registrado, borrador) -> emitido (documento oficial) | anulado (definitivo).';
 
 CREATE TABLE IF NOT EXISTS odontograma_detalle (
     id_odontograma_detalle SERIAL,

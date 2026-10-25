@@ -286,11 +286,29 @@
   function ordenEstudio(d) { return orden(d, 'id_tipo_estudio', 'tipo de estudio'); }
   function ordenAnalisis(d) { return orden(d, 'id_tipo_analisis', 'tipo de análisis'); }
 
+  /* ───────── Etapa 7: Justificativo Médico (espejo de validar_justificativo) ───────── */
+  var DIAS_MIN = 1, DIAS_MAX = 365, MAX_RECOMENDACIONES = 2000;
+
+  function justificativo(d) {
+    var errores = {};
+    if (vacio(d.dias_reposo)) errores.dias_reposo = 'Los días de reposo son obligatorios.';
+    else {
+      var n = idPositivo(d.dias_reposo);
+      if (n === null || n > DIAS_MAX) errores.dias_reposo = 'Los días de reposo deben ser un número entero de ' + DIAS_MIN + ' a ' + DIAS_MAX + '.';
+    }
+    var e = textoLargo(d.recomendaciones, MAX_RECOMENDACIONES, false, 'Las recomendaciones deben ser un texto.',
+                       'Las recomendaciones no pueden superar los ' + MAX_RECOMENDACIONES + ' caracteres.', 'Las recomendaciones contienen caracteres no permitidos.');
+    if (e) errores.recomendaciones = e;
+    if (!vacio(d.id_diagnostico) && idPositivo(d.id_diagnostico) === null) errores.id_diagnostico = 'El diagnóstico no es válido.';
+    return errores;
+  }
+
   global.ConsultorioValidadores = {
     presion: presion, temperatura: temperatura, frecuenciaCardiaca: frecuenciaCardiaca,
     frecuenciaRespiratoria: frecuenciaRespiratoria, peso: peso, talla: talla, textoClinico: textoClinico, imc: imc, ficha: ficha,
     piezaFdi: piezaFdi, piezaValida: piezaValida, superficie: superficie, diagnostico: diagnostico,
     tratamiento: tratamiento, sesion: sesion,
-    receta: receta, ordenEstudio: ordenEstudio, ordenAnalisis: ordenAnalisis
+    receta: receta, ordenEstudio: ordenEstudio, ordenAnalisis: ordenAnalisis,
+    justificativo: justificativo
   };
 })(window);

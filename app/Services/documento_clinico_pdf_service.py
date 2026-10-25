@@ -1,13 +1,13 @@
 """
 =====================================================
-Servicio: PDF de los documentos clínicos (Receta, Orden de Estudios, Orden de Análisis; el Justificativo se suma en la etapa 7)
+Servicio: PDF de los documentos clínicos (Receta, Orden de Estudios, Orden de Análisis y Justificativo Médico)
 Mismo patrón que la factura, el recibo y el arqueo:
   1. calcular_datos_documento(tipo, doc) -> CÁLCULO: dict puro (sin dibujar) con encabezado, paciente, médico, secciones y marca.
   2. dibujar_documento(c, datos)        -> DIBUJO: solo layout sobre un canvas de ReportLab (una o más páginas). Para mejorar el diseño se toca esto.
   3. generarDocumentoPdf(tipo, doc)     -> arma el archivo (bytes); se genera al vuelo, no se guarda nada en el servidor.
 
 El PDF SÍ lleva el contenido clínico (es el documento que se entrega al paciente); la auditoría no. Un documento anulado se descarga igual, con la marca
-"ANULADA" / "CANCELADA" en rojo. El N.º de registro del médico se omite si no lo tiene (no hay columna nueva).
+"ANULADA" / "CANCELADA" / "ANULADO" en rojo; un justificativo PENDIENTE sale con la marca "BORRADOR" y uno emitido sin marca. El N.º de registro del médico se omite si no lo tiene (no hay columna nueva).
 =====================================================
 """
 import io
@@ -18,7 +18,7 @@ from reportlab.lib.utils import simpleSplit
 from reportlab.pdfgen import canvas
 
 MARGEN = 2 * cm
-TITULOS = {'receta': 'RECETA MÉDICA', 'orden_estudio': 'ORDEN DE ESTUDIOS', 'orden_analisis': 'ORDEN DE ANÁLISIS'}
+TITULOS = {'receta': 'RECETA MÉDICA', 'orden_estudio': 'ORDEN DE ESTUDIOS', 'orden_analisis': 'ORDEN DE ANÁLISIS', 'justificativo': 'JUSTIFICATIVO MÉDICO'}
 ETIQUETA_ESTADO = {'pendiente': 'Pendiente', 'enviado': 'Enviado', 'en_proceso': 'En proceso', 'completado': 'Completado', 'cancelado': 'Cancelado'}
 
 
@@ -39,8 +39,8 @@ def _medico_linea(medico):
 
 def calcular_datos_documento(tipo, doc):
     """
-    CÁLCULO (sin dibujar). `tipo`: 'receta' | 'orden_estudio' | 'orden_analisis'; `doc`: el dict de getParaPdf() del DAO (con 'empresa' y 'medico').
-    Devuelve un dict: titulo, numero, fecha, empresa, paciente (nombre, cedula), medico (linea, cedula), marca ('ANULADA' | 'CANCELADA' | None),
+    CÁLCULO (sin dibujar). `tipo`: 'receta' | 'orden_estudio' | 'orden_analisis' | 'justificativo'; `doc`: el dict de getParaPdf() del DAO (con 'empresa' y 'medico').
+    Devuelve un dict: titulo, numero, fecha, empresa, paciente (nombre, cedula), medico (linea, cedula), marca ('ANULADA' | 'CANCELADA' | 'ANULADO' | 'BORRADOR' | None),
     estado (solo órdenes) y secciones: lista de (titulo, 'texto', str) o (titulo, 'tabla', {'columnas': [...], 'filas': [[...]]}).
     """
     empresa = doc.get('empresa') or {}
@@ -58,6 +58,12 @@ def calcular_datos_documento(tipo, doc):
         if not doc.get('activo', True):
             marca = 'ANULADA'
         fecha = doc.get('fecha_receta')
+    elif tipo == 'justificativo':
+        dias = doc.get('dias_reposo')
+        secciones.append(('Reposo indicado', 'texto', f"Se indica reposo por {dias} día{'' if dias == 1 else 's'} a partir del {_fecha(doc.get('fecha_justificativo'))}."))
+        secciones.append(('Recomendaciones', 'texto', doc.get('recomendaciones') or '-'))
+        marca = {'pendiente': 'BORRADOR', 'anulado': 'ANULADO'}.get(doc.get('estado'))
+        fecha = doc.get('fecha_justificativo')
     else:
         secciones.append(('Estudio solicitado' if tipo == 'orden_estudio' else 'Análisis solicitado', 'texto', doc.get('tipo') or '-'))
         secciones.append(('Motivo de la orden', 'texto', doc.get('motivo_orden') or '-'))
