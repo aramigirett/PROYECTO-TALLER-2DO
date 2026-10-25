@@ -1,228 +1,33 @@
-from flask import current_app as app
-from app.conexion.Conexion import Conexion
+from app.dao.referenciales_agendamiento.persona_dao import PersonaDao, DUPLICADO, INVALIDO, NO_EXISTE, YA_ACTIVO  # noqa: F401
 
-class MedicoDao:
 
-    def getMedicos(self):
-        sql = """
-            SELECT m.id_medico, m.nombre, m.apellido, 
-                   m.id_especialidad, e.nombre_especialidad AS especialidades, 
-                   m.num_registro, m.cedula, m.fecha_nacimiento, m.fecha_registro, 
-                   m.telefono, m.direccion, m.correo, 
-                   m.id_ciudad, c.descripcion AS ciudades
-            FROM medico m
-            LEFT JOIN especialidades e ON m.id_especialidad = e.id_especialidad
-            LEFT JOIN ciudades c ON m.id_ciudad = c.id_ciudad
-            ORDER BY m.id_medico
-        """
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-        try:
-            cur.execute(sql)
-            medicos = cur.fetchall()
-            return [
-                {
-                    "id_medico": m[0],
-                    "nombre": m[1],
-                    "apellido": m[2],
-                    "id_especialidad": m[3],  # ID correcto
-                    "especialidades": m[4],     # descripción
-                    "num_registro": m[5],
-                    "cedula": m[6],
-                    "fecha_nacimiento": str(m[7]) if m[7] else None,
-                    "fecha_registro": str(m[8]) if m[8] else None,
-                    "telefono": m[9],
-                    "direccion": m[10],
-                    "correo": m[11],
-                    "id_ciudad": m[12],       # ID correcto
-                    "ciudades": m[13]            # descripción
-                }
-                for m in medicos
-            ]
-        except Exception as e:
-            app.logger.error(f"Error al obtener todos los médicos: {str(e)}")
-            return []
-        finally:
-            cur.close()
-            con.close()
+class MedicoDao(PersonaDao):
+    """
+    Médico (dato maestro con borrado lógico). Se anula solo si no tiene usuario de acceso activo ni trabajo en curso. La cédula es el CI/RUC de
+    login del usuario vinculado: no puede repetirse entre médicos y funcionarios activos.
+    """
+    TABLA = 'medico'
+    PK = 'id_medico'
+    DOC = 'cedula'
+    NOMBRE = 'médico'
+    USUARIO = 'id_medico'
+    CAMPOS = ('nombre', 'apellido', 'id_especialidad', 'num_registro', 'cedula', 'fecha_nacimiento', 'telefono', 'direccion', 'correo', 'id_ciudad')
+    PADRES = (('id_especialidad', 'especialidades', 'id_especialidad', 'nombre_especialidad', 'especialidades', 'especialidad'),
+              ('id_ciudad', 'ciudades', 'id_ciudad', 'descripcion', 'ciudades', 'ciudad'))
+    DUPLICADOS = (('cedula', 'esa cédula'), ('num_registro', 'ese N.º de registro'))
+    MINIMO = ('nombre', 'apellido', 'id_especialidad', 'especialidades')
 
-    def getMedicoById(self, medico_id):
-        sql = """
-            SELECT m.id_medico, m.nombre, m.apellido, 
-                   m.id_especialidad, e.nombre_especialidad AS especialidades, 
-                   m.num_registro, m.cedula, m.fecha_nacimiento, m.fecha_registro, 
-                   m.telefono, m.direccion, m.correo, 
-                   m.id_ciudad, c.descripcion AS ciudades
-            FROM medico m
-            LEFT JOIN especialidades e ON m.id_especialidad = e.id_especialidad
-            LEFT JOIN ciudades c ON m.id_ciudad = c.id_ciudad
-            WHERE m.id_medico = %s
-        """
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-        try:
-            cur.execute(sql, (medico_id,))
-            medico = cur.fetchone()
-            if medico:
-                return {
-                    "id_medico": medico[0],
-                    "nombre": medico[1],
-                    "apellido": medico[2],
-                    "id_especialidad": medico[3],
-                    "especialidades": medico[4],
-                    "num_registro": medico[5],
-                    "cedula": medico[6],
-                    "fecha_nacimiento": str(medico[7]) if medico[7] else None,
-                    "fecha_registro": str(medico[8]) if medico[8] else None,
-                    "telefono": medico[9],
-                    "direccion": medico[10],
-                    "correo": medico[11],
-                    "id_ciudad": medico[12],
-                    "ciudades": medico[13]
-                }
-            return None
-        except Exception as e:
-            app.logger.error(f"Error al obtener médico por ID: {str(e)}")
-            return None
-        finally:
-            cur.close()
-            con.close()
-
-    def guardarMedico(self, nombre, apellido, id_especialidad, num_registro,
-                      cedula, fecha_nacimiento, fecha_registro,
-                      telefono, direccion, correo, id_ciudad):
-        sql = """
-            INSERT INTO medico (nombre, apellido, id_especialidad, num_registro,
-                                cedula, fecha_nacimiento, fecha_registro,
-                                telefono, direccion, correo, id_ciudad)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-            RETURNING id_medico
-        """
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-        try:
-            cur.execute(sql, (nombre, apellido, id_especialidad, num_registro,
-                              cedula, fecha_nacimiento, fecha_registro,
-                              telefono, direccion, correo, id_ciudad))
-            medico_id = cur.fetchone()[0]
-            con.commit()
-            return medico_id
-        except Exception as e:
-            app.logger.error(f"Error al insertar médico: {str(e)}")
-            con.rollback()
-            return False
-        finally:
-            cur.close()
-            con.close()
-    
-    def updateMedico(self, medico_id, nombre, apellido, id_especialidad, num_registro,
-                     cedula, fecha_nacimiento, fecha_registro,
-                     telefono, direccion, correo, id_ciudad):
-        sql = """
-            UPDATE medico
-            SET nombre=%s, apellido=%s, id_especialidad=%s, num_registro=%s,
-                cedula=%s, fecha_nacimiento=%s, fecha_registro=%s,
-                telefono=%s, direccion=%s, correo=%s, id_ciudad=%s
-            WHERE id_medico=%s
-        """
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-        try:
-            cur.execute(sql, (nombre, apellido, id_especialidad, num_registro,
-                              cedula, fecha_nacimiento, fecha_registro,
-                              telefono, direccion, correo, id_ciudad, medico_id))
-            actualizado = cur.rowcount > 0
-            con.commit()
-            return actualizado
-        except Exception as e:
-            app.logger.error(f"Error al actualizar médico: {str(e)}")
-            con.rollback()
-            return False
-        finally:
-            cur.close()
-            con.close()
-
-    def deleteMedico(self, medico_id):
-        sql = "DELETE FROM medico WHERE id_medico=%s"
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-        try:
-            cur.execute(sql, (medico_id,))
-            eliminado = cur.rowcount > 0
-            con.commit()
-            return eliminado
-        except Exception as e:
-            app.logger.error(f"Error al eliminar médico: {str(e)}")
-            con.rollback()
-            return False
-        finally:
-            cur.close()
-            con.close()
-
-    def existeDuplicado(self, cedula, num_registro):
-        """Verifica si ya existe un médico con la misma cédula o número de registro"""
-        sql = "SELECT COUNT(*) FROM medico WHERE cedula = %s OR num_registro = %s"
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-        try:
-            cur.execute(sql, (cedula, num_registro))
-            result = cur.fetchone()[0]
-            return result > 0
-        except Exception as e:
-            app.logger.error(f"Error al verificar duplicado: {str(e)}")
-            return False
-        finally:
-            cur.close()
-            con.close()
-
-    def cedulaUsadaPorOtro(self, cedula, excluir_funcionario=None, excluir_medico=None):
-        """
-        La cédula es el CI/RUC de login del usuario vinculado, así que no puede
-        repetirse ni dentro de medico ni en funcionario (la unicidad entre tablas
-        no la garantiza la base). Retorna 'funcionario' / 'medico' según dónde
-        esté usada, o None si está libre. excluir_*: la propia persona que se edita.
-        """
-        sql = """
-            SELECT 'funcionario' FROM funcionario
-            WHERE TRIM(cedula) = %s AND (%s::int IS NULL OR id_funcionario <> %s::int)
-            UNION ALL
-            SELECT 'medico' FROM medico
-            WHERE TRIM(cedula) = %s AND (%s::int IS NULL OR id_medico <> %s::int)
-        """
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-        try:
-            cur.execute(sql, (cedula, excluir_funcionario, excluir_funcionario,
-                              cedula, excluir_medico, excluir_medico))
-            fila = cur.fetchone()
-            return fila[0] if fila else None
-        except Exception as e:
-            app.logger.error(f"Error al verificar cédula: {str(e)}")
-            return None
-        finally:
-            cur.close()
-            con.close()
-
-    def getUsuarioVinculado(self, id_medico):
-        """id_usuario del usuario de acceso vinculado a esta persona, o None."""
-        sql = "SELECT id_usuario FROM usuarios WHERE id_medico = %s"
-        conexion = Conexion()
-        con = conexion.getConexion()
-        cur = con.cursor()
-        try:
-            cur.execute(sql, (id_medico,))
-            fila = cur.fetchone()
-            return fila[0] if fila else None
-        except Exception as e:
-            app.logger.error(f"Error al buscar usuario vinculado: {str(e)}")
-            return None
-        finally:
-            cur.close()
-            con.close()
+    def _motivo_en_uso(self, cur, id_registro, quien):
+        usos = (
+            ("SELECT COUNT(*) FROM usuarios WHERE id_medico = %s AND activo = true", "tiene un usuario de acceso activo. Anule primero el usuario"),
+            ("SELECT COUNT(*) FROM agenda_cabecera WHERE id_medico = %s AND estado <> 'Inactivo' AND fecha_agenda >= CURRENT_DATE", "tiene {n} agenda(s) vigente(s)"),
+            ("SELECT COUNT(*) FROM disponibilidad_horaria WHERE id_medico = %s AND activo = true AND dispo_fecha >= CURRENT_DATE", "tiene {n} disponibilidad(es) horaria(s) vigente(s)"),
+            ("SELECT COUNT(*) FROM consultas_cab WHERE id_medico = %s AND activo = true AND estado IN ('programada', 'en_proceso')", "tiene {n} consulta(s) en curso"),
+            ("SELECT COUNT(*) FROM tratamientos WHERE id_medico = %s AND estado IN ('pendiente', 'en_seguimiento')", "tiene {n} tratamiento(s) en curso"),
+            ("SELECT COUNT(*) FROM avisos_recordatorios WHERE id_medico = %s AND estado <> 'Inactivo' AND estado_envio = 'Pendiente'", "tiene {n} aviso(s) pendiente(s)"),
+        )
+        for sql, texto in usos:
+            n = self._cuenta(cur, sql, id_registro)
+            if n:
+                return f"No se puede anular al médico {quien}: " + texto.format(n=n) + "."
+        return False

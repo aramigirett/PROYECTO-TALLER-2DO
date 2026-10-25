@@ -149,6 +149,8 @@ def addUsuario():
             return jsonify({'success': False, 'error': 'Esa persona ya tiene un usuario de acceso.'}), 400
 
         id_usuario = usuariodao.guardarUsuario(password, id_rol, id_funcionario, id_medico)
+        if isinstance(id_usuario, tuple):  # ("PERSONA_INACTIVA", mensaje)
+            return jsonify({'success': False, 'error': id_usuario[1]}), 400
         if id_usuario:
             return jsonify({'success': True, 'data': {'id_usuario': id_usuario}, 'error': None}), 201
         return jsonify({'success': False, 'error': 'No se pudo guardar el usuario. Consulte con el administrador.'}), 500
@@ -201,6 +203,8 @@ def updateUsuario(id_usuario):
             id_usuario, id_rol, id_funcionario, id_medico,
             password=password or None
         )
+        if isinstance(actualizado, tuple):  # ("PERSONA_INACTIVA", mensaje)
+            return jsonify({'success': False, 'error': actualizado[1]}), 400
         if actualizado:
             return jsonify({'success': True, 'data': {'id_usuario': id_usuario}, 'error': None}), 200
         return jsonify({'success': False, 'error': 'No se pudo actualizar el usuario.'}), 500
@@ -255,7 +259,10 @@ def desbloquearUsuario(id_usuario):
 @require_permiso('usuario', 'anular')
 def reactivarUsuario(id_usuario):
     try:
-        if UsuarioDao().cambiarEstado(id_usuario, True):
+        resultado = UsuarioDao().cambiarEstado(id_usuario, True)
+        if isinstance(resultado, tuple):  # ("PERSONA_INACTIVA", mensaje)
+            return jsonify({'success': False, 'error': 'No se puede reactivar el usuario: ' + resultado[1][0].lower() + resultado[1][1:]}), 409
+        if resultado:
             return jsonify({'success': True, 'mensaje': 'Usuario reactivado correctamente.', 'error': None}), 200
         return jsonify({'success': False, 'error': 'No se encontró el usuario con el ID proporcionado o no se pudo reactivar.'}), 404
     except Exception as e:

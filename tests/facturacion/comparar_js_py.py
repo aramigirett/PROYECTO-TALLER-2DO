@@ -24,6 +24,7 @@ def py(tipo, entrada):
     if tipo == 'presentacion': return u.validar_presentacion(entrada)[1] or ''
     if tipo == 'descMed': return u.normalizar_descripcion({'nombre_comercial': entrada}, 200, True, 'nombre_comercial', 'nombre comercial', 'El')[1] or ''
     if tipo == 'ubicacion': return None
+    if tipo == 'fechaNac': return ua.validar_fecha_nacimiento(entrada)[1] or ''
     if tipo == 'dia': return ua.validar_dia({'descripcion': entrada})[1] or ''
     if tipo == 'telPy': return ua.validar_telefono_py(entrada)[1] or ''
     if tipo == 'hora': return ua.validar_hora(entrada, 'hora de inicio')[1] or ''

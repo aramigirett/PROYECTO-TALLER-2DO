@@ -266,6 +266,20 @@
     return '';
   }
 
+  /* Fecha de nacimiento AAAA-MM-DD: obligatoria, real, no futura y desde 1900. Espejo de validar_fecha_nacimiento. */
+  function fechaNacimiento(v) {
+    var t = typeof v === 'string' ? v.replace(/^\s+|\s+$/g, '') : '';
+    if (!t) return 'El campo fecha de nacimiento es obligatorio y no puede estar vacío.';
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t);
+    var y = m ? Number(m[1]) : 0, mo = m ? Number(m[2]) : 0, d = m ? Number(m[3]) : 0;
+    var f = new Date(y, mo - 1, d);
+    if (!m || f.getFullYear() !== y || f.getMonth() !== mo - 1 || f.getDate() !== d) return 'El campo fecha de nacimiento no es una fecha válida.';
+    var hoy = new Date(); hoy = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+    if (f > hoy) return 'La fecha de nacimiento no puede ser futura.';
+    if (y < 1900) return 'La fecha de nacimiento no es válida.';
+    return '';
+  }
+
   /* ---- Ayudas de interfaz (Tabler/Bootstrap 5): .invalid-feedback hermano del input ---- */
   function marcarCampo(input, mensaje) {
     if (!input) return;
@@ -287,7 +301,7 @@
     telefonoOpcional: telefonoOpcional, correoOpcional: correoOpcional,
     precio: precio, monto: monto, iva: iva, cantidad: cantidad, cantidadPositiva: cantidadPositiva,
     observacion: observacion, montoPositivo: montoPositivo, codigo: codigo, ultimosDigitos: ultimosDigitos, numeroCuenta: numeroCuenta, formatoGs: formatoGs,
-    dia: dia, telefonoPy: telefonoPy, hora: hora, horario: horario, cupos: cupos,
+    fechaNacimiento: fechaNacimiento, dia: dia, telefonoPy: telefonoPy, hora: hora, horario: horario, cupos: cupos,
     marcarCampo: marcarCampo, limpiarCampo: limpiarCampo
   };
 })(window);

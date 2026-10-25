@@ -103,7 +103,7 @@ try:
     api('post', CL, 400, {**base, 'telefono': '+5-95-1 1'}, 'teléfono con <6 dígitos', campo='telefono')
     api('post', CL, 400, {**base, 'correo': 'malo'}, 'correo inválido', campo='correo')
     api('post', CL, 400, {**base, 'id_paciente': 'abc'}, 'id_paciente no numérico', campo='id_paciente')
-    api('post', CL, 400, {**base, 'id_paciente': 999999}, 'id_paciente inexistente', campo='id_paciente', exacto='El paciente seleccionado no existe.')
+    api('post', CL, 400, {**base, 'id_paciente': 999999}, 'id_paciente inexistente', campo='id_paciente', exacto='El paciente seleccionado no existe o está anulado.')
     api('post', CL, 400, None, 'sin cuerpo', campo='nombre') if False else None
 
     # ---------- alta manual ----------
@@ -169,9 +169,9 @@ try:
     cu.execute("SELECT confdeltype FROM pg_constraint WHERE conrelid='cliente'::regclass AND contype='f'"); chk('FK cliente->paciente es RESTRICT', cu.fetchone()[0] == 'r')
 
     # ---------- el paciente-cliente no se puede eliminar (Agendamiento) ----------
-    api('delete', f'/api/v1/pacientes/{zp}', 409, nombre='eliminar paciente que es cliente ACTIVO', exacto='No se puede eliminar, el paciente está registrado como cliente.')
+    api('delete', f'/api/v1/pacientes/{zp}', 409, nombre='anular paciente que es cliente ACTIVO', contiene='registrado como cliente')
     cu.execute("UPDATE cliente SET activo=false WHERE id_paciente=%s", (zp,)); cx.commit()
-    api('delete', f'/api/v1/pacientes/{zp}', 409, nombre='eliminar paciente cuyo cliente está INACTIVO (FK física)', exacto='No se puede eliminar, el paciente está registrado como cliente.')
+    api('delete', f'/api/v1/pacientes/{zp}', 200, nombre='anular paciente cuyo cliente está INACTIVO (baja lógica)')
     cu.execute("SELECT count(*) FROM paciente WHERE id_paciente=%s", (zp,)); chk('el paciente sigue existiendo', cu.fetchone()[0] == 1)
 
     # ---------- auditoría ----------
@@ -213,7 +213,7 @@ try:
         s['id_rol'] = 1; s['nombre_rol'] = 'Administrador'
 finally:
     # limpieza acotada a lo creado por este test
-    borrar_auditoria(cu, 'cliente', list(clientes))
+    borrar_auditoria(cu, 'cliente', list(clientes)); borrar_auditoria(cu, 'paciente', list(pacientes))
     cu.execute("DELETE FROM cliente WHERE id_cliente = ANY(%s) OR id_paciente = ANY(%s)", (list(clientes), list(pacientes)))
     cu.execute("DELETE FROM paciente WHERE id_paciente = ANY(%s)", (list(pacientes),))
     cx.commit(); cu.close(); cx.close()

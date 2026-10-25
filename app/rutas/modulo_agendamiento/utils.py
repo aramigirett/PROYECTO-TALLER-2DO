@@ -109,3 +109,57 @@ def validar_cupos(valor):
     if valor < 1 or valor > MAX_CUPOS:
         return None, f'Los cupos deben estar entre 1 y {MAX_CUPOS}.'
     return valor, None
+
+
+FECHA_NACIMIENTO_MINIMA = datetime(1900, 1, 1).date()
+
+
+def validar_fecha_nacimiento(valor):
+    """Fecha de nacimiento AAAA-MM-DD, obligatoria, no futura y desde 1900. Devuelve (date, error)."""
+    fecha, error = validar_fecha(valor, 'fecha de nacimiento')
+    if error:
+        return None, error
+    if fecha > datetime.now().date():
+        return None, 'La fecha de nacimiento no puede ser futura.'
+    if fecha < FECHA_NACIMIENTO_MINIMA:
+        return None, 'La fecha de nacimiento no es válida.'
+    return fecha, None
+
+
+def validar_persona(data, doc, con_emergencia=False, con_registro=False, padres=()):
+    """
+    Valida los datos de un paciente, médico o funcionario. `doc` = clave JSON de la cédula ('cedula_entidad' / 'cedula'); `padres` =
+    [(clave JSON, etiqueta)] de los referenciales (id_ciudad, id_especialidad, id_cargo). Devuelve (valores, None) o
+    (None, (mensaje, campo)); `valores` usa las mismas claves que las columnas del DAO.
+    """
+    from app.rutas.modulo_facturacion.utils import MAX_DIRECCION as _MD, validar_ci_ruc, validar_codigo, validar_nombre, validar_telefono
+    if not isinstance(data, dict):
+        return None, ('Los datos enviados no son válidos.', None)
+    v = {}
+    pasos = [
+        ('nombre', lambda x: validar_nombre(x, 'nombre', True)),
+        ('apellido', lambda x: validar_nombre(x, 'apellido', True)),
+        (doc, validar_ci_ruc),
+        ('fecha_nacimiento', validar_fecha_nacimiento),
+        ('telefono', validar_telefono),
+    ]
+    if con_emergencia:
+        pasos.append(('telefono_emergencia', lambda x: _con_etiqueta(validar_telefono(x), 'teléfono de emergencia')))
+    pasos += [('direccion', lambda x: validar_texto(x, 'dirección', _MD)), ('correo', validar_correo)]
+    if con_registro:
+        pasos.append(('num_registro', lambda x: validar_codigo(x, 'N.º de registro', 30, True)))
+    for clave, f in pasos:
+        valor, error = f(data.get(clave))
+        if error:
+            return None, (error, clave)
+        v[clave] = valor
+    for clave, etiqueta in padres:
+        v[clave] = entero_id(data.get(clave))
+        if v[clave] is None:
+            return None, (f'El campo {etiqueta} es obligatorio.', clave)
+    return v, None
+
+
+def _con_etiqueta(resultado, etiqueta):
+    valor, error = resultado
+    return valor, (error.replace('teléfono', etiqueta, 1) if error else None)

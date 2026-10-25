@@ -116,14 +116,14 @@ class ClienteDao:
     def buscarPacientes(self, q, limite=20):
         """
         Busca pacientes por cédula (prefijo) o por nombre y apellido (contiene), sin distinguir mayúsculas.
-        Cada resultado indica si ya es cliente ACTIVO. El paciente no tiene baja lógica: "activo" = "existe".
+        Cada resultado indica si ya es cliente ACTIVO. Solo pacientes ACTIVOS.
         """
         q = _escapar_like(q.strip())
         sql = """
         SELECT p.id_paciente, p.nombre, p.apellido, p.cedula_entidad, p.telefono, p.correo,
                EXISTS(SELECT 1 FROM cliente c WHERE c.id_paciente = p.id_paciente AND c.activo = true)
         FROM paciente p
-        WHERE p.cedula_entidad ILIKE %s OR (p.nombre || ' ' || p.apellido) ILIKE %s
+        WHERE p.activo = true AND (p.cedula_entidad ILIKE %s OR (p.nombre || ' ' || p.apellido) ILIKE %s)
         ORDER BY p.apellido, p.nombre, p.id_paciente
         LIMIT %s
         """
@@ -161,7 +161,7 @@ class ClienteDao:
         cur = con.cursor()
         try:
             if id_paciente is not None:
-                cur.execute("SELECT 1 FROM paciente WHERE id_paciente = %s FOR SHARE", (id_paciente,))
+                cur.execute("SELECT 1 FROM paciente WHERE id_paciente = %s AND activo = true FOR SHARE", (id_paciente,))
                 if cur.fetchone() is None:
                     con.rollback()
                     return PACIENTE_INVALIDO
@@ -297,7 +297,7 @@ class ClienteDao:
                 return YA_ACTIVO
 
             if id_paciente is not None:
-                cur.execute("SELECT 1 FROM paciente WHERE id_paciente = %s FOR SHARE", (id_paciente,))
+                cur.execute("SELECT 1 FROM paciente WHERE id_paciente = %s AND activo = true FOR SHARE", (id_paciente,))
                 if cur.fetchone() is None:
                     con.rollback()
                     return PACIENTE_INVALIDO

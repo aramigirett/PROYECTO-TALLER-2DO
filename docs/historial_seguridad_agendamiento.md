@@ -217,3 +217,12 @@ Historial Médico → Recepción sin acceso, Médico lee/crea/anula lo de sus pa
 - Pendiente de las etapas siguientes: los hijos que apuntan a estos referenciales (Paciente, Médico, Funcionario, Agenda) todavía no toman `FOR SHARE` sobre ellos ni rechazan los anulados al guardar (Etapas 2 y 3); hasta entonces solo los combos (que listan activos) lo evitan.
 - Limpieza: se borraron `rutas/referenciales/consultorio/` y `rutas/referenciales/avisosRecordatorios/` (copias muertas) y `ciudad-agregar.html`; se corrigieron los `___init__.py` (tres guiones bajos).
 
+### Etapa 2 — Paciente, Médico y Funcionario (hecha)
+- Orden de scripts: se suma `schema_agendamiento_etapa2.sql` al final de la lista de la etapa 1 y `schema_permisos_agendamiento_etapa2.sql` (idempotente).
+- Código: `PersonaDao` (`dao/referenciales_agendamiento/persona_dao.py`) y `crear_api_persona()` (`rutas/modulo_agendamiento/persona_api.py`) son la base de las tres; cada persona declara sus campos, padres, duplicados y motivos de uso. Los padres (ciudad, especialidad, cargo) se toman `FOR SHARE` y se rechazan si están anulados, al guardar, modificar y reactivar.
+  Las rutas siguen siendo `/pacientes`, `/medico` y `/funcionarios`; la lista y el detalle siguen con `@require_login` (alimentan los buscadores) pero devuelven solo lo mínimo a quien no tiene `ver`.
+  Reactivar usa el permiso `anular` (no `editar`): quien puede anular puede reactivar, y a Recepción (que edita pacientes) no se le abre la reactivación.
+- Seguridad / Facturación: `UsuarioDao` (alta, edición, reactivar y listas de disponibles) y `ClienteDao` (alta, reactivar y buscador) solo aceptan personas ACTIVAS, con `FOR SHARE` sobre la fila.
+- Validadores nuevos con espejo JS: `fecha de nacimiento` (real, no futura, desde 1900) y `validar_persona()`.
+- Falta (etapa 3): Cita, Agenda y Avisos todavía no rechazan un paciente, médico o funcionario anulado al guardar.
+

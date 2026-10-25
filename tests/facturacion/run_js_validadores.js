@@ -56,6 +56,8 @@ var cps = ['1', '50', '1000', '1001', '0', '-1', '1.5', 'abc', '', ' 7 ', '01'];
 for (var d4 = 0; d4 < cps.length; d4++) out.push('cupos\t' + cps[d4] + '\t' + V.cupos(cps[d4]));
 var hh = ['08:00|09:00', '09:00|08:00', '08:00|08:00', '08:00|08:01'];
 for (var d5 = 0; d5 < hh.length; d5++) { var pa = hh[d5].split('|'); out.push('horario\t' + hh[d5] + '\t' + V.horario(pa[0], pa[1])); }
+var fns = ['1990-05-05', '1900-01-01', '1899-12-31', '2999-01-01', '2026-02-30', '1990-13-01', 'abc', '', '  ', '90-05-05', '2000-02-29', '1999-02-29'];
+for (var d6 = 0; d6 < fns.length; d6++) out.push('fechaNac	' + fns[d6] + '	' + V.fechaNacimiento(fns[d6]));
 // salida en UTF-8 sin BOM vía ADODB
 var so = new ActiveXObject('ADODB.Stream'); so.Type = 2; so.Charset = 'utf-8'; so.Open();
 so.WriteText(out.join('\n')); so.SaveToFile(WScript.Arguments(2), 2); so.Close();

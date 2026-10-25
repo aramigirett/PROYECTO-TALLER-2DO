@@ -21,6 +21,10 @@ Lista única (Seguridad, Facturación y Consultorio) de lo que la base REAL tien
 - **Cambio de FK de CASCADE / SET NULL a RESTRICT** (para que un borrado nunca se lleve datos clínicos ni deje referencias en NULL): `cita_cabecera.id_paciente`, `cita_cabecera.id_agenda_cabecera` y `historial_medico_paciente.id_paciente` (eran `ON DELETE CASCADE`); `medico.id_ciudad` y `avisos_recordatorios.id_medico` (eran `SET NULL`).
   Siguen en cascada solo las dos relaciones cabecera → detalle: `agenda_detalle → agenda_cabecera` y `cita_detalle → cita_cabecera`. Se verificó antes con un backup y un ensayo sobre una copia restaurada (la base revalida todas las FK al recrearlas).
 - Se versionaron por primera vez los `CREATE TABLE` de las 17 tablas de Agendamiento, de `menu` y de las de Seguridad ya creadas (`roles`, `usuarios`, `token_2fa`, `permisos`): ver "Reconstruir la base desde el repo" en `historial_seguridad_agendamiento.md`.
+- **Etapa 2** (`schema_agendamiento_etapa2.sql`): la cédula de `paciente` (`cedula_entidad`), `medico` y `funcionario` pasó de `UNIQUE` total a **único parcial** (`WHERE activo = true`, sobre `UPPER(TRIM(...))`), y `medico.num_registro` tiene su único parcial (antes solo lo controlaba el código);
+  `medico.fecha_registro` con `DEFAULT CURRENT_DATE` (la fecha de alta la pone el servidor en las tres personas); `medico.id_especialidad` y `medico.id_ciudad` **NOT NULL**. Paciente, médico y funcionario se dan de baja de forma lógica (`activo`), ya no se borran.
+- Reglas de negocio nuevas (sin cambio de tablas): un usuario solo se vincula a un médico o funcionario **activo** y no se reactiva si su persona está anulada; un cliente solo se crea sobre un paciente activo; anular un médico o funcionario con usuario activo se bloquea ("anule primero el usuario").
+
 - `estado_cita` (6 estados fijos) **no es un referencial editable**: el código compara `'Realizado'` y `'Cancelado'` por texto.
 
 **Facturación**
@@ -54,6 +58,11 @@ Lo que la documentación (CUS, secuencias, diagramas de clase) debe decir para c
 **Agendamiento (etapa 1):** *Los 7 CUS de referenciales de Agendamiento* (Ciudad, Cargo, Consultorio, Disponibilidad Horaria, Especialidad, Día, Turno): **sin Código** (solo ID interno; el consultorio se identifica por su nombre), descripción en mayúsculas, baja lógica ("Anular") con "Mostrar inactivos" y "Reactivar", baja bloqueada si está en uso (con el motivo), auditoría.
   *Día*: solo admite uno de los 7 días de la semana y no repetido entre los activos; *Turno*: nombre libre (ya no se limita a Mañana / Tarde / Noche). *Disponibilidad Horaria*: una disponibilidad ya publicada en una agenda vigente no se modifica ni se anula, y no se superpone con otra del mismo médico; la gestiona Recepción (el Médico solo la ve).
   *Consultorio*: teléfono paraguayo (se guarda como 595…), correo único entre los activos. Permisos: Administrador gestiona; Médico y Recepción solo ven (salvo Disponibilidad, operativa para Recepción).
+
+  **Agendamiento (etapa 2):** *Registrar Paciente / Médico / Funcionario*: baja lógica ("Anular") con "Mostrar inactivos" y "Reactivar"; la cédula no se repite entre los ACTIVOS (y, entre médico y funcionario, tampoco entre tablas, porque es el CI/RUC de login); nombre y apellido en mayúsculas; la fecha de alta la pone el servidor; ciudad, especialidad y cargo deben estar activos;
+  se anula solo sin trabajo en curso (paciente: cliente activo, citas Reservado / Confirmado, consultas y tratamientos en curso, avisos pendientes; médico: usuario activo —"anule primero el usuario"—, agendas y disponibilidades futuras, consultas, tratamientos y avisos; funcionario: usuario activo, consultas y avisos).
+  Permisos: Administrador gestiona Médico y Funcionario y es el único que anula/reactiva Paciente; Recepción registra y edita pacientes; el resto solo ve. Quien no tiene "ver" (p. ej. el Cajero) recibe de los buscadores solo lo mínimo, sin teléfono, dirección ni correo.
+  Auditoría: quién, cuándo, nombre, cédula, N.º de registro y referenciales; nunca teléfono, dirección, correo ni nacimiento (un cambio de contacto queda como "Datos de contacto: modificados").
 
 **Consultorio:**
 - *Los 6 CUS de referenciales de Consultorio* (Tipo Tratamiento, Tipo Insumo, Tipo Procedimiento, Medicamentos, Tipo Estudio, Tipo Análisis): **sin Código** (solo ID interno), descripción en mayúsculas, baja lógica con "Mostrar inactivos" y "Reactivar", baja bloqueada si está en uso, auditoría; Tipo Tratamiento con precio e IVA;
