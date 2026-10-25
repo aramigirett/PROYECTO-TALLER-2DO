@@ -29,6 +29,7 @@ MODULOS = [
     {"modulo": "Referenciales Facturación", "icono": "fa-file-invoice-dollar"},
     {"modulo": "Módulo Facturación", "icono": "fa-cash-register"},
     {"modulo": "Módulo Seguridad", "icono": "fa-user-shield"},
+    {"modulo": "Informes", "icono": "fa-chart-line"},
 ]
 
 CATALOGO_MENU = [
@@ -102,6 +103,9 @@ CATALOGO_MENU = [
     {"etiqueta": "Tablero de Administrador", "endpoint": "auditoria.auditoriaIndex", "icono": "fa-shield-alt", "modulo": "Módulo Seguridad", "ventana": "auditoria", "acciones": ["ver"], "solo_admin": True},
     {"etiqueta": "Auditoría de Cambios", "endpoint": "auditoriacambios.auditoriaCambiosIndex", "icono": "fa-history", "modulo": "Módulo Seguridad", "ventana": "auditoriacambios", "acciones": ["ver"], "solo_admin": True},
     {"etiqueta": "Copias de Seguridad", "endpoint": "backup.backupIndex", "icono": "fa-database", "modulo": "Módulo Seguridad", "ventana": "backup", "acciones": ["ver", "nuevo"], "solo_admin": True},
+
+    # Informes (una sola pantalla de consulta; la exportación a PDF / Excel también exige solo ser Administrador)
+    {"etiqueta": "Informes", "endpoint": "informes.informesIndex", "icono": "fa-chart-line", "modulo": "Informes", "ventana": "informes", "acciones": ["ver"], "solo_admin": True},
 ]
 
 # Ventanas de la semilla que solo puede usar el Administrador (la fuente en ejecución es `menu.solo_admin`, ver menu_servicio.ventanas_solo_admin())

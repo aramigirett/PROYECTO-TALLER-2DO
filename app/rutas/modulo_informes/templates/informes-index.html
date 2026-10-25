@@ -1,0 +1,64 @@
+{% extends 'base_tabler.html' %}
+
+{% block titulo %}Informes{% endblock %}
+
+{% block contenido %}
+<div class="page-header d-print-none mb-3">
+  <div class="row align-items-center g-2">
+    <div class="col">
+      <div class="page-pretitle text-muted">Informes &bull; Solo consulta</div>
+      <h2 class="page-title fw-bold" style="color: var(--oc-text-main);">Informes</h2>
+    </div>
+    <div class="col-auto d-flex flex-wrap gap-2">
+      <button type="button" class="btn btn-outline-danger" id="btnPdf"><i class="fas fa-file-pdf me-2"></i>Exportar PDF</button>
+      <button type="button" class="btn btn-outline-success" id="btnExcel"><i class="fas fa-file-excel me-2"></i>Exportar Excel</button>
+    </div>
+  </div>
+</div>
+
+{# ══════════════════ FILTROS ══════════════════ #}
+<div class="card border shadow-sm rounded-3 mb-3">
+  <div class="card-body py-3">
+    <div class="row g-2 align-items-end">
+      <div class="col-6 col-md-2">
+        <label class="form-label small fw-semibold text-muted mb-1" for="fDesde">Desde</label>
+        <input type="date" class="form-control form-control-sm" id="fDesde">
+      </div>
+      <div class="col-6 col-md-2">
+        <label class="form-label small fw-semibold text-muted mb-1" for="fHasta">Hasta</label>
+        <input type="date" class="form-control form-control-sm" id="fHasta">
+      </div>
+      <div class="col-12 col-md-3" id="grpMedico">
+        <label class="form-label small fw-semibold text-muted mb-1" for="fMedico">Médico</label>
+        <select class="form-select form-select-sm" id="fMedico"><option value="">Todos</option></select>
+      </div>
+      <div class="col-6 col-md-2" id="grpCondicion">
+        <label class="form-label small fw-semibold text-muted mb-1" for="fCondicion">Condición</label>
+        <select class="form-select form-select-sm" id="fCondicion">
+          <option value="">Todas</option><option value="CONTADO">Contado</option><option value="CREDITO">Crédito</option>
+        </select>
+      </div>
+      <div class="col-auto d-flex gap-2">
+        <button type="button" class="btn btn-sm btn-primary" id="btnAplicar"><i class="fas fa-filter me-1"></i>Aplicar</button>
+      </div>
+    </div>
+    <div class="text-danger small mt-2" id="errFiltros" style="display: none;"></div>
+  </div>
+</div>
+
+{# ══════════════════ PESTAÑAS ══════════════════ #}
+<ul class="nav nav-tabs mb-3" id="pestanas" role="tablist">
+  <li class="nav-item"><a href="#" class="nav-link active" data-pestana="resumen"><i class="fas fa-th-large me-2"></i>Resumen</a></li>
+  <li class="nav-item"><a href="#" class="nav-link" data-pestana="agendamiento"><i class="fas fa-calendar-check me-2"></i>Agendamiento</a></li>
+  <li class="nav-item"><a href="#" class="nav-link" data-pestana="consultorio"><i class="fas fa-file-medical me-2"></i>Consultorio</a></li>
+  <li class="nav-item"><a href="#" class="nav-link" data-pestana="facturacion"><i class="fas fa-cash-register me-2"></i>Facturación</a></li>
+  <li class="nav-item"><a href="#" class="nav-link" data-pestana="auditoria"><i class="fas fa-user-shield me-2"></i>Auditoría</a></li>
+</ul>
+
+<div id="panel"><div class="text-muted py-4 text-center">Cargando…</div></div>
+{% endblock %}
+
+{% block js %}
+<script src="{{ url_for('static', filename='vendor/apexcharts/apexcharts.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/informes.js') }}"></script>
+{% endblock %}

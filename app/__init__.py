@@ -84,6 +84,12 @@ app.register_blueprint(permisomod, url_prefix=f'{modulo0}/permiso')
 app.register_blueprint(backupmod, url_prefix=f'{modulo0}/backup')
 app.register_blueprint(menumod, url_prefix=f'{modulo0}/menu')
 app.register_blueprint(auditoriacambiosmod, url_prefix=f'{modulo0}/auditoria-cambios')
+
+# Informes (pantalla única /informes y su API /api/informes/<pestaña>)
+from app.rutas.modulo_informes.informes_routes import informesmod
+from app.rutas.modulo_informes.informes_api import informesapi
+app.register_blueprint(informesmod)
+app.register_blueprint(informesapi, url_prefix='/api')
 app.register_blueprint(ciumod, url_prefix=f'{modulo0}/ciudad') #ciudad
 app.register_blueprint(especimod, url_prefix=f'{modulo0}/especialidad') #especialidad
 app.register_blueprint(diamod, url_prefix=f'{modulo0}/dia') #dia

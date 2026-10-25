@@ -22,6 +22,7 @@ REFERENCIALES_CONSULTORIO = 'Referenciales Consultorio'
 MODULO_CONSULTORIO = 'Módulo Consultorio'
 REFERENCIALES_AGENDAMIENTO = 'Referenciales Agendamiento'
 MODULO_AGENDAMIENTO = 'Módulo Agendamiento'
+MODULO_INFORMES = 'Módulo Informes'
 
 # Entidad (columna `entidad`) -> módulo. Una entidad que no esté acá se guarda con modulo NULL y se muestra como "Otro".
 MODULO_POR_ENTIDAD = {
@@ -53,19 +54,21 @@ MODULO_POR_ENTIDAD = {
     'agenda_cabecera': MODULO_AGENDAMIENTO, 'agenda_detalle': MODULO_AGENDAMIENTO, 'cita_cabecera': MODULO_AGENDAMIENTO, 'cita_detalle': MODULO_AGENDAMIENTO,
     'avisos_recordatorios': MODULO_AGENDAMIENTO, 'historial_medico_paciente': MODULO_AGENDAMIENTO,
     'backup': MODULO_SEGURIDAD, 'menu': MODULO_SEGURIDAD, 'usuarios': MODULO_SEGURIDAD, 'permisos': MODULO_SEGURIDAD, 'auditoria_cambios': MODULO_SEGURIDAD, 'auditoria_acceso': MODULO_SEGURIDAD,
+    # Informes: solo consulta y exportación; el detalle lleva el informe y los filtros, nunca datos clínicos.
+    'informes': MODULO_INFORMES,
 }
 MODULO_DESCONOCIDO = 'Otro'
 MODULOS = (REFERENCIALES_FACTURACION, MODULO_FACTURACION, REFERENCIALES_CONSULTORIO, MODULO_CONSULTORIO,
-           REFERENCIALES_AGENDAMIENTO, MODULO_AGENDAMIENTO, MODULO_SEGURIDAD)
+           REFERENCIALES_AGENDAMIENTO, MODULO_AGENDAMIENTO, MODULO_SEGURIDAD, MODULO_INFORMES)
 
 # Entidades que son movimientos: su BAJA es una anulación ("Anulado") y no una baja de catálogo ("Inactivo").
 ENTIDADES_MOVIMIENTO = frozenset(e for e, m in MODULO_POR_ENTIDAD.items() if m in (MODULO_FACTURACION, MODULO_CONSULTORIO)) | frozenset(
     {'agenda_cabecera', 'agenda_detalle', 'cita_cabecera', 'cita_detalle', 'avisos_recordatorios', 'historial_medico_paciente'})
 
-ACCIONES = ('ALTA', 'MODIFICACION', 'BAJA', 'REACTIVACION', 'CIERRE', 'EXPORTACION')
+ACCIONES = ('ALTA', 'MODIFICACION', 'BAJA', 'REACTIVACION', 'CIERRE', 'EXPORTACION', 'CONSULTA')
 # Decisión de negocio: BAJA se guarda así, pero se muestra como "Baja / Anulación".
 ETIQUETA_ACCION = {'ALTA': 'Alta', 'MODIFICACION': 'Modificación', 'BAJA': 'Baja / Anulación',
-                   'REACTIVACION': 'Reactivación', 'CIERRE': 'Cierre', 'EXPORTACION': 'Exportación'}
+                   'REACTIVACION': 'Reactivación', 'CIERRE': 'Cierre', 'EXPORTACION': 'Exportación', 'CONSULTA': 'Consulta'}
 
 
 ETIQUETA_ENTIDAD = {
@@ -75,7 +78,7 @@ ETIQUETA_ENTIDAD = {
     'apertura_cierre_caja': 'Apertura y Cierre de Caja', 'pedido_venta_cab': 'Pedido de Cliente', 'venta_cab': 'Venta',
     'cobro_cab': 'Cobro', 'nota_remision_cab': 'Nota de Remisión', 'nota_credito_debito_cab': 'Nota de Crédito/Débito',
     'arqueo_caja': 'Arqueo de Caja', 'recaudacion_depositar': 'Recaudación a Depositar', 'backup': 'Copia de Seguridad', 'menu': 'Entrada de Menú', 'usuarios': 'Usuario', 'permisos': 'Permisos de un rol',
-    'auditoria_cambios': 'Auditoría de Cambios', 'auditoria_acceso': 'Tablero de Accesos',
+    'auditoria_cambios': 'Auditoría de Cambios', 'auditoria_acceso': 'Tablero de Accesos', 'informes': 'Informes',
     'tipos_tratamiento': 'Tipo de Tratamiento', 'insumos': 'Tipo de Insumo', 'tipo_procedimiento_medico': 'Tipo de Procedimiento Médico',
     'medicamentos': 'Medicamento', 'tipo_estudio': 'Tipo de Estudio', 'tipo_analisis': 'Tipo de Análisis',
     'tipo_diagnostico': 'Tipo de Diagnóstico', 'sintoma': 'Síntoma', 'consultas_cab': 'Consulta',
