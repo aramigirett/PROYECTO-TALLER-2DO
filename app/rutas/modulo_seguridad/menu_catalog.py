@@ -40,6 +40,7 @@ CATALOGO_MENU = [
     {"etiqueta": "Registrar Pacientes", "endpoint": "paciente.pacienteIndex", "icono": "fa-user-injured", "modulo": "Agendamiento", "ventana": "paciente", "acciones": ["ver", "nuevo", "editar", "anular"]},
     {"etiqueta": "Registrar Funcionario", "endpoint": "funcionario.funcionarioIndex", "icono": "fa-users", "modulo": "Agendamiento", "ventana": "funcionario", "acciones": ["ver", "nuevo", "editar", "anular"]},
     {"etiqueta": "Registrar Médicos", "endpoint": "medico.medicoIndex", "icono": "fa-stethoscope", "modulo": "Agendamiento", "ventana": "medico", "acciones": ["ver", "nuevo", "editar", "anular"]},
+    {"etiqueta": "Historial Médico", "endpoint": "historial.historialIndex", "icono": "fa-history", "modulo": "Agendamiento", "ventana": "historial", "acciones": ["ver", "nuevo", "anular"]},
 
     # Referenciales Agendamiento
     {"etiqueta": "Ciudad", "endpoint": "ciudad.ciudadIndex", "icono": "fa-map-marker-alt", "modulo": "Referenciales Agendamiento", "ventana": "ciudad", "acciones": ["ver", "nuevo", "editar", "anular"]},
@@ -64,7 +65,6 @@ CATALOGO_MENU = [
     {"etiqueta": "Registrar Consulta", "endpoint": "consulta.consultaIndex", "icono": "fa-stethoscope", "modulo": "Módulo Consultorio", "ventana": "consulta", "acciones": ["ver", "nuevo", "anular", "estado"]},
     {"etiqueta": "Gestión Fichas Médicas", "endpoint": "fichamedica.fichaMedicaIndex", "icono": "fa-file-medical-alt", "modulo": "Módulo Consultorio", "ventana": "fichamedica", "acciones": ["ver", "nuevo", "editar", "anular"]},
     {"etiqueta": "Gestión Diagnósticos", "endpoint": "diagnostico_medico.diagnosticoIndex", "icono": "fa-diagnoses", "modulo": "Módulo Consultorio", "ventana": "diagnostico", "acciones": ["ver", "nuevo", "anular"]},
-    {"etiqueta": "Historial Médico", "endpoint": "historial.historialIndex", "icono": "fa-history", "modulo": "Módulo Consultorio", "ventana": "historial", "acciones": ["ver", "nuevo", "anular"]},
     {"etiqueta": "Registrar Odontograma", "endpoint": "odontograma.odontogramaIndex", "icono": "fa-teeth", "modulo": "Módulo Consultorio", "ventana": "odontograma", "acciones": ["ver", "nuevo", "editar", "anular"]},
     {"etiqueta": "Gestionar Tratamientos", "endpoint": "tratamiento.tratamientoIndex", "icono": "fa-prescription-bottle-alt", "modulo": "Módulo Consultorio", "ventana": "tratamiento", "acciones": ["ver", "nuevo", "anular", "estado"]},
     {"etiqueta": "Generar Recetas e Indicaciones", "endpoint": "receta.recetaIndex", "icono": "fa-prescription", "modulo": "Módulo Consultorio", "ventana": "receta", "acciones": ["ver", "nuevo", "anular"]},

@@ -28,7 +28,7 @@ def _validar(data):
     if not isinstance(data, dict):
         return None, respuesta_error('Los datos enviados no son válidos.', 400)
     ids = {}
-    for campo, etiqueta in (('id_medico', 'médico'), ('id_dia', 'día'), ('id_turno', 'turno')):
+    for campo, etiqueta in (('id_medico', 'médico'), ('id_turno', 'turno')):      # el día NO se envía: se calcula desde la fecha
         ids[campo] = entero_id(data.get(campo))
         if ids[campo] is None:
             return None, respuesta_error(f'El campo {etiqueta} es obligatorio.', 400, campo)
@@ -51,7 +51,7 @@ def _validar(data):
 
 
 def _args(v):
-    return (v['id_medico'], v['id_dia'], v['id_turno'], v['dispo_hora_inicio'], v['dispo_hora_fin'], v['dispo_fecha'], v['dispo_cupos'])
+    return (v['id_medico'], v['id_turno'], v['dispo_hora_inicio'], v['dispo_hora_fin'], v['dispo_fecha'], v['dispo_cupos'])
 
 
 # Lista las disponibilidades activas (alimenta combos de otras pantallas); `?inactivos=1` exige 'ver'
@@ -84,6 +84,25 @@ def getDisponibilidadesPorMedicoFecha():
         return jsonify({'success': True, 'data': DisponibilidadDao().getDisponibilidadesPorMedicoFecha(id_medico, fecha_obj), 'error': None}), 200
     except Exception as e:
         app.logger.error(f"Error al obtener disponibilidades: {str(e)}")
+        return error_interno()
+
+
+# Próxima fecha (posterior a `desde`) con disponibilidad del médico: la usa la agenda cuando no hay horarios para su fecha
+@disponibilidadapi.route('/disponibilidades/proxima', methods=['GET'])
+@require_login
+def getProximaDisponibilidad():
+    id_medico = entero_id(request.args.get('id_medico'))
+    desde = request.args.get('desde')  # formato YYYY-MM-DD
+    if not id_medico or not desde:
+        return respuesta_error('Faltan parámetros id_medico o desde', 400)
+    try:
+        desde_obj = datetime.strptime(desde, '%Y-%m-%d').date()
+    except ValueError:
+        return respuesta_error('Formato de fecha inválido. Use YYYY-MM-DD', 400)
+    try:
+        return jsonify({'success': True, 'data': DisponibilidadDao().getProximaDisponibilidad(id_medico, desde_obj), 'error': None}), 200
+    except Exception as e:
+        app.logger.error(f"Error al obtener la próxima disponibilidad: {str(e)}")
         return error_interno()
 
 

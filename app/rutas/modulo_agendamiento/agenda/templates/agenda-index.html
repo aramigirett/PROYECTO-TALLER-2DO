@@ -225,6 +225,23 @@
   const lista = document.getElementById('listaDisponibles');
   const btnPublicar = document.getElementById('btnPublicar');
 
+  const dmy = (iso) => String(iso).split('-').reverse().join('/');
+  const hhmm = (t) => String(t).slice(0, 5);
+
+  /* Cuando no hay disponibilidades para publicar: si ya se publicaron todas lo dice; si no, busca la próxima fecha en que el médico tiene disponibilidad. */
+  async function mensajeSinDisponibilidad(yaHayPublicados) {
+    const fecha = cabeceraActual.fecha_agenda;
+    if (yaHayPublicados) return `<div class="text-muted">Ya se publicaron todas las disponibilidades del médico para el ${escapar(dmy(fecha))}.</div>`;
+    const r = await pedir(`/api/v1/disponibilidades/proxima?id_medico=${cabeceraActual.id_medico}&desde=${fecha}`);
+    const prox = (r.data && r.data.success) ? r.data.data : [];
+    if (!prox.length) {
+      return `<div class="text-muted">Este médico no tiene disponibilidad el ${escapar(dmy(fecha))} ni en fechas posteriores. Cárguela en Disponibilidad Horaria.</div>`;
+    }
+    const horarios = prox.map((d) => `${hhmm(d.dispo_hora_inicio)} a ${hhmm(d.dispo_hora_fin)}, ${d.des_turno}, ${d.dispo_cupos} cupos`).join(' · ');
+    return `<div class="text-muted">Este médico no tiene disponibilidad el ${escapar(dmy(fecha))}. La próxima es el <strong>${escapar(dmy(prox[0].dispo_fecha))}</strong> `
+      + `(${escapar(prox[0].des_dia)}): ${escapar(horarios)}. Para publicarla, use una agenda con esa fecha.</div>`;
+  }
+
   async function cargarHorarios() {
     const { data } = await pedir(`${API}/${cabeceraActual.id_agenda_cabecera}/detalles`);
     const filas = (data && data.success) ? data.data : [];
@@ -239,7 +256,7 @@
     const libres = ((r.data && r.data.success) ? r.data.data : []).filter((d) => !publicados.has(d.id_disponibilidad));
     lista.innerHTML = libres.length ? libres.map((d) => `<label class="form-check"><input class="form-check-input chk-disp" type="checkbox" value="${escapar(d.id_disponibilidad)}">
       <span class="form-check-label">${escapar(String(d.dispo_hora_inicio).slice(0, 5))} - ${escapar(String(d.dispo_hora_fin).slice(0, 5))} · ${escapar(d.des_turno)} · ${escapar(d.dispo_cupos)} cupos</span></label>`).join('')
-      : '<div class="text-muted">No hay disponibilidades sin publicar para ese médico y esa fecha.</div>';
+      : await mensajeSinDisponibilidad(filas.length > 0);
     btnPublicar.disabled = true;
   }
 

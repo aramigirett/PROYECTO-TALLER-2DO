@@ -65,9 +65,9 @@
           </div>
           <div class="row">
             <div class="col-md-6 mb-3">
-              <label class="form-label required" for="selDia">Día</label>
-              <select class="form-select" id="selDia"><option value="">Seleccione…</option></select>
-              <div class="invalid-feedback"></div>
+              <label class="form-label" for="txtDiaCalculado">Día (según la fecha)</label>
+              <input type="text" class="form-control" id="txtDiaCalculado" value="—" readonly tabindex="-1">
+              <div class="form-hint">Se calcula solo desde la fecha.</div>
             </div>
             <div class="col-md-6 mb-3">
               <label class="form-label required" for="selTurno">Turno</label>
@@ -126,14 +126,13 @@
   const inp = {
     id: document.getElementById('txtId'),
     id_medico: document.getElementById('selMedico'),
-    id_dia: document.getElementById('selDia'),
     id_turno: document.getElementById('selTurno'),
     dispo_fecha: document.getElementById('txtFecha'),
     dispo_hora_inicio: document.getElementById('txtInicio'),
     dispo_hora_fin: document.getElementById('txtFin'),
     dispo_cupos: document.getElementById('txtCupos')
   };
-  const CAMPOS = ['id_medico', 'id_dia', 'id_turno', 'dispo_fecha', 'dispo_hora_inicio', 'dispo_hora_fin', 'dispo_cupos'];
+  const CAMPOS = ['id_medico', 'id_turno', 'dispo_fecha', 'dispo_hora_inicio', 'dispo_hora_fin', 'dispo_cupos'];
 
   const L = window.FacturacionListado;
   const V = window.FacturacionValidadores;
@@ -142,7 +141,6 @@
   const obligatorio = (nombre) => (v) => (v ? '' : `El campo ${nombre} es obligatorio.`);
   const reglas = {
     id_medico: obligatorio('médico'),
-    id_dia: obligatorio('día'),
     id_turno: obligatorio('turno'),
     dispo_fecha: obligatorio('fecha'),
     dispo_hora_inicio: (v) => V.hora(v, 'hora de inicio'),
@@ -151,6 +149,13 @@
   };
   const limpiarErrores = () => CAMPOS.forEach((c) => V.limpiarCampo(inp[c]));
   const hhmm = (t) => String(t || '').slice(0, 5);
+
+  // El día de la semana no se elige: sale de la fecha (el servidor lo calcula igual y lo busca en el referencial Día).
+  const DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+  function mostrarDia() {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(inp.dispo_fecha.value);
+    document.getElementById('txtDiaCalculado').value = m ? DIAS[new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).getDay()] : '—';
+  }
 
   async function llenarCombo(sel, url, id, texto) {
     const { data } = await pedir(url);
@@ -162,7 +167,6 @@
   async function cargarCombos() {
     await Promise.all([
       llenarCombo(inp.id_medico, '/api/v1/medico', 'id_medico', (m) => `${m.nombre} ${m.apellido}`),
-      llenarCombo(inp.id_dia, '/api/v1/dias', 'id_dia', (d) => d.descripcion),
       llenarCombo(inp.id_turno, '/api/v1/turnos', 'id_turno', (t) => t.descripcion)
     ]);
   }
@@ -199,12 +203,12 @@
     await cargarCombos();
     inp.id.value = d ? d.id_disponibilidad : '';
     inp.id_medico.value = d ? d.id_medico : '';
-    inp.id_dia.value = d ? d.id_dia : '';
     inp.id_turno.value = d ? d.id_turno : '';
     inp.dispo_fecha.value = d ? d.dispo_fecha : '';
     inp.dispo_hora_inicio.value = d ? hhmm(d.dispo_hora_inicio) : '';
     inp.dispo_hora_fin.value = d ? hhmm(d.dispo_hora_fin) : '';
     inp.dispo_cupos.value = d ? d.dispo_cupos : '';
+    mostrarDia();
     limpiarErrores();
     modal.show();
   }
@@ -216,6 +220,8 @@
     inp[c].addEventListener('input', () => V.limpiarCampo(inp[c]));
     inp[c].addEventListener('change', () => V.limpiarCampo(inp[c]));
   });
+  inp.dispo_fecha.addEventListener('input', mostrarDia);
+  inp.dispo_fecha.addEventListener('change', mostrarDia);
 
   form.addEventListener('submit', async (ev) => {
     ev.preventDefault();

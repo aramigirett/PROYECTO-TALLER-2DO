@@ -7,6 +7,9 @@ DUPLICADO = "DUPLICADO"
 NO_EXISTE = "NO_EXISTE"
 YA_ACTIVO = "YA_ACTIVO"
 
+# El día de la semana NO se elige: sale de la fecha (date.weekday(): 0 = lunes). Se busca en el referencial `dias` por descripción.
+NOMBRES_DIA = ('LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES', 'SABADO', 'DOMINGO')
+
 _SELECT = """
 SELECT d.id_disponibilidad, d.id_medico, d.id_dia, d.id_turno,
        d.dispo_hora_inicio, d.dispo_hora_fin, d.dispo_fecha, d.dispo_cupos,
@@ -91,6 +94,23 @@ class DisponibilidadDao:
             cur.close()
             con.close()
 
+    def getProximaDisponibilidad(self, id_medico, desde):
+        """Disponibilidades ACTIVAS de la PRÓXIMA fecha posterior a `desde` en la que el médico tiene alguna (vacío si no tiene ninguna)."""
+        sql = _SELECT + """ WHERE d.id_medico = %s AND d.activo = true
+                            AND d.dispo_fecha = (SELECT MIN(dispo_fecha) FROM disponibilidad_horaria WHERE id_medico = %s AND activo = true AND dispo_fecha > %s)
+                            ORDER BY d.dispo_hora_inicio"""
+        con = Conexion().getConexion()
+        cur = con.cursor()
+        try:
+            cur.execute(sql, (id_medico, id_medico, desde))
+            return [_fila(r) for r in cur.fetchall()]
+        except Exception as e:
+            app.logger.error(f"Error al obtener la próxima disponibilidad: {str(e)}")
+            return []
+        finally:
+            cur.close()
+            con.close()
+
     def _superpuesta(self, cur, id_medico, fecha, inicio, fin, excluir_id=None):
         sql = """SELECT 1 FROM disponibilidad_horaria
                  WHERE activo = true AND id_medico = %s AND dispo_fecha = %s AND NOT (dispo_hora_fin <= %s OR dispo_hora_inicio >= %s)"""
@@ -115,23 +135,29 @@ class DisponibilidadDao:
             con.close()
 
     # ---- escritura ----
-    def _bloquear_padres(self, cur, id_medico, id_dia, id_turno):
-        """FOR SHARE sobre médico, día y turno (siempre en este orden). Devuelve un mensaje si alguno no existe o está anulado."""
+    def _bloquear_padres(self, cur, id_medico, fecha, id_turno):
+        """
+        FOR SHARE sobre médico, día y turno (siempre en este orden). El día se calcula desde la fecha y se busca en `dias` (activo).
+        Devuelve (mensaje, id_dia): el mensaje si algo no existe o está anulado (id_dia None); si todo está bien, (None, id_dia).
+        """
         cur.execute("SELECT nombre || ' ' || apellido, activo FROM medico WHERE id_medico = %s FOR SHARE", (id_medico,))
         f = cur.fetchone()
         if f is None or not f[1]:
-            return "El médico seleccionado no existe o está anulado."
-        cur.execute("SELECT descripcion, activo FROM dias WHERE id_dia = %s FOR SHARE", (id_dia,))
+            return "El médico seleccionado no existe o está anulado.", None
+        nombre_dia = NOMBRES_DIA[fecha.weekday()]
+        cur.execute("SELECT id_dia, activo FROM dias WHERE UPPER(descripcion) = %s ORDER BY activo DESC, id_dia LIMIT 1 FOR SHARE", (nombre_dia,))
         f = cur.fetchone()
         if f is None or not f[1]:
-            return "El día seleccionado no existe o está anulado."
+            return (f"La fecha elegida es {nombre_dia.capitalize()} y ese día no está registrado (o está anulado) en el referencial Día: "
+                    "regístrelo antes de cargar disponibilidades para esa fecha."), None
+        id_dia = f[0]
         cur.execute("SELECT descripcion, activo FROM turnos WHERE id_turno = %s FOR SHARE", (id_turno,))
         f = cur.fetchone()
         if f is None or not f[1]:
-            return "El turno seleccionado no existe o está anulado."
-        return None
+            return "El turno seleccionado no existe o está anulado.", None
+        return None, id_dia
 
-    def guardarDisponibilidad(self, id_medico, id_dia, id_turno, dispo_hora_inicio, dispo_hora_fin, dispo_fecha, dispo_cupos):
+    def guardarDisponibilidad(self, id_medico, id_turno, dispo_hora_inicio, dispo_hora_fin, dispo_fecha, dispo_cupos):
         """
         Returns:
             int | str | tuple | bool: ID nuevo; "DUPLICADO" (superposición); ("INVALIDO", mensaje) si el médico, el día o el turno no
@@ -140,7 +166,7 @@ class DisponibilidadDao:
         con = Conexion().getConexion()
         cur = con.cursor()
         try:
-            motivo = self._bloquear_padres(cur, id_medico, id_dia, id_turno)
+            motivo, id_dia = self._bloquear_padres(cur, id_medico, dispo_fecha, id_turno)
             if motivo:
                 con.rollback()
                 return ("INVALIDO", motivo)
@@ -165,7 +191,7 @@ class DisponibilidadDao:
             cur.close()
             con.close()
 
-    def updateDisponibilidad(self, id_disponibilidad, id_medico, id_dia, id_turno, dispo_hora_inicio, dispo_hora_fin, dispo_fecha, dispo_cupos):
+    def updateDisponibilidad(self, id_disponibilidad, id_medico, id_turno, dispo_hora_inicio, dispo_hora_fin, dispo_fecha, dispo_cupos):
         """
         Returns:
             bool | str | tuple: True si se actualizó, False si no existe (o está anulada) o falló; "DUPLICADO";
@@ -182,7 +208,7 @@ class DisponibilidadDao:
             if motivo:
                 con.rollback()
                 return ("EN_USO", motivo)
-            motivo = self._bloquear_padres(cur, id_medico, id_dia, id_turno)
+            motivo, id_dia = self._bloquear_padres(cur, id_medico, dispo_fecha, id_turno)
             if motivo:
                 con.rollback()
                 return ("INVALIDO", motivo)
@@ -264,17 +290,17 @@ class DisponibilidadDao:
         con = Conexion().getConexion()
         cur = con.cursor()
         try:
-            cur.execute("""SELECT id_medico, id_dia, id_turno, dispo_fecha, dispo_hora_inicio, dispo_hora_fin, activo
+            cur.execute("""SELECT id_medico, id_turno, dispo_fecha, dispo_hora_inicio, dispo_hora_fin, activo
                            FROM disponibilidad_horaria WHERE id_disponibilidad = %s FOR UPDATE""", (id_disponibilidad,))
             f = cur.fetchone()
             if f is None:
                 con.rollback()
                 return NO_EXISTE
-            id_medico, id_dia, id_turno, fecha, inicio, fin, activo = f
+            id_medico, id_turno, fecha, inicio, fin, activo = f
             if activo:
                 con.rollback()
                 return YA_ACTIVO
-            motivo = self._bloquear_padres(cur, id_medico, id_dia, id_turno)
+            motivo, id_dia = self._bloquear_padres(cur, id_medico, fecha, id_turno)
             if motivo:
                 con.rollback()
                 return ("INVALIDO", motivo)
