@@ -107,12 +107,12 @@
       </div>
 
       <div class="card border shadow-sm rounded-3 mb-3">
-        <div class="card-header bg-white d-flex flex-wrap gap-2 align-items-center justify-content-between">
+        <div class="card-header bg-white d-flex flex-column align-items-stretch gap-2">
           <h3 class="card-title mb-0">Formas de cobro</h3>
-          <div class="d-flex gap-2">
-            <select class="form-select form-select-sm" id="selForma" style="min-width: 220px;"></select>
-            <button type="button" class="btn btn-sm btn-outline-primary text-nowrap" id="btnAgregarForma"><i class="fas fa-plus me-1"></i>Agregar forma</button>
-            <button type="button" class="btn btn-sm btn-outline-secondary text-nowrap" id="btnTodoSaldo" title="Cobrar todo el saldo con la primera forma">Cobrar todo el saldo</button>
+          <div class="d-flex flex-wrap gap-2 align-items-stretch">
+            <select class="form-select" id="selForma" style="flex: 1 1 220px; width: auto; min-width: 0;"></select>
+            <button type="button" class="btn btn-primary text-nowrap flex-shrink-0" id="btnAgregarForma"><i class="fas fa-plus me-1"></i>Agregar forma</button>
+            <button type="button" class="btn btn-outline-secondary text-nowrap flex-shrink-0" id="btnTodoSaldo" title="Cobrar todo el saldo con la primera forma">Cobrar todo el saldo</button>
           </div>
         </div>
         <div class="card-body" id="gridFormas"></div>
