@@ -73,10 +73,13 @@
           </div>
           <div id="bloquePaciente" style="display: none;">
             <div class="mb-3">
-              <label class="form-label required" for="selPaciente">Paciente</label>
-              <input type="search" class="form-control mb-1" id="buscaPaciente" placeholder="Buscar por nombre o cédula…" autocomplete="off">
-              <select class="form-select" id="selPaciente"><option value="">Seleccione…</option></select>
-              <div class="invalid-feedback"></div>
+              <label class="form-label required" for="txtPaciente">Paciente</label>
+              <div class="position-relative">
+                <input type="text" class="form-control" id="txtPaciente" placeholder="Escriba la cédula o el nombre del paciente…" autocomplete="off">
+                <div id="sugPaciente"></div>
+              </div>
+              <input type="hidden" id="selPaciente"><div class="invalid-feedback"></div>
+              <div class="form-hint" id="hintPaciente" data-ayuda="Escriba la cédula o el nombre del paciente."></div>
             </div>
             <div class="row">
               <div class="col-md-6 mb-3"><label class="form-label required" for="txtFecha">Fecha de la cita</label><input type="date" class="form-control" id="txtFecha"><div class="invalid-feedback"></div></div>
@@ -112,6 +115,7 @@
 {% block js %}
 <script src="{{ url_for('static', filename='js/facturacion-validadores.js') }}"></script>
 <script src="{{ url_for('static', filename='js/facturacion-listado.js') }}"></script>
+<script src="{{ url_for('static', filename='js/paciente-buscador.js') }}"></script>
 <script>
 (function () {
   const API = '/api/v1/avisos';
@@ -195,16 +199,14 @@
 
   // ---------- nuevo aviso ----------
   const llenar = (sel, lista, id, texto, vacio) => { sel.innerHTML = `<option value="">${vacio}</option>` + lista.map((x) => `<option value="${escapar(x[id])}">${escapar(texto(x))}</option>`).join(''); };
-  function dibujarPacientes(f) {
-    const q = (f || '').trim().toLowerCase();
-    llenar(inp.id_paciente, pacientes.filter((p) => !q || `${p.nombre} ${p.apellido} ${p.cedula_entidad}`.toLowerCase().includes(q)), 'id_paciente', (p) => `${p.nombre} ${p.apellido} — ${p.cedula_entidad}`, 'Seleccione…');
-  }
+  // Paciente: un solo campo de búsqueda (cédula o nombre) con sugerencias en vivo; el id queda en el campo oculto selPaciente (componente paciente-buscador.js).
+  const buscadorPaciente = PacienteBuscador.crear({ input: document.getElementById('txtPaciente'), oculto: inp.id_paciente,
+                                                   lista: document.getElementById('sugPaciente'), hint: document.getElementById('hintPaciente') });
   function alternarModo() {
     document.getElementById('bloqueCita').style.display = modo() === 'cita' ? '' : 'none';
     document.getElementById('bloquePaciente').style.display = modo() === 'paciente' ? '' : 'none';
   }
   document.querySelectorAll('input[name="modo"]').forEach((r) => r.addEventListener('change', alternarModo));
-  document.getElementById('buscaPaciente').addEventListener('input', (e) => dibujarPacientes(e.target.value));
   CAMPOS.forEach((k) => { inp[k].addEventListener('input', () => V.limpiarCampo(inp[k])); inp[k].addEventListener('change', () => V.limpiarCampo(inp[k])); });
 
   // ---------- mensaje precargado ----------
@@ -243,7 +245,7 @@
     const citas = (c.data && c.data.success) ? c.data.data : [];
     inp.id_cita_detalle.innerHTML = '<option value="">Seleccione…</option>' + citas.map((x) => `<option value="${escapar(x.id_cita_detalle)}" ${x.tiene_aviso ? 'disabled' : ''}>${escapar(x.fecha_cita)} ${escapar(x.hora_cita)} · ${escapar(x.paciente_nombre)} · ${escapar(x.medico_nombre)}${x.tiene_aviso ? ' (ya tiene aviso)' : ''}</option>`).join('');
     pacientes = (p.data && p.data.success) ? p.data.data : [];
-    document.getElementById('buscaPaciente').value = ''; dibujarPacientes('');
+    buscadorPaciente.setPacientes(pacientes); buscadorPaciente.limpiar();
     llenar(inp.id_medico, (m.data && m.data.success) ? m.data.data : [], 'id_medico', (x) => `${x.nombre} ${x.apellido}`, '(opcional)');
     llenar(inp.codigo, (co.data && co.data.success) ? co.data.data : [], 'codigo', (x) => x.nombre_consultorio, '(opcional)');
     inp.fecha_cita.value = ''; inp.hora_cita.value = ''; inp.mensaje.value = ''; mensajeAuto = ''; pedidoMsg++; inp.forma_envio.value = 'WhatsApp';

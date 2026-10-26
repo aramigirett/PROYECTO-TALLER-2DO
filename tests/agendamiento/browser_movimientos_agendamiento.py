@@ -148,10 +148,11 @@ ESCENARIOS = {
       r.sin_boton_reactivar = filas().every(function (f) { return !f.querySelector('[data-accion="reactivar"]'); });
       r.badge_estado_cita = /Reservado/.test(filas()[0].textContent);
       $('btnAgregar').click(); await esperar(900);
-      r.modal_abre_con_combos = $('modalFormulario').classList.contains('show') && $('selPaciente').options.length === 2 && $('selAgenda').options.length === 3 && $('selEstado').options.length === 2;
+      r.modal_abre_con_combos = $('modalFormulario').classList.contains('show') && !document.querySelector('select#selPaciente') && !!$('txtPaciente') && !!$('sugPaciente') && $('selAgenda').options.length === 3 && $('selEstado').options.length === 2;
       enviar(); await esperar(250);
-      r.vacio_no_envia = llamadas('POST', /\/api\/v1\/citas$/).length === 0 && invalido($('selPaciente')) && invalido($('selAgenda')) && invalido($('txtMotivo'));
-      cambio($('selPaciente'), '5'); cambio($('selAgenda'), '1'); await esperar(500);
+      r.vacio_no_envia = llamadas('POST', /\/api\/v1\/citas$/).length === 0 && invalido($('txtPaciente')) && invalido($('selAgenda')) && invalido($('txtMotivo'));
+      cambio($('txtPaciente'), '1234567'); cambio($('selAgenda'), '1'); await esperar(500);
+      r.cedula_exacta_selecciona_y_muestra_el_nombre = $('selPaciente').value === '5' && $('txtPaciente').value === 'ANA PEREZ' && $('txtPaciente').readOnly;
       r.al_elegir_agenda_trae_sus_horarios = $('selHorario').options.length === 2;
       $('selHorario').value = '11'; $('selHorario').dispatchEvent(new Event('change', {bubbles: true}));
       r.la_hora_se_limita_al_horario = $('txtHora').min === '08:00' && $('txtHora').max === '12:00' && $('txtHora').value === '08:00';
@@ -219,7 +220,7 @@ ESCENARIOS = {
       document.querySelector('input[name="modo"][value="paciente"]').click(); document.querySelector('input[name="modo"][value="paciente"]').dispatchEvent(new Event('change', {bubbles: true})); await esperar(150);
       r.modo_paciente_muestra_sus_campos = $('bloquePaciente').style.display !== 'none' && $('bloqueCita').style.display === 'none';
       enviar(); await esperar(250);
-      r.modo_paciente_exige_paciente_fecha_hora = invalido($('selPaciente')) && invalido($('txtFecha')) && invalido($('txtHora'));
+      r.modo_paciente_exige_paciente_fecha_hora = invalido($('txtPaciente')) && invalido($('txtFecha')) && invalido($('txtHora'));
 """),
     'historial': ('/referenciales/historial/historial-index', r"""
       var items = document.querySelectorAll('#listaPacientes a');

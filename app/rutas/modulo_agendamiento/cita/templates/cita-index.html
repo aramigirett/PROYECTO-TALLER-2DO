@@ -45,10 +45,13 @@
       <form id="formulario" novalidate>
         <div class="modal-body">
           <div class="mb-3">
-            <label class="form-label required" for="selPaciente">Paciente</label>
-            <input type="search" class="form-control mb-1" id="buscaPaciente" placeholder="Buscar por nombre o cédula…" autocomplete="off">
-            <select class="form-select" id="selPaciente"><option value="">Seleccione…</option></select>
-            <div class="invalid-feedback"></div>
+            <label class="form-label required" for="txtPaciente">Paciente</label>
+            <div class="position-relative">
+              <input type="text" class="form-control" id="txtPaciente" placeholder="Escriba la cédula o el nombre del paciente…" autocomplete="off">
+              <div id="sugPaciente"></div>
+            </div>
+            <input type="hidden" id="selPaciente"><div class="invalid-feedback"></div>
+            <div class="form-hint" id="hintPaciente" data-ayuda="Escriba la cédula o el nombre del paciente."></div>
           </div>
           <div class="mb-3">
             <label class="form-label required" for="selAgenda">Agenda</label>
@@ -111,6 +114,7 @@
 {% block js %}
 <script src="{{ url_for('static', filename='js/facturacion-validadores.js') }}"></script>
 <script src="{{ url_for('static', filename='js/facturacion-listado.js') }}"></script>
+<script src="{{ url_for('static', filename='js/paciente-buscador.js') }}"></script>
 <script>
 (function () {
   const PUEDE_ESTADO = {{ 'true' if puede('cita', 'estado') else 'false' }};
@@ -150,18 +154,15 @@
     }
   }
 
-  function dibujarPacientes(filtro) {
-    const f = (filtro || '').trim().toLowerCase();
-    const lista = pacientes.filter((p) => !f || `${p.nombre} ${p.apellido} ${p.cedula_entidad}`.toLowerCase().includes(f));
-    inp.id_paciente.innerHTML = '<option value="">Seleccione…</option>' + lista.map((p) => `<option value="${escapar(p.id_paciente)}">${escapar(p.nombre)} ${escapar(p.apellido)} — ${escapar(p.cedula_entidad)}</option>`).join('');
-  }
+  // Paciente: un solo campo de búsqueda (cédula o nombre) con sugerencias en vivo; el id queda en el campo oculto selPaciente (componente paciente-buscador.js).
+  const buscadorPaciente = PacienteBuscador.crear({ input: document.getElementById('txtPaciente'), oculto: inp.id_paciente,
+                                                   lista: document.getElementById('sugPaciente'), hint: document.getElementById('hintPaciente') });
 
   async function abrirModal() {
     const hoy = new Date(); hoy.setMinutes(hoy.getMinutes() - hoy.getTimezoneOffset());
     const [p, a, e] = await Promise.all([pedir('/api/v1/pacientes'), pedir('/api/v1/agenda/cabeceras?desde=' + hoy.toISOString().slice(0, 10)), pedir('/api/v1/estados-cita')]);
     pacientes = (p.data && p.data.success) ? p.data.data : [];
-    document.getElementById('buscaPaciente').value = '';
-    dibujarPacientes('');
+    buscadorPaciente.setPacientes(pacientes); buscadorPaciente.limpiar();
     const agendas = (a.data && a.data.success) ? a.data.data : [];
     inp.id_agenda.innerHTML = '<option value="">Seleccione…</option>' + agendas.map((x) => `<option value="${escapar(x.id_agenda_cabecera)}">${escapar(x.fecha_agenda)} · ${escapar(x.medico_nombre)} · ${escapar(x.nombre_consultorio)}</option>`).join('');
     estados = (e.data && e.data.success) ? e.data.data : [];
@@ -185,7 +186,6 @@
     const h = horarios.find((x) => String(x.id_agenda_detalle) === inp.id_agenda_detalle.value);
     if (h) { inp.hora_cita.min = h.hora_inicio; inp.hora_cita.max = h.hora_fin; if (!inp.hora_cita.value) inp.hora_cita.value = h.hora_inicio; }
   });
-  document.getElementById('buscaPaciente').addEventListener('input', (e) => dibujarPacientes(e.target.value));
   CAMPOS.forEach((k) => { inp[k].addEventListener('input', () => V.limpiarCampo(inp[k])); inp[k].addEventListener('change', () => V.limpiarCampo(inp[k])); });
   const btnAgregar = document.getElementById('btnAgregar');
   if (btnAgregar) btnAgregar.addEventListener('click', abrirModal);

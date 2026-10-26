@@ -150,11 +150,13 @@ PRUEBA = r"""
         cambio(document.getElementById('txtCorreo'), 'zz@test.invalid');
       } else {
         var sm = document.getElementById('selMedico');
-        r.combos_cargados = document.getElementById('selDia').options.length > 1 && sm.options.length > 1;
+        r.combos_cargados = !document.getElementById('selDia') && sm.options.length > 1 && document.getElementById('selTurno').options.length > 1;
+        r.dia_solo_lectura = document.getElementById('txtDiaCalculado').readOnly && document.getElementById('txtDiaCalculado').value === '—';
         r.vacio_marca_obligatorios = sm.classList.contains('is-invalid') && document.getElementById('txtFecha').classList.contains('is-invalid');
-        cambio(sm, sm.options[1].value); cambio(document.getElementById('selDia'), document.getElementById('selDia').options[1].value);
+        cambio(sm, sm.options[1].value);
         cambio(document.getElementById('selTurno'), document.getElementById('selTurno').options[1].value);
         cambio(document.getElementById('txtFecha'), '2030-01-02');
+        r.dia_se_calcula_desde_la_fecha = document.getElementById('txtDiaCalculado').value === 'Miércoles';
         cambio(document.getElementById('txtInicio'), '12:00'); cambio(document.getElementById('txtFin'), '08:00'); cambio(document.getElementById('txtCupos'), '5');
         enviar(); await esperar(300);
         r.fin_antes_del_inicio_no_envia = envios() === 0 && /posterior/.test(fb(document.getElementById('txtFin')));

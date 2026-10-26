@@ -66,7 +66,8 @@
             <label class="form-label" id="lblPassword" for="txtPassword">Contraseña</label>
             <input type="password" class="form-control" id="txtPassword" autocomplete="new-password">
             <div class="invalid-feedback"></div>
-            <div class="form-hint" id="hintPassword">Mínimo 8 caracteres, una mayúscula, un número y un símbolo.</div>
+            <ul class="list-unstyled small mt-2 mb-0" id="reqPassword"></ul>
+            <div class="form-hint" id="hintPassword" style="display: none;">Déjela vacía para conservar la actual.</div>
           </div>
         </div>
         <div class="modal-footer">
@@ -82,6 +83,7 @@
 {% block js %}
 <script src="{{ url_for('static', filename='js/facturacion-validadores.js') }}"></script>
 <script src="{{ url_for('static', filename='js/facturacion-listado.js') }}"></script>
+<script src="{{ url_for('static', filename='js/password-requisitos.js') }}"></script>
 <script>
 (function () {
   const API = '/api/v1/usuarios';
@@ -104,15 +106,10 @@
   const { escapar, pedir } = L;
   let usuarios = [];
 
-  // Política de contraseñas (espejo de password_policy.py)
-  const errorPassword = (p) => {
-    const falta = [];
-    if (p.length < 8) falta.push('al menos 8 caracteres');
-    if (!/[A-ZÁÉÍÓÚÑ]/.test(p)) falta.push('una letra mayúscula');
-    if (!/\d/.test(p)) falta.push('un número');
-    if (!/[^\w\s]|_/.test(p)) falta.push('un símbolo');
-    return falta.length ? 'La contraseña debe tener: ' + falta.join('; ') + '.' : '';
-  };
+  // Requisitos de la contraseña en vivo (✗ rojo -> ✓ verde; espejo de password_policy.py). Guardar queda deshabilitado hasta cumplirlos todos;
+  // al editar, dejarla vacía conserva la actual.
+  const req = PasswordRequisitos.crear({ input: txtPassword, lista: document.getElementById('reqPassword'), boton: btnGuardar, opcionalVacio: () => !!inpId.value });
+  const errorPassword = (p) => (req.cumple() ? '' : 'La contraseña debe tener: ' + req.faltantes().map((t) => t.toLowerCase()).join('; ') + '.');
   const tipo = () => document.querySelector('input[name="tipo"]:checked').value;
 
   function badge(u) {
@@ -174,8 +171,8 @@
     await Promise.all([cargarPersonas(u ? (u.id_funcionario || u.id_medico) : '', u ? u.id_usuario : null), cargarRoles(u ? u.id_rol : '')]);
     txtPassword.value = '';
     document.getElementById('lblPassword').classList.toggle('required', !u);
-    document.getElementById('hintPassword').textContent = u ? 'Déjela vacía para conservar la actual. Si la cambia: mínimo 8 caracteres, una mayúscula, un número y un símbolo.'
-                                                           : 'Mínimo 8 caracteres, una mayúscula, un número y un símbolo.';
+    document.getElementById('hintPassword').style.display = u ? '' : 'none';
+    req.actualizar();
     [selPersona, selRol, txtPassword].forEach(V.limpiarCampo);
     modal.show();
   }
@@ -216,7 +213,7 @@
     } catch (e) {
       V.marcarCampo(selPersona, 'Ocurrió un error de conexión. Intente nuevamente.');
     } finally {
-      btnGuardar.disabled = false;
+      req.actualizar();
     }
   });
 
