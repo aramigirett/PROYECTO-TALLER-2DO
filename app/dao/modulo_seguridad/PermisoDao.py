@@ -79,3 +79,37 @@ class PermisoDao:
         finally:
             cur.close()
             con.close()
+
+    def reemplazarPermisos(self, id_rol, deseados, alcance):
+        """
+        Guarda la matriz COMPLETA de un rol en una sola transacción (el rol queda bloqueado FOR UPDATE): da de alta los permisos nuevos y de baja los
+        desmarcados. `alcance` = los (ventana, accion) que la matriz puede tocar (ventanas activas y delegables); lo que el rol tenga fuera de ese alcance
+        no se toca. Devuelve (altas, bajas) como listas ordenadas de (ventana, accion); None si el rol no existe; lanza la excepción ante un error de base.
+        """
+        con = Conexion().getConexion()
+        cur = con.cursor()
+        try:
+            cur.execute("SELECT 1 FROM roles WHERE id_rol = %s FOR UPDATE", (id_rol,))
+            if cur.fetchone() is None:
+                con.rollback()
+                return None
+            cur.execute("""SELECT m.clave, p.accion FROM permisos p JOIN menu m ON m.id_menu = p.id_menu
+                           WHERE p.id_rol = %s AND m.activo = true""", (id_rol,))
+            actuales = {(r[0], r[1]) for r in cur.fetchall()}
+            altas = sorted((set(deseados) & set(alcance)) - actuales)
+            bajas = sorted((actuales & set(alcance)) - set(deseados))
+            for ventana, accion in altas:
+                cur.execute("""INSERT INTO permisos (id_rol, id_menu, accion)
+                               SELECT %s, m.id_menu, %s FROM menu m WHERE m.clave = %s AND m.activo = true
+                               ON CONFLICT (id_rol, id_menu, accion) DO NOTHING""", (id_rol, accion, ventana))
+            for ventana, accion in bajas:
+                cur.execute("""DELETE FROM permisos WHERE id_rol = %s AND accion = %s
+                               AND id_menu = (SELECT id_menu FROM menu WHERE clave = %s AND activo = true)""", (id_rol, accion, ventana))
+            con.commit()
+            return altas, bajas
+        except Exception:
+            con.rollback()
+            raise
+        finally:
+            cur.close()
+            con.close()

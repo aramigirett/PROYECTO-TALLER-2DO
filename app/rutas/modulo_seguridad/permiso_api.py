@@ -134,3 +134,45 @@ def revocarPermiso():
     except Exception as e:
         app.logger.error(f"Error al revocar permiso: {str(e)}")
         return jsonify({'success': False, 'error': 'Ocurrió un error interno. Consulte con el administrador.'}), 500
+
+
+# -------------------------
+# Guardar la matriz COMPLETA de un rol (alta de los marcados nuevos y baja de los desmarcados, en una transacción)
+# -------------------------
+@permisoapi.route('/permisos/matriz/<int:id_rol>', methods=['PUT'])
+@require_admin
+def guardarMatrizRol(id_rol):
+    data = request.get_json(silent=True)
+    lista = data.get('permisos') if isinstance(data, dict) else None
+    if not isinstance(lista, list):
+        return jsonify({'success': False, 'error': 'Los datos enviados no son válidos.'}), 400
+    rol = next((r for r in RolDao().getRoles() if r['id_rol'] == id_rol), None)
+    if rol is None:
+        return jsonify({'success': False, 'error': 'El rol seleccionado no existe.'}), 400
+    if rol['nombre_rol'] == 'Administrador':
+        return jsonify({'success': False, 'error': 'El Administrador siempre tiene todos los permisos: no se edita.'}), 400
+    catalogo = menu_servicio.catalogo_permisos()
+    alcance = {(v['ventana'], a) for m in catalogo for v in m['ventanas'] for a in v['acciones']}      # ventanas activas y delegables, con sus acciones
+    deseados = set()
+    for p in lista:
+        if not isinstance(p, dict) or not isinstance(p.get('ventana'), str) or not isinstance(p.get('accion'), str):
+            return jsonify({'success': False, 'error': 'Los datos enviados no son válidos.'}), 400
+        if (p['ventana'], p['accion']) not in alcance:
+            return jsonify({'success': False, 'error': f"El permiso {p['ventana']} / {p['accion']} no existe o no se puede delegar."}), 400
+        deseados.add((p['ventana'], p['accion']))
+    try:
+        resultado = PermisoDao().reemplazarPermisos(id_rol, deseados, alcance)
+        if resultado is None:
+            return jsonify({'success': False, 'error': 'El rol seleccionado no existe.'}), 400
+        altas, bajas = resultado
+        etiquetas = {v['ventana']: v['etiqueta'] for m in catalogo for v in m['ventanas']}
+        for ventana, accion in altas:
+            _auditar_permiso(rol, etiquetas.get(ventana, ventana), accion, False, True)
+        for ventana, accion in bajas:
+            _auditar_permiso(rol, etiquetas.get(ventana, ventana), accion, True, False)
+        return jsonify({'success': True, 'data': {'otorgados': len(altas), 'revocados': len(bajas)}, 'error': None,
+                        'mensaje': (f'Permisos de {rol["nombre_rol"]} guardados: {len(altas)} otorgado(s) y {len(bajas)} revocado(s).' if altas or bajas
+                                    else f'Los permisos de {rol["nombre_rol"]} no tenían cambios.')}), 200
+    except Exception as e:
+        app.logger.error(f"Error al guardar la matriz de permisos: {str(e)}")
+        return jsonify({'success': False, 'error': 'Ocurrió un error interno. Consulte con el administrador.'}), 500
