@@ -1,8 +1,8 @@
 """
 =====================================================
 Servicio: Generación de PDF del Recibo de Dinero (cobro)
-Descripción: arma el PDF al vuelo a partir de los datos guardados en la base (no se persiste ningún archivo). Reutiliza el
-patrón y los helpers de factura_pdf_service.py y está dividido igual, para poder mejorar el diseño sin tocar la lógica:
+Descripción: arma el PDF al vuelo a partir de los datos guardados en la base (no se persiste ningún archivo).
+Usa la plantilla base única `app/Services/pdf_base.py` y está dividido en tres capas:
   1. calcular_datos_recibo(cobro)    -> CÁLCULO: dict puro con todo lo que se imprime (formas de cobro con su detalle, total,
                                         total en letras, saldo de la factura después del cobro). Sin ReportLab.
   2. dibujar_recibo(c, datos, copia) -> DIBUJO: solo layout sobre un canvas de ReportLab.
@@ -16,10 +16,35 @@ from reportlab.pdfgen import canvas
 
 from app.Services.numero_letras import monto_en_letras
 from app.Services.factura_pdf_service import _partir, _miles, _fecha, MARGEN, ANCHO, ALTO, DER
-from app.Services.telefono import formatear_telefono
+from app.Services.pdf_base import (
+    ANCHO_UTIL,
+    COLOR_FONDO_SUBTOTAL,
+    COLOR_BORDE,
+    COLOR_TEXTO,
+    normalizar_empresa,
+    dibujar_encabezado,
+    dibujar_barra_seccion,
+    dibujar_cuadro_datos,
+    dibujar_encabezado_tabla,
+    calcular_alto_fila_tabla,
+    dibujar_fila_tabla,
+    dibujar_marca_agua,
+    dibujar_firmas,
+    dibujar_pie_pagina,
+)
 
 COPIAS = (('ORIGINAL', 'CLIENTE'), ('DUPLICADO', 'ARCHIVO'))
 ETIQUETA_TIPO = {'EFECTIVO': 'Efectivo', 'TARJETA': 'Tarjeta', 'CHEQUE': 'Cheque', 'TRANSFERENCIA': 'Transferencia'}
+
+COLUMNAS_RECIBO = (
+    ('Forma de cobro', 4.20 * cm, 'L'),
+    ('Modalidad', 2.60 * cm, 'C'),
+    ('Detalle / Referencia', 8.20 * cm, 'L'),
+    ('Monto (Gs.)', 3.00 * cm, 'R'),
+)
+
+Y_MIN_FILAS = 2.0 * cm
+ALTO_PIE_RECIBO = 5.4 * cm
 
 
 # ======================================================================================================================
@@ -30,32 +55,43 @@ def _detalle_forma(d):
     if d['tipo'] == 'TARJETA' and d['tarjeta']:
         t = d['tarjeta']
         tipo = 'Crédito' if t['tipo_tarjeta'] == 'CREDITO' else 'Débito'
-        return (f"{tipo} terminada en {t['ultimos_digitos']} · Autorización {t['numero_autorizacion']} · "
-                f"{t['entidad_adherida']} ({t['marca']} / {t['emisora']})")
+        return (
+            f"{tipo} terminada en {t['ultimos_digitos']} · Autorización {t['numero_autorizacion']} · "
+            f"{t['entidad_adherida']} ({t['marca']} / {t['emisora']})"
+        )
     if d['tipo'] == 'CHEQUE' and d['cheque']:
         c = d['cheque']
-        return (f"Cheque N.º {c['numero_cheque']} · {c['emisora']} · Titular: {c['titular']} · "
-                f"Emisión {_fecha(c['fecha_emision'])} · Cobro {_fecha(c['fecha_cobro'])}")
+        return (
+            f"Cheque N.º {c['numero_cheque']} · {c['emisora']} · Titular: {c['titular']} · "
+            f"Emisión {_fecha(c['fecha_emision'])} · Cobro {_fecha(c['fecha_cobro'])}"
+        )
     if d['tipo'] == 'TRANSFERENCIA' and d['numero_referencia']:
         return f"Referencia {d['numero_referencia']}"
-    return ''
+    return 'Cobro en efectivo en caja'
 
 
 def calcular_datos_recibo(cobro):
     """A partir del dict de CobroDao.getCobroById() arma TODO lo que se imprime, ya formateado. No dibuja nada."""
-    empresa = cobro.get('empresa') or {}
+    empresa = normalizar_empresa(cobro.get('empresa'))
     return {
         'numero_recibo': cobro['numero_recibo'],
         'anulado': cobro['estado'] == 'ANULADO',
-        'empresa': {k: empresa.get(k, '') for k in ('razon_social', 'ruc', 'direccion', 'telefono', 'actividad_economica')},
+        'empresa': empresa,
         'fecha': _fecha(cobro['fecha'], con_hora=True),
         'cliente': cobro['cliente'],
         'ci_ruc': cobro['ci_ruc'],
         'cajero': cobro['cajero'],
         'concepto': f"Pago de la factura N.º {cobro['numero_factura']}",
         'observacion': cobro.get('observacion') or '',
-        'formas': [{'forma': d['forma_cobro'], 'tipo': ETIQUETA_TIPO.get(d['tipo'], d['tipo'] or ''),
-                    'detalle': _detalle_forma(d), 'monto': _miles(d['monto'])} for d in cobro['detalle']],
+        'formas': [
+            {
+                'forma': d['forma_cobro'],
+                'tipo': ETIQUETA_TIPO.get(d['tipo'], d['tipo'] or ''),
+                'detalle': _detalle_forma(d),
+                'monto': _miles(d['monto']),
+            }
+            for d in cobro['detalle']
+        ],
         'total': _miles(cobro['total']),
         'total_letras': monto_en_letras(int(cobro['total'])),
         'saldo_factura': _miles(max(int(cobro['saldo_despues']), 0)),
@@ -66,106 +102,126 @@ def calcular_datos_recibo(cobro):
 # ======================================================================================================================
 # 2. DIBUJO (layout)
 # ======================================================================================================================
-X_FORMA = MARGEN
-X_DETALLE = 5.2 * cm
-ANCHO_DETALLE = 10.0 * cm
-INTERLINEADO = 0.42 * cm
+def _cabecera(c, datos, copia, primera=True):
+    nombre_copia, destino = copia
+    leyenda = f"COMPROBANTE DE COBRO · {nombre_copia} — {destino}"
+    y = dibujar_encabezado(
+        c,
+        empresa=datos['empresa'],
+        titulo='RECIBO DE DINERO',
+        numero=datos['numero_recibo'],
+        leyenda=leyenda,
+        fecha_doc=datos['fecha'],
+    )
+    if not primera:
+        return dibujar_barra_seccion(c, y, 'DETALLE DE FORMAS DE COBRO (CONTINUACIÓN)')
+
+    filas_recibo = [
+        (('Fecha de emisión', datos['fecha']), ('Cajero', datos['cajero'])),
+        (('Recibimos de', datos['cliente']), ('CI/RUC', datos['ci_ruc'])),
+        (('En concepto de', datos['concepto']),),
+    ]
+    if datos.get('observacion'):
+        filas_recibo.append((('Observación', datos['observacion']),))
+
+    y = dibujar_cuadro_datos(c, y, filas_recibo, Proporcion_izq=0.58)
+    y -= 0.24 * cm
+    y = dibujar_barra_seccion(c, y, 'DETALLE DE FORMAS DE COBRO')
+    return y
 
 
-def _marca_anulado(c):
+def _valores_forma(f):
+    return [
+        f['forma'],
+        f.get('tipo') or '—',
+        f.get('detalle') or '—',
+        f['monto'],
+    ]
+
+
+def _dibujar_pie_recibo(c, datos, y):
+    # Caja de TOTAL COBRADO
+    alto_tot = 0.74 * cm
+    y_inf = y - alto_tot
     c.saveState()
-    c.setFillColorRGB(0.8, 0, 0)
-    c.setFillAlpha(0.22)
-    c.translate(ANCHO / 2, ALTO / 2)
-    c.rotate(35)
-    c.setFont('Helvetica-Bold', 110)
-    c.drawCentredString(0, 0, 'ANULADO')
-    c.restoreState()
-    c.saveState()
-    c.setFillColorRGB(0.8, 0, 0)
+    c.setFillColorRGB(*COLOR_FONDO_SUBTOTAL)
+    c.setStrokeColorRGB(*COLOR_BORDE)
+    c.setLineWidth(0.6)
+    c.rect(MARGEN, y_inf, ANCHO_UTIL, alto_tot, stroke=1, fill=1)
+    c.setFillColorRGB(*COLOR_TEXTO)
+    c.setFont('Helvetica-Bold', 10)
+    c.drawString(MARGEN + 0.3 * cm, y_inf + 0.24 * cm, 'TOTAL COBRADO')
     c.setFont('Helvetica-Bold', 12)
-    c.drawString(MARGEN, ALTO - MARGEN + 0.2 * cm, '*** ANULADO ***')
+    c.drawRightString(DER - 0.3 * cm, y_inf + 0.22 * cm, f"Gs. {datos['total']}")
     c.restoreState()
+
+    y_cursor = y_inf - 0.48 * cm
+    c.saveState()
+    c.setFillColorRGB(*COLOR_TEXTO)
+    c.setFont('Helvetica-Bold', 9)
+    for linea in _partir(datos['total_letras'], 'Helvetica-Bold', 9, ANCHO_UTIL):
+        c.drawString(MARGEN, y_cursor, linea)
+        y_cursor -= 0.42 * cm
+    c.restoreState()
+
+    y_cursor -= 0.12 * cm
+    y_cursor = dibujar_barra_seccion(c, y_cursor, 'ESTADO DEL SALDO DE LA FACTURA')
+    texto_saldo = 'Gs. 0 (factura pagada)' if datos['factura_pagada'] else f"Gs. {datos['saldo_factura']}"
+    y_cursor = dibujar_cuadro_datos(
+        c,
+        y_cursor,
+        [
+            (('Saldo de la factura después de este cobro', texto_saldo), ('Moneda', 'Guaraníes (Gs.)')),
+        ],
+        Proporcion_izq=0.64,
+    )
+
+    y_cursor -= 1.45 * cm
+    y_cursor = dibujar_firmas(
+        c,
+        y_cursor,
+        [
+            ('Firma del cajero', datos['cajero']),
+            ('Firma del cliente', datos['cliente']),
+        ],
+    )
+    return y_cursor
 
 
 def dibujar_recibo(c, datos, copia):
-    """Dibuja UNA copia ('ORIGINAL' o 'DUPLICADO') en una página y la cierra con showPage()."""
+    """Dibuja UNA copia ('ORIGINAL' o 'DUPLICADO') y la cierra con showPage()."""
     nombre_copia, destino = copia
-    top = ALTO - MARGEN
-    c.setLineWidth(0.8)
-    c.roundRect(MARGEN, top - 3.2 * cm, 10.4 * cm, 3.2 * cm, 6)
-    c.roundRect(MARGEN + 10.7 * cm, top - 3.2 * cm, DER - MARGEN - 10.7 * cm, 3.2 * cm, 6)
-    e = datos['empresa']
-    y = top - 0.7 * cm
-    c.setFont('Helvetica-Bold', 11)
-    for linea in _partir(e['razon_social'], 'Helvetica-Bold', 11, 9.8 * cm):
-        c.drawString(MARGEN + 0.3 * cm, y, linea); y -= 0.5 * cm
-    c.setFont('Helvetica', 9)
-    for texto in (f"RUC: {e['ruc']}", e['direccion'], f"Tel.: {formatear_telefono(e['telefono'])}"):
-        for linea in _partir(texto, 'Helvetica', 9, 9.8 * cm):
-            c.drawString(MARGEN + 0.3 * cm, y, linea); y -= 0.42 * cm
-    xc = MARGEN + 10.7 * cm + (DER - MARGEN - 10.7 * cm) / 2
-    c.setFont('Helvetica', 8)
-    c.drawCentredString(xc, top - 0.5 * cm, f"{nombre_copia} — {destino}")
-    c.setFont('Helvetica-Bold', 15)
-    c.drawCentredString(xc, top - 1.6 * cm, 'RECIBO DE DINERO')
-    c.setFont('Helvetica-Bold', 12)
-    c.drawCentredString(xc, top - 2.4 * cm, datos['numero_recibo'])
+    leyenda_pie = f"RECIBO DE DINERO {datos['numero_recibo']} · {nombre_copia} — {destino}"
+    num_pagina = 1
+    total_paginas = 1
 
-    y = top - 4.2 * cm
-    c.setFont('Helvetica', 10)
-    c.drawString(MARGEN, y, f"Fecha: {datos['fecha']}")
-    c.drawRightString(DER, y, f"Cajero: {datos['cajero']}")
-    y -= 0.65 * cm
-    c.drawString(MARGEN, y, f"Recibimos de: {datos['cliente']}   (CI/RUC: {datos['ci_ruc']})")
-    y -= 0.65 * cm
-    c.drawString(MARGEN, y, f"En concepto de: {datos['concepto']}")
-    if datos['observacion']:
-        y -= 0.65 * cm
-        for linea in _partir('Observación: ' + datos['observacion'], 'Helvetica', 10, DER - MARGEN):
-            c.drawString(MARGEN, y, linea); y -= 0.5 * cm
-        y += 0.5 * cm
-    y -= 1.0 * cm
+    y = dibujar_encabezado_tabla(c, _cabecera(c, datos, copia, primera=True), COLUMNAS_RECIBO)
+    for idx, f in enumerate(datos['formas']):
+        valores = _valores_forma(f)
+        _, alto_fila = calcular_alto_fila_tabla(valores, COLUMNAS_RECIBO)
+        if y - alto_fila < Y_MIN_FILAS:
+            dibujar_pie_pagina(c, num_pagina, total_paginas, leyenda_pie)
+            if datos['anulado']:
+                dibujar_marca_agua(c, 'ANULADO')
+            c.showPage()
+            num_pagina += 1
+            total_paginas += 1
+            y = dibujar_encabezado_tabla(c, _cabecera(c, datos, copia, primera=False), COLUMNAS_RECIBO)
+        y = dibujar_fila_tabla(c, y, valores, COLUMNAS_RECIBO, indice_fila=idx)
 
-    c.setFont('Helvetica-Bold', 8.5)
-    c.drawString(X_FORMA, y, 'Forma de cobro')
-    c.drawString(X_DETALLE, y, 'Detalle')
-    c.drawRightString(DER, y, 'Monto (Gs.)')
-    c.setLineWidth(0.8)
-    c.line(MARGEN, y - 0.2 * cm, DER, y - 0.2 * cm)
-    y -= 0.8 * cm
-    c.setFont('Helvetica', 9)
-    for f in datos['formas']:
-        partes = _partir(f['detalle'], 'Helvetica', 8, ANCHO_DETALLE) if f['detalle'] else ['']
-        c.setFont('Helvetica', 9)
-        c.drawString(X_FORMA, y, f['forma'][:26])
-        c.drawRightString(DER, y, f['monto'])
-        c.setFont('Helvetica', 8)
-        for i, p in enumerate(partes):
-            c.drawString(X_DETALLE, y - i * INTERLINEADO, p)
-        y -= max(len(partes), 1) * INTERLINEADO + 0.25 * cm
+    if y - ALTO_PIE_RECIBO < 1.45 * cm:
+        dibujar_pie_pagina(c, num_pagina, total_paginas, leyenda_pie)
+        if datos['anulado']:
+            dibujar_marca_agua(c, 'ANULADO')
+        c.showPage()
+        num_pagina += 1
+        total_paginas += 1
+        y = _cabecera(c, datos, copia, primera=False) - 0.15 * cm
 
-    c.line(MARGEN, y, DER, y)
-    y -= 0.8 * cm
-    c.setFont('Helvetica-Bold', 12)
-    c.drawString(X_DETALLE, y, 'TOTAL COBRADO')
-    c.drawRightString(DER, y, f"Gs. {datos['total']}")
-    y -= 0.8 * cm
-    c.setFont('Helvetica', 9.5)
-    for linea in _partir(datos['total_letras'], 'Helvetica', 9.5, DER - MARGEN):
-        c.drawString(MARGEN, y, linea); y -= 0.45 * cm
-    y -= 0.4 * cm
-    c.setFont('Helvetica', 9.5)
-    c.drawString(MARGEN, y, 'Saldo de la factura después de este cobro: ' + ('Gs. 0 (factura pagada)' if datos['factura_pagada'] else f"Gs. {datos['saldo_factura']}"))
-
-    y -= 3.0 * cm
-    c.line(MARGEN + 1.0 * cm, y, MARGEN + 6.5 * cm, y)
-    c.line(DER - 6.5 * cm, y, DER - 1.0 * cm, y)
-    c.setFont('Helvetica', 8.5)
-    c.drawCentredString(MARGEN + 3.75 * cm, y - 0.45 * cm, 'Firma del cajero')
-    c.drawCentredString(DER - 3.75 * cm, y - 0.45 * cm, 'Firma del cliente')
+    _dibujar_pie_recibo(c, datos, y)
+    dibujar_pie_pagina(c, num_pagina, total_paginas, leyenda_pie)
     if datos['anulado']:
-        _marca_anulado(c)
+        dibujar_marca_agua(c, 'ANULADO')
     c.showPage()
 
 

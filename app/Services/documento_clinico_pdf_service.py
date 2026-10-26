@@ -1,26 +1,63 @@
 """
 =====================================================
 Servicio: PDF de los documentos clínicos (Receta, Orden de Estudios, Orden de Análisis y Justificativo Médico)
-Mismo patrón que la factura, el recibo y el arqueo:
+Usa la plantilla base única `app/Services/pdf_base.py` (mismo encabezado con logo del sistema y datos centralizados de la clínica,
+sin timbrado ni bloque de IVA).
+Mantiene las tres capas:
   1. calcular_datos_documento(tipo, doc) -> CÁLCULO: dict puro (sin dibujar) con encabezado, paciente, médico, secciones y marca.
-  2. dibujar_documento(c, datos)        -> DIBUJO: solo layout sobre un canvas de ReportLab (una o más páginas). Para mejorar el diseño se toca esto.
+  2. dibujar_documento(c, datos)        -> DIBUJO: solo layout sobre un canvas de ReportLab (una o más páginas).
   3. generarDocumentoPdf(tipo, doc)     -> arma el archivo (bytes); se genera al vuelo, no se guarda nada en el servidor.
 
 El PDF SÍ lleva el contenido clínico (es el documento que se entrega al paciente); la auditoría no. Un documento anulado se descarga igual, con la marca
-"ANULADA" / "CANCELADA" / "ANULADO" en rojo; un justificativo PENDIENTE sale con la marca "BORRADOR" y uno emitido sin marca. El N.º de registro del médico se omite si no lo tiene (no hay columna nueva).
+"ANULADA" / "CANCELADA" / "ANULADO" en rojo; un justificativo PENDIENTE sale con la marca "BORRADOR" y uno emitido sin marca. El N.º de registro del médico se omite si no lo tiene.
 =====================================================
 """
 import io
-
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import cm
-from reportlab.lib.utils import simpleSplit
 from reportlab.pdfgen import canvas
-from app.Services.telefono import formatear_telefono
 
-MARGEN = 2 * cm
-TITULOS = {'receta': 'RECETA MÉDICA', 'orden_estudio': 'ORDEN DE ESTUDIOS', 'orden_analisis': 'ORDEN DE ANÁLISIS', 'justificativo': 'JUSTIFICATIVO MÉDICO'}
-ETIQUETA_ESTADO = {'pendiente': 'Pendiente', 'enviado': 'Enviado', 'en_proceso': 'En proceso', 'completado': 'Completado', 'cancelado': 'Cancelado'}
+from app.Services.pdf_base import (
+    MARGEN,
+    ANCHO_UTIL,
+    COLOR_FONDO_CAJA,
+    COLOR_BORDE,
+    COLOR_TEXTO,
+    _partir,
+    normalizar_empresa,
+    dibujar_encabezado,
+    dibujar_barra_seccion,
+    dibujar_cuadro_datos,
+    dibujar_encabezado_tabla,
+    calcular_alto_fila_tabla,
+    dibujar_fila_tabla,
+    dibujar_marca_agua,
+    dibujar_firmas,
+    dibujar_pie_pagina,
+)
+
+TITULOS = {
+    'receta': 'RECETA MÉDICA',
+    'orden_estudio': 'ORDEN DE ESTUDIOS',
+    'orden_analisis': 'ORDEN DE ANÁLISIS',
+    'justificativo': 'JUSTIFICATIVO MÉDICO',
+}
+ETIQUETA_ESTADO = {
+    'pendiente': 'Pendiente',
+    'enviado': 'Enviado',
+    'en_proceso': 'En proceso',
+    'completado': 'Completado',
+    'cancelado': 'Cancelado',
+}
+
+COLUMNAS_RECETA = (
+    ('Medicamento', 7.00 * cm, 'L'),
+    ('Dosis', 3.80 * cm, 'L'),
+    ('Frecuencia', 3.80 * cm, 'L'),
+    ('Duración', 3.40 * cm, 'L'),
+)
+
+LIMITE_INFERIOR = 2.6 * cm
 
 
 def _fecha(texto):
@@ -44,7 +81,7 @@ def calcular_datos_documento(tipo, doc):
     Devuelve un dict: titulo, numero, fecha, empresa, paciente (nombre, cedula), medico (linea, cedula), marca ('ANULADA' | 'CANCELADA' | 'ANULADO' | 'BORRADOR' | None),
     estado (solo órdenes) y secciones: lista de (titulo, 'texto', str) o (titulo, 'tabla', {'columnas': [...], 'filas': [[...]]}).
     """
-    empresa = doc.get('empresa') or {}
+    empresa = normalizar_empresa(doc.get('empresa'))
     medico = doc.get('medico') or {}
     secciones, marca, estado = [], None, None
     if tipo == 'receta':
@@ -61,7 +98,11 @@ def calcular_datos_documento(tipo, doc):
         fecha = doc.get('fecha_receta')
     elif tipo == 'justificativo':
         dias = doc.get('dias_reposo')
-        secciones.append(('Reposo indicado', 'texto', f"Se indica reposo por {dias} día{'' if dias == 1 else 's'} a partir del {_fecha(doc.get('fecha_justificativo'))}."))
+        secciones.append((
+            'Reposo indicado',
+            'texto',
+            f"Se indica reposo por {dias} día{'' if dias == 1 else 's'} a partir del {_fecha(doc.get('fecha_justificativo'))}.",
+        ))
         secciones.append(('Recomendaciones', 'texto', doc.get('recomendaciones') or '-'))
         marca = {'pendiente': 'BORRADOR', 'anulado': 'ANULADO'}.get(doc.get('estado'))
         fecha = doc.get('fecha_justificativo')
@@ -74,9 +115,12 @@ def calcular_datos_documento(tipo, doc):
             marca = 'CANCELADA'
         fecha = doc.get('fecha_orden')
     return {
-        'titulo': TITULOS[tipo], 'numero': doc.get('numero') or '', 'fecha': _fecha(fecha), 'estado': estado, 'marca': marca,
-        'empresa': {'razon_social': empresa.get('razon_social', ''), 'ruc': empresa.get('ruc', ''), 'direccion': empresa.get('direccion', ''),
-                    'telefono': empresa.get('telefono', '')},
+        'titulo': TITULOS[tipo],
+        'numero': doc.get('numero') or '',
+        'fecha': _fecha(fecha),
+        'estado': estado,
+        'marca': marca,
+        'empresa': empresa,
         'paciente': {'nombre': doc.get('nombre_paciente') or '-', 'cedula': doc.get('cedula_paciente') or '-'},
         'medico': {'linea': _medico_linea(medico), 'cedula': medico.get('cedula')},
         'secciones': secciones,
@@ -86,122 +130,127 @@ def calcular_datos_documento(tipo, doc):
 # ---------------------------------------------------------------------------------------------------------------------
 # DIBUJO
 # ---------------------------------------------------------------------------------------------------------------------
-def _marca(c, texto):
-    ancho, alto = A4
-    c.saveState()
-    c.setFillColorRGB(0.85, 0.1, 0.1, alpha=0.18)
-    c.setFont('Helvetica-Bold', 80)
-    c.translate(ancho / 2, alto / 2)
-    c.rotate(35)
-    c.drawCentredString(0, 0, texto)
-    c.restoreState()
-
-
 def _cabecera(c, d, primera):
-    """Encabezado de cada página: la clínica y, en la primera, el título, el N.º, la fecha y los datos del paciente y del médico. Devuelve la Y siguiente."""
-    ancho, alto = A4
-    y = alto - MARGEN
-    e = d['empresa']
-    c.setFont('Helvetica-Bold', 13)
-    c.drawString(MARGEN, y, e['razon_social'] or '')
-    c.setFont('Helvetica', 8.5)
-    c.setFillColorRGB(0.35, 0.35, 0.35)
-    c.drawString(MARGEN, y - 0.45 * cm, ' · '.join(x for x in (f"RUC {e['ruc']}" if e['ruc'] else '', e['direccion'], f"Tel. {formatear_telefono(e['telefono'])}" if e['telefono'] else '') if x))
-    c.setFillColorRGB(0, 0, 0)
-    c.setStrokeColorRGB(0.6, 0.6, 0.6)
-    c.line(MARGEN, y - 0.8 * cm, ancho - MARGEN, y - 0.8 * cm)
-    y -= 1.9 * cm
-    c.setFont('Helvetica-Bold', 16)
-    c.drawString(MARGEN, y, d['titulo'])
-    c.setFont('Helvetica-Bold', 10)
-    c.drawRightString(ancho - MARGEN, y + 0.1 * cm, f"N.º {d['numero']}")
-    c.setFont('Helvetica', 9.5)
-    c.drawRightString(ancho - MARGEN, y - 0.4 * cm, f"Fecha: {d['fecha']}")
-    y -= 0.9 * cm
+    """
+    Encabezado de cada página: logo y datos de la clínica a la izquierda, recuadro con título, N.º y fecha a la derecha;
+    en la primera página incluye el recuadro con los datos del paciente, médico tratante y estado (si aplica).
+    """
+    y = dibujar_encabezado(
+        c,
+        empresa=d['empresa'],
+        titulo=d['titulo'],
+        numero=d['numero'],
+        leyenda='DOCUMENTO CLÍNICO · ORIGINAL — PACIENTE',
+        timbrado=None,
+        fecha_doc=d['fecha'],
+        estado_doc=None,
+    )
     if not primera:
         return y
-    c.setFont('Helvetica-Bold', 9.5)
-    c.drawString(MARGEN, y, 'Paciente:')
-    c.drawString(MARGEN, y - 0.55 * cm, 'Médico:')
-    c.setFont('Helvetica', 9.5)
-    c.drawString(MARGEN + 1.9 * cm, y, f"{d['paciente']['nombre']}  ·  CI {d['paciente']['cedula']}")
-    linea = d['medico']['linea'] + (f"  ·  CI {d['medico']['cedula']}" if d['medico'].get('cedula') else '')
-    c.drawString(MARGEN + 1.9 * cm, y - 0.55 * cm, linea)
+
+    linea_medico = d['medico']['linea'] + (f"  ·  CI {d['medico']['cedula']}" if d['medico'].get('cedula') else '')
+    filas_paciente = [
+        (('Paciente', d['paciente']['nombre']), ('CI / Documento', d['paciente']['cedula'])),
+        (('Médico tratante', linea_medico),),
+    ]
     if d.get('estado'):
-        c.setFont('Helvetica-Bold', 9.5)
-        c.drawString(MARGEN, y - 1.1 * cm, 'Estado:')
-        c.setFont('Helvetica', 9.5)
-        c.drawString(MARGEN + 1.9 * cm, y - 1.1 * cm, d['estado'])
-        y -= 0.55 * cm
-    c.line(MARGEN, y - 1.0 * cm, ancho - MARGEN, y - 1.0 * cm)
-    return y - 1.8 * cm
+        filas_paciente.append((('Estado', d['estado']), ('Fecha de emisión', d['fecha'])))
+
+    y = dibujar_cuadro_datos(c, y, filas_paciente, Proporcion_izq=0.64)
+    return y - 0.3 * cm
+
+
+def _dibujar_bloque_texto(c, y, lineas_bloque):
+    """Dibuja un recuadro con bordes finos y fondo suave para las líneas de texto clínico."""
+    interlineado = 0.42 * cm
+    alto = max(len(lineas_bloque), 1) * interlineado + 0.32 * cm
+    y_inf = y - alto
+    c.saveState()
+    c.setFillColorRGB(*COLOR_FONDO_CAJA)
+    c.setStrokeColorRGB(*COLOR_BORDE)
+    c.setLineWidth(0.6)
+    c.rect(MARGEN, y_inf, ANCHO_UTIL, alto, stroke=1, fill=1)
+    c.setFillColorRGB(*COLOR_TEXTO)
+    c.setFont('Helvetica', 9.5)
+    y_txt = y - 0.44 * cm
+    for idx, lin in enumerate(lineas_bloque):
+        c.drawString(MARGEN + 0.3 * cm, y_txt - idx * interlineado, lin)
+    c.restoreState()
+    return y_inf
+
+
+def _dibujar_documento_interno(c, d, total_paginas=None):
+    pagina = {'n': 1}
+    leyenda_pie = f"{d['titulo']} {d['numero']} · Paciente: {d['paciente']['nombre']}"
+
+    def cerrar_pagina_intermedia():
+        dibujar_pie_pagina(c, pagina['n'], total_paginas, leyenda_pie)
+        if d.get('marca'):
+            dibujar_marca_agua(c, d['marca'])
+        c.showPage()
+        pagina['n'] += 1
+        return _cabecera(c, d, False)
+
+    y = _cabecera(c, d, True)
+
+    for titulo, tipo, contenido in d['secciones']:
+        if y < LIMITE_INFERIOR + 1.5 * cm:
+            y = cerrar_pagina_intermedia()
+
+        y = dibujar_barra_seccion(c, y, titulo)
+
+        if tipo == 'texto':
+            todas_lineas = []
+            for parrafo in str(contenido).split('\n'):
+                todas_lineas.extend(_partir(parrafo, 'Helvetica', 9.5, ANCHO_UTIL - 0.6 * cm))
+            if not todas_lineas:
+                todas_lineas = ['-']
+
+            interlineado = 0.42 * cm
+            idx_ini = 0
+            while idx_ini < len(todas_lineas):
+                espacio_disp = y - LIMITE_INFERIOR - 0.35 * cm
+                max_lin_pag = max(int(espacio_disp // interlineado), 1)
+                lote = todas_lineas[idx_ini:idx_ini + max_lin_pag]
+                y = _dibujar_bloque_texto(c, y, lote)
+                idx_ini += len(lote)
+                if idx_ini < len(todas_lineas):
+                    y = cerrar_pagina_intermedia()
+                    y = dibujar_barra_seccion(c, y, f"{titulo} (continuación)")
+        else:
+            y = dibujar_encabezado_tabla(c, y, COLUMNAS_RECETA)
+            filas = contenido.get('filas') or []
+            if not filas:
+                y = dibujar_fila_tabla(c, y, ['—', '—', '—', '—'], COLUMNAS_RECETA, indice_fila=0)
+            for idx_f, fila in enumerate(filas):
+                _, alto_fila = calcular_alto_fila_tabla(fila, COLUMNAS_RECETA)
+                if y - alto_fila < LIMITE_INFERIOR:
+                    y = cerrar_pagina_intermedia()
+                    y = dibujar_barra_seccion(c, y, f"{titulo} (continuación)")
+                    y = dibujar_encabezado_tabla(c, y, COLUMNAS_RECETA)
+                y = dibujar_fila_tabla(c, y, fila, COLUMNAS_RECETA, indice_fila=idx_f)
+
+        y -= 0.35 * cm
+
+    # Firma y sello del médico al final del documento
+    if y - 2.3 * cm < 1.5 * cm:
+        y = cerrar_pagina_intermedia()
+
+    y_firma = y - 1.45 * cm
+    nombre_medico = d['medico']['linea'].split(' · ')[0]
+    dibujar_firmas(c, y_firma, [('Firma y sello del médico', nombre_medico)])
+    dibujar_pie_pagina(c, pagina['n'], total_paginas or pagina['n'], leyenda_pie)
+    if d.get('marca'):
+        dibujar_marca_agua(c, d['marca'])
+    return pagina['n']
 
 
 def dibujar_documento(c, d):
     """DIBUJO: el documento en una o más páginas (si el contenido es largo continúa con la clínica y el título repetidos). Firma y sello al final."""
-    ancho, _ = A4
-    limite = 3.5 * cm
-    pagina = {'n': 1}
-
-    def nueva():
-        c.showPage()
-        pagina['n'] += 1
-        if d['marca']:
-            _marca(c, d['marca'])
-        return _cabecera(c, d, False)
-
-    if d['marca']:
-        _marca(c, d['marca'])
-    y = _cabecera(c, d, True)
-    for titulo, tipo, contenido in d['secciones']:
-        if y < limite + 1.5 * cm:
-            y = nueva()
-        c.setFont('Helvetica-Bold', 11)
-        c.drawString(MARGEN, y, titulo)
-        y -= 0.65 * cm
-        if tipo == 'texto':
-            c.setFont('Helvetica', 10)
-            for parrafo in str(contenido).split('\n'):
-                for linea in simpleSplit(parrafo, 'Helvetica', 10, ancho - 2 * MARGEN) or ['']:
-                    if y < limite:
-                        y = nueva(); c.setFont('Helvetica', 10)
-                    c.drawString(MARGEN, y, linea)
-                    y -= 0.5 * cm
-        else:
-            cols = contenido['columnas']
-            x = [MARGEN, MARGEN + 7.2 * cm, MARGEN + 11.2 * cm, MARGEN + 14.4 * cm]
-            anchos = [6.9 * cm, 3.7 * cm, 3.0 * cm, ancho - 2 * MARGEN - 14.4 * cm]
-
-            def encabezado(y0):
-                c.setFont('Helvetica-Bold', 9)
-                c.setFillColorRGB(0.93, 0.93, 0.93)
-                c.rect(MARGEN, y0 - 0.2 * cm, ancho - 2 * MARGEN, 0.65 * cm, stroke=0, fill=1)
-                c.setFillColorRGB(0, 0, 0)
-                for xi, nombre in zip(x, cols):
-                    c.drawString(xi + 0.1 * cm, y0, nombre)
-                return y0 - 0.75 * cm
-            y = encabezado(y)
-            for fila in contenido['filas']:
-                partidas = [simpleSplit(str(v), 'Helvetica', 9.5, a - 0.2 * cm) or [''] for v, a in zip(fila, anchos)]
-                alto_fila = max(len(p) for p in partidas) * 0.45 * cm + 0.2 * cm
-                if y - alto_fila < limite:
-                    y = nueva(); y = encabezado(y)
-                c.setFont('Helvetica', 9.5)
-                for xi, lineas in zip(x, partidas):
-                    for k, linea in enumerate(lineas):
-                        c.drawString(xi + 0.1 * cm, y - k * 0.45 * cm, linea)
-                y -= alto_fila
-                c.setStrokeColorRGB(0.85, 0.85, 0.85)
-                c.line(MARGEN, y + 0.25 * cm, ancho - MARGEN, y + 0.25 * cm)
-        y -= 0.5 * cm
-    y -= 1.5 * cm
-    if y < 2.5 * cm:
-        y = nueva() - 1 * cm
-    c.setStrokeColorRGB(0, 0, 0)
-    c.line(ancho / 2 - 4.5 * cm, y, ancho / 2 + 4.5 * cm, y)
-    c.setFont('Helvetica', 9)
-    c.drawCentredString(ancho / 2, y - 0.5 * cm, 'Firma y sello del médico')
-    c.drawCentredString(ancho / 2, y - 0.95 * cm, d['medico']['linea'].split(' · ')[0])
+    buf_tmp = io.BytesIO()
+    c_tmp = canvas.Canvas(buf_tmp, pagesize=A4)
+    total_paginas = _dibujar_documento_interno(c_tmp, d, total_paginas=None)
+    _dibujar_documento_interno(c, d, total_paginas=total_paginas)
 
 
 def generarDocumentoPdf(tipo, doc):

@@ -1,37 +1,143 @@
 """
 =====================================================
 Servicio: Generación de PDF para el Pedido de Cliente
-Descripción: Arma el PDF al vuelo a partir de los datos guardados en la base
-(no se persiste ningún archivo). Mismo patrón que justificativo_pdf_service.py.
+Descripción: Arma el PDF al vuelo a partir de los datos guardados en la base (no se persiste ningún archivo).
+Usa la plantilla base única `app/Services/pdf_base.py` (logo del sistema, datos centralizados de la clínica,
+recuadro de datos del pedido, tabla de 7 columnas con encabezado `#0e7c86`, subtotales, monto en letras y liquidación del IVA).
 =====================================================
 """
 import io
-from datetime import datetime
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import cm
 from reportlab.pdfgen import canvas
 
-
 from app.Services.formato import formatear_gs as _gs   # 'Gs. 100.000' (helper único: app/Services/formato.py)
+from app.Services.formato import formatear_monto as _miles
+from app.Services.numero_letras import monto_en_letras
+from app.Services.factura_pdf_service import COLUMNAS_FACTURA
+from app.Services.pdf_base import (
+    _fecha,
+    normalizar_empresa,
+    codigo_item,
+    dibujar_encabezado,
+    dibujar_barra_seccion,
+    dibujar_cuadro_datos,
+    dibujar_encabezado_tabla,
+    calcular_alto_fila_tabla,
+    dibujar_fila_tabla,
+    dibujar_totales_iva,
+    dibujar_marca_agua,
+    dibujar_pie_pagina,
+)
+
+Y_MIN_FILAS = 2.0 * cm
+ALTO_PIE_PEDIDO = 4.6 * cm
 
 
-def _recortar(texto, largo):
-    texto = str(texto or '')
-    return texto if len(texto) <= largo else texto[:largo - 1] + '…'
+def calcular_datos_pedido(pedido):
+    """A partir del dict de PedidoClienteDao.getPedidoById() arma todos los datos formateados para el PDF."""
+    empresa = normalizar_empresa(pedido.get('empresa'))
+    lineas = []
+    for d in pedido.get('detalle', []):
+        sub = int(d.get('subtotal') or 0)
+        iva_tasa = int(d.get('iva') or 0)
+        lineas.append({
+            'cantidad': str(d.get('cantidad') or 0),
+            'codigo': codigo_item(d.get('id_item'), d.get('id_tratamiento'), d.get('codigo'), prefijo='INS'),
+            'descripcion': str(d.get('item') or d.get('descripcion') or ''),
+            'precio_unitario': _miles(d.get('precio_unitario') or 0),
+            'exenta': _miles(sub) if iva_tasa == 0 else '',
+            'gravada_5': _miles(sub) if iva_tasa == 5 else '',
+            'gravada_10': _miles(sub) if iva_tasa == 10 else '',
+        })
+    t = pedido.get('totales') or {}
+    total_num = int(t.get('total', pedido.get('total', 0)) or 0)
+    id_ped = pedido.get('id_pedido')
+    try:
+        numero_fmt = f"{int(id_ped):06d}"
+    except (ValueError, TypeError):
+        numero_fmt = str(id_ped or '')
+
+    return {
+        'id_pedido': id_ped,
+        'numero_pedido': numero_fmt,
+        'estado': pedido.get('estado') or 'CONFIRMADO',
+        'anulado': (pedido.get('estado') == 'ANULADO'),
+        'empresa': empresa,
+        'fecha_pedido': _fecha(pedido.get('fecha_pedido') or '', con_hora=True),
+        'cliente': pedido.get('cliente') or '-',
+        'ci_ruc': pedido.get('ci_ruc') or '-',
+        'cajero': pedido.get('cajero') or '-',
+        'observacion': pedido.get('observacion') or '',
+        'lineas': lineas,
+        'subtotales': {
+            'exenta': _miles(t.get('exentas', 0)),
+            'gravada_5': _miles(t.get('gravadas_5', 0)),
+            'gravada_10': _miles(t.get('gravadas_10', 0)),
+        },
+        'total': _miles(total_num),
+        'total_gs': _gs(total_num),
+        'total_letras': monto_en_letras(total_num),
+        'iva': {
+            'iva_5': _miles(t.get('iva_5', 0)),
+            'iva_10': _miles(t.get('iva_10', 0)),
+            'total': _miles(t.get('total_iva', 0)),
+        },
+    }
 
 
-def _wrap(texto, ancho_max):
-    lineas, actual = [], ''
-    for palabra in str(texto or '').split():
-        candidata = f'{actual} {palabra}'.strip()
-        if len(candidata) > ancho_max and actual:
-            lineas.append(actual)
-            actual = palabra
-        else:
-            actual = candidata
-    if actual:
-        lineas.append(actual)
-    return lineas or ['-']
+def _cabecera_pedido(c, datos, primera=True):
+    y = dibujar_encabezado(
+        c,
+        empresa=datos['empresa'],
+        titulo='PEDIDO DE CLIENTE',
+        numero=datos['numero_pedido'],
+        leyenda='ORDEN DE PEDIDO · ORIGINAL — CLIENTE',
+        fecha_doc=datos['fecha_pedido'],
+        estado_doc=datos['estado'],
+    )
+    if not primera:
+        return dibujar_barra_seccion(c, y, 'DETALLE DEL PEDIDO (CONTINUACIÓN)')
+
+    filas = [
+        (('Fecha de emisión', datos['fecha_pedido']), ('Estado del pedido', datos['estado'])),
+        (('Cliente', datos['cliente']), ('CI/RUC', datos['ci_ruc'])),
+        (('Atendido por (Cajero)', datos['cajero']), ('Pedido N.º', str(datos['id_pedido']))),
+    ]
+    if datos.get('observacion'):
+        filas.append((('Observación', datos['observacion']),))
+
+    y = dibujar_cuadro_datos(c, y, filas, Proporcion_izq=0.56)
+    y -= 0.25 * cm
+    return y
+
+
+def _valores_fila(linea):
+    return [
+        linea['cantidad'],
+        linea.get('codigo') or '—',
+        linea['descripcion'],
+        linea['precio_unitario'],
+        linea['exenta'] or '—',
+        linea['gravada_5'] or '—',
+        linea['gravada_10'] or '—',
+    ]
+
+
+def _calcular_total_paginas(datos):
+    buf_tmp = io.BytesIO()
+    c_tmp = canvas.Canvas(buf_tmp, pagesize=A4)
+    y = dibujar_encabezado_tabla(c_tmp, _cabecera_pedido(c_tmp, datos, primera=True), COLUMNAS_FACTURA)
+    paginas = 1
+    for linea in datos['lineas']:
+        _, alto_fila = calcular_alto_fila_tabla(_valores_fila(linea), COLUMNAS_FACTURA)
+        if y - alto_fila < Y_MIN_FILAS:
+            paginas += 1
+            y = dibujar_encabezado_tabla(c_tmp, _cabecera_pedido(c_tmp, datos, primera=False), COLUMNAS_FACTURA)
+        y -= alto_fila
+    if y - ALTO_PIE_PEDIDO < 1.45 * cm:
+        paginas += 1
+    return paginas
 
 
 def generarPedidoPdf(pedido):
@@ -39,90 +145,49 @@ def generarPedidoPdf(pedido):
     Genera el PDF de un pedido a partir del dict de PedidoClienteDao.getPedidoById(). Un pedido ANULADO se marca
     visiblemente (no se bloquea la descarga: sirve de respaldo). Retorna los bytes del PDF.
     """
+    datos = calcular_datos_pedido(pedido)
+    total_paginas = _calcular_total_paginas(datos)
+    num_pagina = 1
+    leyenda_pie = f"PEDIDO DE CLIENTE N.º {datos['numero_pedido']} · ORIGINAL — CLIENTE"
+
     buffer = io.BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
-    ancho, alto = A4
-    izq, der = 2 * cm, ancho - 2 * cm
-    x_cant, x_precio, x_iva, x_sub = 11.2 * cm, 14.2 * cm, 15.6 * cm, der
+    c.setTitle(f"Pedido de Cliente {datos['numero_pedido']}")
+    c.setAuthor(datos['empresa']['razon_social'])
 
-    def encabezado_tabla(y):
-        c.setFont("Helvetica-Bold", 9)
-        c.drawString(izq, y, "Ítem")
-        c.drawRightString(x_cant, y, "Cant.")
-        c.drawRightString(x_precio, y, "Precio")
-        c.drawRightString(x_iva, y, "IVA")
-        c.drawRightString(x_sub, y, "Subtotal")
-        c.line(izq, y - 0.2 * cm, der, y - 0.2 * cm)
-        return y - 0.8 * cm
-
-    y = alto - 2.5 * cm
-    c.setFont("Helvetica-Bold", 16)
-    c.drawCentredString(ancho / 2, y, f"PEDIDO DE CLIENTE N.º {pedido['id_pedido']}")
-    y -= 1 * cm
-
-    if pedido.get('estado') == 'ANULADO':
-        c.setFillColorRGB(0.8, 0, 0)
-        c.setFont("Helvetica-Bold", 14)
-        c.drawCentredString(ancho / 2, y, "*** ANULADO ***")
-        c.setFillColorRGB(0, 0, 0)
-        y -= 1 * cm
-
-    c.setFont("Helvetica", 10)
-    fecha = pedido.get('fecha_pedido') or ''
-    try:
-        fecha = datetime.strptime(fecha, '%Y-%m-%d %H:%M:%S').strftime('%d/%m/%Y %H:%M')
-    except ValueError:
-        pass
-    for linea in (f"Fecha: {fecha}", f"Cliente: {pedido.get('cliente', '-')}",
-                  f"CI/RUC: {pedido.get('ci_ruc', '-')}", f"Cajero: {pedido.get('cajero', '-')}",
-                  f"Estado: {pedido.get('estado', '-')}"):
-        c.drawString(izq, y, linea)
-        y -= 0.6 * cm
-    if pedido.get('observacion'):
-        for i, linea in enumerate(_wrap(pedido['observacion'], 95)):
-            c.drawString(izq, y, ('Observación: ' if i == 0 else '') + linea if i == 0 else '    ' + linea)
-            y -= 0.5 * cm
-    y -= 0.4 * cm
-    y = encabezado_tabla(y)
-
-    c.setFont("Helvetica", 9)
-    for d in pedido.get('detalle', []):
-        if y < 6 * cm:
+    y = dibujar_encabezado_tabla(c, _cabecera_pedido(c, datos, primera=True), COLUMNAS_FACTURA)
+    for idx, linea in enumerate(datos['lineas']):
+        valores = _valores_fila(linea)
+        _, alto_fila = calcular_alto_fila_tabla(valores, COLUMNAS_FACTURA)
+        if y - alto_fila < Y_MIN_FILAS:
+            dibujar_pie_pagina(c, num_pagina, total_paginas, leyenda_pie)
+            if datos['anulado']:
+                dibujar_marca_agua(c, 'ANULADO')
             c.showPage()
-            y = encabezado_tabla(alto - 2.5 * cm)
-            c.setFont("Helvetica", 9)
-        c.drawString(izq, y, _recortar(d['item'], 48))
-        c.drawRightString(x_cant, y, str(d['cantidad']))
-        c.drawRightString(x_precio, y, _gs(d['precio_unitario']))
-        c.drawRightString(x_iva, y, 'Exenta' if d['iva'] == 0 else f"{d['iva']}%")
-        c.drawRightString(x_sub, y, _gs(d['subtotal']))
-        y -= 0.55 * cm
+            num_pagina += 1
+            y = dibujar_encabezado_tabla(c, _cabecera_pedido(c, datos, primera=False), COLUMNAS_FACTURA)
+        y = dibujar_fila_tabla(c, y, valores, COLUMNAS_FACTURA, indice_fila=idx)
 
-    if y < 6 * cm:
+    if y - ALTO_PIE_PEDIDO < 1.45 * cm:
+        dibujar_pie_pagina(c, num_pagina, total_paginas, leyenda_pie)
+        if datos['anulado']:
+            dibujar_marca_agua(c, 'ANULADO')
         c.showPage()
-        y = alto - 2.5 * cm
-    t = pedido.get('totales') or {}
-    y -= 0.2 * cm
-    c.line(izq, y, der, y)
-    y -= 0.7 * cm
-    c.setFont("Helvetica", 10)
-    for etiqueta, valor in (("Exentas", t.get('exentas', 0)), ("Gravadas 5%", t.get('gravadas_5', 0)),
-                            ("Gravadas 10%", t.get('gravadas_10', 0))):
-        c.drawString(11 * cm, y, etiqueta)
-        c.drawRightString(der, y, _gs(valor))
-        y -= 0.55 * cm
-    c.setFont("Helvetica-Bold", 11)
-    c.drawString(11 * cm, y, "TOTAL")
-    c.drawRightString(der, y, _gs(t.get('total', pedido.get('total', 0))))
-    y -= 0.9 * cm
-    c.setFont("Helvetica", 9)
-    c.drawString(11 * cm, y, "IVA liquidado (precios con IVA incluido)")
-    y -= 0.5 * cm
-    for etiqueta, valor in (("IVA 5%", t.get('iva_5', 0)), ("IVA 10%", t.get('iva_10', 0)),
-                            ("Total IVA", t.get('total_iva', 0))):
-        c.drawString(11 * cm, y, etiqueta)
-        c.drawRightString(der, y, _gs(valor))
-        y -= 0.45 * cm
+        num_pagina += 1
+        y = dibujar_encabezado_tabla(c, _cabecera_pedido(c, datos, primera=False), COLUMNAS_FACTURA)
+
+    dibujar_totales_iva(
+        c,
+        y - 0.15 * cm,
+        subtotales=datos['subtotales'],
+        total=datos['total'],
+        total_letras=datos['total_letras'],
+        iva=datos['iva'],
+        etiqueta_total='TOTAL DEL PEDIDO',
+    )
+    dibujar_pie_pagina(c, num_pagina, total_paginas, leyenda_pie)
+    if datos['anulado']:
+        dibujar_marca_agua(c, 'ANULADO')
 
     c.showPage()
     c.save()
