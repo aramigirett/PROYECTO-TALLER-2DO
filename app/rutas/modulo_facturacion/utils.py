@@ -8,6 +8,7 @@ import re
 from flask import jsonify, request, session
 from app.dao.modulo_facturacion.AuditoriaCambiosDao import AuditoriaCambiosDao
 from app.Services.auditoria_detalle import DetalleAuditoria, estado_de_accion, modulo_de, parsear_detalle
+from app.Services.telefono import validar_telefono as _validar_telefono
 
 MAX_DESCRIPCION = 60
 MAX_DIRECCION = 150
@@ -15,9 +16,6 @@ MAX_CORREO = 100
 MAX_UBICACION = 100
 MAX_NOMBRE = 80
 MAX_OBSERVACION = 200
-TELEFONO_MIN_LARGO = 6
-TELEFONO_MAX_LARGO = 20
-TELEFONO_MIN_DIGITOS = 6
 MAX_PRECIO = 999_999_999_999   # NUMERIC(12,0)
 MAX_CANTIDAD = 2_147_483_647   # INTEGER
 IVA_VALIDOS = (0, 5, 10)
@@ -31,7 +29,6 @@ _RE_CONTROL = re.compile(r'[\x00-\x1f\x7f]')
 _RE_CODIGO = re.compile(r'^[A-Z0-9][A-Z0-9 ._/\-]*$')
 _RE_ULTIMOS_DIGITOS = re.compile(r'^\d{4}$')
 _RE_NUMERO_CUENTA = re.compile(r'^\d[\d\-]{4,29}$')
-_RE_TELEFONO = re.compile(r'^\+?[0-9][0-9 \-]*$')
 _RE_CORREO = re.compile(r'^[a-z0-9._%+\-]+@[a-z0-9\-]+(\.[a-z0-9\-]+)*\.[a-z]{2,}$')
 
 
@@ -95,20 +92,10 @@ def validar_texto(valor, nombre, max_len, mayusculas=False):
 
 def validar_telefono(valor):
     """
-    Obligatorio; solo dígitos, espacios, guiones y un + inicial opcional; entre 6 y 20
-    caracteres en total y al menos 6 dígitos reales (sin contar +, espacios ni guiones).
-    Devuelve (telefono, error).
+    Obligatorio. Formato nacional (ver app/Services/telefono.py): celular 09XX XXX XXX o línea baja con código de área (021 XXX XXXX),
+    escrito con o sin espacios. Se guarda solo con dígitos y el 0 inicial. Devuelve (telefono, error).
     """
-    telefono = _como_texto(valor)
-    if not telefono:
-        return None, 'El campo teléfono es obligatorio y no puede estar vacío.'
-    if not _RE_TELEFONO.match(telefono):
-        return None, 'El teléfono solo puede contener dígitos, espacios, guiones y un + inicial.'
-    if not (TELEFONO_MIN_LARGO <= len(telefono) <= TELEFONO_MAX_LARGO):
-        return None, f'El teléfono debe tener entre {TELEFONO_MIN_LARGO} y {TELEFONO_MAX_LARGO} caracteres.'
-    if sum(c.isdigit() for c in telefono) < TELEFONO_MIN_DIGITOS:
-        return None, f'El teléfono debe tener al menos {TELEFONO_MIN_DIGITOS} dígitos.'
-    return telefono, None
+    return _validar_telefono(valor, True)
 
 
 def validar_correo(valor):
@@ -325,9 +312,7 @@ def validar_nombre(valor, etiqueta, obligatorio=True, max_len=MAX_NOMBRE):
 
 def validar_telefono_opcional(valor):
     """Opcional: vacío => (None, None); si se carga, aplica validar_telefono."""
-    if not _como_texto(valor):
-        return None, None
-    return validar_telefono(valor)
+    return _validar_telefono(valor, False)
 
 
 def validar_correo_opcional(valor):

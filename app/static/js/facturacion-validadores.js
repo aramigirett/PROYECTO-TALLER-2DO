@@ -8,7 +8,6 @@
   'use strict';
 
   var MAX_DESCRIPCION = 60, MAX_DIRECCION = 150, MAX_CORREO = 100, MAX_UBICACION = 100, MAX_NOMBRE = 80, MAX_OBSERVACION = 200;
-  var TEL_MIN_LARGO = 6, TEL_MAX_LARGO = 20, TEL_MIN_DIGITOS = 6;
   var MAX_PRECIO = 999999999999, MAX_CANTIDAD = 2147483647;
 
   var RE_DESCRIPCION = /^[A-ZÁÉÍÓÚÜÑ0-9][A-ZÁÉÍÓÚÜÑ0-9 .\-\/]*$/;
@@ -17,7 +16,10 @@
   var RE_CEDULA = /^\d{5,10}$/;
   var RE_RUC = /^(\d{5,10})-(\d)$/;
   var RE_CONTROL = /[\x00-\x1f\x7f]/;
-  var RE_TELEFONO = /^\+?[0-9][0-9 \-]*$/;
+  var RE_CELULAR = /^09\d{8}$/;
+  var RE_LINEA_BAJA = /^0[2-8]\d{7,8}$/;
+  var RE_TEL_ESCRITURA = /^[0-9 \-]+$/;
+  var MSJ_TEL_INVALIDO = 'Ingrese un celular (09XX XXX XXX) o una línea baja con código de área (021 XXX XXXX).';
   var RE_CORREO = /^[a-z0-9._%+\-]+@[a-z0-9\-]+(\.[a-z0-9\-]+)*\.[a-z]{2,}$/;
 
   function limpiar(v) {
@@ -62,15 +64,34 @@
   function direccion(v) { return texto(v, 'dirección', MAX_DIRECCION); }
   function ubicacion(v) { return texto(v, 'ubicación', MAX_UBICACION); }
 
+  /* Teléfono nacional. Espejo de app/Services/telefono.py: se guarda solo con dígitos y el 0 inicial; celular 09XX XXX XXX o línea baja
+     con código de área (021 XXX XXXX), escrito con o sin espacios. */
+  function normalizarTelefono(v) {
+    if (typeof v !== 'string') return null;
+    var t = v.replace(/^\s+|\s+$/g, '');
+    if (!t || !RE_TEL_ESCRITURA.test(t)) return null;
+    t = t.replace(/[ \-]/g, '');
+    return (RE_CELULAR.test(t) || RE_LINEA_BAJA.test(t)) ? t : null;
+  }
+
   function telefono(v) {
-    var t = limpiar(v);
-    if (!t) return 'El campo teléfono es obligatorio y no puede estar vacío.';
-    if (!RE_TELEFONO.test(t)) return 'El teléfono solo puede contener dígitos, espacios, guiones y un + inicial.';
-    if (t.length < TEL_MIN_LARGO || t.length > TEL_MAX_LARGO)
-      return 'El teléfono debe tener entre ' + TEL_MIN_LARGO + ' y ' + TEL_MAX_LARGO + ' caracteres.';
-    if ((t.match(/[0-9]/g) || []).length < TEL_MIN_DIGITOS)
-      return 'El teléfono debe tener al menos ' + TEL_MIN_DIGITOS + ' dígitos.';
-    return '';
+    if (typeof v !== 'string' || !v.replace(/^\s+|\s+$/g, '')) return 'El campo teléfono es obligatorio y no puede estar vacío.';
+    return normalizarTelefono(v) ? '' : MSJ_TEL_INVALIDO;
+  }
+
+  /* Para mostrar: celular '0984 818 035', línea baja '021 339 8423'. Un valor que no cumple el formato se devuelve tal cual. */
+  function formatearTelefono(v) {
+    if (v === null || v === undefined) return '';
+    var t = String(v).replace(/^\s+|\s+$/g, '');
+    if (RE_CELULAR.test(t)) return t.substring(0, 4) + ' ' + t.substring(4, 7) + ' ' + t.substring(7);
+    if (RE_LINEA_BAJA.test(t)) { var r = t.substring(3); return t.substring(0, 3) + ' ' + r.substring(0, 3) + ' ' + r.substring(3); }
+    return t;
+  }
+
+  /* Número para WhatsApp: celular 0984818035 -> 595984818035; una línea baja no sirve (null). */
+  function aWhatsapp(v) {
+    var t = normalizarTelefono(v);
+    return t && RE_CELULAR.test(t) ? '595' + t.substring(1) : null;
   }
 
   function correo(v) {
@@ -211,7 +232,6 @@
   /* ---- Agendamiento. Espejo de app/rutas/modulo_agendamiento/utils.py ---- */
   var DIAS_VALIDOS = ['LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES', 'SABADO', 'DOMINGO'];
   var MAX_CUPOS = 1000;
-  var RE_TELEFONO_PY = /^595\d{8,9}$/;
 
   function sinTildes(t) {
     return t.replace(/[ÁÀ]/g, 'A').replace(/[ÉÈ]/g, 'E').replace(/[ÍÌ]/g, 'I').replace(/[ÓÒ]/g, 'O').replace(/[ÚÙÜ]/g, 'U');
@@ -223,23 +243,6 @@
     if (!t) return 'El campo día es obligatorio y no puede estar vacío.';
     for (var i = 0; i < DIAS_VALIDOS.length; i++) { if (DIAS_VALIDOS[i] === t) return ''; }
     return 'El día debe ser uno de los días de la semana: Lunes, Martes, Miércoles, Jueves, Viernes, Sábado o Domingo.';
-  }
-
-  /* Teléfono paraguayo del consultorio: 0981234567 -> 595981234567. Espejo de normalizar_telefono_py / validar_telefono_py. */
-  function normalizarTelefonoPy(v) {
-    if (typeof v !== 'string') return null;
-    var t = v.replace(/^\s+|\s+$/g, '').replace(/ /g, '').replace(/-/g, '');
-    if (!t) return null;
-    if (t.charAt(0) === '+') t = t.substring(1);
-    if (t.charAt(0) === '0') return '595' + t.substring(1);
-    return t.indexOf('595') === 0 ? t : '595' + t;
-  }
-
-  function telefonoPy(v) {
-    if (!limpiar(v)) return 'El campo teléfono es obligatorio y no puede estar vacío.';
-    var t = normalizarTelefonoPy(v);
-    if (!t || !RE_TELEFONO_PY.test(t)) return 'El número de teléfono no es válido. Debe ser paraguayo (ej.: 0981234567).';
-    return '';
   }
 
   /* Hora HH:MM o HH:MM:SS. Espejo de validar_hora. */
@@ -296,12 +299,20 @@
   }
 
   global.FacturacionValidadores = {
-    descripcion: descripcion, presentacion: presentacion, texto: texto, direccion: direccion, ubicacion: ubicacion, telefono: telefono, correo: correo,
+    descripcion: descripcion, presentacion: presentacion, texto: texto, direccion: direccion, ubicacion: ubicacion, telefono: telefono, normalizarTelefono: normalizarTelefono, formatearTelefono: formatearTelefono, aWhatsapp: aWhatsapp, correo: correo,
     ciRuc: ciRuc, calcularDvRuc: calcularDvRuc, nombre: nombre,
     telefonoOpcional: telefonoOpcional, correoOpcional: correoOpcional,
     precio: precio, monto: monto, iva: iva, cantidad: cantidad, cantidadPositiva: cantidadPositiva,
     observacion: observacion, montoPositivo: montoPositivo, codigo: codigo, ultimosDigitos: ultimosDigitos, numeroCuenta: numeroCuenta, formatoGs: formatoGs,
-    fechaNacimiento: fechaNacimiento, dia: dia, telefonoPy: telefonoPy, hora: hora, horario: horario, cupos: cupos,
+    fechaNacimiento: fechaNacimiento, dia: dia, hora: hora, horario: horario, cupos: cupos,
     marcarCampo: marcarCampo, limpiarCampo: limpiarCampo
   };
+
+  /* Los campos de teléfono (data-telefono) se dejan formateados al salir de ellos, si el número es válido ("0984818035" -> "0984 818 035"). */
+  if (typeof document !== 'undefined' && document.addEventListener) document.addEventListener('blur', function (e) {
+    var el = e.target;
+    if (!el || !el.hasAttribute || !el.hasAttribute('data-telefono')) return;
+    var t = normalizarTelefono(el.value);
+    if (t) el.value = formatearTelefono(t);
+  }, true);
 })(window);

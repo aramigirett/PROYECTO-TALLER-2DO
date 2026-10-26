@@ -46,7 +46,7 @@ try:
             'telefono': '0981000111', 'correo': 'zz.regresion@test.invalid'}
     d = api('post', CO, 201, base, 'alta')
     k1 = d['data']['codigo']; creados.add(k1)
-    chk('teléfono normalizado a 595…', d['data']['telefono'] == '595981000111')
+    chk('teléfono guardado en formato nacional (solo dígitos con el 0)', d['data']['telefono'] == '0981000111')
     api('post', CO, 400, base, 'alta duplicada (nombre/correo)')
     api('post', CO, 400, {**base, 'nombre_consultorio': 'ZZ Otro', 'correo': 'x'}, 'alta con correo inválido')
     api('post', CO, 400, {**base, 'nombre_consultorio': 'ZZ Otro', 'correo': 'zz.otro@test.invalid', 'telefono': '123'}, 'alta con teléfono inválido')

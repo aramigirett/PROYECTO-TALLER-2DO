@@ -98,7 +98,9 @@ def sesion_con(*navegadores):
 
 
 print('== Teléfono y plantilla')
-for entrada, esperado in (('0981 123-456', '595981123456'), ('+595 981 123456', '595981123456'), ('981123456', '595981123456'), ('021 234 567', '59521234567'),
+# Solo los celulares guardados en formato nacional (09XX): se quita el 0 y se antepone 595. Línea baja o cualquier otra cosa -> None (sin WhatsApp).
+for entrada, esperado in (('0981123456', '595981123456'), ('0981 123 456', '595981123456'), ('0981 123-456', '595981123456'), ('0991717821', '595991717821'),
+                          ('021 339 8423', None), ('021 234 567', None), ('+595 981 123456', None), ('595981123456', None), ('981123456', None),
                           ('12', None), ('', None), (None, None), ('abc', None)):
     chk(f'normalizar_telefono({entrada!r}) -> {esperado}', ws.normalizar_telefono(entrada) == esperado)
 aviso_ej = {'paciente': 'ANA PEREZ', 'fecha_cita': '2030-05-04', 'hora_cita': '09:30', 'medico': 'LUIS GOMEZ', 'nombre_consultorio': 'CENTRAL'}
@@ -114,7 +116,10 @@ ok, motivo = s.enviar('0981 123456', 'Hola')
 nav = s._driver
 chk('enviar: sale por el chat del número normalizado con el texto codificado', ok and motivo is None and any('send?phone=595981123456&text=Hola' in u for u in nav.urls) and nav.enviados == 1)
 ok, motivo = s.enviar('xx', 'Hola')
-chk('enviar: teléfono inválido -> motivo claro, no abre el chat', not ok and 'teléfono válido' in motivo and nav.enviados == 1)
+chk('enviar: teléfono inválido -> motivo claro, no abre el chat', not ok and 'celular' in motivo and nav.enviados == 1)
+ok, motivo = s.enviar('021 339 8423', 'Hola')
+chk('enviar a una línea baja: no se manda por WhatsApp (motivo claro, el chat no se abre)', not ok and 'celular' in motivo and 'líneas bajas' in motivo and nav.enviados == 1
+    and not any('phone=' in u and '0213398423' in u for u in nav.urls))
 s.cerrar()
 s = sesion_con(NavegadorFalso(SIN_VINCULAR))
 ok, motivo = s.enviar('0981123456', 'Hola')
@@ -164,6 +169,12 @@ with app.app_context():
     r = ws.enviar_recordatorio(aviso, None, SesionFalsa((False, 'WhatsApp no está vinculado (hay que escanear el código QR).')), correo_ok)
     chk('WhatsApp falla -> sale por correo y queda el motivo', r['ok'] and r['canal'] == 'Correo' and 'no está vinculado' in r['motivo'] and correos[-1][0] == 'ana@test.invalid'
         and 'Recordatorio de su cita' in correos[-1][1])
+    sesion_real = sesion_con(NavegadorFalso(VINCULADA))
+    n = len(correos)
+    r = ws.enviar_recordatorio({**aviso, 'telefono_paciente': '021 339 8423'}, None, sesion_real, correo_ok)
+    chk('línea baja con forma WhatsApp: no se envía por WhatsApp y sale por el correo de respaldo', r['ok'] and r['canal'] == 'Correo' and 'celular' in r['motivo']
+        and len(correos) == n + 1 and (sesion_real._driver is None or sesion_real._driver.enviados == 0))
+    sesion_real.cerrar()
     r = ws.enviar_recordatorio(aviso, None, SesionFalsa((False, 'no cargó')), correo_mal)
     chk('WhatsApp y correo fallan -> ERROR con los dos motivos', not r['ok'] and r['canal'] is None and 'WhatsApp: no cargó' in r['motivo'] and 'Correo: no se pudo conectar' in r['motivo'])
     r = ws.enviar_recordatorio({**aviso, 'correo_paciente': ''}, None, SesionFalsa((False, 'no cargó')), correo_ok)

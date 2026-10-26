@@ -118,7 +118,7 @@
             </div>
             <div class="col-md-7 mb-3">
               <label class="form-label" for="txtTelefono">Teléfono</label>
-              <input type="text" class="form-control" id="txtTelefono" maxlength="20" placeholder="Ej.: 0981 123456" autocomplete="off">
+              <input type="text" class="form-control" id="txtTelefono" maxlength="20" data-telefono placeholder="Ej.: 0984 818 035 (opcional)" autocomplete="off">
               <div class="invalid-feedback"></div>
             </div>
           </div>
@@ -235,7 +235,7 @@
         return `<tr class="${f.activo ? '' : 'text-muted'}">
           <td>${nombre}</td>
           <td class="text-nowrap">${escapar(f.ci_ruc)}</td>
-          <td class="text-nowrap">${f.telefono ? escapar(f.telefono) : '—'}</td>
+          <td class="text-nowrap">${f.telefono ? escapar(V.formatearTelefono(f.telefono)) : '—'}</td>
           <td>${badgePaciente}</td>
           <td>${badgeEstado}</td>
           <td class="text-nowrap"><div class="btn-list flex-nowrap">${acciones.join('')}</div></td>
@@ -311,7 +311,7 @@
     campos.nombre.value = (p.nombre || '').toUpperCase();
     campos.apellido.value = (p.apellido || '').toUpperCase();
     campos.ci_ruc.value = p.cedula || '';
-    campos.telefono.value = p.telefono || '';
+    campos.telefono.value = V.formatearTelefono(p.telefono);
     campos.correo.value = p.correo || '';
     textoPaciente.textContent = `Paciente: ${p.nombre} ${p.apellido} (${p.cedula})`;
     avisoPrecarga.style.display = '';
@@ -330,7 +330,7 @@
     campos.nombre.value = c.nombre || '';
     campos.apellido.value = c.apellido || '';
     campos.ci_ruc.value = c.ci_ruc || '';
-    campos.telefono.value = c.telefono || '';
+    campos.telefono.value = V.formatearTelefono(c.telefono);
     campos.correo.value = c.correo || '';
     limpiarErrores();
     if (c.id_paciente) {

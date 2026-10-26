@@ -158,7 +158,7 @@ try:
     cu.execute("SELECT count(*), min(razon_social), min(ruc), min(direccion), min(telefono), min(actividad_economica) FROM empresa")
     n, rs, ruc, dire, tel, act = cu.fetchone()
     chk('empresa: una sola fila con los datos pedidos', n == 1 and rs == 'CLÍNICA ODONTOLÓGICA ODONTOCLINIC S.A.'
-        and dire == 'AVDA. MCAL. LÓPEZ 1234 - ASUNCIÓN' and tel == '021 600 600' and act == 'SERVICIOS ODONTOLÓGICOS')
+        and dire == 'AVDA. MCAL. LÓPEZ 1234 - ASUNCIÓN' and tel == '021600600' and act == 'SERVICIOS ODONTOLÓGICOS')
     chk('empresa: RUC 80099999-1 con dígito verificador válido (calcular_dv_ruc)', ruc == '80099999-' + str(calcular_dv_ruc('80099999')) and ruc.endswith('-1'))
     cu.execute("SELECT fecha_inicio, fecha_fin, establecimiento, punto_expedicion, numero_desde, numero_hasta FROM timbrado WHERE numero_timbrado='12345678'")
     f = cu.fetchone()

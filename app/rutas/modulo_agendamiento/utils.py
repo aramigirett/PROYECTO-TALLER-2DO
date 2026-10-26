@@ -15,12 +15,11 @@ from datetime import datetime
 
 from app.rutas.modulo_facturacion.utils import (  # noqa: F401  (se reexportan para las APIs de Agendamiento)
     MAX_DIRECCION, _como_texto, auditar, detalle_cambios, entero_id, error_interno, normalizar_descripcion, respuesta_error,
-    validar_correo, validar_texto,
+    validar_correo, validar_telefono, validar_texto,
 )
 
 DIAS_VALIDOS = ('LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES', 'SABADO', 'DOMINGO')
 MAX_CUPOS = 1000
-_RE_TELEFONO_PY = re.compile(r'^595\d{8,9}$')
 
 
 def _sin_tildes(texto):
@@ -38,30 +37,6 @@ def validar_dia(data, campo='descripcion'):
     if texto not in DIAS_VALIDOS:
         return None, 'El día debe ser uno de los días de la semana: Lunes, Martes, Miércoles, Jueves, Viernes, Sábado o Domingo.'
     return texto, None
-
-
-def normalizar_telefono_py(valor):
-    """0981 123 456 -> 595981123456 (acepta +595..., 0..., o el número sin prefijo). Vacío => None."""
-    if not isinstance(valor, str):
-        return None
-    t = valor.strip().replace(' ', '').replace('-', '')
-    if not t:
-        return None
-    if t.startswith('+'):
-        t = t[1:]
-    if t.startswith('0'):
-        return '595' + t[1:]
-    return t if t.startswith('595') else '595' + t
-
-
-def validar_telefono_py(valor):
-    """Teléfono paraguayo obligatorio (consultorio): se guarda como 595XXXXXXXXX (8 o 9 dígitos tras el 595). Devuelve (telefono, error)."""
-    if not _como_texto(valor):
-        return None, 'El campo teléfono es obligatorio y no puede estar vacío.'
-    t = normalizar_telefono_py(valor)
-    if not t or not _RE_TELEFONO_PY.match(t):
-        return None, 'El número de teléfono no es válido. Debe ser paraguayo (ej.: 0981234567).'
-    return t, None
 
 
 def validar_hora(valor, nombre):

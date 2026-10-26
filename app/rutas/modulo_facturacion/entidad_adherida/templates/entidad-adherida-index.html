@@ -85,7 +85,7 @@
             <div class="col-md-5 mb-3">
               <label class="form-label required" for="txtTelefono">Teléfono</label>
               <input type="text" class="form-control" id="txtTelefono" maxlength="20"
-                     placeholder="Ej.: +595 21 123456" autocomplete="off">
+                     data-telefono placeholder="Ej.: 021 123 4567 o 0984 818 035" autocomplete="off">
               <div class="invalid-feedback"></div>
             </div>
             <div class="col-md-7 mb-3">
@@ -182,7 +182,7 @@
           <td>${escapar(f.entidad_emisora)}</td>
           <td>${escapar(f.marca_tarjeta)}</td>
           <td>${escapar(f.direccion)}</td>
-          <td class="text-nowrap">${escapar(f.telefono)}</td>
+          <td class="text-nowrap">${escapar(V.formatearTelefono(f.telefono))}</td>
           <td>${escapar(f.correo)}</td>
           <td>${L.badgeEstado(f.activo)}</td>
           <td class="text-nowrap"><div class="btn-list flex-nowrap">${acciones}</div></td>
@@ -210,7 +210,7 @@
     campos.id_entidad_emisora.value = registro ? registro.id_entidad_emisora : '';
     campos.id_marca_tarjeta.value = registro ? registro.id_marca_tarjeta : '';
     campos.direccion.value = registro ? registro.direccion : '';
-    campos.telefono.value = registro ? registro.telefono : '';
+    campos.telefono.value = registro ? V.formatearTelefono(registro.telefono) : '';
     campos.correo.value = registro ? registro.correo : '';
     limpiarErrores();
     modal.show();

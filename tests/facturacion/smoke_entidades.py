@@ -27,11 +27,10 @@ def api(metodo, url, esperado, json=None, nombre=None, campo=None, contiene=None
 
 # ---------- validadores unitarios ----------
 tel = utils.validar_telefono
-chk('tel ok +595 21 123456', tel('+595 21 123456')[1] is None)
-chk('tel ok 021-123-456', tel('021-123-456')[1] is None)
-chk('tel < 6 digitos reales (+5-95 1  = 4 digitos, largo 11)', tel('+5-95 1 -- 1')[1] is not None and 'dígitos' in tel('+5-95 1 -- 1')[1])
-chk('tel 5 digitos con separadores (largo>=6)', tel('12 34 5')[1] is not None)
-chk('tel 6 digitos exactos', tel('123456')[1] is None)
+chk('tel ok línea baja 021 123 4567 (se guarda 0211234567)', tel('021 123 4567') == ('0211234567', None))
+chk('tel ok celular 0984-818-035 (se guarda 0984818035)', tel('0984-818-035') == ('0984818035', None))
+chk('tel con +595 ya no es válido (formato nacional)', tel('+595 21 123456')[1] is not None and 'celular' in tel('+595 21 123456')[1])
+chk('tel corto, con letras o sin código de área -> mensaje claro', all('línea baja' in tel(x)[1] for x in ('123456', '12 34 5', '0984 818 03', '021 12', 'abc')))
 chk('tel letras', tel('12345a678')[1] is not None)
 chk('tel + no inicial', tel('12+3456789')[1] is not None)
 chk('tel largo 21', tel('1' * 21)[1] is not None)
@@ -46,7 +45,7 @@ with c.session_transaction() as s:
     s['id_usuario'] = 1; s['id_rol'] = 1; s['nombre_rol'] = 'Administrador'
 
 EM = '/api/v1/entidades-emisoras'; AD = '/api/v1/entidades-adheridas'; MA = '/api/v1/marcas-tarjeta'
-ok_emi = {'descripcion': '  zz banco   prueba ', 'direccion': ' Av. Test 1,  Asunción ', 'telefono': '+595 21 123456', 'correo': 'Test@Banco.COM.py'}
+ok_emi = {'descripcion': '  zz banco   prueba ', 'direccion': ' Av. Test 1,  Asunción ', 'telefono': '021 123 4567', 'correo': 'Test@Banco.COM.py'}
 
 # ---------- vistas ----------
 for url, txt in [('/referenciales/entidad-emisora/entidad-emisora-index', b'Entidades Emisoras'),

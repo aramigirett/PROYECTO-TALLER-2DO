@@ -71,7 +71,7 @@
             <div class="col-md-5 mb-3">
               <label class="form-label required" for="txtTelefono">Teléfono</label>
               <input type="text" class="form-control" id="txtTelefono" maxlength="20"
-                     placeholder="Ej.: +595 21 123456" autocomplete="off">
+                     data-telefono placeholder="Ej.: 021 123 4567 o 0984 818 035" autocomplete="off">
               <div class="invalid-feedback"></div>
             </div>
             <div class="col-md-7 mb-3">
@@ -146,7 +146,7 @@
         return `<tr class="${L.claseFila(f.activo)}">
           <td>${escapar(f.descripcion)}</td>
           <td>${escapar(f.direccion)}</td>
-          <td class="text-nowrap">${escapar(f.telefono)}</td>
+          <td class="text-nowrap">${escapar(V.formatearTelefono(f.telefono))}</td>
           <td>${escapar(f.correo)}</td>
           <td>${L.badgeEstado(f.activo)}</td>
           <td class="text-nowrap"><div class="btn-list flex-nowrap">${acciones}</div></td>
@@ -162,7 +162,7 @@
     inpId.value = registro ? registro.id_entidad_emisora : '';
     campos.descripcion.value = registro ? registro.descripcion : '';
     campos.direccion.value = registro ? registro.direccion : '';
-    campos.telefono.value = registro ? registro.telefono : '';
+    campos.telefono.value = registro ? V.formatearTelefono(registro.telefono) : '';
     campos.correo.value = registro ? registro.correo : '';
     limpiarErrores();
     modal.show();

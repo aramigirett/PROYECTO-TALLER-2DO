@@ -21,6 +21,7 @@ from reportlab.pdfgen import canvas
 
 from app.Services.auditoria_detalle import etiqueta_accion, filas_detalle
 from app.Services.factura_pdf_service import _partir
+from app.Services.telefono import formatear_telefono
 
 ANCHO, ALTO = landscape(A4)
 MARGEN = 1.5 * cm
@@ -124,7 +125,7 @@ def _cabecera_primera(c, d, top):
     for linea in _partir(e['razon_social'], 'Helvetica-Bold', 11, ancho_emp - 0.6 * cm):
         c.drawString(MARGEN + 0.3 * cm, y, linea); y -= 0.5 * cm
     c.setFont('Helvetica', 9)
-    for texto in (f"RUC: {e['ruc']}", e['direccion'], f"Tel.: {e['telefono']}"):
+    for texto in (f"RUC: {e['ruc']}", e['direccion'], f"Tel.: {formatear_telefono(e['telefono'])}"):
         for linea in _partir(texto, 'Helvetica', 9, ancho_emp - 0.6 * cm):
             c.drawString(MARGEN + 0.3 * cm, y, linea); y -= 0.42 * cm
     xc = MARGEN + ancho_emp + 0.3 * cm + (DER - MARGEN - ancho_emp - 0.3 * cm) / 2

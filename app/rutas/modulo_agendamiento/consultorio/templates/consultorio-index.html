@@ -70,7 +70,7 @@
           <div class="row">
             <div class="col-md-6 mb-3">
               <label class="form-label required" for="txtTelefono">Teléfono</label>
-              <input type="text" class="form-control" id="txtTelefono" maxlength="20" placeholder="Ej.: 0981 234 567" autocomplete="off">
+              <input type="text" class="form-control" id="txtTelefono" maxlength="20" data-telefono placeholder="Ej.: 0984 818 035" autocomplete="off">
               <div class="invalid-feedback"></div>
             </div>
             <div class="col-md-6 mb-3">
@@ -122,7 +122,7 @@
   const reglas = {
     nombre_consultorio: (v) => V.descripcion(v, { max: 100, ampliada: true, etiqueta: 'nombre', articulo: 'El' }),
     direccion: (v) => V.direccion(v),
-    telefono: (v) => V.telefonoPy(v),
+    telefono: (v) => V.telefono(v),
     correo: (v) => V.correo(v)
   };
 
@@ -139,7 +139,7 @@
         return `<tr class="${L.claseFila(f.activo)}">
           <td>${escapar(f.nombre_consultorio)}</td>
           <td>${escapar(f.direccion)}</td>
-          <td>${escapar(f.telefono)}</td>
+          <td class="text-nowrap">${escapar(V.formatearTelefono(f.telefono))}</td>
           <td>${escapar(f.correo)}</td>
           <td>${L.badgeEstado(f.activo)}</td>
           <td class="text-nowrap"><div class="btn-list flex-nowrap">${acciones}</div></td>
@@ -153,7 +153,7 @@
   function abrirModal(titulo, c) {
     document.getElementById('modalTitle').textContent = titulo;
     inp.id.value = c ? c.codigo : '';
-    CAMPOS.forEach((k) => { inp[k].value = c ? (c[k] || '') : ''; });
+    CAMPOS.forEach((k) => { inp[k].value = c ? (k === 'telefono' ? V.formatearTelefono(c[k]) : (c[k] || '')) : ''; });
     limpiarErrores();
     modal.show();
   }

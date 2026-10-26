@@ -18,6 +18,7 @@ from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.pdfgen import canvas
 
 from app.Services.numero_letras import monto_en_letras
+from app.Services.telefono import formatear_telefono
 
 COPIAS = (('ORIGINAL', 'CLIENTE'), ('DUPLICADO', 'ARCHIVO TRIBUTARIO'))
 
@@ -139,7 +140,7 @@ def _cabecera(c, datos, copia):
     for linea in _partir(e['razon_social'], 'Helvetica-Bold', 11, 9.8 * cm):
         c.drawString(MARGEN + 0.3 * cm, y, linea); y -= 0.5 * cm
     c.setFont('Helvetica', 9)
-    for texto in (f"RUC: {e['ruc']}", e['direccion'], f"Tel.: {e['telefono']}", e['actividad_economica']):
+    for texto in (f"RUC: {e['ruc']}", e['direccion'], f"Tel.: {formatear_telefono(e['telefono'])}", e['actividad_economica']):
         for linea in _partir(texto, 'Helvetica', 9, 9.8 * cm):
             c.drawString(MARGEN + 0.3 * cm, y, linea); y -= 0.42 * cm
 

@@ -225,7 +225,7 @@ ic = d.get('data', {}).get('codigo')
 if ic:
     audita('consultorio', ic)
     fila = q("SELECT nombre_consultorio, telefono FROM consultorio WHERE codigo=%s", (ic,))[0]
-    chk('Consultorio: nombre en MAYÚSCULAS y teléfono normalizado a 595…', fila == (base['nombre_consultorio'].upper(), '595981234567'))
+    chk('Consultorio: nombre en MAYÚSCULAS y teléfono sin espacios, con el 0 inicial', fila == (base['nombre_consultorio'].upper(), '0981234567'))
     api('post', URL, 400, {**base, 'correo': f'otro{SUF}@test.invalid'}, 'Consultorio: nombre duplicado', contiene='ese nombre')
     api('post', URL, 400, {**base, 'nombre_consultorio': f'zz otro {SUF}'}, 'Consultorio: correo duplicado', contiene='ese correo', campo='correo')
     a = ultima_auditoria('consultorio', ic, 'ALTA')

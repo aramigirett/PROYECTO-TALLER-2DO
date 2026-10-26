@@ -316,6 +316,12 @@ try:
     chk('el médico filtrado se audita con su nombre (no con el ID)', any('Médico: ' in x and 'N.º' not in x for x in det_aud))
     chk('la condición filtrada se audita', any('Condición: Contado' in x for x in det_aud))
     chk('las consultas con error de filtros NO se auditan como informe', not any('2026-10-10' in x for x in det_aud))
+    # una consulta de Informes (solo lectura) de madrugada no debe disparar la alerta FUERA_DE_HORARIO
+    cu.execute("SELECT count(*) FROM v_auditoria_anomalias WHERE tipo = 'FUERA_DE_HORARIO'"); fuera_antes = cu.fetchone()[0]
+    cu.execute("""INSERT INTO auditoria_cambios (fecha_hora, id_usuario, entidad, id_registro, accion, detalle, ip, modulo)
+                  VALUES (CURRENT_DATE - 1 + TIME '03:00', %s, 'informes', 0, 'CONSULTA', 'ZZ madrugada', '127.0.0.1', 'Módulo Informes')""", (ADMIN[0],))
+    cu.execute("SELECT count(*) FROM v_auditoria_anomalias WHERE tipo = 'FUERA_DE_HORARIO'")
+    chk('una consulta de Informes fuera de horario NO genera la alerta FUERA_DE_HORARIO', cu.fetchone()[0] == fuera_antes)
 
     # =========================================================================================================================
     # 11. ETAPA 3: EXPORTAR PDF Y EXCEL

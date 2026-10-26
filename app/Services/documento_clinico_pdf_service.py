@@ -16,6 +16,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import cm
 from reportlab.lib.utils import simpleSplit
 from reportlab.pdfgen import canvas
+from app.Services.telefono import formatear_telefono
 
 MARGEN = 2 * cm
 TITULOS = {'receta': 'RECETA MÉDICA', 'orden_estudio': 'ORDEN DE ESTUDIOS', 'orden_analisis': 'ORDEN DE ANÁLISIS', 'justificativo': 'JUSTIFICATIVO MÉDICO'}
@@ -105,7 +106,7 @@ def _cabecera(c, d, primera):
     c.drawString(MARGEN, y, e['razon_social'] or '')
     c.setFont('Helvetica', 8.5)
     c.setFillColorRGB(0.35, 0.35, 0.35)
-    c.drawString(MARGEN, y - 0.45 * cm, ' · '.join(x for x in (f"RUC {e['ruc']}" if e['ruc'] else '', e['direccion'], f"Tel. {e['telefono']}" if e['telefono'] else '') if x))
+    c.drawString(MARGEN, y - 0.45 * cm, ' · '.join(x for x in (f"RUC {e['ruc']}" if e['ruc'] else '', e['direccion'], f"Tel. {formatear_telefono(e['telefono'])}" if e['telefono'] else '') if x))
     c.setFillColorRGB(0, 0, 0)
     c.setStrokeColorRGB(0.6, 0.6, 0.6)
     c.line(MARGEN, y - 0.8 * cm, ancho - MARGEN, y - 0.8 * cm)

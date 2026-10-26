@@ -31,7 +31,7 @@ window.addEventListener('unhandledrejection', function (e) { window.__errores.pu
 // Igual que el servidor real: Flask ordena las claves alfabéticamente (la primera es 'activo', NO la clave primaria).
 function fila(id, texto, activo) {
   var o = {activo: activo, descripcion: texto, nombre_especialidad: texto, nombre_consultorio: texto, medico_nombre: texto,
-           direccion: 'CALLE 1', telefono: '595981123456', correo: 'a@b.com', codigo: id, id_medico: id, id_dia: 1, id_turno: 1,
+           direccion: 'CALLE 1', telefono: '0981123456', correo: 'a@b.com', codigo: id, id_medico: id, id_dia: 1, id_turno: 1,
            dispo_fecha: '2030-01-02', dispo_hora_inicio: '08:00:00', dispo_hora_fin: '12:00:00', dispo_cupos: 5, des_dia: 'LUNES', des_turno: 'MAÑANA',
            nombre: 'DR', apellido: 'PRUEBA', fecha_registro: '2026-10-24 10:00:00'};
   o['__PK__'] = id;
@@ -145,7 +145,7 @@ PRUEBA = r"""
         cambio(document.getElementById('txtTelefono'), '123');
         cambio(document.getElementById('txtCorreo'), 'malo');
         enviar(); await esperar(300);
-        r.telefono_y_correo_invalidos_no_envian = envios() === 0 && /paraguayo/.test(fb(document.getElementById('txtTelefono'))) && /formato/.test(fb(document.getElementById('txtCorreo')));
+        r.telefono_y_correo_invalidos_no_envian = envios() === 0 && /celular/.test(fb(document.getElementById('txtTelefono'))) && /formato/.test(fb(document.getElementById('txtCorreo')));
         cambio(document.getElementById('txtTelefono'), '0981 234 567');
         cambio(document.getElementById('txtCorreo'), 'zz@test.invalid');
       } else {
@@ -179,7 +179,7 @@ PRUEBA = r"""
       r.editar_abre_modal = modalEl.classList.contains('show');
       r.editar_titulo = /Editar/.test(document.getElementById('modalTitle').textContent);
       if (TIPO === 'simple') r.editar_precarga_la_clave = document.getElementById('txtClave').value === 'ACTIVA DOS';
-      if (TIPO === 'consultorio') r.editar_precarga = document.getElementById('txtNombre').value === 'ACTIVA DOS' && document.getElementById('txtTelefono').value === '595981123456';
+      if (TIPO === 'consultorio') r.editar_precarga = document.getElementById('txtNombre').value === 'ACTIVA DOS' && document.getElementById('txtTelefono').value === '0981 123 456';
       if (TIPO === 'disponibilidad') r.editar_precarga = document.getElementById('txtFecha').value === '2030-01-02' && document.getElementById('txtInicio').value === '08:00' && document.getElementById('txtCupos').value === '5';
       modalEl.querySelector('[data-bs-dismiss="modal"]').click(); await esperar(700);
       r.sin_errores_al_final = window.__errores.length === 0;

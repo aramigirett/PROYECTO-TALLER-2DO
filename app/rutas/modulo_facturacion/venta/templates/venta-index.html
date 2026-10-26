@@ -370,7 +370,7 @@
           <div>
             <div class="fw-bold fs-3 text-dark">${escapar(e.razon_social || '')}</div>
             <div class="text-muted small">RUC: <span class="font-monospace">${escapar(e.ruc || '')}</span></div>
-            <div class="text-muted small">${escapar(e.direccion || '')} &bull; Tel. ${escapar(e.telefono || '')}</div>
+            <div class="text-muted small">${escapar(e.direccion || '')} &bull; Tel. ${escapar(V.formatearTelefono(e.telefono))}</div>
             <div class="text-muted small">${escapar(e.actividad_economica || '')}</div>
           </div>
           <div class="text-end">

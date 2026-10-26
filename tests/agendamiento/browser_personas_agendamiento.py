@@ -27,7 +27,7 @@ window.addEventListener('unhandledrejection', function (e) { window.__errores.pu
 // Igual que el servidor real: Flask ordena las claves alfabéticamente (la primera es 'activo', NO la clave primaria).
 function fila(id, texto, activo) {
   var o = {activo: activo, descripcion: texto, nombre_especialidad: texto, nombre: texto, apellido: 'PRUEBA', cedula: '1234567', cedula_entidad: '1234567',
-           telefono: '595981123456', telefono_emergencia: '0981000333', direccion: 'CALLE 1', correo: 'a@b.com', fecha_nacimiento: '1990-05-05',
+           telefono: '0981123456', telefono_emergencia: '0981000333', direccion: 'CALLE 1', correo: 'a@b.com', fecha_nacimiento: '1990-05-05',
            num_registro: 'MP-1', id_ciudad: id, id_especialidad: id, id_cargo: id, ciudades: 'ASUNCIÓN', especialidades: 'ORTODONCIA', cargo: 'RECEPCIONISTA',
            fecha_registro: '2026-10-24 10:00:00'};
   o['__PK__'] = id;
@@ -154,7 +154,7 @@ PRUEBA = r"""
       dos.querySelector('[data-accion="editar"]').click(); await esperar(1000);
       r.editar_abre_modal = modalEl.classList.contains('show');
       r.editar_titulo = /Editar/.test($('modalTitle').textContent);
-      r.editar_precarga = $('txtNombre').value === 'ACTIVA DOS' && $('txtCedula').value === '1234567' && $('txtNacimiento').value === '1990-05-05' && $('txtTelefono').value === '595981123456';
+      r.editar_precarga = $('txtNombre').value === 'ACTIVA DOS' && $('txtCedula').value === '1234567' && $('txtNacimiento').value === '1990-05-05' && $('txtTelefono').value === '0981 123 456';
       r.editar_precarga_combos = Array.prototype.slice.call(modalEl.querySelectorAll('select')).every(function (s) { return s.value === '2'; });
       modalEl.querySelector('[data-bs-dismiss="modal"]').click(); await esperar(700);
       r.sin_errores_al_final = window.__errores.length === 0;

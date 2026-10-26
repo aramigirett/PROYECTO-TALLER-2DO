@@ -12,13 +12,14 @@ No se prueba contra WhatsApp real en los tests: el navegador y el correo se inye
 =====================================================
 """
 import os
-import re
 import threading
 import time
 import urllib.parse
 from datetime import datetime
 
 from flask import current_app as app
+
+from app.Services.telefono import a_whatsapp
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 PERFIL_POR_DEFECTO = os.path.join(RAIZ, 'whatsapp_session')   # ya está en .gitignore (whatsapp_session*); el perfil viejo (whatsapp_session_persistente) se puede borrar
@@ -77,15 +78,9 @@ def asunto_correo(aviso):
 
 
 def normalizar_telefono(telefono):
-    """Número para WhatsApp (Paraguay): 0981 123 456 -> 595981123456. Devuelve None si no parece un celular o fijo paraguayo."""
-    digitos = re.sub(r'\D', '', str(telefono or ''))
-    if not digitos:
-        return None
-    if digitos.startswith('0'):
-        digitos = '595' + digitos[1:]
-    elif not digitos.startswith('595'):
-        digitos = '595' + digitos
-    return digitos if re.fullmatch(r'595\d{8,9}', digitos) else None
+    """Número para WhatsApp, al momento del envío: celular guardado 0981123456 (o 0981 123 456) -> 595981123456 (se quita el 0 y se antepone 595).
+    Una línea baja (021...) o un número inválido devuelve None: no se envía por WhatsApp y el aviso sale por correo."""
+    return a_whatsapp(telefono)
 
 
 # ---------------------------------------------------------------------------
@@ -204,7 +199,7 @@ class WhatsAppSesion:
         """Envía `mensaje` al número. Devuelve (True, None) o (False, motivo)."""
         numero = normalizar_telefono(telefono)
         if not numero:
-            return False, 'El paciente no tiene un teléfono válido.'
+            return False, 'El paciente no tiene un celular (09XX XXX XXX): WhatsApp no se envía a líneas bajas.'
         with self._lock:
             try:
                 self._abrir()

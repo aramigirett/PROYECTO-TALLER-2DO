@@ -20,7 +20,7 @@ for (var k = 0; k < nombres.length; k++) {
   out.push('nombre\t' + nombres[k] + '\t' + V.nombre(nombres[k], 'nombre', true));
   out.push('apellido\t' + nombres[k] + '\t' + V.nombre(nombres[k], 'apellido', false));
 }
-var tels = ['', '12', '0981 123456', '+5-95-1 1'];
+var tels = ['', '12', '0981 123456', '+5-95-1 1', '021 555123', '+595981123456'];
 for (var t = 0; t < tels.length; t++) out.push('telOpc\t' + tels[t] + '\t' + V.telefonoOpcional(tels[t]));
 var cors = ['', 'A@B.com', 'malo'];
 for (var m = 0; m < cors.length; m++) out.push('corOpc\t' + cors[m] + '\t' + V.correoOpcional(cors[m]));
@@ -48,8 +48,14 @@ out.push('ubicacion\tPLANTA\t' + V.ubicacion('PLANTA') + '|' + V.ubicacion('') )
 // Agendamiento (espejo de app/rutas/modulo_agendamiento/utils.py)
 var dias = ['lunes', 'MARTES', 'Miércoles', 'sábado', 'domingo', 'LUNES ', 'viernes ', 'enero', '', '   ', 'lun', 'jueves1'];
 for (var d1 = 0; d1 < dias.length; d1++) out.push('dia\t' + dias[d1] + '\t' + V.dia(dias[d1]));
-var tpy = ['0981234567', '0981 234 567', '+595981234567', '981234567', '595981234567', '0212345678', '12345', '', '   ', 'abc', '0981-234-567', '0981234567890123'];
-for (var d2 = 0; d2 < tpy.length; d2++) out.push('telPy\t' + tpy[d2] + '\t' + V.telefonoPy(tpy[d2]));
+var tpy = ['0984818035', '0984 818 035', '0984-818-035', '  0984 818 035  ', '09848180', '098481803512', '0884818035', '595984818035', '+595984818035', '984818035',
+           '021 339 8423', '0213398423', '021 600 600', '021600600', '0361 12345', '03611234567', '0112345678', '0912345678', '', '   ', 'abc', '09a4818035', '0984 818 03(5)', '021 339 842'];
+for (var d2 = 0; d2 < tpy.length; d2++) {
+  out.push('tel	' + tpy[d2] + '	' + V.telefono(tpy[d2]));
+  out.push('telNorm	' + tpy[d2] + '	' + (V.normalizarTelefono(tpy[d2]) || ''));
+  out.push('telFmt	' + tpy[d2] + '	' + V.formatearTelefono(tpy[d2]));
+  out.push('telWa	' + tpy[d2] + '	' + (V.aWhatsapp(tpy[d2]) || ''));
+}
 var hrs = ['08:00', '8:30', '23:59', '24:00', '12:60', '08:00:30', '08:00:61', '', '  ', 'abc', '8', '08:5'];
 for (var d3 = 0; d3 < hrs.length; d3++) out.push('hora\t' + hrs[d3] + '\t' + V.hora(hrs[d3], 'hora de inicio'));
 var cps = ['1', '50', '1000', '1001', '0', '-1', '1.5', 'abc', '', ' 7 ', '01'];

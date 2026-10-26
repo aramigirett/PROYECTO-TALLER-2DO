@@ -18,7 +18,7 @@ ALTER TABLE auditoria_cambios ALTER COLUMN detalle TYPE TEXT;
 
 ALTER TABLE auditoria_cambios DROP CONSTRAINT IF EXISTS auditoria_cambios_accion_check;
 ALTER TABLE auditoria_cambios ADD CONSTRAINT auditoria_cambios_accion_check
-    CHECK (accion IN ('ALTA', 'MODIFICACION', 'BAJA', 'REACTIVACION', 'CIERRE', 'EXPORTACION'));
+    CHECK (accion IN ('ALTA', 'MODIFICACION', 'BAJA', 'REACTIVACION', 'CIERRE', 'EXPORTACION', 'CONSULTA'));   -- CONSULTA: visita a Informes (migración 03)
 
 CREATE INDEX IF NOT EXISTS ix_auditoria_cambios_usuario ON auditoria_cambios (id_usuario, fecha_hora DESC);
 CREATE INDEX IF NOT EXISTS ix_auditoria_cambios_modulo  ON auditoria_cambios (modulo, fecha_hora DESC);
@@ -67,7 +67,7 @@ END $$;
 -- Propósito : señales de uso anómalo sobre auditoria_cambios para el Administrador (sección "Alertas" de la pantalla
 --             Auditoría de Cambios). Una fila por alerta; solo mira los últimos ventana_alertas_dias días.
 -- Tipos     : BAJAS_EN_EL_DIA          un usuario con max_bajas_dia o más BAJAS (anulaciones) en un mismo día.
---             FUERA_DE_HORARIO         un usuario con operaciones (no exportaciones) fuera del horario laboral en un día
+--             FUERA_DE_HORARIO         un usuario con operaciones (no exportaciones ni consultas de Informes) fuera del horario laboral en un día
 --                                      (antes de hora_inicio, desde hora_fin o después de ultimo_dia_laboral).
 --             REACTIVACIONES_REPETIDAS un mismo registro (entidad + id) reactivado max_reactivaciones o más veces en
 --                                      dias_reactivaciones días.
@@ -102,7 +102,7 @@ fuera AS (
                || to_char(u.hora_fin, 'HH24:MI') || ', hasta el día ' || u.ultimo_dia_laboral || ' de la semana), entre las '
                || to_char(min(a.fecha_hora), 'HH24:MI') || ' y las ' || to_char(max(a.fecha_hora), 'HH24:MI') || '.' AS descripcion
     FROM auditoria_cambios a CROSS JOIN u
-    WHERE a.accion <> 'EXPORTACION'
+    WHERE a.accion NOT IN ('EXPORTACION', 'CONSULTA')
       AND a.fecha_hora >= CURRENT_DATE - u.ventana_alertas_dias
       AND (EXTRACT(ISODOW FROM a.fecha_hora) > u.ultimo_dia_laboral
            OR a.fecha_hora::time < u.hora_inicio OR a.fecha_hora::time >= u.hora_fin)

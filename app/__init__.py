@@ -7,6 +7,10 @@ load_dotenv()
 
 app = Flask(__name__)
 
+# Filtro {{ valor|telefono }}: teléfono guardado (0984818035) -> "0984 818 035" (ver app/Services/telefono.py)
+from app.Services.telefono import formatear_telefono
+app.add_template_filter(formatear_telefono, 'telefono')
+
 # SECRET_KEY firma la cookie de sesión: sin ella cualquiera podría falsificarla. No hay valor por defecto en el
 # código; solo en modo debug (FLASK_DEBUG, que run.py activa) se tolera su ausencia, con una clave efímera.
 _clave = os.environ.get('SECRET_KEY')

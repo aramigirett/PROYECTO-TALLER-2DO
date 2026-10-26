@@ -79,7 +79,7 @@
             </div>
             <div class="col-md-6 mb-3">
               <label class="form-label required" for="txtTelefono">Teléfono</label>
-              <input type="text" class="form-control" id="txtTelefono" maxlength="20" autocomplete="off">
+              <input type="text" class="form-control" id="txtTelefono" maxlength="20" data-telefono placeholder="Ej.: 0984 818 035" autocomplete="off">
               <div class="invalid-feedback"></div>
             </div>
             <div class="col-md-6 mb-3">
@@ -173,7 +173,7 @@
           <td>${escapar(f.nombre)} ${escapar(f.apellido)}</td>
           <td>${escapar(f.cedula)}</td>
           <td>${escapar(f.cargo)}</td>
-          <td>${escapar(f.telefono)}</td>
+          <td class="text-nowrap">${escapar(V.formatearTelefono(f.telefono))}</td>
           <td>${L.badgeEstado(f.activo)}</td>
           <td class="text-nowrap"><div class="btn-list flex-nowrap">${acciones}</div></td>
         </tr>`;
@@ -188,7 +188,7 @@
     inpId.value = p ? p[PK] : '';
     for (const c of CAMPOS) {
       if (c.fuente) await llenarCombo(c, p ? p[c.k] : '');
-      else inp[c.k].value = p ? (p[c.k] || '') : '';
+      else inp[c.k].value = p ? (/^telefono/.test(c.k) ? V.formatearTelefono(p[c.k]) : (p[c.k] || '')) : '';
     }
     limpiarErrores();
     modal.show();

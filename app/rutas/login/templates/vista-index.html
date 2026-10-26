@@ -13,7 +13,7 @@ Inicio — Dashboard
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
         <div>
             <h2 class="fw-bold mb-1" style="color: var(--oc-text-main, #0f172a); font-size: 1.55rem;">
-                {{ saludo }}, {{ session.get('nombre_completo') or session.get('ci_ruc', 'Doctor/a') }} 👋
+                {{ saludo }}, {{ session.get('nombre_completo') or session.get('ci_ruc', 'Doctor/a') }}
             </h2>
             <p class="text-muted mb-0" style="font-size: 0.92rem;">
                 Resumen general de la clínica
@@ -276,7 +276,7 @@ Inicio — Dashboard
                                     </h6>
                                     <small class="text-muted">
                                         {% if paciente.telefono %}
-                                            <i class="fas fa-phone-alt me-1 text-muted" style="font-size: 0.75rem;"></i>{{ paciente.telefono }}
+                                            <i class="fas fa-phone-alt me-1 text-muted" style="font-size: 0.75rem;"></i>{{ paciente.telefono|telefono }}
                                         {% elif paciente.correo %}
                                             <i class="fas fa-envelope me-1 text-muted" style="font-size: 0.75rem;"></i>{{ paciente.correo }}
                                         {% else %}

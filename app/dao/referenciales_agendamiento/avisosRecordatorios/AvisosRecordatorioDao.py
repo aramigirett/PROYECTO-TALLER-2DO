@@ -1,6 +1,7 @@
 import psycopg2.errors
 from flask import current_app as app
 from app.conexion.Conexion import Conexion
+from app.Services.telefono import es_celular
 
 # Códigos de resultado (además de un ID o True)
 NO_EXISTE = "NO_EXISTE"
@@ -40,7 +41,7 @@ def _fila(r):
 def sin_contacto(aviso):
     """El aviso sin el teléfono ni el correo del paciente (lo que ve la pantalla)."""
     return {k: v for k, v in aviso.items() if k not in ('telefono_paciente', 'correo_paciente')} | {
-        'tiene_telefono': bool(aviso.get('telefono_paciente')), 'tiene_correo': bool((aviso.get('correo_paciente') or '').strip())}
+        'tiene_telefono': bool(aviso.get('telefono_paciente')), 'tiene_celular': es_celular(aviso.get('telefono_paciente')), 'tiene_correo': bool((aviso.get('correo_paciente') or '').strip())}
 
 
 class AvisoRecordatorioDao:

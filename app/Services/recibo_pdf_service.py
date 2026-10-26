@@ -16,6 +16,7 @@ from reportlab.pdfgen import canvas
 
 from app.Services.numero_letras import monto_en_letras
 from app.Services.factura_pdf_service import _partir, _miles, _fecha, MARGEN, ANCHO, ALTO, DER
+from app.Services.telefono import formatear_telefono
 
 COPIAS = (('ORIGINAL', 'CLIENTE'), ('DUPLICADO', 'ARCHIVO'))
 ETIQUETA_TIPO = {'EFECTIVO': 'Efectivo', 'TARJETA': 'Tarjeta', 'CHEQUE': 'Cheque', 'TRANSFERENCIA': 'Transferencia'}
@@ -100,7 +101,7 @@ def dibujar_recibo(c, datos, copia):
     for linea in _partir(e['razon_social'], 'Helvetica-Bold', 11, 9.8 * cm):
         c.drawString(MARGEN + 0.3 * cm, y, linea); y -= 0.5 * cm
     c.setFont('Helvetica', 9)
-    for texto in (f"RUC: {e['ruc']}", e['direccion'], f"Tel.: {e['telefono']}"):
+    for texto in (f"RUC: {e['ruc']}", e['direccion'], f"Tel.: {formatear_telefono(e['telefono'])}"):
         for linea in _partir(texto, 'Helvetica', 9, 9.8 * cm):
             c.drawString(MARGEN + 0.3 * cm, y, linea); y -= 0.42 * cm
     xc = MARGEN + 10.7 * cm + (DER - MARGEN - 10.7 * cm) / 2
