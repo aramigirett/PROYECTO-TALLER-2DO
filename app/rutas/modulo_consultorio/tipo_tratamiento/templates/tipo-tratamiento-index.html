@@ -63,8 +63,8 @@
           </div>
           <div class="mb-3">
             <label class="form-label required" for="txt_precio">Precio (Gs.)</label>
-            <input type="text" inputmode="numeric" class="form-control" id="txt_precio" maxlength="12"
-                   placeholder="Ej.: 200000" autocomplete="off">
+            <input type="text" inputmode="numeric" class="form-control" id="txt_precio" data-monto
+                   placeholder="Ej.: 200.000" autocomplete="off">
             <div class="invalid-feedback"></div>
           </div>
           <div class="mb-3">
@@ -128,7 +128,7 @@
     limpiarErrores();
     let primero = null;
     Object.keys(campos).forEach((k) => {
-      const msg = validadores[k](campos[k].value);
+      const msg = validadores[k](V.valorCampo(campos[k]));
       if (msg) { V.marcarCampo(campos[k], msg); primero = primero || campos[k]; }
     });
     if (primero) primero.focus();
@@ -163,7 +163,7 @@
     document.getElementById('modalTitle').textContent = titulo;
     inpId.value = registro ? registro[PK] : '';
     campos[CLAVE].value = registro ? registro[CLAVE] : '';
-    campos.precio.value = registro ? registro.precio : '';
+    campos.precio.value = registro ? V.formatearMonto(registro.precio) : '';
     campos.iva.value = registro ? registro.iva : '10';
     limpiarErrores();
     modal.show();
@@ -196,7 +196,7 @@
     }
 
     const payload = {};
-    Object.keys(campos).forEach((k) => { payload[k] = campos[k].value; });
+    Object.keys(campos).forEach((k) => { payload[k] = V.valorCampo(campos[k]); });
 
     btnGuardar.disabled = true;
     try {

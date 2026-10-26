@@ -396,7 +396,7 @@
             <th class="ps-3 py-2">Descripción</th><th class="py-2 text-center" style="width: 80px;">Cant.</th><th class="py-2 text-end">Precio</th>
             <th class="py-2 text-center" style="width: 80px;">IVA</th><th class="pe-3 py-2 text-end">Subtotal</th></tr></thead>
           <tbody>${v.detalle.map((d) => `<tr><td class="ps-3 fw-semibold">${escapar(d.descripcion)}</td>
-            <td class="text-center font-monospace">${d.cantidad}</td><td class="text-end text-nowrap font-monospace">${gs(d.precio_unitario)}</td>
+            <td class="text-center font-monospace">${V.formatearMonto(d.cantidad)}</td><td class="text-end text-nowrap font-monospace">${gs(d.precio_unitario)}</td>
             <td class="text-center">${ivaTxt(d.iva)}</td><td class="pe-3 text-end text-nowrap font-monospace fw-bold">${gs(d.subtotal)}</td></tr>`).join('')}</tbody>
         </table></div>
         <div class="row g-3 justify-content-between">
@@ -589,7 +589,7 @@
     $('lblCliente').textContent = p.cliente; $('lblCiRuc').textContent = p.ci_ruc;
     $('lblPedido').textContent = '#' + p.id_pedido; $('lblObservacion').textContent = p.observacion || '—';
     $('tbodyDetalle').innerHTML = p.detalle.map((d) => `<tr><td class="ps-3 fw-semibold">${escapar(d.item)}</td>
-      <td class="text-center font-monospace">${d.cantidad}</td><td class="text-end text-nowrap font-monospace">${gs(d.precio_unitario)}</td>
+      <td class="text-center font-monospace">${V.formatearMonto(d.cantidad)}</td><td class="text-end text-nowrap font-monospace">${gs(d.precio_unitario)}</td>
       <td class="text-center text-muted small">${ivaTxt(d.iva)}</td><td class="pe-3 text-end text-nowrap font-monospace fw-bold">${gs(d.subtotal)}</td></tr>`).join('');
     $('bloquePedido').style.display = 'block'; errVenta.style.display = 'none';
     pintarResumen();

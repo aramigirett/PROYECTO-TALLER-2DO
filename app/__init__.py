@@ -11,6 +11,12 @@ app = Flask(__name__)
 from app.Services.telefono import formatear_telefono
 app.add_template_filter(formatear_telefono, 'telefono')
 
+# Filtros {{ n|monto }} -> "100.000", {{ n|gs }} -> "Gs. 100.000", {{ n|cantidad }} -> "100.000" (ver app/Services/formato.py)
+from app.Services.formato import formatear_cantidad, formatear_gs, formatear_monto
+app.add_template_filter(formatear_monto, 'monto')
+app.add_template_filter(formatear_gs, 'gs')
+app.add_template_filter(formatear_cantidad, 'cantidad')
+
 # SECRET_KEY firma la cookie de sesión: sin ella cualquiera podría falsificarla. No hay valor por defecto en el
 # código; solo en modo debug (FLASK_DEBUG, que run.py activa) se tolera su ausencia, con una clave efímera.
 _clave = os.environ.get('SECRET_KEY')

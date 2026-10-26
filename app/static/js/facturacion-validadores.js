@@ -102,9 +102,36 @@
     return '';
   }
 
-  function formatoNumero(n) {
-    return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  /* ---- Montos y cantidades: UNA sola función para mostrar y otra para limpiar (espejo de app/Services/formato.py) ----
+     Guaraníes sin decimales, punto como separador de miles: 100000 -> "100.000". Las cantidades (stock, unidades) usan lo mismo. */
+  function agruparMiles(digitos) { return String(digitos).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
+
+  /* Para MOSTRAR un valor numérico (o un texto numérico del servidor): 100000 -> "100.000"; null / '' -> ''. Un texto que ya viene agrupado
+     ("100.000") se devuelve igual, para no leerlo como el decimal 100. */
+  function formatearMonto(n) {
+    if (n === null || n === undefined || (typeof n === 'string' && !n.replace(/^\s+|\s+$/g, ''))) return '';
+    if (typeof n === 'string' && /^-?\d{1,3}(\.\d{3})+$/.test(n.replace(/^\s+|\s+$/g, ''))) return n.replace(/^\s+|\s+$/g, '');
+    var x = Number(n);
+    if (isNaN(x)) return String(n);
+    x = Math.round(x);
+    return (x < 0 ? '-' : '') + agruparMiles(Math.abs(x));
   }
+
+  /* Para ENVIAR al servidor: deja solo los dígitos ("100.000" -> "100000"), sin ceros a la izquierda ("007" -> "7", "000" -> "0"); vacío -> ''. */
+  function limpiarMonto(v) {
+    var d = String(v === null || v === undefined ? '' : v).replace(/\D/g, '');
+    if (!d) return '';
+    d = d.replace(/^0+/, '');
+    return d === '' ? '0' : d;
+  }
+
+  /* Valor de un campo para validar o enviar: los de monto / cantidad (data-monto, data-cantidad) sin puntos; los demás, tal cual. */
+  function valorCampo(el) {
+    if (!el) return '';
+    return (el.hasAttribute && (el.hasAttribute('data-monto') || el.hasAttribute('data-cantidad'))) ? limpiarMonto(el.value) : el.value;
+  }
+
+  function formatoNumero(n) { return agruparMiles(n); }
 
   function esVacio(v) { return v === null || v === undefined || String(v).trim() === ''; }
 
@@ -145,7 +172,7 @@
   }
 
   /* 15000 -> "Gs. 15.000" */
-  function formatoGs(n) { return 'Gs. ' + formatoNumero(Math.round(Number(n))); }
+  function formatoGs(n) { return 'Gs. ' + formatearMonto(n); }
 
   /* Dígito verificador del RUC paraguayo (SET): módulo 11, base máxima 11 (espejo de calcular_dv_ruc). */
   function calcularDvRuc(base, baseMax) {
@@ -299,7 +326,7 @@
   }
 
   global.FacturacionValidadores = {
-    descripcion: descripcion, presentacion: presentacion, texto: texto, direccion: direccion, ubicacion: ubicacion, telefono: telefono, normalizarTelefono: normalizarTelefono, formatearTelefono: formatearTelefono, aWhatsapp: aWhatsapp, correo: correo,
+    descripcion: descripcion, presentacion: presentacion, texto: texto, direccion: direccion, ubicacion: ubicacion, telefono: telefono, formatearMonto: formatearMonto, limpiarMonto: limpiarMonto, valorCampo: valorCampo, normalizarTelefono: normalizarTelefono, formatearTelefono: formatearTelefono, aWhatsapp: aWhatsapp, correo: correo,
     ciRuc: ciRuc, calcularDvRuc: calcularDvRuc, nombre: nombre,
     telefonoOpcional: telefonoOpcional, correoOpcional: correoOpcional,
     precio: precio, monto: monto, iva: iva, cantidad: cantidad, cantidadPositiva: cantidadPositiva,
@@ -309,6 +336,32 @@
   };
 
   /* Los campos de teléfono (data-telefono) se dejan formateados al salir de ellos, si el número es válido ("0984818035" -> "0984 818 035"). */
+  /* Campos de monto / cantidad (data-monto, data-cantidad): solo dígitos, formateados EN VIVO con puntos de miles mientras se escribe, sin que el cursor
+     salte (se conserva cuántos dígitos quedan a su izquierda). Sin letras, comas ni decimales; máximo de dígitos en data-max-digits (12 en montos,
+     10 en cantidades). No usar maxlength en estos campos: contaría los puntos. Se engancha en la fase de captura para que los demás manejadores
+     del campo ya vean el valor formateado; los dinámicos (creados después) funcionan igual. */
+  function formatearEnVivo(el) {
+    var max = parseInt(el.getAttribute('data-max-digits') || (el.hasAttribute('data-cantidad') ? '10' : '12'), 10);
+    var antes = el.value;
+    var pos = typeof el.selectionStart === 'number' ? el.selectionStart : antes.length;
+    var izquierda = (antes.slice(0, pos).match(/\d/g) || []).length;
+    var crudo = antes.replace(/\D/g, '');
+    var limpio = crudo.replace(/^0+(?=\d)/, '');
+    izquierda = Math.max(0, izquierda - (crudo.length - limpio.length));
+    if (limpio.length > max) limpio = limpio.slice(0, max);
+    izquierda = Math.min(izquierda, limpio.length);
+    var formato = agruparMiles(limpio);
+    if (formato === antes) return;
+    el.value = formato;
+    var p = 0, vistos = 0;
+    while (p < formato.length && vistos < izquierda) { if (/\d/.test(formato.charAt(p))) vistos++; p++; }
+    if (typeof el.setSelectionRange === 'function' && document.activeElement === el) { try { el.setSelectionRange(p, p); } catch (e) { /* tipo sin selección */ } }
+  }
+  if (typeof document !== 'undefined' && document.addEventListener) document.addEventListener('input', function (e) {
+    var el = e.target;
+    if (el && el.hasAttribute && el.tagName === 'INPUT' && (el.hasAttribute('data-monto') || el.hasAttribute('data-cantidad')) && !e.isComposing) formatearEnVivo(el);
+  }, true);
+
   if (typeof document !== 'undefined' && document.addEventListener) document.addEventListener('blur', function (e) {
     var el = e.target;
     if (!el || !el.hasAttribute || !el.hasAttribute('data-telefono')) return;

@@ -357,7 +357,7 @@
       return `<div class="border rounded-3 p-3 mb-3" data-fila="${l.uid}">
         <div class="row g-2 align-items-end">
           <div class="col-12 col-md-4"><span class="badge bg-blue-lt me-2">${n + 1}</span><strong>${escapar(l.descripcion)}</strong> <span class="text-muted small">${TIPO_ETIQUETA[l.tipo] || ''}</span></div>
-          <div class="col-8 col-md-3 ms-md-auto"><label class="form-label small mb-1">Monto (Gs.)</label><input type="text" inputmode="numeric" class="form-control form-control-sm font-monospace fw-bold text-end" data-uid="${l.uid}" data-campo="monto" maxlength="12" value="${escapar(l.monto)}" autocomplete="off"></div>
+          <div class="col-8 col-md-3 ms-md-auto"><label class="form-label small mb-1">Monto (Gs.)</label><input type="text" inputmode="numeric" class="form-control form-control-sm font-monospace fw-bold text-end" data-uid="${l.uid}" data-campo="monto" data-monto value="${V.formatearMonto(l.monto)}" autocomplete="off"></div>
           <div class="col-4 col-md-auto"><button type="button" class="btn btn-sm btn-outline-danger" data-quitar="${l.uid}" title="Quitar"><i class="fas fa-trash-alt"></i></button></div>
           ${extra}
         </div>
@@ -387,7 +387,7 @@
     const el = ev.target.closest('[data-campo]'); if (!el) return;
     const l = lineas.find((x) => String(x.uid) === el.dataset.uid); if (!l) return;
     const c = el.dataset.campo, v = el.value;
-    if (c === 'monto' || c === 'numero_referencia') l[c] = v;
+    if (c === 'monto' || c === 'numero_referencia') l[c] = (c === 'monto') ? V.limpiarMonto(v) : v;
     else if (['id_entidad_adherida', 'tipo_tarjeta', 'ultimos_digitos', 'numero_autorizacion'].includes(c)) l.tarjeta[c] = v;
     else l.cheque[c] = v;
     el.classList.remove('is-invalid'); errCobro.style.display = 'none';

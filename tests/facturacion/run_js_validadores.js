@@ -56,6 +56,12 @@ for (var d2 = 0; d2 < tpy.length; d2++) {
   out.push('telFmt	' + tpy[d2] + '	' + V.formatearTelefono(tpy[d2]));
   out.push('telWa	' + tpy[d2] + '	' + (V.aWhatsapp(tpy[d2]) || ''));
 }
+var mts = ['100000', '0', '999', '1000', '15000', '999999999999', '-1500', '1234567', '100.000', '1.500.000', '12.34', '007', '', '   ', 'abc', '1,5', 'Gs. 2.500', '000', '1234.6', '1000000'];
+for (var m1 = 0; m1 < mts.length; m1++) {
+  out.push('montoFmt	' + mts[m1] + '	' + V.formatearMonto(mts[m1]));
+  out.push('montoLimp	' + mts[m1] + '	' + V.limpiarMonto(mts[m1]));
+  out.push('gsFmt	' + mts[m1] + '	' + (V.formatearMonto(mts[m1]) === '' ? '' : V.formatoGs(mts[m1])));
+}
 var hrs = ['08:00', '8:30', '23:59', '24:00', '12:60', '08:00:30', '08:00:61', '', '  ', 'abc', '8', '08:5'];
 for (var d3 = 0; d3 < hrs.length; d3++) out.push('hora\t' + hrs[d3] + '\t' + V.hora(hrs[d3], 'hora de inicio'));
 var cps = ['1', '50', '1000', '1001', '0', '-1', '1.5', 'abc', '', ' 7 ', '01'];

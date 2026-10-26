@@ -121,8 +121,7 @@ def _entero_estricto(valor):
     return None
 
 
-def _miles(n):
-    return f'{n:,}'.replace(',', '.')
+from app.Services.formato import formatear_monto as _miles   # '100.000' (helper único: app/Services/formato.py)
 
 
 def entero_id(valor):

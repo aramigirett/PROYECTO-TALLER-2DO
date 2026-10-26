@@ -107,7 +107,7 @@
             <label class="form-label required fw-semibold" for="txtMonto">Monto de apertura (Gs.)</label>
             <div class="input-group">
               <span class="input-group-text bg-light fw-bold text-muted">Gs.</span>
-              <input type="text" inputmode="numeric" class="form-control fw-bold" id="txtMonto" maxlength="12" value="0" autocomplete="off">
+              <input type="text" inputmode="numeric" class="form-control fw-bold" id="txtMonto" data-monto value="0" autocomplete="off">
               <div class="invalid-feedback"></div>
             </div>
             <div class="form-hint mt-1 text-muted small">Fondo inicial de la caja; puede ser 0.</div>
@@ -344,7 +344,7 @@
     V.limpiarCampo(selCaja); V.limpiarCampo(txtMonto);
     let primero = null;
     if (!selCaja.value) { V.marcarCampo(selCaja, 'Debe seleccionar una caja.'); primero = selCaja; }
-    if (V.monto(txtMonto.value)) { V.marcarCampo(txtMonto, MSG_MONTO); primero = primero || txtMonto; }
+    if (V.monto(V.limpiarMonto(txtMonto.value))) { V.marcarCampo(txtMonto, MSG_MONTO); primero = primero || txtMonto; }
     if (primero) { primero.focus(); return; }
 
     btnAbrir.disabled = true;
@@ -352,7 +352,7 @@
       const { data } = await pedir(API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id_caja: selCaja.value, monto_apertura: txtMonto.value })
+        body: JSON.stringify({ id_caja: selCaja.value, monto_apertura: V.limpiarMonto(txtMonto.value) })
       });
       if (data && data.success) {
         modal.hide();

@@ -322,8 +322,8 @@
         <td class="ps-3 fw-semibold text-dark">${escapar(i.item)}<div class="text-danger small" data-error-item="${i.id_item}" style="display:none;"></div></td>
         <td class="text-end font-monospace">${num(i.facturado)}</td><td class="text-end font-monospace">${num(i.remitido)}</td>
         <td class="text-end font-monospace fw-bold ${i.pendiente > 0 ? 'text-dark' : 'text-muted'}">${num(i.pendiente)}</td>
-        <td class="pe-3"><input type="text" inputmode="numeric" class="form-control form-control-sm font-monospace text-end" data-item="${i.id_item}" maxlength="9"
-              value="${escapar(cantidades[i.id_item] || '')}" ${i.pendiente > 0 ? '' : 'disabled'} autocomplete="off" placeholder="0"></td></tr>`).join('');
+        <td class="pe-3"><input type="text" inputmode="numeric" class="form-control form-control-sm font-monospace text-end" data-item="${i.id_item}" data-cantidad
+              value="${V.formatearMonto(cantidades[i.id_item] || '')}" ${i.pendiente > 0 ? '' : 'disabled'} autocomplete="off" placeholder="0"></td></tr>`).join('');
     }
     $('resTotal').textContent = num(totalARemitir()); actualizarBoton();
   }
@@ -365,7 +365,7 @@
   selDeposito.addEventListener('change', () => { cantidades = {}; V.limpiarCampo(selDeposito); pintarItems(); });
   $('tbodyItems').addEventListener('input', (ev) => {
     const el = ev.target.closest('input[data-item]'); if (!el) return;
-    cantidades[el.dataset.item] = el.value; el.classList.remove('is-invalid');
+    cantidades[el.dataset.item] = V.limpiarMonto(el.value); el.classList.remove('is-invalid');
     const e = document.querySelector(`[data-error-item="${el.dataset.item}"]`); if (e) e.style.display = 'none';
     errRemision.style.display = 'none'; $('resTotal').textContent = num(totalARemitir()); actualizarBoton();
   });
@@ -428,7 +428,7 @@
     for (const i of itemsDelDeposito()) {
       const t = String(cantidades[i.id_item] || '').trim(); if (t === '' || /^0+$/.test(t)) continue;
       let m = V.cantidadPositiva(t);
-      if (!m && parseInt(t, 10) > i.pendiente) m = `Cantidad a remitir de ${i.item} supera lo pendiente de entrega: ${i.pendiente}.`;
+      if (!m && parseInt(t, 10) > i.pendiente) m = `Cantidad a remitir de ${i.item} supera lo pendiente de entrega: ${V.formatearMonto(i.pendiente)}.`;
       if (m) {
         const c = document.querySelector(`[data-error-item="${i.id_item}"]`); if (c) { c.textContent = m; c.style.display = 'block'; }
         const inp = document.querySelector(`input[data-item="${i.id_item}"]`); if (inp) { inp.classList.add('is-invalid'); inp.focus(); }

@@ -434,14 +434,14 @@
       <td class="ps-3 fw-semibold text-dark">${escapar(f.forma_cobro)}<div class="text-muted small">${escapar(f.tipo === 'EFECTIVO' ? 'Efectivo (incluye el fondo inicial y descuenta reintegros)' : f.tipo.charAt(0) + f.tipo.slice(1).toLowerCase())}</div>
         <div class="text-danger small" data-error-forma="${f.id_forma_cobro}" style="display:none;"></div></td>
       <td class="text-end font-monospace">${gs(f.monto_sistema)}</td>
-      <td><input type="text" inputmode="numeric" class="form-control form-control-sm font-monospace text-end" data-forma="${f.id_forma_cobro}" maxlength="12" value="${escapar(contados[f.id_forma_cobro] === undefined ? '' : contados[f.id_forma_cobro])}" placeholder="0" autocomplete="off"></td>
+      <td><input type="text" inputmode="numeric" class="form-control form-control-sm font-monospace text-end" data-forma="${f.id_forma_cobro}" data-monto value="${V.formatearMonto(contados[f.id_forma_cobro] === undefined ? '' : contados[f.id_forma_cobro])}" placeholder="0" autocomplete="off"></td>
       <td class="pe-3 text-end font-monospace fw-bold" data-dif="${f.id_forma_cobro}">—</td></tr>`).join('');
     pintarTotales();
   }
 
   $('tbodyConteo').addEventListener('input', (ev) => {
     const el = ev.target.closest('input[data-forma]'); if (!el) return;
-    contados[el.dataset.forma] = el.value; el.classList.remove('is-invalid'); errArqueo.style.display = 'none';
+    contados[el.dataset.forma] = V.limpiarMonto(el.value); el.classList.remove('is-invalid'); errArqueo.style.display = 'none';
     const e = document.querySelector(`[data-error-forma="${el.dataset.forma}"]`); if (e) e.style.display = 'none';
     pintarTotales();
   });

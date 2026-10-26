@@ -29,8 +29,7 @@ TOPE_FILAS = 5000     # el DAO corta cada tabla en este tope
 # ======================================================================================================================
 # 1. CÁLCULO (datos)
 # ======================================================================================================================
-def _miles(n):
-    return f'{n:,.0f}'.replace(',', '.')
+from app.Services.formato import formatear_gs, formatear_monto as _miles   # montos y cantidades: helper único (app/Services/formato.py)
 
 
 def formatear(valor, tipo):
@@ -38,7 +37,7 @@ def formatear(valor, tipo):
     if valor is None or valor == '':
         return ''
     if tipo == 'gs':
-        return 'Gs. ' + _miles(valor)
+        return formatear_gs(valor)
     if tipo == 'pct':
         return f'{valor:.1f}'.replace('.', ',') + ' %'
     if tipo == 'num':

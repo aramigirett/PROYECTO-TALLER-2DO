@@ -309,7 +309,7 @@
         </div>
         <div class="table-responsive mb-3 border rounded-3"><table class="table table-sm card-table mb-0">
           <thead class="bg-light text-muted small text-uppercase"><tr><th class="ps-3 py-2">Descripción</th><th class="py-2 text-end">Cant.</th><th class="py-2 text-end">Precio</th><th class="py-2 text-end">IVA</th><th class="pe-3 py-2 text-end">Subtotal</th></tr></thead>
-          <tbody>${n.detalle.map((d) => `<tr><td class="ps-3 fw-semibold">${escapar(d.descripcion)}</td><td class="text-end font-monospace">${d.cantidad}</td><td class="text-end font-monospace">${gs(d.precio_unitario)}</td>
+          <tbody>${n.detalle.map((d) => `<tr><td class="ps-3 fw-semibold">${escapar(d.descripcion)}</td><td class="text-end font-monospace">${V.formatearMonto(d.cantidad)}</td><td class="text-end font-monospace">${gs(d.precio_unitario)}</td>
             <td class="text-end">${d.iva === 0 ? 'Exenta' : d.iva + '%'}</td><td class="pe-3 text-end text-nowrap font-monospace fw-bold">${gs(d.subtotal)}</td></tr>`).join('')}</tbody></table></div>
         <div class="d-flex justify-content-between flex-wrap gap-2">
           <div class="text-muted small">Exentas ${gs(t.exentas)} &bull; Gravadas 5% ${gs(t.gravadas_5)} &bull; Gravadas 10% ${gs(t.gravadas_10)} &bull; IVA ${gs(t.total_iva)}</div>
@@ -396,7 +396,7 @@
     if (!renglones.length) { cont.innerHTML = '<div class="text-center text-muted py-3">Agregue al menos un renglón con el botón "Agregar renglón".</div>'; return; }
     cont.innerHTML = renglones.map((r, n) => `<div class="row g-2 align-items-start mb-2" data-fila="${r.uid}">
       <div class="col-12 col-md-6"><label class="form-label small mb-1">${n + 1}. Descripción</label><input type="text" class="form-control form-control-sm" data-uid="${r.uid}" data-campo="descripcion" maxlength="200" value="${escapar(r.descripcion)}" autocomplete="off"></div>
-      <div class="col-6 col-md-3"><label class="form-label small mb-1">Monto (Gs., IVA incluido)</label><input type="text" inputmode="numeric" class="form-control form-control-sm font-monospace text-end" data-uid="${r.uid}" data-campo="monto" maxlength="12" value="${escapar(r.monto)}" autocomplete="off"></div>
+      <div class="col-6 col-md-3"><label class="form-label small mb-1">Monto (Gs., IVA incluido)</label><input type="text" inputmode="numeric" class="form-control form-control-sm font-monospace text-end" data-uid="${r.uid}" data-campo="monto" data-monto value="${V.formatearMonto(r.monto)}" autocomplete="off"></div>
       <div class="col-4 col-md-2"><label class="form-label small mb-1">IVA</label><select class="form-select form-select-sm" data-uid="${r.uid}" data-campo="iva">
         <option value="10" ${String(r.iva) === '10' ? 'selected' : ''}>10%</option><option value="5" ${String(r.iva) === '5' ? 'selected' : ''}>5%</option><option value="0" ${String(r.iva) === '0' ? 'selected' : ''}>Exenta</option></select></div>
       <div class="col-2 col-md-1 pt-md-4"><button type="button" class="btn btn-sm btn-outline-danger" data-quitar="${r.uid}" title="Quitar"><i class="fas fa-trash-alt"></i></button></div>
@@ -409,7 +409,7 @@
       <td class="ps-3 fw-semibold text-dark">${escapar(i.item)}<div class="text-danger small" data-error-item="${i.id_item}" style="display:none;"></div></td>
       <td class="text-end font-monospace">${gs(i.precio_unitario)}</td><td class="text-end font-monospace">${num(i.facturado)}</td><td class="text-end font-monospace">${num(i.devuelto)}</td>
       <td class="text-end font-monospace fw-bold ${i.pendiente > 0 ? 'text-dark' : 'text-muted'}">${num(i.pendiente)}</td>
-      <td class="pe-3"><input type="text" inputmode="numeric" class="form-control form-control-sm font-monospace text-end" data-item="${i.id_item}" maxlength="9" value="${escapar(devuelto[i.id_item] || '')}" ${i.pendiente > 0 ? '' : 'disabled'} placeholder="0" autocomplete="off"></td></tr>`).join('')
+      <td class="pe-3"><input type="text" inputmode="numeric" class="form-control form-control-sm font-monospace text-end" data-item="${i.id_item}" data-cantidad value="${V.formatearMonto(devuelto[i.id_item] || '')}" ${i.pendiente > 0 ? '' : 'disabled'} placeholder="0" autocomplete="off"></td></tr>`).join('')
       : '<tr><td colspan="6" class="text-center text-muted py-3">La factura no tiene ítems que repongan stock.</td></tr>';
   }
 
@@ -420,7 +420,7 @@
   $('gridLibre').addEventListener('input', (ev) => {
     const el = ev.target.closest('[data-campo]'); if (!el) return;
     const r = renglones.find((x) => String(x.uid) === el.dataset.uid); if (!r) return;
-    r[el.dataset.campo] = el.value; el.classList.remove('is-invalid'); errNota.style.display = 'none'; pintarTotales();
+    r[el.dataset.campo] = el.dataset.campo === 'monto' ? V.limpiarMonto(el.value) : el.value; el.classList.remove('is-invalid'); errNota.style.display = 'none'; pintarTotales();
   });
   $('gridLibre').addEventListener('change', (ev) => { const el = ev.target.closest('select[data-campo]'); if (el) el.dispatchEvent(new Event('input', { bubbles: true })); });
   $('gridLibre').addEventListener('click', (ev) => {
@@ -429,7 +429,7 @@
   });
   $('tbodyDevolucion').addEventListener('input', (ev) => {
     const el = ev.target.closest('input[data-item]'); if (!el) return;
-    devuelto[el.dataset.item] = el.value; el.classList.remove('is-invalid'); errNota.style.display = 'none';
+    devuelto[el.dataset.item] = V.limpiarMonto(el.value); el.classList.remove('is-invalid'); errNota.style.display = 'none';
     const e = document.querySelector(`[data-error-item="${el.dataset.item}"]`); if (e) e.style.display = 'none';
     pintarTotales();
   });
@@ -521,7 +521,7 @@
       for (const i of facturaSel.items) {
         const t = String(devuelto[i.id_item] || '').trim(); if (t === '' || /^0+$/.test(t)) continue;
         let m = V.cantidadPositiva(t);
-        if (!m && parseInt(t, 10) > i.pendiente) m = `Cantidad a devolver de ${i.item} supera lo facturado pendiente de devolución: ${i.pendiente}.`;
+        if (!m && parseInt(t, 10) > i.pendiente) m = `Cantidad a devolver de ${i.item} supera lo facturado pendiente de devolución: ${V.formatearMonto(i.pendiente)}.`;
         if (m) { const c = document.querySelector(`[data-error-item="${i.id_item}"]`); if (c) { c.textContent = m; c.style.display = 'block'; } return m; }
       }
       if (!lineasActuales().length) return 'Debe indicar al menos un ítem a devolver.';

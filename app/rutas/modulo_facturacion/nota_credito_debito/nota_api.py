@@ -26,8 +26,7 @@ def _id_usuario():
     return session.get('id_usuario')
 
 
-def _gs(n):
-    return 'Gs. ' + f'{int(n):,}'.replace(',', '.')
+from app.Services.formato import formatear_gs as _gs   # 'Gs. 100.000' (helper único: app/Services/formato.py)
 
 
 def _parse_fecha(valor):

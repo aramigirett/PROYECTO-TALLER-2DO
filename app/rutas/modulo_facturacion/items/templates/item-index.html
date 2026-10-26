@@ -79,8 +79,8 @@
           <div class="row">
             <div class="col-md-4 mb-3">
               <label class="form-label required" for="txtPrecio">Precio (Gs.)</label>
-              <input type="text" inputmode="numeric" class="form-control" id="txtPrecio" maxlength="12"
-                     placeholder="Ej.: 15000" autocomplete="off">
+              <input type="text" inputmode="numeric" class="form-control" id="txtPrecio" data-monto
+                     placeholder="Ej.: 15.000" autocomplete="off">
               <div class="invalid-feedback"></div>
             </div>
             <div class="col-md-4 mb-3">
@@ -94,7 +94,7 @@
             </div>
             <div class="col-md-4 mb-3">
               <label class="form-label required" for="txtCantidad">Cantidad disponible</label>
-              <input type="text" inputmode="numeric" class="form-control" id="txtCantidad" maxlength="10"
+              <input type="text" inputmode="numeric" class="form-control" id="txtCantidad" data-cantidad
                      value="0" autocomplete="off">
               <div class="invalid-feedback"></div>
               <div class="form-hint" id="hintCantidad" style="display: none;">El tipo elegido no controla stock.</div>
@@ -178,7 +178,7 @@
     limpiarErrores();
     let primero = null;
     Object.keys(campos).forEach((k) => {
-      const msg = validadores[k](campos[k].value);
+      const msg = validadores[k](V.valorCampo(campos[k]));
       if (msg) { V.marcarCampo(campos[k], msg); primero = primero || campos[k]; }
     });
     if (primero) primero.focus();
@@ -195,7 +195,7 @@
       }
       tbody.innerHTML = data.data.map((f) => {
         const acciones = L.acciones({ activo: f.activo, id: f.id_item, descripcion: f.descripcion, puedeEditar: PUEDE_EDITAR, puedeAnular: PUEDE_ANULAR });
-        const stock = f.controla_stock ? escapar(f.cantidad_disponible) : '—';
+        const stock = f.controla_stock ? V.formatearMonto(f.cantidad_disponible) : '—';
         return `<tr class="${L.claseFila(f.activo)}">
           <td>${escapar(f.descripcion)}</td>
           <td>${escapar(f.tipo_item)}</td>
@@ -233,9 +233,9 @@
     campos.id_tipo_item.value = registro ? registro.id_tipo_item : '';
     campos.id_deposito.value = registro ? registro.id_deposito : '';
     campos.descripcion.value = registro ? registro.descripcion : '';
-    campos.precio_unitario.value = registro ? registro.precio_unitario : '';
+    campos.precio_unitario.value = registro ? V.formatearMonto(registro.precio_unitario) : '';
     campos.iva.value = registro ? registro.iva : '10';
-    campos.cantidad_disponible.value = registro ? registro.cantidad_disponible : '0';
+    campos.cantidad_disponible.value = registro ? V.formatearMonto(registro.cantidad_disponible) : '0';
     limpiarErrores();
     actualizarCantidad();
     modal.show();
@@ -269,7 +269,7 @@
     }
 
     const payload = {};
-    Object.keys(campos).forEach((k) => { payload[k] = campos[k].value; });
+    Object.keys(campos).forEach((k) => { payload[k] = V.valorCampo(campos[k]); });
 
     btnGuardar.disabled = true;
     try {

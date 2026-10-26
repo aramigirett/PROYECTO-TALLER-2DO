@@ -26,8 +26,7 @@ COPIAS = (('ORIGINAL', 'CLIENTE'), ('DUPLICADO', 'ARCHIVO TRIBUTARIO'))
 # ======================================================================================================================
 # 1. CÁLCULO (datos)
 # ======================================================================================================================
-def _miles(n):
-    return f'{int(n):,}'.replace(',', '.')
+from app.Services.formato import formatear_monto as _miles   # '100.000' (helper único: app/Services/formato.py)
 
 
 def _fecha(texto, con_hora=False):

@@ -340,8 +340,8 @@
     }
     const c = i.cantidad_disponible;
     if (c <= 0) return '<span class="fc-stock-badge fc-stock-empty">Agotado (0)</span>';
-    if (c <= 5) return `<span class="fc-stock-badge fc-stock-low">Stock bajo: ${c}</span>`;
-    return `<span class="fc-stock-badge fc-stock-ok">Stock: ${c}</span>`;
+    if (c <= 5) return `<span class="fc-stock-badge fc-stock-low">Stock bajo: ${V.formatearMonto(c)}</span>`;
+    return `<span class="fc-stock-badge fc-stock-ok">Stock: ${V.formatearMonto(c)}</span>`;
   };
 
   /* ---------- totales (informativos: el servidor recalcula todo) ---------- */
@@ -473,7 +473,7 @@
             <tbody>
               ${p.detalle.map((d) => `<tr>
                 <td class="ps-3 fw-semibold">${escapar(d.item)}</td>
-                <td class="text-center font-monospace">${d.cantidad}</td>
+                <td class="text-center font-monospace">${V.formatearMonto(d.cantidad)}</td>
                 <td class="text-end text-nowrap font-monospace">${gs(d.precio_unitario)}</td>
                 <td class="text-center">${ivaTxt(d.iva)}</td>
                 <td class="pe-3 text-end text-nowrap font-monospace fw-bold">${gs(d.subtotal)}</td>
@@ -712,12 +712,12 @@
               ? (l.stock <= 0
                   ? '<span class="fc-stock-badge fc-stock-empty">0</span>'
                   : (l.stock <= 5
-                      ? `<span class="fc-stock-badge fc-stock-low">${l.stock}</span>`
-                      : `<span class="fc-stock-badge fc-stock-ok">${l.stock}</span>`))
+                      ? `<span class="fc-stock-badge fc-stock-low">${V.formatearMonto(l.stock)}</span>`
+                      : `<span class="fc-stock-badge fc-stock-ok">${V.formatearMonto(l.stock)}</span>`))
               : '<span class="text-muted">—</span>'}
           </td>
           <td class="text-center">
-            <input type="text" inputmode="numeric" class="form-control form-control-sm text-center font-monospace fw-bold mx-auto" data-id="${l.id_item}" value="${escapar(l.cantidad)}" maxlength="10" autocomplete="off" style="max-width: 90px;">
+            <input type="text" inputmode="numeric" class="form-control form-control-sm text-center font-monospace fw-bold mx-auto" data-id="${l.id_item}" value="${V.formatearMonto(l.cantidad)}" data-cantidad autocomplete="off" style="max-width: 90px;">
             <div class="invalid-feedback"></div>
           </td>
           <td class="text-end text-nowrap font-monospace">${gs(l.precio)}</td>
@@ -747,7 +747,7 @@
     const inp = ev.target.closest('input[data-id]');
     if (!inp) return;
     const l = lineas.find((x) => String(x.id_item) === inp.dataset.id);
-    l.cantidad = inp.value.trim();
+    l.cantidad = V.limpiarMonto(inp.value);
     V.limpiarCampo(inp);
     const celda = tbodyDetalle.querySelector(`[data-sub="${l.id_item}"]`);
     if (celda) celda.textContent = gs(subtotal(l));
@@ -787,7 +787,7 @@
       V.limpiarCampo(inp);
       let e = V.cantidadPositiva(l.cantidad);
       if (!e && l.controla_stock && parseInt(l.cantidad, 10) > l.stock)
-        e = `Stock insuficiente para ${l.descripcion}: disponible ${l.stock}, solicitado ${parseInt(l.cantidad, 10)}.`;
+        e = `Stock insuficiente para ${l.descripcion}: disponible ${V.formatearMonto(l.stock)}, solicitado ${V.formatearMonto(parseInt(l.cantidad, 10))}.`;
       if (e) { V.marcarCampo(inp, e); primero = primero || inp; }
     });
     if (primero) { primero.focus(); return; }

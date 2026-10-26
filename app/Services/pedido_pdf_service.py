@@ -12,8 +12,7 @@ from reportlab.lib.units import cm
 from reportlab.pdfgen import canvas
 
 
-def _gs(n):
-    return 'Gs. ' + f'{int(n):,}'.replace(',', '.')
+from app.Services.formato import formatear_gs as _gs   # 'Gs. 100.000' (helper único: app/Services/formato.py)
 
 
 def _recortar(texto, largo):

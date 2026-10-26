@@ -14,7 +14,13 @@
   }
   function dosDigitos(n) { return (n < 10 ? '0' : '') + n; }
   function iso(d) { return d.getFullYear() + '-' + dosDigitos(d.getMonth() + 1) + '-' + dosDigitos(d.getDate()); }
-  function fmtNum(v) { return Number(v).toLocaleString('es-PY', { maximumFractionDigits: 2 }); }
+  var V = window.FacturacionValidadores;     // formatearMonto: la función única de montos y cantidades (puntos de miles, sin decimales)
+  function fmtNum(v) {
+    var n = Number(v);
+    if (Math.round(n) === n) return V.formatearMonto(n);
+    var d = String(Math.round(n * 100) / 100).split('.');      // decimales (promedios, porcentajes): coma decimal
+    return V.formatearMonto(d[0]) + ',' + d[1];
+  }
   function formatear(v, tipo) {
     if (v === null || v === undefined || v === '') { return ''; }
     if (tipo === 'gs') { return 'Gs. ' + fmtNum(v); }

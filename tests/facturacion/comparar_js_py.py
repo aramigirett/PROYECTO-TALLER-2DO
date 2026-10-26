@@ -4,6 +4,7 @@ sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parents[2]
 from app.rutas.modulo_facturacion import utils as u
 from app.rutas.modulo_agendamiento import utils as ua
 from app.Services import telefono as tel
+from app.Services import formato as fm
 
 ruta = sys.argv[1]
 filas = [l.split('\t') for l in open(ruta, encoding='utf-8-sig').read().split('\n') if l.strip('\r')]
@@ -27,6 +28,9 @@ def py(tipo, entrada):
     if tipo == 'ubicacion': return None
     if tipo == 'fechaNac': return ua.validar_fecha_nacimiento(entrada)[1] or ''
     if tipo == 'dia': return ua.validar_dia({'descripcion': entrada})[1] or ''
+    if tipo == 'montoFmt': return fm.formatear_monto(entrada)
+    if tipo == 'montoLimp': return fm.limpiar_monto(entrada)
+    if tipo == 'gsFmt': return fm.formatear_gs(entrada)
     if tipo == 'tel': return u.validar_telefono(entrada)[1] or ''
     if tipo == 'telNorm': return tel.normalizar_telefono(entrada) or ''
     if tipo == 'telFmt': return tel.formatear_telefono(entrada)
