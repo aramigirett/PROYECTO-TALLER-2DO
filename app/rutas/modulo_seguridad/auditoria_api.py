@@ -32,15 +32,15 @@ def getUltimosIntentos():
         desde = _parse_fecha(request.args.get('desde'))
         hasta = _parse_fecha(request.args.get('hasta'))
     except ValueError:
-        return jsonify({'success': False, 'error': 'Las fechas deben tener el formato AAAA-MM-DD.'}), 400
+        return respuesta_error('Las fechas deben tener el formato AAAA-MM-DD.', 400, 'desde')
 
     if desde and hasta and desde > hasta:
-        return jsonify({'success': False, 'error': 'La fecha "desde" no puede ser posterior a "hasta".'}), 400
+        return respuesta_error('La fecha "desde" no puede ser posterior a "hasta".', 400, 'desde')
 
     # Filtro por resultado (p. ej. IP_NO_PERMITIDA, IP_SIN_GEOLOCALIZAR, CIERRE_INACTIVIDAD); valor exacto
     resultado = (request.args.get('resultado') or '').strip().upper() or None
     if resultado and not _FORMATO_RESULTADO.match(resultado):
-        return jsonify({'success': False, 'error': 'El resultado indicado no es válido.'}), 400
+        return respuesta_error('El resultado indicado no es válido.', 400, 'resultado')
 
     try:
         intentos = AuditoriaDao().get_ultimos_intentos(limite, desde, hasta, resultado)

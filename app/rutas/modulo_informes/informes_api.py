@@ -25,28 +25,28 @@ def _dmy(d):
 
 
 def leer_filtros(args, pestana):
-    """(filtros, None) o (None, mensaje 400). Desde / Hasta por defecto: el día 1 del mes actual y hoy. Médico y Condición solo si la pestaña los usa."""
+    """(filtros, None, None) o (None, mensaje 400, campo). Desde / Hasta por defecto: el día 1 del mes actual y hoy. Médico y Condición solo si la pestaña los usa."""
     hoy = date.today()
     try:
         desde = date.fromisoformat(args.get('desde')) if (args.get('desde') or '').strip() else hoy.replace(day=1)
         hasta = date.fromisoformat(args.get('hasta')) if (args.get('hasta') or '').strip() else hoy
     except ValueError:
-        return None, 'Las fechas deben tener el formato AAAA-MM-DD.'
+        return None, 'Las fechas deben tener el formato AAAA-MM-DD.', 'desde'
     if desde > hasta:
-        return None, 'La fecha "desde" no puede ser posterior a "hasta".'
+        return None, 'La fecha "desde" no puede ser posterior a "hasta".', 'desde'
     aplican = PESTANAS[pestana][2]
     id_medico = None
     if 'medico' in aplican and (args.get('id_medico') or '').strip():
         valor = args['id_medico'].strip()
         if not valor.isdigit() or int(valor) > 2147483647:
-            return None, 'El médico indicado no es válido.'
+            return None, 'El médico indicado no es válido.', 'id_medico'
         id_medico = int(valor)
     condicion = None
     if 'condicion' in aplican and (args.get('condicion') or '').strip():
         condicion = args['condicion'].strip().upper()
         if condicion not in CONDICIONES:
-            return None, 'La condición debe ser contado o crédito.'
-    return {'desde': desde, 'hasta': hasta, 'id_medico': id_medico, 'condicion': condicion}, None
+            return None, 'La condición debe ser contado o crédito.', 'condicion'
+    return {'desde': desde, 'hasta': hasta, 'id_medico': id_medico, 'condicion': condicion}, None, None
 
 
 def etiquetas_filtros(filtros, dao=None):
@@ -80,9 +80,9 @@ def getInforme(pestana):
     """Datos de una pestaña (kpis, gráficos y tablas). Cada carga queda auditada con el informe y los filtros."""
     if pestana not in PESTANAS:
         return respuesta_error('El informe indicado no existe.', 404)
-    filtros, error = leer_filtros(request.args, pestana)
+    filtros, error, campo = leer_filtros(request.args, pestana)
     if error:
-        return respuesta_error(error, 400)
+        return respuesta_error(error, 400, campo)
     try:
         dao = InformesDao()
         datos = getattr(dao, PESTANAS[pestana][0])(filtros)
@@ -114,9 +114,9 @@ def exportarInforme(pestana):
     formato = (request.args.get('formato') or '').strip().lower()
     if formato not in FORMATOS:
         return respuesta_error('El formato debe ser pdf o xlsx.', 400)
-    filtros, error = leer_filtros(request.args, pestana)
+    filtros, error, campo = leer_filtros(request.args, pestana)
     if error:
-        return respuesta_error(error, 400)
+        return respuesta_error(error, 400, campo)
     try:
         dao = InformesDao()
         titulo = PESTANAS[pestana][1]

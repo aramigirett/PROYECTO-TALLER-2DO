@@ -35,7 +35,7 @@ def _recortar(texto, largo=255):
 
 def _error_forma(n, mensaje, status=400):
     """Error de validación de UNA fila de la grilla de formas de cobro (fila 1-based)."""
-    return jsonify({'success': False, 'error': f'Forma {n}: {mensaje}', 'campo': 'formas', 'fila': n}), status
+    return respuesta_error(f'Forma {n}: {mensaje}', status, campo='formas', fila=n)
 
 
 # -------------------------

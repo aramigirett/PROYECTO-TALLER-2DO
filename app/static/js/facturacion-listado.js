@@ -77,7 +77,12 @@
           return true;
         });
       }
-      Swal.fire(tituloError, (data && data.error) || o.errorDefault, 'error');
+      var errText = (data && (data.mensaje || data.error)) || o.errorDefault;
+      if (global.mostrarAvisoValidacion && data && (data.tipo || data.mensaje || data.error)) {
+        global.mostrarAvisoValidacion(data);
+      } else {
+        Swal.fire(tituloError, errText, (data && data.tipo === 'estado') || r.status === 409 ? 'warning' : 'error');
+      }
       return recargar(o).then(function () { return false; });
     }, function () {
       Swal.fire('Error', 'Ocurrió un error de conexión.', 'error');

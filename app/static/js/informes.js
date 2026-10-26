@@ -36,11 +36,15 @@
     $('fHasta').value = iso(hoy);
   }
   function validarFiltros() {
-    var msg = '';
-    if (!$('fDesde').value || !$('fHasta').value) { msg = 'Indique las fechas Desde y Hasta.'; }
-    else if ($('fDesde').value > $('fHasta').value) { msg = 'La fecha "Desde" no puede ser posterior a "Hasta".'; }
+    var msg = '', campo = '', tipo = '';
+    if (!$('fDesde').value) { msg = 'El campo "Desde" es obligatorio.'; campo = 'fDesde'; tipo = 'obligatorio'; }
+    else if (!$('fHasta').value) { msg = 'El campo "Hasta" es obligatorio.'; campo = 'fHasta'; tipo = 'obligatorio'; }
+    else if ($('fDesde').value > $('fHasta').value) { msg = 'La fecha "Desde" no puede ser posterior a "Hasta".'; campo = 'fDesde'; tipo = 'rango'; }
     $('errFiltros').textContent = msg;
     $('errFiltros').style.display = msg ? '' : 'none';
+    if (msg && window.mostrarAvisoValidacion) {
+      window.mostrarAvisoValidacion({ tipo: tipo, campo: campo, mensaje: msg });
+    }
     return !msg;
   }
   function parametros() {

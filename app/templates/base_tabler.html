@@ -919,6 +919,111 @@
         window.bootstrap = window.bootstrap || (window.tabler && window.tabler.bootstrap);
     </script>
     <script src="{{ url_for('static', filename='vendor/sweetalert/sweetalert2@11.js') }}"></script>
+    <script>
+    /* ── Helper central de los 5 tipos de avisos de validación (todo el sistema) ── */
+    (function (global) {
+        var META_TIPOS = {
+            obligatorio: { icon: 'warning', title: 'Atención' },
+            caracteres:  { icon: 'error',   title: 'Error' },
+            duplicado:   { icon: 'error',   title: 'Error' },
+            rango:       { icon: 'error',   title: 'Error' },
+            estado:      { icon: 'warning', title: 'Atención' }
+        };
+        var PATRONES_DUPLICADO = [
+            'ya existe', 'duplicad', 'ya pertenece a otro', 'ya tiene un usuario', 'ya está registrado como',
+            'se superpone', 'no puede repetirse', 'está repetid', 'no repita',
+            'ya está registrado en el odontograma', 'ya tiene una consulta registrada', 'ya tiene un odontograma'
+        ];
+        var PATRONES_ESTADO = [
+            'ya está anulad', 'ya está activ', 'ya está cerrad', 'ya fue cerrad', 'ya fue facturad',
+            'ya fue depositad', 'ya está depositad', 'ya está pagad', 'ya está finalizad', 'ya está completad',
+            'ya está emitid', 'está anulad', 'está cancelad', 'está inactiv', 'inactivos:',
+            'no está abiert', 'ya no está abiert', 'debe abrir la caja', 'debe cerrar la apertura',
+            'ya está abierta por otro', 'no admite', 'no se puede anular', 'no es posible anular',
+            'no se puede emitir', 'no se puede cancelar', 'no se puede finalizar', 'no se puede pasar',
+            'no se puede reactivar', 'ya no se puede', 'no está en estado', 'tiene citas', 'tiene ventas',
+            'tiene cobros', 'tiene movimientos', 'tiene sesiones', 'tiene datos clínicos',
+            'tiene un tratamiento', 'tiene ítems', 'tiene cuentas', 'propio usuario', 'único administrador',
+            'no está bloqueado', 'no puede arquear su propia caja', 'stock insuficiente', 'cupo disponible'
+        ];
+        var PATRONES_OBLIGATORIO = [
+            'es obligatorio', 'es obligatoria', 'son obligatori', 'debe seleccionar', 'debe elegir',
+            'debe indicar', 'debe ingresar', 'debe agregar al menos', 'indique las fechas',
+            'elija ', 'seleccione ', 'faltan parámetros', 'debe tener al menos un dato',
+            'necesita su ', 'debe tener dosis'
+        ];
+        var PATRONES_CARACTERES = ['caracteres no permitidos', 'solo puede contener', 'use solo'];
+
+        function contieneAlguno(m, lista) {
+            for (var i = 0; i < lista.length; i++) {
+                if (m.indexOf(lista[i]) >= 0) return true;
+            }
+            return false;
+        }
+        function inferirTipo(mensaje, status) {
+            var m = String(mensaje || '').replace(/^\s+|\s+$/g, '').toLowerCase();
+            if (contieneAlguno(m, PATRONES_DUPLICADO)) return 'duplicado';
+            if (status === 409 || contieneAlguno(m, PATRONES_ESTADO)) return 'estado';
+            if (contieneAlguno(m, PATRONES_OBLIGATORIO)) return 'obligatorio';
+            if (contieneAlguno(m, PATRONES_CARACTERES)) return 'caracteres';
+            return 'rango';
+        }
+        function metaDeTipo(tipo, mensaje, status) {
+            var t = (tipo && META_TIPOS[tipo]) ? tipo : inferirTipo(mensaje, status);
+            return META_TIPOS[t] || META_TIPOS.rango;
+        }
+        function mostrarAviso(respOMensaje, campoOpcional, tipoOpcional) {
+            var esObj = respOMensaje && typeof respOMensaje === 'object';
+            var mensaje = esObj ? (respOMensaje.mensaje || respOMensaje.error || '') : String(respOMensaje || '');
+            var tipo = tipoOpcional || (esObj ? respOMensaje.tipo : null) || inferirTipo(mensaje, esObj ? respOMensaje.status : 400);
+            var campo = campoOpcional || (esObj ? respOMensaje.campo : null);
+            var meta = metaDeTipo(tipo, mensaje, esObj ? respOMensaje.status : 400);
+            if (campo && typeof document !== 'undefined') {
+                var el = document.getElementById(campo) || document.querySelector('[name="' + campo + '"]');
+                if (el) {
+                    el.classList.add('is-invalid');
+                    try { el.focus(); } catch (e) {}
+                }
+            }
+            if (global.Swal && global.Swal._fireOrig) {
+                return global.Swal._fireOrig({ icon: meta.icon, title: meta.title, text: mensaje });
+            }
+            if (global.Swal && global.Swal.fire) {
+                return global.Swal.fire({ icon: meta.icon, title: meta.title, text: mensaje });
+            }
+        }
+        global.AvisoValidacion = {
+            META_TIPOS: META_TIPOS,
+            inferirTipo: inferirTipo,
+            metaDeTipo: metaDeTipo,
+            mostrar: mostrarAviso
+        };
+        global.mostrarAvisoValidacion = mostrarAviso;
+
+        /* Normaliza automáticamente las llamadas a Swal.fire de error/atención en todas las pantallas */
+        if (global.Swal && typeof global.Swal.fire === 'function' && !global.Swal._fireOrig) {
+            var origFire = global.Swal.fire.bind(global.Swal);
+            global.Swal._fireOrig = origFire;
+            global.Swal.fire = function (a, b, c) {
+                if (typeof a === 'string' && (c === 'error' || c === 'warning')) {
+                    var metaPos = metaDeTipo(null, b, 400);
+                    return origFire({ icon: metaPos.icon, title: metaPos.title, text: b });
+                }
+                if (a && typeof a === 'object' && !a.showCancelButton && !a.showDenyButton && !a.toast &&
+                    (a.icon === 'error' || a.icon === 'warning') && (a.text || a.html)) {
+                    var txt = a.text || a.html || '';
+                    var metaObj = metaDeTipo(a.tipo || null, txt, a.status || 400);
+                    var copia = {};
+                    for (var k in a) { if (Object.prototype.hasOwnProperty.call(a, k)) copia[k] = a[k]; }
+                    copia.icon = metaObj.icon;
+                    copia.title = metaObj.title;
+                    return origFire(copia);
+                }
+                return origFire.apply(global.Swal, arguments);
+            };
+        }
+    })(window);
+    </script>
 
     <script>
     /* ── 1. Fecha en Español dinámica en la Topbar ───────────── */

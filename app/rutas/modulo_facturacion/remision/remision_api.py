@@ -30,7 +30,7 @@ def _recortar(texto, largo=255):
 
 def _error_item(n, mensaje, status=400):
     """Error de validación de UNA fila de la grilla de ítems (fila 1-based)."""
-    return jsonify({'success': False, 'error': f'Ítem {n}: {mensaje}', 'campo': 'items', 'fila': n}), status
+    return respuesta_error(f'Ítem {n}: {mensaje}', status, campo='items', fila=n)
 
 
 def _validar_items(crudos):

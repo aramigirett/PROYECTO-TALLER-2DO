@@ -94,11 +94,11 @@ def getReceta(id_receta):
 def addReceta():
     data = request.get_json(silent=True)
     if not isinstance(data, dict) or data.get('id_consulta_cab') in (None, ''):
-        return respuesta_error('El campo id_consulta_cab es obligatorio.', 400, 'id_consulta_cab')
+        return respuesta_error('El campo "Consulta" es obligatorio.', 400, 'id_consulta_cab')
     try:
         id_consulta = int(data['id_consulta_cab'])
     except (ValueError, TypeError):
-        return respuesta_error('El campo id_consulta_cab no es válido.', 400, 'id_consulta_cab')
+        return respuesta_error('El campo "Consulta" no es válido.', 400, 'id_consulta_cab')
     valores, error, campo = validar_receta(data)
     if error:
         return respuesta_error(error, 400, campo)

@@ -91,13 +91,14 @@ def addSesion():
     if not isinstance(data, dict):
         return respuesta_error('Los datos enviados no son válidos.', 400)
     ids = {}
+    etiquetas_ids = {'id_tratamiento': 'Tratamiento', 'id_consulta_cab': 'Consulta'}
     for campo in ('id_tratamiento', 'id_consulta_cab'):
         if data.get(campo) in (None, ''):
-            return respuesta_error(f'El campo {campo} es obligatorio.', 400, campo)
+            return respuesta_error(f'El campo "{etiquetas_ids[campo]}" es obligatorio.', 400, campo)
         try:
             ids[campo] = int(data[campo])
         except (ValueError, TypeError):
-            return respuesta_error(f'El campo {campo} no es válido.', 400, campo)
+            return respuesta_error(f'El campo "{etiquetas_ids[campo]}" no es válido.', 400, campo)
     valores, error, campo = validar_sesion(data)
     if error:
         return respuesta_error(error, 400, campo)

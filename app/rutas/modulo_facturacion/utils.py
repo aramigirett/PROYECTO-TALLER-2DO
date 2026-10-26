@@ -361,10 +361,14 @@ def detalle_cambios(anterior, nuevo, etiquetas):
                             {etq: nuevo.get(k) for k, etq in cambiados})
 
 
-def respuesta_error(mensaje, status, campo=None):
-    cuerpo = {'success': False, 'error': mensaje}
-    if campo:
-        cuerpo['campo'] = campo
+from app.Services.validacion_errores import (
+    TIPO_OBLIGATORIO, TIPO_CARACTERES, TIPO_DUPLICADO, TIPO_RANGO, TIPO_ESTADO,
+    construir_cuerpo_error, inferir_tipo_error, msg_obligatorio, msg_caracteres, msg_duplicado,
+)
+
+
+def respuesta_error(mensaje, status=400, campo=None, tipo=None, **extra):
+    cuerpo = construir_cuerpo_error(mensaje, campo=campo, tipo=tipo, status=status, **extra)
     return jsonify(cuerpo), status
 
 

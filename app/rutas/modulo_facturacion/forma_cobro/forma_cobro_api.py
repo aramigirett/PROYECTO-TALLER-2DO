@@ -48,7 +48,7 @@ def getFormaCobro(id_forma_cobro):
         forma = FormaCobroDao().getFormaCobroById(id_forma_cobro)
         if forma:
             return jsonify({'success': True, 'data': forma, 'error': None}), 200
-        return jsonify({'success': False, 'error': 'No se encontró la forma de cobro con el ID proporcionado.'}), 404
+        return respuesta_error('No se encontró la forma de cobro con el ID proporcionado.', 404)
     except Exception as e:
         app.logger.error(f"Error al obtener forma de cobro: {str(e)}")
         return error_interno()
@@ -63,7 +63,7 @@ def addFormaCobro():
     cuerpo = request.get_json(silent=True)
     descripcion, error = normalizar_descripcion(cuerpo)
     if error:
-        return jsonify({'success': False, 'error': error}), 400
+        return respuesta_error(error, 400, 'descripcion')
     tipo, error = _tipo(cuerpo)
     if error:
         return respuesta_error(error, 400, 'tipo')
@@ -71,11 +71,11 @@ def addFormaCobro():
     dao = FormaCobroDao()
     try:
         if dao.existeDuplicado(descripcion):
-            return jsonify({'success': False, 'error': 'La descripción ya existe.'}), 400
+            return respuesta_error('La descripción ya existe.', 400, 'descripcion')
 
         nuevo_id = dao.guardarFormaCobro(descripcion, tipo)
         if nuevo_id == "DUPLICADO":
-            return jsonify({'success': False, 'error': 'La descripción ya existe.'}), 400
+            return respuesta_error('La descripción ya existe.', 400, 'descripcion')
         if nuevo_id:
             auditar(nuevo_id, 'ALTA', f'Descripción: {descripcion}; Tipo: {tipo}')
             return jsonify({
@@ -84,7 +84,7 @@ def addFormaCobro():
                 'mensaje': f'Forma de cobro "{descripcion}" agregada correctamente.',
                 'error': None
             }), 201
-        return jsonify({'success': False, 'error': 'No se pudo guardar la forma de cobro. Consulte con el administrador.'}), 500
+        return respuesta_error('No se pudo guardar la forma de cobro. Consulte con el administrador.', 500)
     except Exception as e:
         app.logger.error(f"Error al agregar forma de cobro: {str(e)}")
         return error_interno()
@@ -99,7 +99,7 @@ def updateFormaCobro(id_forma_cobro):
     cuerpo = request.get_json(silent=True)
     descripcion, error = normalizar_descripcion(cuerpo)
     if error:
-        return jsonify({'success': False, 'error': error}), 400
+        return respuesta_error(error, 400, 'descripcion')
     tipo, error = _tipo(cuerpo)
     if error:
         return respuesta_error(error, 400, 'tipo')
@@ -108,7 +108,7 @@ def updateFormaCobro(id_forma_cobro):
     try:
         anterior = dao.getFormaCobroById(id_forma_cobro)
         if not anterior:
-            return jsonify({'success': False, 'error': 'No se encontró la forma de cobro con el ID proporcionado.'}), 404
+            return respuesta_error('No se encontró la forma de cobro con el ID proporcionado.', 404)
 
         if anterior['descripcion'] == descripcion and anterior['tipo'] == tipo:
             # Sin cambios: no se toca la BD ni se audita.
@@ -120,13 +120,13 @@ def updateFormaCobro(id_forma_cobro):
             }), 200
 
         if dao.existeDuplicado(descripcion, excluir_id=id_forma_cobro):
-            return jsonify({'success': False, 'error': 'La descripción ya existe.'}), 400
+            return respuesta_error('La descripción ya existe.', 400, 'descripcion')
 
         resultado = dao.updateFormaCobro(id_forma_cobro, descripcion, tipo)
         if isinstance(resultado, tuple):  # ("EN_USO", motivo): no se puede cambiar el tipo de una forma ya usada
             return respuesta_error(resultado[1], 409, 'tipo')
         if resultado == "DUPLICADO":
-            return jsonify({'success': False, 'error': 'La descripción ya existe.'}), 400
+            return respuesta_error('La descripción ya existe.', 400, 'descripcion')
         if resultado:
             cambios = []
             if anterior['descripcion'] != descripcion:
@@ -140,7 +140,7 @@ def updateFormaCobro(id_forma_cobro):
                 'mensaje': f'Forma de cobro "{descripcion}" actualizada correctamente.',
                 'error': None
             }), 200
-        return jsonify({'success': False, 'error': 'No se pudo actualizar la forma de cobro.'}), 404
+        return respuesta_error('No se pudo actualizar la forma de cobro.', 404)
     except Exception as e:
         app.logger.error(f"Error al actualizar forma de cobro: {str(e)}")
         return error_interno()
@@ -162,7 +162,7 @@ def deleteFormaCobro(id_forma_cobro):
             descripcion = registro['descripcion'] if registro else 'seleccionada'
             auditar(id_forma_cobro, 'BAJA', f'Descripción: {descripcion}; Tipo: {registro["tipo"] if registro else "-"}')
             return jsonify({'success': True, 'mensaje': f'Forma de cobro "{descripcion}" anulada correctamente.', 'error': None}), 200
-        return jsonify({'success': False, 'error': 'No se encontró la forma de cobro con el ID proporcionado.'}), 404
+        return respuesta_error('No se encontró la forma de cobro con el ID proporcionado.', 404)
     except Exception as e:
         app.logger.error(f"Error al anular forma de cobro: {str(e)}")
         return error_interno()
@@ -182,7 +182,7 @@ def reactivarFormaCobro(id_forma_cobro):
         if resultado == YA_ACTIVO:
             return respuesta_error('La forma de cobro ya está activa.', 409)
         if resultado == DUPLICADO:
-            return respuesta_error('No se puede reactivar: ya existe una forma de cobro activa con esa descripción.', 409)
+            return respuesta_error('No se puede reactivar: ya existe una forma de cobro activa con esa descripción.', 409, 'descripcion')
         if resultado:
             obj = dao.getFormaCobroById(id_forma_cobro)
             auditar(id_forma_cobro, 'REACTIVACION', f'Descripción: {obj["descripcion"]}; Tipo: {obj["tipo"]}')

@@ -39,7 +39,7 @@ def _recortar(texto, largo=255):
 
 def _error_renglon(n, mensaje, status=400):
     """Error de validación de UN renglón de la grilla (fila 1-based)."""
-    return jsonify({'success': False, 'error': f'Renglón {n}: {mensaje}', 'campo': 'renglones', 'fila': n}), status
+    return respuesta_error(f'Renglón {n}: {mensaje}', status, campo='renglones', fila=n)
 
 
 def _validar_renglones(crudos, devolucion):

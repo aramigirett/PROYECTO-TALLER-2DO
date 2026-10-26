@@ -325,6 +325,100 @@
     if (fb) fb.textContent = '';
   }
 
+  /* ── Helper central de los 5 tipos de avisos de validación (espejo de app/Services/validacion_errores.py) ── */
+  var META_TIPOS = {
+    obligatorio: { icon: 'warning', title: 'Atención' },
+    caracteres:  { icon: 'error',   title: 'Error' },
+    duplicado:   { icon: 'error',   title: 'Error' },
+    rango:       { icon: 'error',   title: 'Error' },
+    estado:      { icon: 'warning', title: 'Atención' }
+  };
+
+  var PATRONES_DUPLICADO = [
+    'ya existe', 'duplicad', 'ya pertenece a otro', 'ya tiene un usuario', 'ya está registrado como',
+    'se superpone', 'no puede repetirse', 'está repetid', 'no repita',
+    'ya está registrado en el odontograma', 'ya tiene una consulta registrada', 'ya tiene un odontograma'
+  ];
+  var PATRONES_ESTADO = [
+    'ya está anulad', 'ya está activ', 'ya está cerrad', 'ya fue cerrad', 'ya fue facturad',
+    'ya fue depositad', 'ya está depositad', 'ya está pagad', 'ya está finalizad', 'ya está completad',
+    'ya está emitid', 'está anulad', 'está cancelad', 'está inactiv', 'inactivos:',
+    'no está abiert', 'ya no está abiert', 'debe abrir la caja', 'debe cerrar la apertura',
+    'ya está abierta por otro', 'no admite', 'no se puede anular', 'no es posible anular',
+    'no se puede emitir', 'no se puede cancelar', 'no se puede finalizar', 'no se puede pasar',
+    'no se puede reactivar', 'ya no se puede', 'no está en estado', 'tiene citas', 'tiene ventas',
+    'tiene cobros', 'tiene movimientos', 'tiene sesiones', 'tiene datos clínicos',
+    'tiene un tratamiento', 'tiene ítems', 'tiene cuentas', 'propio usuario', 'único administrador',
+    'no está bloqueado', 'no puede arquear su propia caja', 'stock insuficiente', 'cupo disponible'
+  ];
+  var PATRONES_OBLIGATORIO = [
+    'es obligatorio', 'es obligatoria', 'son obligatori', 'debe seleccionar', 'debe elegir',
+    'debe indicar', 'debe ingresar', 'debe agregar al menos', 'indique las fechas',
+    'elija ', 'seleccione ', 'faltan parámetros', 'debe tener al menos un dato',
+    'necesita su ', 'debe tener dosis'
+  ];
+  var PATRONES_CARACTERES = ['caracteres no permitidos', 'solo puede contener', 'use solo'];
+
+  function contieneAlguno(m, lista) {
+    for (var i = 0; i < lista.length; i++) {
+      if (m.indexOf(lista[i]) >= 0) return true;
+    }
+    return false;
+  }
+
+  function inferirTipoError(mensaje, status) {
+    var m = String(mensaje || '').replace(/^\s+|\s+$/g, '').toLowerCase();
+    if (contieneAlguno(m, PATRONES_DUPLICADO)) return 'duplicado';
+    if (status === 409 || contieneAlguno(m, PATRONES_ESTADO)) return 'estado';
+    if (contieneAlguno(m, PATRONES_OBLIGATORIO)) return 'obligatorio';
+    if (contieneAlguno(m, PATRONES_CARACTERES)) return 'caracteres';
+    return 'rango';
+  }
+
+  function metaDeTipo(tipo, mensaje, status) {
+    var t = (tipo && META_TIPOS[tipo]) ? tipo : inferirTipoError(mensaje, status);
+    return META_TIPOS[t] || META_TIPOS.rango;
+  }
+
+  function msgObligatorio(etiqueta) {
+    return 'El campo "' + etiqueta + '" es obligatorio.';
+  }
+
+  function msgCaracteres(etiqueta, admite) {
+    return 'El campo "' + etiqueta + '" contiene caracteres no permitidos. Use solo ' + (admite || 'letras, números y espacios') + '.';
+  }
+
+  function msgDuplicado(entidad, valor) {
+    return 'Ya existe ' + entidad + ' "' + valor + '".';
+  }
+
+  function mostrarAviso(respOMensaje, campoOpcional, tipoOpcional) {
+    var esObj = respOMensaje && typeof respOMensaje === 'object';
+    var mensaje = esObj ? (respOMensaje.mensaje || respOMensaje.error || '') : String(respOMensaje || '');
+    var tipo = tipoOpcional || (esObj ? respOMensaje.tipo : null) || inferirTipoError(mensaje, esObj ? respOMensaje.status : 400);
+    var campo = campoOpcional || (esObj ? respOMensaje.campo : null);
+    var meta = metaDeTipo(tipo, mensaje, esObj ? respOMensaje.status : 400);
+    if (campo && typeof document !== 'undefined' && document.getElementById) {
+      var el = document.getElementById(campo) || (document.querySelector && document.querySelector('[name="' + campo + '"]'));
+      if (el) marcarCampo(el, mensaje);
+    }
+    if (typeof Swal !== 'undefined' && Swal && Swal.fire) {
+      return Swal.fire({ icon: meta.icon, title: meta.title, text: mensaje });
+    }
+    return null;
+  }
+
+  global.AvisoValidacion = {
+    META_TIPOS: META_TIPOS,
+    inferirTipo: inferirTipoError,
+    metaDeTipo: metaDeTipo,
+    msgObligatorio: msgObligatorio,
+    msgCaracteres: msgCaracteres,
+    msgDuplicado: msgDuplicado,
+    mostrar: mostrarAviso
+  };
+  global.mostrarAvisoValidacion = mostrarAviso;
+
   global.FacturacionValidadores = {
     descripcion: descripcion, presentacion: presentacion, texto: texto, direccion: direccion, ubicacion: ubicacion, telefono: telefono, formatearMonto: formatearMonto, limpiarMonto: limpiarMonto, valorCampo: valorCampo, normalizarTelefono: normalizarTelefono, formatearTelefono: formatearTelefono, aWhatsapp: aWhatsapp, correo: correo,
     ciRuc: ciRuc, calcularDvRuc: calcularDvRuc, nombre: nombre,
@@ -332,7 +426,9 @@
     precio: precio, monto: monto, iva: iva, cantidad: cantidad, cantidadPositiva: cantidadPositiva,
     observacion: observacion, montoPositivo: montoPositivo, codigo: codigo, ultimosDigitos: ultimosDigitos, numeroCuenta: numeroCuenta, formatoGs: formatoGs,
     fechaNacimiento: fechaNacimiento, dia: dia, hora: hora, horario: horario, cupos: cupos,
-    marcarCampo: marcarCampo, limpiarCampo: limpiarCampo
+    marcarCampo: marcarCampo, limpiarCampo: limpiarCampo,
+    inferirTipoError: inferirTipoError, metaDeTipo: metaDeTipo, mostrarAviso: mostrarAviso,
+    msgObligatorio: msgObligatorio, msgCaracteres: msgCaracteres, msgDuplicado: msgDuplicado
   };
 
   /* Los campos de teléfono (data-telefono) se dejan formateados al salir de ellos, si el número es válido ("0984818035" -> "0984 818 035"). */

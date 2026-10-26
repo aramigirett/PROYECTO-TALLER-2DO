@@ -154,11 +154,11 @@ def getResumenConsulta(consulta_id):
 def addConsulta():
     data = request.get_json(silent=True)
     if not isinstance(data, dict) or not data.get('id_cita'):
-        return respuesta_error('El campo id_cita es obligatorio: la consulta debe partir de una Cita Confirmada.', 400, 'id_cita')
+        return respuesta_error('El campo "Cita" es obligatorio: la consulta debe partir de una Cita Confirmada.', 400, 'id_cita')
     try:
         id_cita = int(data['id_cita'])
     except (ValueError, TypeError):
-        return respuesta_error('El campo id_cita no es válido.', 400, 'id_cita')
+        return respuesta_error('El campo "Cita" no es válido.', 400, 'id_cita')
 
     id_funcionario = id_funcionario_sesion()
     if not id_funcionario:

@@ -143,11 +143,11 @@ def getOdontograma(id_odontograma):
 def addOdontograma():
     data = request.get_json(silent=True)
     if not isinstance(data, dict) or data.get('id_consulta_cab') in (None, ''):
-        return respuesta_error('El campo id_consulta_cab es obligatorio.', 400, 'id_consulta_cab')
+        return respuesta_error('El campo "Consulta" es obligatorio.', 400, 'id_consulta_cab')
     try:
         id_consulta = int(data['id_consulta_cab'])
     except (ValueError, TypeError):
-        return respuesta_error('El campo id_consulta_cab no es válido.', 400, 'id_consulta_cab')
+        return respuesta_error('El campo "Consulta" no es válido.', 400, 'id_consulta_cab')
     try:
         r = OdontogramaDao().crearOdontograma(id_consulta, id_medico_sesion())
         if 'id_odontograma' in r:

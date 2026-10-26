@@ -41,7 +41,7 @@ def getMarcaTarjeta(id_marca_tarjeta):
         marca = MarcaTarjetaDao().getMarcaTarjetaById(id_marca_tarjeta)
         if marca:
             return jsonify({'success': True, 'data': marca, 'error': None}), 200
-        return jsonify({'success': False, 'error': 'No se encontró la marca de tarjeta con el ID proporcionado.'}), 404
+        return respuesta_error('No se encontró la marca de tarjeta con el ID proporcionado.', 404)
     except Exception as e:
         app.logger.error(f"Error al obtener marca de tarjeta: {str(e)}")
         return error_interno()
@@ -55,16 +55,16 @@ def getMarcaTarjeta(id_marca_tarjeta):
 def addMarcaTarjeta():
     descripcion, error = normalizar_descripcion(request.get_json(silent=True))
     if error:
-        return jsonify({'success': False, 'error': error}), 400
+        return respuesta_error(error, 400, 'descripcion')
 
     dao = MarcaTarjetaDao()
     try:
         if dao.existeDuplicado(descripcion):
-            return jsonify({'success': False, 'error': 'La descripción ya existe.'}), 400
+            return respuesta_error('La descripción ya existe.', 400, 'descripcion')
 
         nuevo_id = dao.guardarMarcaTarjeta(descripcion)
         if nuevo_id == "DUPLICADO":
-            return jsonify({'success': False, 'error': 'La descripción ya existe.'}), 400
+            return respuesta_error('La descripción ya existe.', 400, 'descripcion')
         if nuevo_id:
             auditar(nuevo_id, 'ALTA', f'Descripción: {descripcion}')
             return jsonify({
@@ -73,7 +73,7 @@ def addMarcaTarjeta():
                 'mensaje': f'Marca de tarjeta "{descripcion}" agregada correctamente.',
                 'error': None
             }), 201
-        return jsonify({'success': False, 'error': 'No se pudo guardar la marca de tarjeta. Consulte con el administrador.'}), 500
+        return respuesta_error('No se pudo guardar la marca de tarjeta. Consulte con el administrador.', 500)
     except Exception as e:
         app.logger.error(f"Error al agregar marca de tarjeta: {str(e)}")
         return error_interno()
@@ -87,13 +87,13 @@ def addMarcaTarjeta():
 def updateMarcaTarjeta(id_marca_tarjeta):
     descripcion, error = normalizar_descripcion(request.get_json(silent=True))
     if error:
-        return jsonify({'success': False, 'error': error}), 400
+        return respuesta_error(error, 400, 'descripcion')
 
     dao = MarcaTarjetaDao()
     try:
         anterior = dao.getMarcaTarjetaById(id_marca_tarjeta)
         if not anterior:
-            return jsonify({'success': False, 'error': 'No se encontró la marca de tarjeta con el ID proporcionado.'}), 404
+            return respuesta_error('No se encontró la marca de tarjeta con el ID proporcionado.', 404)
 
         if anterior['descripcion'] == descripcion:
             # Sin cambios: no se toca la BD ni se audita.
@@ -105,11 +105,11 @@ def updateMarcaTarjeta(id_marca_tarjeta):
             }), 200
 
         if dao.existeDuplicado(descripcion, excluir_id=id_marca_tarjeta):
-            return jsonify({'success': False, 'error': 'La descripción ya existe.'}), 400
+            return respuesta_error('La descripción ya existe.', 400, 'descripcion')
 
         resultado = dao.updateMarcaTarjeta(id_marca_tarjeta, descripcion)
         if resultado == "DUPLICADO":
-            return jsonify({'success': False, 'error': 'La descripción ya existe.'}), 400
+            return respuesta_error('La descripción ya existe.', 400, 'descripcion')
         if resultado:
             auditar(id_marca_tarjeta, 'MODIFICACION', f'Descripción: {anterior["descripcion"]} -> {descripcion}')
             return jsonify({
@@ -118,7 +118,7 @@ def updateMarcaTarjeta(id_marca_tarjeta):
                 'mensaje': f'Marca de tarjeta "{descripcion}" actualizada correctamente.',
                 'error': None
             }), 200
-        return jsonify({'success': False, 'error': 'No se pudo actualizar la marca de tarjeta.'}), 404
+        return respuesta_error('No se pudo actualizar la marca de tarjeta.', 404)
     except Exception as e:
         app.logger.error(f"Error al actualizar marca de tarjeta: {str(e)}")
         return error_interno()
@@ -135,12 +135,12 @@ def deleteMarcaTarjeta(id_marca_tarjeta):
         registro = dao.getMarcaTarjetaById(id_marca_tarjeta)
         resultado = dao.deleteMarcaTarjeta(id_marca_tarjeta)
         if isinstance(resultado, tuple):  # ("EN_USO", motivo)
-            return jsonify({'success': False, 'error': resultado[1]}), 409
+            return respuesta_error(resultado[1], 409)
         if resultado:
             descripcion = registro['descripcion'] if registro else 'seleccionada'
             auditar(id_marca_tarjeta, 'BAJA', f'Descripción: {descripcion}')
             return jsonify({'success': True, 'mensaje': f'Marca de tarjeta "{descripcion}" anulada correctamente.', 'error': None}), 200
-        return jsonify({'success': False, 'error': 'No se encontró la marca de tarjeta con el ID proporcionado.'}), 404
+        return respuesta_error('No se encontró la marca de tarjeta con el ID proporcionado.', 404)
     except Exception as e:
         app.logger.error(f"Error al anular marca de tarjeta: {str(e)}")
         return error_interno()
@@ -160,7 +160,7 @@ def reactivarMarcaTarjeta(id_marca_tarjeta):
         if resultado == YA_ACTIVO:
             return respuesta_error('La marca de tarjeta ya está activa.', 409)
         if resultado == DUPLICADO:
-            return respuesta_error('No se puede reactivar: ya existe una marca de tarjeta activa con esa descripción.', 409)
+            return respuesta_error('No se puede reactivar: ya existe una marca de tarjeta activa con esa descripción.', 409, 'descripcion')
         if resultado:
             obj = dao.getMarcaTarjetaById(id_marca_tarjeta)
             auditar(id_marca_tarjeta, 'REACTIVACION', f'Descripción: {obj["descripcion"]}')
