@@ -7,6 +7,15 @@ load_dotenv()
 
 app = Flask(__name__)
 
+# El navegador pide /favicon.ico en la raíz: se responde con el logo del sistema
+from flask import send_from_directory
+
+
+@app.route('/favicon.ico')
+def favicon_raiz():
+    return send_from_directory(os.path.join(app.root_path, 'static', 'img'), 'favicon.ico', mimetype='image/x-icon')
+
+
 # Filtro {{ valor|telefono }}: teléfono guardado (0984818035) -> "0984 818 035" (ver app/Services/telefono.py)
 from app.Services.telefono import formatear_telefono
 app.add_template_filter(formatear_telefono, 'telefono')
